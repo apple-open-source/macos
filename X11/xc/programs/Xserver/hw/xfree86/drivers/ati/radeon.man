@@ -1,0 +1,218 @@
+.\" $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/radeon.man,v 1.0 2003/01/31 23:04:50
+.ds q \N'34'
+.TH RADEON __drivermansuffix__ __vendorversion__
+.SH NAME
+radeon \- ATI RADEON video driver
+.SH SYNOPSIS
+.nf 
+.B "Section \*qDevice\*q"
+.BI "  Identifier \*q"  devname \*q
+.B  "  Driver \*qradeon\*q"
+\ \ ...
+.B EndSection
+.fi 
+.SH DESCRIPTION
+.B radeon
+is a XFree86 driver for ATI RADEON based video cards.  It contains
+full support for 8, 15, 16 and 24 bit pixel depths, dual-head setup, 
+flat panel, hardware 2D acceleration, hardware 3D acceleration 
+(except R300 cards), hardware cursor, XV extension, Xinerama extension.
+.SH SUPPORTED HARDWARE
+The
+.B radeon
+driver supports PCI and AGP video cards based on the following ATI chips
+.TP 12
+.B R100
+Radeon 7200
+.TP 12
+.B RV100
+Radeon 7000(VE), M6
+.TP 12
+.B RV200
+Radeon 7500, M7
+.TP 12
+.B R200
+Radeon 8500, 9100, FireGL 8800/8700
+.TP 12
+.B RV250
+Radeon 9000, M9
+.TP 12
+.B R300
+Radeon 9700PRO/9700/9500PRO/9500, FireGL X1/Z1
+
+.SH CONFIGURATION DETAILS
+Please refer to XF86Config(__filemansuffix__) for general configuration
+details.  This section only covers configuration details specific to this
+driver.
+.PP 
+The driver auto\-detects all device information necessary to initialize
+the card.  However, if you have problems with auto\-detection, you can
+specify:
+.PP 
+.RS 4
+VideoRam \- in kilobytes
+.br 
+MemBase  \- physical address of the linear framebuffer
+.br 
+IOBase   \- physical address of the MMIO registers
+.br 
+ChipID   \- PCI DEVICE ID
+.RE
+.PP 
+In addition, the following driver
+.B Options
+are supported:
+.TP 
+.BI "Option \*qSWcursor\*q \*q" boolean \*q
+Selects software cursor.  The default is
+.B off.
+.TP 
+.BI "Option \*qNoAccel\*q \*q" boolean \*q
+Enables or disables all hardware acceleration.  
+.br
+The default is to
+.B enable
+hardware acceleration.
+.TP 
+.BI "Option \*qDac6Bit\*q \*q" boolean \*q
+Enables or disables the use of 6 bits per color component when in 8 bpp
+mode (emulates VGA mode).  By default, all 8 bits per color component
+are used.  
+.br
+The default is
+.B off.
+.TP 
+.BI "Option \*qVideoKey\*q \*q" integer \*q
+This overrides the default pixel value for the YUV video overlay key.
+.br
+The default value is
+.B undefined.
+.TP 
+.BI "Option \*qUseFBDev\*q \*q" boolean \*q
+Enable or disable use of an OS\-specific framebuffer device interface
+(which is not supported on all OSs).  See fbdevhw(__drivermansuffix__)
+for further information. 
+.br
+The default is
+.B off.
+.TP 
+.BI "Option \*qAGPMode\*q \*q" integer \*q
+Set AGP data transfer rate.
+(used only when DRI is enabled)
+.br
+1      \-\- x1 (default)
+.br
+2      \-\- x2
+.br
+4      \-\- x4
+.br
+others \-\- invalid
+.TP 
+.BI "Option \*qAGPFastWrite\*q \*q" boolean \*q
+Enable AGP fast write.
+.br
+(used only when DRI is enabled)
+.br
+The default is
+.B off.
+.TP 
+.BI "Option \*qForcePCIMode\*q \*q" boolean \*q
+Force to use PCI GART for DRI acceleration.
+.br
+(used only when DRI is enabled)
+.br
+The default is
+.B off.
+.TP 
+.BI "Option \*qDDCMode\*q \*q" boolean \*q
+Force to use the modes queried from the connected monitor.
+.br
+The default is
+.B off.
+.TP 
+.BI "Option \*qCloneDisplay\*q \*q" integer \*q
+.br 
+This option is only used for dual\-head cards with only single 
+screen section specified in the configuration file.
+
+0      \-\- disable
+.br 
+1      \-\- auto\-detect (default)
+.br 
+2      \-\- force on
+.br 
+3      \-\- auto\-detect + 2nd head overlay
+.br 
+4      \-\- force on + 2nd head overlay
+.br 
+others \-\- auto\-detect
+
+.B disable 
+means only one CRTC is used for both heads.
+.B auto\-detect 
+means the secondary head will be driven by CRTC2 
+if a monitor is detected there.
+.B force on
+means the secondary head will be driven by CRTC2
+even no monitor is detected there.
+.B 2nd-head overlay 
+means the only hardware overlay will be placed to the secondary head.
+
+Primary/Secondary head for dual\-head cards:
+.br 
+(when only one port is used, it will be treated as the primary regardless)
+.br 
+.B Primary head:
+.br 
+DVI port on DVI+VGA cards
+.br 
+LCD output on laptops
+.br 
+Internal TMDS prot on DVI+DVI cards
+.br 
+.B Secondary head:
+.br 
+VGA port on DVI+VGA cards
+.br 
+VGA port on laptops
+.br 
+External TMDS port on DVI+DVI cards
+ 
+.TP 
+.BI "Option \*qCloneMode\*q \*q" "string" \*q
+Set the first mode for the secondary head.
+It can be different from the modes used for the primary head. If you don't
+have this line while clone is on, the modes specified for the primary head
+will be used for the secondary head.
+.TP 
+.BI "Option \*qCloneHSync\*q \*q" "string" \*q
+Set the horizontal sync range for the secondary  monitor. 
+It is not required if a DDC\-capable monitor is connected.
+.br
+The default value is
+.B undefined.
+.TP 
+.BI "Option \*qCloneVRefresh\*q \*q" "string" \*q
+Set the vertical refresh range for the secondary monitor. 
+It is not required if a DDC\-capable monitor is connected.
+.br
+The default value is
+.B undefined.
+.TP 
+.BI "Option \*qPanelOff\*q \*q" boolean \*q
+Disable panel output. Only used when clone is enabled.
+.br
+The default value is
+.B off.
+.TP 
+.BI "Option \*qEnablePageFlip\*q \*q" boolean \*q
+Enable page flipping for 3D acceleration. This will increase performance
+but not work correctly in some rare cases, hence the default is
+.B off.
+
+
+.SH SEE ALSO
+XFree86(1), XF86Config(__filemansuffix__), xf86config(1), Xserver(1), X(__miscmansuffix__)
+.SH AUTHORS
+.nf 
+Authors include: ...

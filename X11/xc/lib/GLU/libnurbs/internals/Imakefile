@@ -1,0 +1,267 @@
+XCOMM $XFree86: xc/lib/GLU/libnurbs/internals/Imakefile,v 1.9 2002/12/14 04:41:12 dawes Exp $
+
+XCOMM License Applicability. Except to the extent portions of this file are
+XCOMM made subject to an alternative license as permitted in the SGI Free
+XCOMM Software License B, Version 1.1 (the "License"), the contents of this
+XCOMM file are subject only to the provisions of the License. You may not use
+XCOMM this file except in compliance with the License. You may obtain a copy
+XCOMM of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+XCOMM Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+XCOMM 
+XCOMM http://oss.sgi.com/projects/FreeB
+XCOMM 
+XCOMM Note that, as provided in the License, the Software is distributed on an
+XCOMM "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+XCOMM DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+XCOMM CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+XCOMM PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+XCOMM 
+XCOMM Original Code. The Original Code is: OpenGL Sample Implementation,
+XCOMM Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+XCOMM Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+XCOMM Copyright in any portions created by third parties is as indicated
+XCOMM elsewhere herein. All Rights Reserved.
+XCOMM 
+XCOMM Additional Notice Provisions: The application programming interfaces
+XCOMM established by SGI in conjunction with the Original Code are The
+XCOMM OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+XCOMM April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+XCOMM 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+XCOMM Window System(R) (Version 1.3), released October 19, 1998. This software
+XCOMM was created using the OpenGL(R) version 1.2.1 Sample Implementation
+XCOMM published by SGI, but has not been independently verified as being
+XCOMM compliant with the OpenGL(R) version 1.2.1 Specification.
+XCOMM
+
+#define DoNormalLib NormalLibGlu
+#define DoSharedLib SharedLibGlu
+#define DoDebugLib DebugLibGlu
+#define DoProfileLib ProfileLibGlu
+
+#define CplusplusSource
+
+#include <Library.tmpl>
+
+SRCS = \
+	arc.cc \
+	arcsorter.cc \
+	arctess.cc \
+	backend.cc \
+	basiccrveval.cc \
+	basicsurfeval.cc \
+	bin.cc \
+	bufpool.cc \
+	cachingeval.cc \
+	ccw.cc \
+	coveandtiler.cc \
+	curve.cc \
+	curvelist.cc \
+	curvesub.cc \
+	dataTransform.cc \
+	displaylist.cc \
+	flist.cc \
+	flistsorter.cc \
+	hull.cc \
+	intersect.cc \
+	knotvector.cc \
+	mapdesc.cc \
+	mapdescv.cc \
+	maplist.cc \
+	mesher.cc \
+	monoTriangulationBackend.cc \
+	monotonizer.cc \
+	mycode.cc \
+	nurbsinterfac.cc \
+	nurbstess.cc \
+	patch.cc \
+	patchlist.cc \
+	quilt.cc \
+	reader.cc \
+	renderhints.cc \
+	slicer.cc \
+	sorter.cc \
+	splitarcs.cc \
+	subdivider.cc \
+	tobezier.cc \
+	trimline.cc \
+	trimregion.cc \
+	trimvertpool.cc \
+	uarray.cc \
+	varray.cc
+
+OBJS = \
+	arc.o \
+	arcsorter.o \
+	arctess.o \
+	backend.o \
+	basiccrveval.o \
+	basicsurfeval.o \
+	bin.o \
+	bufpool.o \
+	cachingeval.o \
+	ccw.o \
+	coveandtiler.o \
+	curve.o \
+	curvelist.o \
+	curvesub.o \
+	dataTransform.o \
+	displaylist.o \
+	flist.o \
+	flistsorter.o \
+	hull.o \
+	intersect.o \
+	knotvector.o \
+	mapdesc.o \
+	mapdescv.o \
+	maplist.o \
+	mesher.o \
+	monoTriangulationBackend.o \
+	monotonizer.o \
+	mycode.o \
+	nurbsinterfac.o \
+	nurbstess.o \
+	patch.o \
+	patchlist.o \
+	quilt.o \
+	reader.o \
+	renderhints.o \
+	slicer.o \
+	sorter.o \
+	splitarcs.o \
+	subdivider.o \
+	tobezier.o \
+	trimline.o \
+	trimregion.o \
+	trimvertpool.o \
+	uarray.o \
+	varray.o
+
+INCLUDES = \
+	-I../nurbtess \
+	-I../../libutil \
+	-I../../include \
+	-I$(TOP)/include \
+	-I$(TOP)/include/GL
+
+#if SystemV4 || defined(LynxOSArchitecture)
+OSDEFINES = -DNEEDCEILF
+#elif defined(DarwinArchitecture)
+# if OSMajorVersion <= 5
+OSDEFINES = -DNEEDCEILF
+# endif
+#else
+OSDEFINES = -D_EXTENSIONS_
+#endif
+
+DEFINES = $(OSDEFINES) \
+	-DLIBRARYBUILD \
+	-DNDEBUG
+
+LibraryObjectRule()
+
+SubdirLibraryRule($(OBJS))
+NormalLintTarget($(SRCS))
+
+GLUSRCDIR = $(OGLSAMPLESRCDIR)/main/gfx/lib/glu
+
+LinkSourceFile(arc.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(arcsorter.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(arctess.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(backend.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(basiccrveval.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(basicsurfeval.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(bin.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(bufpool.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(cachingeval.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(ccw.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(coveandtiler.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(curve.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(curvelist.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(curvesub.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(dataTransform.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(displaylist.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(flist.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(flistsorter.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(hull.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(intersect.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(knotvector.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(mapdesc.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(mapdescv.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(maplist.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(mesher.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(monoTriangulationBackend.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(monotonizer.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(mycode.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(nurbsinterfac.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(nurbstess.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(patch.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(patchlist.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(quilt.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(reader.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(renderhints.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(slicer.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(sorter.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(splitarcs.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(subdivider.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(tobezier.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(trimline.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(trimregion.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(trimvertpool.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(uarray.cc, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(varray.cc, $(GLUSRCDIR)/libnurbs/internals)
+
+LinkSourceFile(arc.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(arcsorter.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(arctess.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(backend.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(basiccrveval.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(basicsurfeval.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(bezierarc.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(bin.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(bufpool.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(cachingeval.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(coveandtiler.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(curve.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(curvelist.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(dataTransform.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(defines.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(displaylist.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(displaymode.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(flist.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(flistsorter.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(gridline.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(gridtrimvertex.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(gridvertex.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(hull.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(jarcloc.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(knotvector.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(mapdesc.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(maplist.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(mesher.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(monotonizer.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(myassert.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(mymath.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(mysetjmp.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(mystring.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(nurbsconsts.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(nurbstess.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(patch.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(patchlist.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(pwlarc.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(quilt.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(reader.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(renderhints.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(simplemath.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(slicer.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(sorter.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(subdivider.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(trimline.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(trimregion.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(trimvertex.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(trimvertpool.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(types.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(uarray.h, $(GLUSRCDIR)/libnurbs/internals)
+LinkSourceFile(varray.h, $(GLUSRCDIR)/libnurbs/internals)
+
+DependTarget()
+CleanTarget()

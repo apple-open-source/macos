@@ -1,0 +1,85 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/os-support/sunos/Imakefile,v 1.4 2002/10/17 02:22:49 dawes Exp $
+XCOMM
+XCOMM Copyright 2001 The XFree86 Project, Inc.  All Rights Reserved.
+XCOMM
+XCOMM Permission is hereby granted, free of charge, to any person obtaining a
+XCOMM copy of this software and associated documentation files (the
+XCOMM "Software"), to deal in the Software without restriction, including
+XCOMM without limitation the rights to use, copy, modify, merge, publish,
+XCOMM distribute, sublicense, and/or sell copies of the Software, and to permit
+XCOMM persons to whom the Software is furnished to do so, subject to the
+XCOMM following conditions:
+XCOMM
+XCOMM The above copyright notice and this permission notice shall be included
+XCOMM in all copies or substantial portions of the Software.
+XCOMM
+XCOMM THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+XCOMM OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+XCOMM MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+XCOMM IN NO EVENT SHALL THE XFREE86 PROJECT BE LIABLE FOR ANY CLAIM, DAMAGES OR
+XCOMM OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+XCOMM ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+XCOMM OTHER DEALINGS IN THE SOFTWARE.
+XCOMM
+XCOMM Except as contained in this notice, the name of the XFree86 Project shall
+XCOMM not be used in advertising or otherwise to promote the sale, use or other
+XCOMM dealings in this Software without prior written authorization from the
+XCOMM XFree86 Project.
+XCOMM
+
+/* This is a combined Imakefile intended for all SunOS variants */
+
+#include <Server.tmpl>
+
+#if !HasGcc && defined(i386Architecture)
+PROWORKS_INOUT_SRC = sun_inout.s
+PROWORKS_INOUT_OBJ = sun_inout.s
+#endif
+
+#if defined(i386Architecture) && (OSMinorVersion < 8)
+IO_SRC   = sysv_io.c
+IO_OBJ   = sysv_io.o
+KBD_SRCS = sysv_kbd.c std_kbdEv.c
+KBD_OBJS = sysv_kbd.o std_kbdEv.o
+VTSW_SRC = VTsw_usl.c
+VTSW_OBJ = VTsw_usl.o
+#else
+IO_SRC   = sun_io.c
+IO_OBJ   = sun_io.o
+KBD_SRCS = sun_kbd.c sun_kbdEv.c
+KBD_OBJS = sun_kbd.o sun_kbdEv.o
+VTSW_SRC = VTsw_noop.c
+VTSW_OBJ = VTsw_noop.o
+#endif
+
+SRCS = sun_bios.c sun_init.c $(IO_SRC) $(KBD_SRCS) $(PROWORKS_INOUT_SRC) \
+       sun_mouse.c sun_vid.c agp_noop.c libc_wrapper.c kmod_noop.c pm_noop.c \
+       posix_tty.c sigiostubs.c stdPci.c stdResource.c $(VTSW_SRC)
+OBJS = sun_bios.o sun_init.o $(IO_OBJ) $(KBD_OBJS) $(PROWORKS_INOUT_OBJ) \
+       sun_mouse.o sun_vid.o agp_noop.o libc_wrapper.o kmod_noop.o pm_noop.o \
+       posix_tty.o sigiostubs.o stdPci.o stdResource.o $(VTSW_OBJ)
+
+INCLUDES = -I. -I$(XF86OSSRC) -I$(XF86COMSRC) \
+	   -I$(SERVERSRC)/mi -I$(SERVERSRC)/include -I$(SERVERSRC)/Xext \
+	   -I$(XINCLUDESRC) -I$(EXTINCSRC)
+
+DEFINES = -DUSESTDRES
+
+SubdirLibraryRule($(OBJS))
+NormalLibraryObjectRule()
+NormalAsmObjectRule()
+
+LinkSourceFile($(VTSW_SRC),../shared)
+LinkSourceFile(agp_noop.c,../shared)
+LinkSourceFile(libc_wrapper.c,../shared)
+LinkSourceFile(kmod_noop.c,../shared)
+LinkSourceFile(pm_noop.c,../shared)
+LinkSourceFile(posix_tty.c,../shared)
+LinkSourceFile(sigiostubs.c,../shared)
+LinkSourceFile(stdPci.c,../shared)
+LinkSourceFile(stdResource.c,../shared)
+LinkSourceFile(std_kbdEv.c,../shared)
+LinkSourceFile(sysv_io.c,../sysv)
+LinkSourceFile(sysv_kbd.c,../shared)
+
+DependTarget()

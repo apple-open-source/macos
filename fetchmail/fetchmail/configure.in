@@ -4,8 +4,9 @@ dnl
 dnl Process this file with autoconf to produce a configure script.
 dnl
 
-AC_INIT(fetchmail.h)		dnl A distinctive file to look for in srcdir. 
-AM_CONFIG_HEADER(config.h)
+AC_INIT([fetchmail], [6.1.2])
+AC_CONFIG_SRCDIR([fetchmail.h])
+AC_CONFIG_HEADERS([config.h])
 
 dnl We want these before the checks, so the checks can modify their values.
 test -z "$CFLAGS" && CFLAGS="-O" AC_SUBST(CFLAGS)
@@ -67,7 +68,7 @@ then
 fi
  
 dnl i18n
-ALL_LINGUAS="ca cs da de es fr gl ja pl pt_BR tr"
+ALL_LINGUAS="ca cs da de el es fr gl ja pl pt_BR tr sk"
 AM_GNU_GETTEXT
 dnl end i18n
 
@@ -598,9 +599,11 @@ then
   fi
   if test -r $with_ssl/include/openssl/ssl.h
   then
-    ###	ssl.h found under openssl.  Use openssl configuration preferentially
+    ###	ssl.h found under openssl.  Use openssl configuration preferentially,
+    ### In Red Hat 9, this file includes a reference to <krb5.h>, so we
+    ### force the Kerberos direcory onto the include path so it will build.
     echo "Enabling OpenSSL support in $with_ssl"
-    CEFLAGS="$CEFLAGS -I$with_ssl/include -I$with_ssl/include/openssl"
+    CEFLAGS="$CEFLAGS -I$with_ssl/include -I/usr/kerberos/include"
     ###	OpenBSD comes with ssl headers
   elif test -r /usr/include/ssl/ssl.h
   then
@@ -608,7 +611,7 @@ then
     CEFLAGS="$CEFLAGS -I/usr/include/ssl"
   else
     echo "Enabling SSLeay support in $with_ssl"
-    CEFLAGS="$CEFLAGS -I$with_ssl/include"
+    test "$with_ssl" != "/usr" && CEFLAGS="$CEFLAGS -I$with_ssl/include"
   fi
   LDEFLAGS="$LDEFLAGS -L$with_ssl/lib"
   LIBS="$LIBS -lssl -lcrypto"
@@ -667,7 +670,8 @@ x)
     do
       if test -f "$dir/include/hesiod.h"
       then
-        test "$dir" != "/usr" && CEFLAGS="$CEFLAGS -DHESIOD -I$dir/include"
+        CEFLAGS="$CEFLAGS -DHESIOD"
+        test "$dir" != "/usr" && CEFLAGS="$CEFLAGS -I$dir/include"
         LDEFLAGS="$LDEFLAGS -L$dir/lib"
         LIBS="$LIBS -lhesiod"
         with_hesiod=$dir
@@ -677,7 +681,8 @@ x)
     ;;
 *)
     # Path given
-    CEFLAGS="$CEFLAGS -DHESIOD -I$with_hesiod/include"
+    CEFLAGS="$CEFLAGS -DHESIOD"
+    test "$with_hesiod" != "/usr" && CEFLAGS="$CEFLAGS -I$with_hesiod/include"
     LDEFLAGS="$LDEFLAGS -L$with_hesiod/lib"
     LIBS="$LIBS -lhesiod"
     ;;
@@ -720,7 +725,8 @@ then
   fi
 fi])
 
-AC_OUTPUT([Makefile intl/Makefile po/Makefile.in], [
+AC_CONFIG_FILES([Makefile intl/Makefile po/Makefile.in])
+AC_CONFIG_COMMANDS([default],[
 	# The reason for this odd makedepend line is that we want
 	# to have all dependencies evaluated relative to the source directory
 	# and let VPATH do all the dirty work when we build remotely
@@ -728,6 +734,7 @@ AC_OUTPUT([Makefile intl/Makefile po/Makefile.in], [
 	echo timestamp > stamp-h;
 	(cd $srcdir; makedepend -f - *.c) >>Makefile])
 
+AC_OUTPUT
 dnl Local Variables:
 dnl comment-start: "dnl "
 dnl comment-end: ""

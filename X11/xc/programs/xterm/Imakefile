@@ -1,0 +1,230 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:55:07 cpqbld Exp $
+XCOMM
+XCOMM                         Attention xterm porters
+XCOMM
+XCOMM
+XCOMM Xterm assumes that bcopy can handle overlapping arguments.  If your
+XCOMM bcopy (or memcpy) cannot, write a routine called bcopy and link it in
+XCOMM or add -Dbcopy=mybcopy to the DEFINES list below.
+XCOMM
+XCOMM $XFree86: xc/programs/xterm/Imakefile,v 3.49 2002/11/22 22:56:06 tsi Exp $
+XCOMM
+
+/* Uncomment SCROLLBAR_RIGHT if you want the scroll bar to be on the right */
+SCROLLBAR_RIGHT = -DSCROLLBAR_RIGHT
+
+/* Define UTF8support to compile-in support for UTF-8 */
+#define UTF8support
+
+/*
+ * Fixes to allow compile with X11R5
+ */
+#ifndef XkbClientDefines
+#define XkbClientDefines /**/
+#endif
+
+#if defined(UseUtempter)
+#undef InstallXtermSetUID
+        UTMPLIB = -lutempter
+#endif
+
+#ifndef XkbClientDepLibs
+#define XkbClientDepLibs /**/
+#endif
+
+#ifndef XkbClientLibs
+#define XkbClientLibs /**/
+#endif
+
+#ifndef SpecialCObjectRule
+#define SpecialCObjectRule(module,ignore,defines) \
+module.o: ; $(CC) -c defines $(CFLAGS) module.c
+#endif
+
+#ifndef ProgramTargetName
+#define ProgramTargetName(program) program
+#endif
+
+/*
+ * add -DWTMP and -DLASTLOG if you want them; make sure that bcopy can
+ * handle overlapping copies before using it.
+ */
+#if SetTtyGroup			/* turn on in config/machine.cf */
+   TTYGROUPDEF = -DUSE_TTY_GROUP
+#endif
+#ifdef UsePUCCPtyd			/* turn on in config/site.def */
+    PUCCPTYDDEF = -DPUCC_PTYD		/* does not need to be setuid */
+         PTYLIB = -lpucc
+#endif
+
+#if defined(NetBSDArchitecture) || defined(OpenBSDArchitecture) || \
+    (defined(LinuxArchitecture) && \
+     (LinuxCLibMajorVersion == 6) && (LinuxCLibMinorVersion < 1))
+         PTYLIB = -lutil
+#endif
+
+#ifdef OS2Architecture
+/*
+ * Only used in os2main.c, see ptyx.h for OPT_I18N_SUPPORT
+ * <werner@suse.de>
+ */
+#if XtermWithI18N
+        I18NDEF = -DI18N
+      FEATURE_DEFINES = -DDEBUG -DALLOWLOGGING $(I18NDEF)
+#else
+      FEATURE_DEFINES = -DDEBUG -DALLOWLOGGING
+#endif
+#endif
+
+ OSMAJORVERSION = OSMajorVersion
+ OSMINORVERSION = OSMinorVersion
+
+#if !defined(OS2Architecture) && !defined(__GNU__)
+#if defined(UseUtempter)
+        UTMPDEF = -DUSE_UTEMPTER
+#else
+        UTMPDEF = -DUTMP
+#endif
+#endif
+
+#ifdef UTF8support
+    UTF8_OPTION = -DOPT_WIDE_CHARS -DOPT_LUIT_PROG
+        UTF8SRC = charclass.c precompose.c wcwidth.c xutf8.c
+        UTF8OBJ = charclass.o precompose.o wcwidth.o xutf8.o
+#endif
+#if BuildXftLibrary
+#define XRenderSupport
+#endif
+#ifdef XRenderSupport
+         XRFDEF = -DXRENDERFONT
+        XRFLIBS = XftClientLibs $(XRENDERLIB)
+     XRFDEPLIBS = XftClientDepLibs $(DEPXRENDERLIB)
+    XRFINCLUDES = $(XFTINCLUDES)
+#endif
+#ifdef TraceXTerm
+   TRACEDEF = -DOPT_TRACE=1
+#endif
+   MAIN_DEFINES = $(UTMPDEF) $(TTYGROUPDEF) $(PUCCPTYDDEF) $(NOPOSIXTERMIOS) \
+		  -DOSMAJORVERSION=$(OSMAJORVERSION) \
+		  -DOSMINORVERSION=$(OSMINORVERSION)
+   MISC_DEFINES = /* -DALLOWLOGGING -DALLOWLOGFILEEXEC */
+    XKB_DEFINES = XkbClientDefines
+   PATH_DEFINES = -DPROJECTROOT=$(PROJECTROOT)
+        DEFINES = -I. $(XKB_DEFINES) $(TERMCAPDEFINES) $(FEATURE_DEFINES) $(SCROLLBAR_RIGHT) $(UTF8_OPTION) $(XRFDEF) $(PATH_DEFINES) $(TRACEDEF)
+       INCLUDES = $(XRFINCLUDES)
+
+#ifdef OS2Architecture
+        MAINSRC = os2main.c
+        MAINOBJ = os2main.o
+#else
+        MAINSRC = main.c
+        MAINOBJ = main.o
+#endif
+#ifdef TraceXTerm
+       TRACESRC = trace.c
+       TRACEOBJ = trace.o
+#endif
+          SRCS1 = button.c charproc.c charsets.c cursor.c \
+		  data.c doublechr.c fontutils.c input.c \
+		  menu.c misc.c print.c ptydata.c \
+		  screen.c scrollbar.c tabs.c util.c xstrings.c \
+		  TekPrsTbl.c Tekproc.c VTPrsTbl.c \
+		  $(MAINSRC) $(EXTRASRC) $(UTF8SRC) $(TRACESRC)
+          OBJS1 = button.o charproc.o charsets.o cursor.o \
+		  data.o doublechr.o fontutils.o input.o \
+		  menu.o misc.o print.o ptydata.o \
+		  screen.o scrollbar.o tabs.o util.o xstrings.o \
+		  TekPrsTbl.o Tekproc.o VTPrsTbl.o \
+		  $(MAINOBJ) $(EXTRAOBJ) $(UTF8OBJ) $(TRACEOBJ)
+          SRCS2 = resize.c xstrings.c
+          OBJS2 = resize.o xstrings.o
+           SRCS = $(SRCS1) $(SRCS2)
+           OBJS = $(OBJS1) $(OBJS2)
+       PROGRAMS = ProgramTargetName(resize) ProgramTargetName(xterm)
+       DEPLIBS1 = XkbClientDepLibs XawClientDepLibs $(XRFDEPLIBS)
+       DEPLIBS2 =
+
+#ifndef TermcapLibrary
+#if SystemV && !defined(MacIIArchitecture)
+#if defined(CrayArchitecture) || (defined(HPArchitecture) && (OSMajorVersion < 10)) || defined(RsArchitecture)
+#define TermcapLibrary -lcurses		/* special cases of System V */
+#else
+#define TermcapLibrary -ltermlib	/* usually in here */
+#endif
+#else
+#define TermcapLibrary -ltermcap	/* bsd puts it here */
+#endif
+#endif
+
+     TERMCAPLIB = TermcapLibrary
+
+AllTarget($(PROGRAMS))
+
+SpecialCObjectRule(main,$(_NOOP_),$(MAIN_DEFINES))
+SpecialCObjectRule(menu,$(_NOOP_),$(MISC_DEFINES))
+SpecialCObjectRule(misc,$(_NOOP_),$(MISC_DEFINES))
+SpecialCObjectRule(charproc,$(_NOOP_),$(MISC_DEFINES))
+SpecialCObjectRule(data,$(_NOOP_),$(MISC_DEFINES))
+
+#if InstallXtermSetUID
+SetUIDProgramTarget(xterm,$(OBJS1),$(DEPLIBS1),$(XRFLIBS) XkbClientLibs XawClientLibs,$(TERMCAPLIB) $(PTYLIB))
+#else
+NormalProgramTarget(xterm,$(OBJS1),$(DEPLIBS1),$(XRFLIBS) XkbClientLibs XawClientLibs,$(TERMCAPLIB) $(UTMPLIB) $(PTYLIB))
+#endif
+
+#if defined(OpenBSDArchitecture)
+/* On OpenBSD xterm is now setgid utmp */
+INSTUIDFLAGS= -m 6755 -g utmp
+#endif
+
+#if InstallXtermSetUID && defined(SunArchitecture) && HasSharedLibraries && (OSMajorVersion < 5)
+#if AlternateUsrLibDir
+#if ((OSMajorVersion == 4) && (OSMinorVersion >= 1))
+LDOVERRIDE = -L$(DESTDIR)$(USRLIBDIR)
+#else
+#if HasGcc
+LDOVERRIDE = -static -L$(DESTDIR)$(USRLIBDIR)
+#else
+LDOVERRIDE = -Bstatic -L$(DESTDIR)$(USRLIBDIR)
+LDRESUME = -Bdynamic
+#endif
+#endif
+#endif
+install:: ProgramTargetName(xterm)
+	MakeDir($(DESTDIR)$(BINDIR))
+	RemoveFile(ProgramTargetName(xterm.inst))
+	LinkRule(ProgramTargetName(xterm.inst),$(CDEBUGFLAGS) $(CCOPTIONS)
+	$(EXTRA_LDOPTIONS) $(LOCAL_LDFLAGS),$(OBJS1),$(LDOVERRIDE)
+	$(XRFLIBS) XawClientLibs $(LDRESUME) $(LDLIBS) $(TERMCAPLIB)
+	$(PTYLIB))
+	$(INSTALL) -c $(INSTPGMFLAGS) $(INSTUIDFLAGS) ProgramTargetName(xterm.inst) $(DESTDIR)$(BINDIR)/ProgramTargetName(xterm)
+	RemoveFile(ProgramTargetName(xterm.inst))
+#else
+#if InstallXtermSetUID
+InstallProgramWithFlags(xterm,$(BINDIR),$(INSTUIDFLAGS))
+#else
+InstallProgramWithFlags(xterm,$(BINDIR),NullParameter)
+#endif
+#endif
+
+InstallNamedProg(uxterm,uxterm,$(BINDIR))
+
+NormalProgramTarget(resize,$(OBJS2),$(DEPLIBS2),NullParameter,$(TERMCAPLIB))
+InstallProgramWithFlags(resize,$(BINDIR),NullParameter)
+
+/*
+ * termcap is a special name that does not install correctly with
+ * InstallNamedNonExec()
+ */
+install::
+	MakeDir($(DESTDIR)$(LIBDIR)/etc)
+	$(INSTALL) $(INSTALLFLAGS) $(INSTDATFLAGS) termcap \
+		$(DESTDIR)$(LIBDIR)/etc/xterm.termcap
+InstallNamedNonExec(terminfo,xterm.terminfo,$(LIBDIR)/etc)
+
+InstallAppDefaults(XTerm)
+InstallAppDefaults(UXTerm)
+InstallAppDefaultsLong(XTerm-col,XTerm-color)
+InstallManPage(xterm,$(MANDIR))
+InstallManPage(resize,$(MANDIR))
+DependTarget()

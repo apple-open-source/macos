@@ -1,0 +1,28 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/ddc/Imakefile,v 1.6 1999/11/19 13:54:24 hohndel Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+
+SRCS = xf86DDC.c edid.c interpret_edid.c print_edid.c \
+	interpret_vdif.c print_vdif.c ddcProperty.c
+OBJS = xf86DDC.o edid.o interpret_edid.o print_edid.o \
+	interpret_vdif.o print_vdif.o ddcProperty.o
+
+INCLUDES = -I. -I$(XF86COMSRC) -I$(XF86OSSRC) \
+           -I$(SERVERSRC)/include -I$(XINCLUDESRC) \
+           -I$(XF86SRC)/i2c
+
+ModuleObjectRule()
+
+LibraryModuleTarget(ddc, $(OBJS))
+
+InstallLibraryModule(ddc,$(MODULEDIR),.)
+
+DependTarget()
+
+
+InstallDriverSDKLibraryModule(ddc,$(DRIVERSDKMODULEDIR),.)
+
+InstallDriverSDKNonExecFile(edid.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(vdif.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(xf86DDC.h,$(DRIVERSDKINCLUDEDIR))

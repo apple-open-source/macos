@@ -1,0 +1,38 @@
+ttfbanner -- make posters using a TrueType font
+
+Installation
+************
+
+Say
+
+  ./configure
+  make
+  make install
+
+It is assumed that you've built the FreeType library before.
+
+Usage
+*****
+
+Just typing `ttfbanner' will provide you with some summary usage
+instructions.
+
+
+Limitations
+***********
+
+The program will not do any kerning. Incorrect UTF8 strings will not
+always be detected.
+
+
+Copying
+*******
+
+This software is provided with no warranty whatsoever.  You may do
+whatever you wish with it as long as you don't ask me to maintain it.
+
+
+Author
+******
+
+Juliusz Chroboczek <jec@dcs.ed.ac.uk>

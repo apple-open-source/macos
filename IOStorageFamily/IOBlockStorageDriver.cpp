@@ -1194,7 +1194,7 @@ IOBlockStorageDriver::handlePowerEvent(void *target,void *refCon,
                     if (driver->_mediaDirtied) {
                         driver->synchronizeCache(driver);
                     }
-                    if (!driver->isMediaRemovable()) {
+                    if (!driver->isMediaRemovable() && (messageType == kIOMessageSystemWillPowerOff)) {
                         driver->getProvider()->doEjectMedia();
                     }
                 }

@@ -1,0 +1,13 @@
+XCOMM $XFree86: xc/lib/font/X-TrueType/ISO8859.2/Imakefile.inc,v 1.1 1999/03/28 15:31:49 dawes Exp $
+
+#define ModuleName ISO8859_2
+MODULENAME = ModuleName
+MODULESRCDIR= $(XTTSOURCEDIR)/ISO8859.2
+
+
+SRCS =  main.c ISO8859_2toUCS2.c ISO8859_2toACNTRO.c
+OBJS =  main.o ISO8859_2toUCS2.o ISO8859_2toACNTRO.o
+
+LinkSourceFile(main.c,$(MODULESRCDIR))
+LinkSourceFile(ISO8859_2toUCS2.c,$(MODULESRCDIR))
+LinkSourceFile(ISO8859_2toACNTRO.c,$(MODULESRCDIR))

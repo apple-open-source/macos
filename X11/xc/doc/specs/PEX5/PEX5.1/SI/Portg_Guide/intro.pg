@@ -1,0 +1,152 @@
+.\"##
+.\" $Xorg: intro.pg,v 1.3 2000/08/17 19:42:17 cpqbld Exp $
+.\"##
+.\"## 
+$XMCOPY
+.\"## Copyright (c) 1990, 1991 by Sun Microsystems, Inc. 
+.\"## 
+.\"##                         All Rights Reserved
+.\"## 
+.\"## Permission to use, copy, modify, and distribute this software and its 
+.\"## documentation for any purpose and without fee is hereby granted, 
+.\"## provided that the above copyright notice appear in all copies and that
+.\"## both that copyright notice and this permission notice appear in 
+.\"## supporting documentation, and that the name of Sun Microsystems,
+.\"## not be used in advertising or publicity 
+.\"## pertaining to distribution of the software without specific, written 
+.\"## prior permission.  
+.\"## 
+.\"## SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\"## INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\"## EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\"## CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\"## USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\"## OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\"## PERFORMANCE OF THIS SOFTWARE.
+.\"##
+.\"## Copyright (c) 1994 X Consortium
+.\"##
+.\"## Permission is hereby granted, free of charge, to any person obtaining
+.\"## a copy of this software and associated documentation files (the
+.\"## "Software"), to deal in the Software without restriction, including
+.\"## without limitation the rights to use, copy, modify, merge, publish,
+.\"## distribute, sublicense, and/or sell copies of the Software, and to
+.\"## permit persons to whom the Software is furnished to do so, subject to
+.\"## the following conditions:
+.\"##
+.\"## The above copyright notice and this permission notice shall be
+.\"## included in all copies or substantial portions of the Software.
+.\"##
+.\"## THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+.\"## EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\"## MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\"## IN NO EVENT SHALL THE X CONSORTIUM BE LIABLE FOR ANY CLAIM, DAMAGES OR
+.\"## OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+.\"## ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+.\"## OTHER DEALINGS IN THE SOFTWARE.
+.\"##
+.\"## Except as contained in this notice, the name of the X Consortium shall
+.\"## not be used in advertising or otherwise to promote the sale, use or
+.\"## other dealings in this Software without prior written authorization
+.\"## from the X Consortium.
+.PL FULL
+.EF ''X11R5''
+.OF ''X11R5''
+.H C "Introduction
+.LP
+This document is an extension of the \fI\s-1PEX-SI\s+1 Architecture Specification\fR.
+It provides implementation specific information that will help you to 
+port and customize the \s-1PEX-SI\s+1.
+.LP
+.H 2 "Expected Audience"
+.LP
+The target audiences for this document are the \fICustomizer\fR and the \fIPorter\fR.
+This document will also provide assistance to users compiling on non-BSD platforms.
+The Customizer and Porter audience types are defined for \s-1PEX-SI\s+1 as follows:
+.LP
+.nf
+.ta 1.5i +1.5i
+\fICustomizer\fR
+.IX "User Types" "Customizer"
+.RS
+This person is interested in easy modifications of \s-1PEX-SI\s+1.
+This may include changing implementation dependent capabilities and
+parameters but does not involve changing code.
+This person should read the \fIUser Guide\fR and the sections 
+on customization in this document.
+.RE
+.LP
+\fIPorter\fR
+.IX "User Types" "Porter"
+.RS
+This person is interested in porting the \s-1SI\s+1 to specific software
+and/or hardware.
+This includes changing and optimizing the code for specific devices.
+This person should read the \fIArchitecture Specification\fR 
+and this document.
+.RE
+.H 2 "General Porting Concerns"
+.BP
+System V systems may have a problem compiling \s-1PEX-SI\s+1 because of possible
+circular include references.
+.H 2 "Compile Options" 
+.LP
+The compile options available for the \s-1PEX-ME\s+1 are the following:
+.LP
+.IP "\s-1PEXEXT\s+1" 28
+(\s-1PEX-SI\s+1) Enables the \s-1PEX-ME\s+1.  Must be defined for
+the \s-1PEX-SI\s+1 to function.
+.IP "\s-1DDTEST\s+1" 28
+(\s-1PEX-ME\s+1) Prints debugging and state information.
+in \s-1\fL.../extensions/server/PEX/dipex/util\fR\s+1 to print debugging information.
+.IP "\s-1PEX_DEFAULT_FONTPATH\s+1" 28
+(\s-1PEX-ME\s+1) Defines the default path to \s-1PEX\s+1 fonts.
+.IP "\s-1NDEBUG\s+1" 28
+(\s-1PEX-API\s+1) Disables extra debugging code and messages.
+.IP "\s-1PEX_API_SOCKET_IPC\s+1" 28
+(\s-1PEX-API\s+1) Uses Unix sockets instead of System V shared memory.
+.H 3 "Changing Implementation Dependent Parameters"
+.LP
+See the files \fL\s-1.../ddPEX/mi/include/miInfo.h\fR\s+1 
+and \fL\s-1.../ddpex/mi/shared/miMisc.c\fR\s+1.
+.H 2 "Additional References"
+.IX "Documentation" "additional references"
+.LP
+\fI\s-1PEX\s+1 Introduction and Overview\fP (v 3.2; 10 October 1988):  
+an introduction to the goals and structure 
+of the \s-1PEX\s+1 project, with a glossary of \s-1PEX\s+1 terms.
+\fIIt is widely recognized that this document is out of date.\fP
+.LP
+\fI\s-1PEX\s+1 Protocol Specification\fP (v 5.0P; 14 September 1990):
+a description of the protocol extensions to the 
+X Window System that comprise \s-1PEX\s+1.
+.LP
+\fI\s-1PEX\s+1 Protocol Encoding Document:\fP (v 5.0P; 14 September 1990):\ \ 
+the bit bindings of the \s-1PEX\s+1 protocol.
+.LP
+\fIX11 Server Extensions\fP (28 August 1987):  
+a description of the interface between the MIT X11 
+Sample Server and portable extensions in general.
+.LP
+\fIDefinition of the Porting Layer for the \s-1X\s+1 v11 Sample Server\fP 
+(1 March 1988)
+.LP
+\fIXlib \(em C Language \s-1X\s+1 Interface\fP (X v11 R4) 
+.LP
+\fIX Toolkit Intrinsics \(em C Language Interface\fP (X v11 R4, March 1988)
+.LP
+\fIISO/IEC 9592-1:1989(E), Information Processing Systems \(em Computer Graphics
+\(em Programmer's Hierarchical Interactive Graphics System (\s-1PHIGS\s+1),
+Part 1:  Functional Description\fP
+.LP
+\fIDraft proposed \s-1PHIGS PLUS, ISO/IEC\s+1 SC24-N454\fP (20 March 1990)
+.LP
+\fI\s-1PEX-SI\s+1 User Guide\fR (29 February 1991):\ \ 
+introductory information about the \s-1PEX-SI\s+1 clients, \s-1PEX-API\s+1
+and \s-1PEX-ME\s+1.
+.LP
+\fI\s-1PEX-SI\s+1 Architecture Specification\fR (29 February 1991):\ \ 
+a description of the architecture of \s-1PEX-SI\s+1.
+.LP
+\fI\s-1PEX-SI\s+1 Graphics Library Manual Pages\fR (29 February 1991):\ \ 
+a reference manual for the \s-1API\s+1.

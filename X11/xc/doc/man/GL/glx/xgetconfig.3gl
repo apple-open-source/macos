@@ -1,0 +1,177 @@
+'\"! eqn | mmdoc
+'\"macro stdmacro
+.ds Vn Version 1.2
+.ds Dt 6 March 1997
+.ds Re Release 1.2.0
+.ds Dp Feb 16 02:56
+.ds Dm  Feb 10 17:2
+.ds Xs 60987 10 xgetconfig.gl
+.TH GLXGETCONFIG
+.SH NAME
+glXGetConfig
+\- return information about GLX visuals
+
+.SH C SPECIFICATION
+int \f3glXGetConfig\fP(
+Display \fI*dpy\fP,
+.nf
+.ta \w'\f3int \fPglXGetConfig( 'u
+	XVisualInfo \fI*vis\fP,
+	int \fIattrib\fP,
+	int \fI*value\fP )
+.fi
+
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+.TP \w'\fIattrib\fP\ \ 'u 
+\f2dpy\fP
+Specifies the connection to the X server.
+.TP
+\f2vis\fP
+Specifies the visual to be queried.
+It is a pointer to an \f3XVisualInfo\fP structure,
+not a visual ID or a pointer to a \f3Visual\fP.
+.TP
+\f2attrib\fP
+Specifies the visual attribute to be returned.
+.TP
+\f2value\fP
+Returns the requested value.
+.SH DESCRIPTION
+\f3glXGetConfig\fP sets \f2value\fP to the \f2attrib\fP value of windows or GLX pixmaps
+created with respect to \f2vis\fP.
+\f3glXGetConfig\fP returns an error code if it fails for any reason.
+Otherwise, zero is returned.
+.P
+\f2attrib\fP is one of the following:
+.P
+.TP 22
+\f3GLX_USE_GL\fP
+\f3True\fP if OpenGL rendering is supported by this visual,
+\f3False\fP otherwise.
+.TP
+\f3GLX_BUFFER_SIZE\fP
+Number of bits per color buffer.
+For RGBA visuals, \f3GLX_BUFFER_SIZE\fP is the sum of
+\f3GLX_RED_SIZE\fP,
+\f3GLX_GREEN_SIZE\fP,
+\f3GLX_BLUE_SIZE\fP, and
+\f3GLX_ALPHA_SIZE\fP.
+For color index visuals, \f3GLX_BUFFER_SIZE\fP is the size of the
+color indexes.
+.TP
+\f3GLX_LEVEL\fP
+Frame buffer level of the visual.
+Level zero is the default frame buffer.
+Positive levels correspond to frame buffers that overlay the default buffer,
+and negative levels correspond to frame buffers that underlay the default
+buffer.
+.TP
+\f3GLX_RGBA\fP
+\f3True\fP if color buffers store red, green, blue, and alpha values.
+\f3False\fP if they store color indexes.
+.TP
+\f3GLX_DOUBLEBUFFER\fP
+\f3True\fP if color buffers exist in front/back pairs that can be swapped,
+\f3False\fP otherwise.
+.TP
+\f3GLX_STEREO\fP
+\f3True\fP if color buffers exist in left/right pairs,
+\f3False\fP otherwise.
+.TP
+\f3GLX_AUX_BUFFERS\fP
+Number of auxiliary color buffers that are available.
+Zero indicates that no auxiliary color buffers exist.
+.TP
+\f3GLX_RED_SIZE\fP
+Number of bits of red stored in each color buffer.
+Undefined if \f3GLX_RGBA\fP is \f3False\fP.
+.TP
+\f3GLX_GREEN_SIZE\fP
+Number of bits of green stored in each color buffer.
+Undefined if \f3GLX_RGBA\fP is \f3False\fP.
+.TP
+\f3GLX_BLUE_SIZE\fP
+Number of bits of blue stored in each color buffer.
+Undefined if \f3GLX_RGBA\fP is \f3False\fP.
+.TP
+\f3GLX_ALPHA_SIZE\fP
+Number of bits of alpha stored in each color buffer.
+Undefined if \f3GLX_RGBA\fP is \f3False\fP.
+.TP
+\f3GLX_DEPTH_SIZE\fP
+Number of bits in the depth buffer.
+.TP
+\f3GLX_STENCIL_SIZE\fP
+Number of bits in the stencil buffer.
+.TP
+\f3GLX_ACCUM_RED_SIZE\fP
+Number of bits of red stored in the accumulation buffer.
+.TP
+\f3GLX_ACCUM_GREEN_SIZE\fP
+Number of bits of green stored in the accumulation buffer.
+.TP
+\f3GLX_ACCUM_BLUE_SIZE\fP
+Number of bits of blue stored in the accumulation buffer.
+.TP
+\f3GLX_ACCUM_ALPHA_SIZE\fP
+Number of bits of alpha stored in the accumulation buffer.
+.TE
+.P
+The X protocol allows a single visual ID to be instantiated with
+different numbers of bits per pixel.
+Windows or GLX pixmaps that will be rendered with OpenGL, however,
+must be instantiated with a color buffer depth of \f3GLX_BUFFER_SIZE\fP.
+.P
+Although a GLX implementation can export many visuals that support GL
+rendering,
+it must support 
+at least one RGBA visual. This visual must have at 
+least one color buffer,
+a stencil buffer of at least 1 bit,
+a depth buffer of at least 12 bits,
+and an accumulation buffer.
+Alpha bitplanes are optional in this visual.
+However,
+its color buffer size must be as great as that of the
+deepest \f3TrueColor\fP, \f3DirectColor\fP,
+\f3PseudoColor\fP, or \f3StaticColor\fP visual supported on level zero,
+and it must itself be made available on level zero.
+.P
+In addition, if the X server exports a \f3PseudoColor\fP 
+or \f3StaticColor\fP visual on framebuffer level 0, a color index 
+visual is also required on that level.
+It must have  
+at least one color buffer,
+a stencil buffer of at least 1 bit,
+and a depth buffer of at least 12 bits.
+This visual must 
+have as many 
+color bitplanes as the deepest
+\f3PseudoColor\fP or \f3StaticColor\fP visual supported on level 0.
+.P
+Applications are best written to select the visual that most closely
+meets their requirements.
+Creating windows or GLX pixmaps with unnecessary buffers can result in
+reduced rendering performance as well as poor resource allocation.
+.SH NOTES
+\f3XVisualInfo\fP is defined in \f2Xutil.h.\fP
+It is a structure that includes \f2visual\fP, \f2visualID\fP, \f2screen\fP, and
+\f2depth\fP elements.
+.SH ERRORS
+\f3GLX_NO_EXTENSION\fP is returned if \f2dpy\fP does not support the GLX
+extension.
+.P
+\f3GLX_BAD_SCREEN\fP is returned if the screen of \f2vis\fP does not correspond
+to a screen.
+.P
+\f3GLX_BAD_ATTRIBUTE\fP is returned if \f2attrib\fP is not a valid GLX attribute.
+.P
+\f3GLX_BAD_VISUAL\fP is returned if \f2vis\fP doesn't support GLX and an
+attribute other than \f3GLX_USE_GL\fP is requested.
+.SH SEE ALSO
+\f3glXChooseVisual\fP,
+\f3glXCreateContext\fP
+

@@ -1,0 +1,9 @@
+/* code converter: JISX0208 */
+
+#define ModuleName JISX0208
+SRCS = JISX0208toUCS2.c main.c
+OBJS = JISX0208toUCS2.o main.o
+
+#include <xttMod.tmpl>
+
+/* end of file */

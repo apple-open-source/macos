@@ -1,0 +1,15 @@
+XCOMM $Xorg: Imakefile,v 1.4 2000/08/17 19:42:04 cpqbld Exp $
+
+
+
+XCOMM $XFree86: xc/doc/man/general/Imakefile,v 1.8 2001/01/24 00:06:08 dawes Exp $
+
+MANDIR = $(MISCMANDIR)
+MANSUFFIX = $(MISCMANSUFFIX)
+
+InstallManPage(X,$(MANDIR))
+InstallManPageLong(Consortium,$(MANDIR),XConsortium)
+InstallManPageLong(Standards,$(MANDIR),XStandards)
+InstallManPageLong(XProjectTeam,$(MANDIR),XProjectTeam)
+InstallManPageAliases(XProjectTeam,$(MANDIR),X.Org)
+InstallManPageLong(security,$(MANDIR),Xsecurity)

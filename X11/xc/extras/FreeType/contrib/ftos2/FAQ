@@ -1,0 +1,260 @@
+This is a FreeType/2 users' mini-FAQ
+
+Table of Contents:
+
+Q1: Where can I find the latest FreeType/2 release?
+Q2: Now that I have FreeType/2 installed, how do I actually add TrueType
+fonts to OS/2?
+Q3: When will you add font-smoothing to the DLL? I really want that!
+Q4: Why does IBM's TrueType engine do such a poor job?
+Q5: But there are still differences with the glyphs produced by Windows or
+the Mac, right?
+Q6: I've got TrueType Times New Roman installed but the system still seems
+to be using the original ATM (Type 1) font. Why this odd behaviour?
+Q7: I noticed it takes a second or two before the Font Palette object opens
+for the first time. Why?
+Q8: I noticed the characters sometimes have odd spacing. When will you fix
+it?
+Q9: Could you explain the open fonts limit?
+Q10: Can you recommend some fonts to use?
+Q11: What's a 'broken glyph'?
+Q12: Why do some fonts appear twice, once starting with an '@'?
+Q13: I've got a Chinese (Japanese, Korean) font but the characters aren't
+there! Why?
+Q14: I tried to use a DBCS font but I got an exception un UCONV.DLL. What's
+wrong?
+Q15: My system won't boot after I installed FreeType/2 and the uninstall
+script won't work when I boot to command line. What now?
+Q16: I'm upgrading from previous version and I don't want to uninstall and
+reinstall. Is there any other way?
+Q17: What's this stuff about Times New Roman being aliased to Tms Rmn?
+Please explain this.
+
+Questions & Answers:
+
+Q1: Where can I find the latest FreeType/2 release?
+
+A1: Links to the latest release can be found at the FreeType/2 homepage at
+http://www.freetype.org/ft_os2/index.html.
+
+Q2: Now that I have FreeType/2 installed, how do I actually add TrueType
+fonts to OS/2?
+
+A2: I thought everyone knew that... It's simple, really. Open the Font
+Palette object (in System Setup folder) then click 'Edit font' and 'Add'.
+Now type the directory path where your TrueType fonts reside, such as
+'C:\WINDOWS\FONTS' if you have Win95 and click 'Add'. You'll be presented a
+list of all fonts that OS/2 found in specified directory. Simply select all
+fonts you wish to install click 'Add' for the last time. If you wish to
+remove fonts, just use the 'Delete' button in the 'Edit Font' dialog.
+TIP: If you wish to add font to OS/2 but don't want to actually copy the
+file, just type the directory name where the font files already are instead
+of 'X:\PSFONTS' in the 'Add New Fonts' dialog.
+
+Q3: When will you add font-smoothing to the DLL? I really want that!
+
+A3: Short answer: We can't.
+Long answer: The FreeType library already supports font-smoothing (or
+antialiasing or grayscaling). The problem is that OS/2's font engine, in
+its current incarnation, doesn't know anything about anti-aliased text and
+is only able to manage monochrome bitmaps. Font smoothing support would
+require some changes of PM/GPI/GRE components, which certainly is out of
+our scope, and isn't planned by IBM (to our knowledge) in foreseeable
+future, if ever.
+
+If you really need font smoothing in your application, you can still use
+the FreeType library itself. Be warned that it is a rather low-level engine
+and that you'll need to add a various number of text features on top of
+this code to get the equivalent of PM's font API.
+
+There is a good chance that FreeType 2.0 will ease the pain for developers
+when it's available.
+
+And if you really want font smoothing in OS/2, ask IBM!
+
+Q4: Why does IBM's TrueType engine do such a poor job?
+
+A4: It'd be easy to throw one or two stones at IBM's engineers if this was
+the result of lazy coding or bad software engineering. However, the problem
+is more complex, and PSP programmers deserve little, if any, blame.
+
+Trouble is that the TrueType specification, which can be found both on
+Microsoft and Apple sites, has severe lacks, as well as particularly fuzzy
+definitions. Part of the TT spec is the TrueType bytecode specification.
+This bytecode is used to write glyph programs that are used to explicitely
+hint each glyph to have it rendered perfectly on the screen (and on
+printers). It is made of approximately 200 opcodes, which relate to moving
+points on a pixel grid, measuring distances in any kind of direction,
+keeping widths and heights consistent across a single font, etc..
+
+Some of these opcodes are simply un-documented, or lack precise and
+important details related to their exact implementation. As a consequence,
+when FreeType started, it's first bytecode interpreter exhibited results
+which were very similar to OS/2's one (i.e. bad baseline, incoherent
+widths, "swashs" and bad serifs, etc..). There are several commercial
+engines which provide the same kind of "erroneous" output, like the one in
+the BeOS for instance.
+
+It took FreeType developers _many_ months and experimentation to discover
+the real meaning of some opcodes, and incorporate it into the library. This
+"spelunker" work has been painful and slow, which is why few commercial
+companies, if any, dared to do it, but it finally pays off ! Moreover, the
+FreeType library is released under a BSD-like free license. This means that
+_anyone_ is now able to take the work that has been done to rewrite or fix
+his own TrueType interpreter. (Of course, another good idea is to use
+FreeType as your core TrueType engine, to be able to benefit to ongoing
+fixes and "undocumented features" discoveries, etc...)
+
+Q5: But there are still differences with the glyphs produced by Windows or
+the Mac, right?
+
+A5: Right. Another feature of the TrueType specification is to use fixed
+float pixel coordinates. When measuring distances along diagonals, some
+rouding error usually occur. Also, some TrueType opcodes have a more or
+less "chaotic" behaviour, where a ridiculous difference in inputs can
+produce vastly different results. These factors mean that the only way to
+match bit-to-bit the glyphs produced by Windows or the Macintosh is to
+implement the _exact_ same computation routines, and reproduce all their
+rounding errors ! As FreeType is a clean-room implementation, this will
+never be possible. Note that the bitmaps match in 95% cases, at least, and
+that there are already differences between the Win 3.1 and Win95 TrueType
+renderers (i.e. look at the "m" of Arial at size 8 for example).
+
+The FreeType team tries very hard to "catch" differences, but there is a
+point where this just isn't possible... However, we're very satisfied with
+its current quality, and we hope you'll be too :-)
+
+Q6: I've got TrueType Times New Roman installed but the system still seems
+to be using the original ATM (Type 1) font. Why this odd behaviour?
+
+A6: It seems in case of a name clash OS/2 is using the font that was
+installed later. Try removing and reinstalling the TrueType font.
+Alternately remove the ATM (Type 1) font (not recommended).
+Experiments also suggest that different apps behave differently. Some apps
+will for example show both fonts but will use only one of them anyway. It
+really depends.
+
+Q7: I noticed it takes a second or two before the Font Palette object opens
+for the first time. Why?
+
+A7: Because FreeType/2 postpones as much work on the fonts as possible
+until it's really needed. This means the first opening of a font is a bit
+slower. But it also means no resources are unnecessarily wasted. And it's
+not really that bad :-) This behaviour is also noticeable when e.g. opening
+a document for the first time. Note that subsequent openings are OK because
+OS/2 caches as much information as possible.
+
+Q8: I noticed the characters sometimes have odd spacing. When will you fix
+it?
+
+A8: I won't. It's not really a bug, it's a feature. If they weren't spaced
+'oddly', the result might look better, but only at the cost of
+Windows-style 'WYSIWYG', i.e. what you see on screen will almost certainly
+look totally different on any other device. Anyway, the spacing is
+controlled by OS/2 and not by the Font Driver itself, so if you still don't
+like it, IBM is the right one to ask :-)
+
+This problem is particularly visible in Netscape. Most probably this
+happens because Netscape tries to use fractional pointsizes, but most
+TrueType fonts don't allow that. This means that Netscape sometimes
+positions characters as if they were e.g. 8.6 points while their actual
+size is only 8 points.
+
+Q9: Could you explain the open fonts limit?
+
+A9: Sure. If you install 50 fonts in OS/2, the system opens them all at
+startup and keeps them open until shutdown. While many users may want to
+have large number of fonts installed (like me), very few of them probably
+use all the fonts all the time. This of course wastes lots of memory and
+swap space. Just for your information, normal fonts take up 30-50 K of
+memory with FreeType/2, but for example Times New Roman MT 30 takes over
+500K!
+
+FreeType/2 overcomes this problem by only actually keeping in memory the
+last n most recently used fonts. The actual number is settable via entry in
+OS2.INI and there's an simple REXX script to do that. Good default might be
+10-15 fonts, depending what you want to do with them.
+
+Note that this process is totally transparent to the system. You won't have
+to do anything, FreeType/2 will take care of everything. The only things
+you will notice is dramatically reduced memory consumption and when working
+with large numbers of fonts there may be slight delay when reopening a
+font.
+
+Q10: Can you recommend some fonts to use?
+
+A10: Yes! I recommend to use Micro$oft's (oh no!) Core Fonts - Times New
+Roman, Arial and Courier New, plus other MS fonts. There are several
+reasons: the fonts have very good quality, stick to the TrueType spec prety
+well, support many countries and are widely available. Moreover they're
+free. You can certainly find some Win95 or NT machine in your neighbourhood
+(all too easily I'm afraid). They should also be available from MS's Web
+site.
+Note: If you want to copy the fonts from a Win95 machine, they're in
+\WINDOWS\FONTS. Watch out, the directory is hidden!
+
+Q11: What's a 'broken glyph'?
+
+A11: Some fonts contain buggy or 'broken' glyphs that cannot be reliably
+loaded and rendered. Those glyphs are usually very rarely used so you might
+never notice. There was a problem with the first Beta of FreeType/2 that if
+there was a single broken glyph in a font, the
+whole font didn't work.
+
+Q12: Why do some fonts appear twice, once starting with an '@'?
+
+A12: It's because of DBCS systems. If you don't have one, you can safely
+ignore these fonts. The DBCS characters in them are rotated 90 degrees
+counterclockwise. It allows you to write vertical text (e.g. Chinese) with
+a normal word processor. You write the text horizontally but if you turn
+the resulting page 90 degrees clockwise, you've got vertical text.
+It's not working perfectly yet.
+
+Q13: I've got a Chinese (Japanese, Korean) font but the characters aren't
+there! Why?
+
+A13: Most probably the font and your system settings don't mix. One
+possible cause is that your country setting is different than that of the
+font and the font contains no information about what language it's meant
+for. In that case, FreeType/2 has to guess from your country setting. This
+means it might try to treat e.g. Japanese font as a Korean one which means
+you won't be able to access the Japanese characters in it. It's all a bit
+more complicated but it's a result of how national language support is done
+in OS/2.
+
+Q14: I tried to use a DBCS font but I got an exception un UCONV.DLL. What's
+wrong?
+
+A14: UCONV.DLL it used for character code translation. A likely cause is
+that you are missing the required translation table in \LANGUAGE\CODEPAGE
+directory on your boot drive. Look for file named 'IBM<CP>', where <CP> is
+the codepage you use, e.g. IBM950 for Taiwan or IBM949 for Korea.
+
+Q15: My system won't boot after I installed FreeType/2 and the uninstall
+script won't work when I boot to command line. What now?
+
+A15: But you've archived the key files, haven't you? If not, one way out of
+this mess is booting to command line and renaming or deleting FREETYPE.DLL
+from \OS2\DLL. Your system should boot then.
+
+Q16: I'm upgrading from previous version and I don't want to uninstall and
+reinstall. Is there any other way?
+
+A16: Yes! There's a little utility called REPMOD.EXE which allows you to
+replace files that are in use. In case you don't already have it, it's
+included in the FreeType/2 package. You should simply run UPDATE.CMD. The
+new version will be used on next reboot.
+
+Q17: What's this stuff about Times New Roman being aliased to Tms Rmn?
+Please explain this.
+
+A17: OS/2 contains bitmap font called Tms Rmn which is often used in dialog
+windows and elsewhere. The bitmap font contains only several pointsizes (8,
+10, 12, 14, 18, 24). If you request a missing pointsize, OS/2's graphics
+engine (GRE) substitutes it from the (outline) ATM font Times New Roman
+which can also be referred to as Roman/Tms Rmn. Now FreeType/2 mimics this
+functionality and can fully replace the ATM version. I recommend to
+uninstall the ATM font since if both fonts are installed, some apps use the
+ATM one, others TrueType one, without any apparent logic. If you uninstall
+(via Font Palette) the ATM version, you will always get high-quality
+TrueType Times New Roman.

@@ -1,0 +1,194 @@
+XCOMM $XConsortium: Imakefile /main/12 1996/12/16 12:31:46 rws $
+
+
+
+
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/Imakefile,v 3.82 2003/02/17 17:06:40 dawes Exp $
+
+#include <Server.tmpl>
+#define IHaveSubdirs
+
+#if XF86VgaHw
+VGAHWDIR = vgahw
+#endif
+
+#if XF86FBDevHw
+FBDEVHWDIR = fbdevhw
+#endif
+
+#if XF86XAA
+XAADIR = xaa
+#endif
+
+#if XF1Bpp || XF4Bpp
+XF1BPPDIR = xf1bpp
+# if XF4Bpp
+XF4BPPDIR = xf4bpp
+# endif
+#endif
+
+#if XF8_32Wid
+XF8_32WIDDIR = xf8_32wid
+#endif
+
+#if XF8_32Bpp
+XF8_32BPPDIR = xf8_32bpp
+#endif
+
+#if XF8_16Bpp
+XF8_16BPPDIR = xf8_16bpp
+#endif
+
+#if XF24_32Bpp
+XF24_32BPPDIR = xf24_32bpp
+#endif
+
+#if XFShadowFB
+SHADOWFBDIR = shadowfb
+#endif
+
+#if XF86I2C
+I2CDIR = i2c
+#endif
+
+#if XF86DDC
+DDCDIR = ddc
+#endif
+
+#if XF86Ramdac
+RAMDACDIR = ramdac
+#endif
+
+#if XF86RAC
+RACDIR = rac
+#endif
+
+#if XF86Int10
+INT10DIR = int10
+#endif
+
+#if XF86VBE
+VBEDIR = vbe
+#endif
+
+#if BuildXF86Setup
+XF86SETUPDIR = XF86Setup
+#endif
+
+#if DoLoadableServer
+LOADERDIR = loader
+#endif
+
+#if BuildXInputExt && defined(XInputDrivers)
+INPUTDIR = input
+#endif
+
+#if DoLoadableServer
+DRIVERSDK = sdk
+#endif
+
+#if !BuildServersOnly || BuildXFree86ConfigTools
+XF86CFGDIRS = xf86cfg xf86config
+#endif
+
+SUBDIRS = os-support common $(I2CDIR) $(XAADIR) $(XF1BPPDIR) $(XF4BPPDIR) \
+          $(XF8_32BPPDIR) $(XF8_16BPPDIR) $(XF24_32BPPDIR) $(SHADOWFBDIR) \
+	  drivers $(LOADERDIR) $(VGAHWDIR) $(FBDEVHWDIR) $(RAMDACDIR) \
+	  $(RACDIR) $(DDCDIR) $(INPUTDIR) $(INT10DIR) $(VBEDIR) parser \
+          scanpci doc dummylib $(XF86CFGDIRS) $(XF86SETUPDIR) etc \
+          $(DRIVERSDK) $(XF8_32WIDDIR)
+
+#if !defined(OS2Architecture) && !defined(cygwinArchitecture)
+XF86CONFIG = XF86Config
+XF98CONFIG = XF98Config
+#else
+XF86CONFIG = XF86Conf
+#endif
+
+all:: $(XF86CONFIG) $(XF98CONFIG)
+
+#if defined(i386BsdArchitecture) && !defined(FreeBSDArchitecture)
+MANPAGE=Concat(FileManDir,/XF86Config.0)
+#else
+MANPAGE=Concat3(FileManDir,/XF86Config.,FileManSuffix)
+#endif
+
+RGBPATH=\"DefaultRGBDatabase\"
+LOCALFONTPATH=\"$(LIBDIR)/fonts/local/\"
+MISCFONTPATH=\"$(LIBDIR)/fonts/misc/\"
+T1FONTPATH=\"$(LIBDIR)/fonts/Type1/\"
+CIDFONTPATH=\"$(LIBDIR)/fonts/CID/\"
+SPFONTPATH=\"$(LIBDIR)/fonts/Speedo/\"
+DPI75FONTPATH=\"$(LIBDIR)/fonts/75dpi/\"
+DPI100FONTPATH=\"$(LIBDIR)/fonts/100dpi/\"
+DPI75USFONTPATH=\"$(LIBDIR)/fonts/75dpi/:unscaled\"
+DPI100USFONTPATH=\"$(LIBDIR)/fonts/100dpi/:unscaled\"
+
+#ifdef FreeBSDArchitecture
+  FREEBSDMOUSEDEV="    Option	\"Device\"	\"/dev/mse0\""
+#else
+  FREEBSDMOUSEDEV="XCOMM    Option	\"Device\"	\"/dev/mse0\""
+#endif
+
+#if defined(i386BsdArchitecture)&&defined(NetBSDArchitecture)
+#  if (OSMajorVersion >= 1) && (OSMinorVersion >= 1)
+  NETBSDOLDMOUSEDEV="XCOMM    Option	\"Device\"	\"/dev/mms0\""
+  NETBSDNEWMOUSEDEV="    Option	\"Device\"	\"/dev/lms0\""
+#  else
+  NETBSDOLDMOUSEDEV="    Option	\"Device\"	\"/dev/mms0\""
+  NETBSDNEWMOUSEDEV="XCOMM    Option	\"Device\"	\"/dev/lms0\""
+#  endif
+#else
+  NETBSDOLDMOUSEDEV="XCOMM    Option	\"Device\"	\"/dev/mms0\""
+  NETBSDNEWMOUSEDEV="XCOMM    Option	\"Device\"	\"/dev/lms0\""
+#endif
+
+#ifdef LinuxArchitecture
+  LINUXMOUSEDEV="    Option	\"Device\"	\"/dev/mouse\""
+#else
+  LINUXMOUSEDEV="XCOMM    Option	\"Device\"	\"/dev/mouse\""
+#endif
+
+CppFileTarget($(XF86CONFIG), XF86Conf.cpp, \
+    -DRGBPATH=$(RGBPATH) -DMISCFONTPATH=$(MISCFONTPATH) \
+    -DLOCALFONTPATH=$(LOCALFONTPATH) \
+    -DT1FONTPATH=$(T1FONTPATH) \
+    -DCIDFONTPATH=$(CIDFONTPATH) \
+    -DSPFONTPATH=$(SPFONTPATH) \
+    -DDPI75FONTPATH=$(DPI75FONTPATH) \
+    -DDPI100FONTPATH=$(DPI100FONTPATH) \
+    -DDPI75USFONTPATH=$(DPI75USFONTPATH) \
+    -DDPI100USFONTPATH=$(DPI100USFONTPATH) \
+    -DMANPAGE=$(MANPAGE) -DMODULEPATH=\"$(MODULEDIR)\", \
+    $(ICONFIGFILES))
+CppFileTarget($(XF98CONFIG), XF98Conf.cpp, \
+    -DRGBPATH=$(RGBPATH) -DMISCFONTPATH=$(MISCFONTPATH) \
+    -DLOCALFONTPATH=$(LOCALFONTPATH) \
+    -DT1FONTPATH=$(T1FONTPATH) \
+    -DCIDFONTPATH=$(CIDFONTPATH) \
+    -DSPFONTPATH=$(SPFONTPATH) \
+    -DDPI75FONTPATH=$(DPI75FONTPATH) \
+    -DDPI100FONTPATH=$(DPI100FONTPATH) \
+    -DDPI75USFONTPATH=$(DPI75USFONTPATH) \
+    -DDPI100USFONTPATH=$(DPI100USFONTPATH) \
+    -DFREEBSDMOUSEDEV=$(FREEBSDMOUSEDEV) \
+    -DNETBSDOLDMOUSEDEV=$(NETBSDOLDMOUSEDEV) \
+    -DNETBSDNEWMOUSEDEV=$(NETBSDNEWMOUSEDEV) \
+    -DLINUXMOUSEDEV=$(LINUXMOUSEDEV) \
+    -DMANPAGE=$(MANPAGE) -DMODULEPATH=\"$(MODULEDIR)\", \
+    $(ICONFIGFILES))
+InstallDriverSDKNonExecFile($(XF86CONFIG),$(DRIVERSDKDIR))
+InstallDriverSDKNonExecFile($(XF98CONFIG),$(DRIVERSDKDIR))
+
+EXTRAMANDEFS=-D__logdir__=$(LOGDIRECTORY)
+InstallManPage(XFree86,$(MANDIR))
+InstallGenManPage(XF86Config,$(FILEMANDIR),$(FILEMANSUFFIX))
+
+InstallNamedNonExec($(XF86CONFIG),XF86Config.eg,$(LIBDIR))
+InstallNamedNonExec($(XF98CONFIG),XF86Config.98,$(LIBDIR))
+InstallNamedNonExec(Options,Options,$(LIBDIR))
+
+InstallDriverSDKNamedNonExec($(XF86CONFIG),XF86Config.eg,$(DRIVERSDKDIR))
+
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))

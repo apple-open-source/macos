@@ -1,0 +1,12 @@
+/*
+ * Host.def for building NetBSD bindists
+ *
+ * $XFree86: xc/programs/Xserver/hw/xfree86/etc/bindist/NetBSD-aout-ix86/host.def,v 1.3 2002/12/24 16:14:42 dawes Exp $
+ */
+
+#define InstallEmptyHostDef
+#define BuildBindist
+
+#define HasLibpng	YES
+#define LibpngDir	/usr/pkg
+

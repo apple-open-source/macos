@@ -1,0 +1,84 @@
+.\" $Xorg: resize.man,v 1.3 2000/08/17 19:55:09 cpqbld Exp $
+.\"
+.\" updated by Thomas E. Dickey for XFree86, 1998-2002.
+.\"
+.\" $XFree86: xc/programs/xterm/resize.man,v 1.10 2002/08/17 19:52:27 dickey Exp $
+.TH RESIZE 1 __vendorversion__
+.SH NAME
+resize \- set TERMCAP and terminal settings to current xterm window size
+.SH SYNOPSIS
+.B resize
+[ \fB\-u\fP | \fB\-c\fP ] [ \fB\-s\fP [ \fIrow col\fP ] ]
+.SH DESCRIPTION
+.I Resize
+prints a shell command for setting the TERM and TERMCAP environment variables
+to indicate the current size of \fIxterm\fP window from which the command
+is run.  For this output to take effect, \fIresize\fP must either be evaluated
+as part of the command line (usually done with a shell alias or function) or
+else redirected to a file which can then be read in.  From the C shell (usually
+known as \fI/bin/csh\fP), the following alias could be defined in the 
+user's \fI.cshrc\fP:
+.sp
+.nf
+        %  alias rs 'set noglob; eval \fC`\fPresize\fC`\fP'
+.fi
+.sp
+After resizing the window, the user would type:
+.sp
+.nf
+        %  rs
+.fi
+.sp
+Users of versions of the Bourne shell (usually known as \fI/bin/sh\fP) that 
+don't have command
+functions will need to send the output to a temporary file and the read it back
+in with the ``.'' command:
+.sp
+.nf
+        $  resize > /tmp/out
+        $  .\0/tmp/out
+.fi
+.SH OPTIONS
+The following options may be used with \fIresize\fP:
+.TP 8
+.B \-u
+This option indicates that Bourne shell commands should be generated even if 
+the user's current shell isn't \fI/bin/sh\fP.
+.TP 8
+.B \-c
+This option indicates that C shell commands should be generated even if the
+user's current shell isn't \fI/bin/csh\fP.
+.TP 8
+.B \-s \fR[\fIrows columns\fP]
+This option indicates that Sun console escape sequences will be used 
+instead of the VT100-style \fIxterm\fP escape codes.
+If \fIrows\fP and
+\fIcolumns\fP are given, \fIresize\fP will ask the \fIxterm\fP to resize
+itself.  However, the window manager may choose to disallow the change.
+.sp
+Note that the Sun console escape sequences are recognized
+by XFree86 \fIxterm\fP and
+by \fIdtterm\fP.
+The \fIresize\fP program may be installed as \fIsunsize\fP,
+which causes makes it assume the \fB\-s\fP option.
+.sp
+The \fIrows\fP and
+\fIcolumns\fP arguments must appear last; though they are normally
+associated with the \fB\-s\fP option, they are parsed separately.
+.SH FILES
+.TP 15
+/etc/termcap
+for the base termcap entry to modify.
+.TP 15
+~/.cshrc
+user's alias for the command.
+.SH "SEE ALSO"
+csh(1), tset(1), xterm(1)
+.SH AUTHORS
+Mark Vandevoorde (MIT-Athena), Edward Moy (Berkeley)
+.br
+Copyright (c) 1984, 1985 by X Consortium
+.br
+See
+.IR X (__miscmansuffix__)
+for a complete copyright notice.

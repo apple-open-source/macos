@@ -1,0 +1,105 @@
+'\" e
+'\"! eqn | mmdoc
+'\"macro stdmacro
+.ds Vn Version 1.2
+.ds Dt 24 September 1999
+.ds Re Release 1.2.1
+.ds Dp Jan 14 18:30
+.ds Dm 01 ortho.gl 
+.ds Xs 2001 5 ortho.gl
+.TH GLORTHO 3G
+.SH NAME
+.B "glOrtho
+\- multiply the current matrix with an orthographic matrix
+
+.SH C SPECIFICATION
+void \f3glOrtho\fP(
+GLdouble \fIleft\fP,
+.nf
+.ta \w'\f3void \fPglOrtho( 'u
+	GLdouble \fIright\fP,
+	GLdouble \fIbottom\fP,
+	GLdouble \fItop\fP,
+	GLdouble \fInear_val\fP,
+	GLdouble \fIfar_val\fP )
+.fi
+
+.SH PARAMETERS
+.TP \w'\f2left\fP\ \f2right\fP\ \ 'u 
+\f2left\fP, \f2right\fP
+Specify the coordinates for the left and right vertical clipping planes.
+.TP
+\f2bottom\fP, \f2top\fP
+Specify the coordinates for the bottom and top horizontal clipping planes.
+.TP
+\f2near_val\fP, \f2far_val\fP
+Specify the distances to the nearer and farther depth clipping planes.
+These values are negative if the plane is to be behind the viewer.
+.SH DESCRIPTION
+\%\f3glOrtho\fP describes a transformation that produces a parallel projection.
+The current matrix (see \%\f3glMatrixMode\fP) is multiplied by this matrix
+and the result replaces the current matrix, as if
+\%\f3glMultMatrix\fP were called with the following matrix
+as its argument:
+.sp
+.ce
+.EQ
+left (  matrix {
+   ccol { {2 over {"right" - "left"}} above 0 above 0 above 0 }
+   ccol { 0 above {2 over {"top" - "bottom"}} above 0 above 0 }
+   ccol { 0 above 0 above {-2 over {"far_val" - "near_val"}}  above 0 }
+   ccol { {t sub x}~ above {t sub y}~ above {t sub z}~ above 1~ }
+} right )
+.EN
+.BP
+.P
+where
+.ce
+.EQ
+t sub x ~=~ -^{{"right" ~+~ "left"} over {"right" ~-~ "left"}}
+.EN
+
+.ce
+.EQ
+t sub y ~=~ -^{{"top" ~+~ "bottom"} over {"top" ~-~ "bottom"}}
+.EN
+
+.ce
+.EQ
+t sub z ~=~ -^{{"far_val" ~+~ "near_val"} over {"far_val" ~-~ "near_val"}}
+.EN
+
+.RE
+.P
+Typically, the matrix mode is \%\f3GL_PROJECTION\fP, and 
+(\f2left\fP, \f2bottom\fP,  \-\f2near_val\fP) and (\f2right\fP, \f2top\fP,  \-\f2near_val\fP)
+specify the points on the near clipping plane that are mapped
+to the lower left and upper right corners of the window,
+respectively,
+assuming that the eye is located at (0, 0, 0).
+\-\f2far_val\fP specifies the location of the far clipping plane.
+Both \f2near_val\fP and \f2far_val\fP can be either positive or negative.
+.P
+Use \%\f3glPushMatrix\fP and \%\f3glPopMatrix\fP to save and restore
+the current matrix stack.
+.SH ERRORS
+\%\f3GL_INVALID_OPERATION\fP is generated if \%\f3glOrtho\fP
+is executed between the execution of 
+\%\f3glBegin\fP
+and the corresponding execution of \%\f3glEnd\fP.
+.SH ASSOCIATED GETS
+\%\f3glGet\fP with argument \%\f3GL_MATRIX_MODE\fP
+.br
+\%\f3glGet\fP with argument \%\f3GL_COLOR_MATRIX\fP
+.br
+\%\f3glGet\fP with argument \%\f3GL_MODELVIEW_MATRIX\fP
+.br
+\%\f3glGet\fP with argument \%\f3GL_PROJECTION_MATRIX\fP
+.br
+\%\f3glGet\fP with argument \%\f3GL_TEXTURE_MATRIX\fP
+.SH SEE ALSO
+\%\f3glFrustum(3G)\fP,
+\%\f3glMatrixMode(3G)\fP,
+\%\f3glMultMatrix(3G)\fP, 
+\%\f3glPushMatrix(3G)\fP,
+\%\f3glViewport(3G)\fP

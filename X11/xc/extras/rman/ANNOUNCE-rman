@@ -1,0 +1,78 @@
+======================================================================
+
+PolyglotMan (nee RosettaMan) is a filter for UNIX manual pages.  It
+takes as input man pages for a variety of UNIX flavors and produces as
+output a variety of file formats.  Currently PolyglotMan accepts man
+pages from the following flavors of UNIX: Hewlett-Packard HP-UX, AT&T
+System V, SunOS, Sun Solaris, OSF/1, DEC Ultrix, SGI IRIX, Linux, SCO,
+FreeBSD; and produces output for the following formats: printable
+ASCII only (stripping page headers and footers), section and
+subsection headers only, TkMan, [tn]roff, RTF, SGML (soon--I finally
+found a DTD), HTML, MIME, LaTeX, LaTeX 2e, Perl 5's pod.  Previously
+<I>PolyglotMan</I> required pages to be formatted by nroff prior to
+its processing; with version 3.0, it prefers [tn]roff source and
+usually can produce results that are better yet.
+
+PolyglotMan improves upon other man page filters in several ways: (1) its
+analysis recognizes the structural pieces of man pages, enabling high
+quality output, (2) its modular structure permits easy augmentation of
+output formats, (3) it accepts man pages formatted with the variant
+macros of many different flavors of UNIX, and (4) it doesn't require
+modification of or cooperation with any other program.
+
+PolyglotMan is a rewrite of TkMan's man page filter, called bs2tk.  (If
+you haven't heard about TkMan, a hypertext man page browser, you
+should grab it via anonymous ftp from ftp.cs.berkeley.edu:
+/ucb/people/phelps/tkman.tar.Z.)  Whereas bs2tk generated output only for
+TkMan, PolyglotMan generalizes the process so that the analysis can be
+leveraged to new output formats.  A single analysis engine recognizes
+section heads, subsection heads, body text, lists, references to other
+man pages, boldface, italics, bold italics, special characters (like
+bullets), tables (to a degree) and strips out page headers and
+footers.  The engine sends signals to the selected output functions so
+that an enhancement in the engine improves the quality of output of
+all of them.  Output format functions are easy to add, and thus far
+average about about 75 lines of C code each.
+
+A note for HTML consumers:  This filter does real (heuristic) parsing--
+no <PRE>!  Man page references are turned into hypertext links.  The files 
+<URL:ftp://ftp.cs.berkeley.edu/ucb/people/phelps/tcltk/sgi-ls.1.html>
+and <URL:ftp://ftp.cs.berkeley.edu/ucb/people/phelps/tcltk/ksh.1.html>
+are examples of the quality of output produced entirely automatically
+(no retouching) by PolyglotMan.  These translations were produced by
+PolyglotMan starting with the [tn]roff source (again no retouching).
+Several people have extended World Wide Web servers to format man pages 
+on the fly.  Check the README file in the contrib directory for a list.
+
+
+CHANGES in 3.0
+
+* [tn]roff source preferred for superior results, when roff macros are
+  sufficiently recognized.  Autodetection of source or formatted input.
+* New software license that makes it free for any use
+
+
+CHANGES in 2.5
+
+* SGML output format that adheres to Davenport DocBook v2.3 DTD
+  (NOT READY IN CURRENT VERSION!)
+* MIME output format, for e-mail and Emacs 19.29's enriched mode
+  (Neal Becker)
+* port to Macintosh by Matthias Neeracher
+* list of valid volume names can be given as a parameter (Dag Nygren)
+* updated to LaTeX2e (H. Palme)
+* debugging scaffolding erected (at the end of software's development cycle!)
+
+
+CHANGES in 2.2
+
+* when in SEE ALSO, hyphens would confuse man page-reference finder, 
+  so re-linebreak if necessary to eliminate them (!) (Greg Earle & Uri Guttman)
+
+
+CHANGES in 2.1
+
+* gets() replaced by custom code.  gets() deprecated since it reads until \0, 
+  introducing security problems. (Robert Withrow)
+
+* TkMan module revised for Tk 4.0

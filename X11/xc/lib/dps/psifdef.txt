@@ -1,0 +1,7 @@
+#ifndef PSOPS_H
+#define PSOPS_H
+
+#if defined(__cplusplus) || defined(c_plusplus)
+extern "C" {
+#endif
+

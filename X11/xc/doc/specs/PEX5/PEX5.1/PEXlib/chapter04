@@ -1,0 +1,2026 @@
+\&
+.sp 1
+.ce 3
+\s+1\fBChapter 4\fP\s-1
+
+\s+1\fBPipeline Contexts\fP\s-1
+.sp 2
+.nr H1 4
+.nr H2 0
+.nr H3 0
+.nr H4 0
+.nr H5 0
+.na
+.LP
+.XS
+Chapter 4: Pipeline Contexts
+.XE
+.LP
+A pipeline context is a PEX resource containing an instance of the
+.IN "Pipeline context"
+.IN "Attributes"
+attributes which describe a rendering pipeline.  The attributes
+in a pipeline context are used to initialize the renderer resource's pipeline
+state whenever a
+.PN PEXBeginPickAll ,
+.PN PEXBeginPickOne ,
+.PN PEXBeginRendering ,
+.PN PEXPickAll ,
+.PN PEXPickOne
+or
+.PN PEXRenderNetwork
+function is called.  The pipeline context section
+describes pipeline context attributes and the operations that
+can be performed on pipeline context resources.
+.LP
+Some of the attributes in a pipeline context are references to other resources. 
+If a resource identifier is used in creating another resource, but then that
+first resource is freed, the value
+.PN PEXAlreadyFreed
+is returned as the resource identifier of the first resource when the later
+resource is queried.
+.LP
+The following sections describe the attributes of a
+pipeline context and how attributes affect the operation of the rendering
+pipeline.
+.LP
+In addition to the descriptions of attributes given here, see also
+\fIChapter 2: Output Commands\fP.
+.NH 2
+Marker Attributes
+.XS
+\*(SN Marker Attributes
+.XE
+.LP
+The attributes described in this section control the appearance of marker
+primitives.
+.LP
+.sp
+.IN marker type
+The marker type attribute
+specifies the marker type (glyph) to use when drawing marker primitives.
+The supported marker types are inquirable via
+.PN PEXGetEnumTypeInfo .
+The
+.PN PEXMarkerDot
+type displays the smallest displayable dot at the marker
+position.  The marker scale factor is ignored for
+.PN PEXMarkerDot .
+The
+.PN PEXMarkerCross
+type displays a cross or plus sign with the intersection at the
+marker position.
+The
+.PN PEXMarkerAsterisk
+type displays a star or asterisk with the
+center at the marker position.
+The
+.PN PEXMarkerCircle
+type displays a circle with
+the center at the marker position.
+The
+.PN PEXMarkerX
+type displays an "x" or
+diagonal cross with the intersection at the marker position.
+.LP
+The default marker type is
+.PN PEXMarkerAsterisk .
+.LP
+.sp
+.IN marker scale
+The marker scale attribute
+contains the marker scale factor to use when drawing marker
+primitives.  It is multiplied by the nominal marker size (see
+.PN PEXGetImpDepConstants )
+to determine the actual size of
+the marker to be drawn.
+.LP
+The default marker scale is 1.0.
+.LP
+.sp
+.IN marker color
+.IN color marker
+The marker color attribute
+contains the color value to use when drawing marker primitives.
+.LP
+The default marker color has color type 
+.PN PEXColorTypeIndexed
+and a color value of one.
+.LP
+.sp
+.IN marker bundle
+.IN bundle marker
+The marker bundle index attribute
+contains the lookup table index used to obtain bundled marker
+attributes from the marker bundle table.
+.LP
+The default marker bundle index is one.
+.NH 2
+Text Attributes
+.XS
+\*(SN Text Attributes
+.XE
+.LP
+The attributes described in this section control the
+appearance of text and annotation text primitives.  Text and annotation
+text primitives share the text font index, text precision, character
+expansion, character spacing, text color, and text bundle index attributes.
+Text and annotation text primitives use separate path, alignment, height,
+and up vector attributes.
+.LP
+.sp
+.IN text "font index"
+The text font index attribute
+contains the lookup table index used to
+obtain the font identification for drawing text
+and annotation text primitives.
+.LP
+The default text font index is one.
+.LP
+.sp
+.IN text precision
+The text precision attribute
+contains the text precision to use when drawing text
+and annotation text primitives.  The possible values are
+.PN PEXStrokePrecision ,
+.PN PEXCharPrecision
+and
+.PN PEXStringPrecision .
+For
+.PN PEXStrokePrecision
+precision, clipping and transformation occurs on every stroke
+that defines a character glyph.
+For
+.PN PEXCharPrecision
+precision, clipping and transformation occurs on at least a
+character-by-character basis.
+A text string in
+.PN PEXStringPrecision
+precision is treated as a single entity that
+is transformed and clipped.
+.LP
+The default text precision is
+.PN PEXStringPrecision .
+.LP
+.sp
+.IN "character expansion"
+.IN text "character expansion"
+The character expansion attribute
+specifies the deviation of the width to height
+ratio of the characters from the ratio indicated by the 
+font designer.
+.LP
+The default character expansion is 1.0.
+.LP
+.sp
+.IN "character spacing"
+.IN text "character spacing"
+The character spacing attribute
+specifies how much additional space is to be inserted between
+two adjacent character bodies and is specified as a fraction of the
+font-nominal character height.
+.LP
+The default character spacing is 0.0.
+.LP
+.sp
+.IN text color
+.IN color text
+The text color attribute
+contains the color value to use when drawing text primitives.
+.LP
+The default text color has color type
+.PN PEXColorTypeIndexed
+and a color value of one.
+.LP
+.sp
+.IN "character height"
+.IN text "character height"
+The character height attribute
+contains the character height to use when drawing text primitives.
+The character height
+is specified in modeling coordinates.
+.LP
+The default character height is 0.01.
+.LP
+.sp
+.IN "character up vector"
+.IN text "character up vector"
+The character up vector attribute
+contains the character up vector
+to use when drawing text primitives.
+The up vector
+is specified in the text local coordinate system defined by the direction
+vectors specified with the text primitive.
+.LP
+The default character up vector is <0.0, 1.0>.
+.LP
+.sp
+.IN text path
+The text path attribute
+contains the text path to use when drawing text primitives
+(i.e., the writing path of the text string).  Possible values for text
+path are
+.PN PEXPathLeft
+(text path is to the left),
+.PN PEXPathRight
+(text
+path is to the right),
+.PN PEXPathUp
+(text path is up), and
+.PN PEXPathDown
+(text path is
+down).
+.LP
+The default text path is
+.PN PEXPathRight .
+.LP
+.sp
+.IN text alignment
+The text alignment attribute
+contains the horizontal and vertical alignment
+to use when drawing text primitives.  The possible values for
+horizontal alignment are
+.PN PEXHAlignNormal ,
+.PN PEXHAlignLeft ,
+.PN PEXHAlignRight ,
+and
+.PN PEXHAlignCenter .
+If horizontal alignment is
+.PN PEXHAlignNormal ,
+text string alignment is "normal" with
+respect to the current text path.
+A text string with
+.PN PEXHAlignLeft
+horizontal alignment is left-justified,
+a text string with
+.PN PEXHAlignRight
+horizontal alignment is right-justified,
+and a text string with
+.PN PEXHAlignCenter
+horizontal alignment is center-justified.
+The possible values for vertical alignment are
+.PN PEXVAlignNormal ,
+.PN PEXVAlignTop ,
+.PN PEXVAlignCap ,
+.PN PEXVAlignHalf ,
+.PN PEXVAlignBase ,
+and
+.PN PEXVAlignBottom .
+If vertical alignment is
+.PN PEXVAlignNormal ,
+text string alignment is "normal" with
+respect to the current text path.
+Text strings with
+.PN PEXVAlignTop ,
+.PN PEXVAlignCap ,
+.PN PEXVAlignHalf ,
+.PN PEXVAlignBase
+and
+.PN PEXVAlignBottom
+vertical alignment
+are aligned with the character top line, cap line, half line, base line and
+bottom line, respectively.
+.LP
+The default text horizontal alignment is
+.PN PEXHAlignNormal
+and the
+default text vertical alignment is
+.PN PEXVAlignNormal .
+.LP
+.sp
+.IN "character height" "annotation"
+.IN "annotation text" "character height"
+.IN "text" "annotation character height"
+The annotation text height attribute
+has the same meaning for annotation text
+primitives as the text height attribute has for text primitives.
+.LP
+The default annotation text height is 0.01.
+.LP
+.sp
+.IN "character up vector" "annotation"
+.IN "annotation text" "character up vector"
+.IN "text" "annotation up vector"
+The annotation text up vector attribute
+has the same meaning for annotation text
+primitives as the text up vector attribute has for text primitives.
+.LP
+The default annotation text up vector is <0.0, 1.0>.
+.LP
+.sp
+.IN "annotation text" "path"
+.IN "text path" "annotation"
+The annotation text path attribute
+has the same meaning for annotation text
+primitives as the text path attribute has for text primitives.
+.LP
+The default annotation text path is
+.PN PEXPathRight .
+.LP
+.sp
+.IN "annotation text" "alignment"
+.IN "text alignment" "annotation"
+The annotation text alignment attribute
+has the same meaning for annotation text
+primitives as the text alignment attribute has for text primitives.
+.LP
+The default annotation text horizontal alignment is
+.PN PEXHAlignNormal
+and the
+default annotation text vertical alignment is
+.PN PEXVAlignNormal .
+.LP
+.sp
+.IN "annotation text" "style"
+The annotation text style attribute
+specifies the style to use when drawing annotation text primitives.
+Supported annotation text styles are inquirable via
+.PN PEXGetEnumTypeInfo .
+If the style is
+.PN PEXATextConnected
+a line is drawn, using the current line
+attributes, from the annotation text reference point to the annotation text
+string.
+If the style is
+.PN PEXATextNotConnected ,
+no connecting line is drawn.
+.LP
+The default annotation text style is
+.PN PEXATextNotConnected .
+.LP
+.sp
+.IN "text" "bundle index"
+.IN "bundle" "text"
+The text bundle index attribute
+contains the lookup table index
+used to obtain bundled text attributes from the text bundle table.
+.LP
+The default text bundle index is one.
+.NH 2
+Line and Curve Attributes
+.XS
+\*(SN Line and Curve Attributes
+.XE
+.LP
+.IN attributes polyline
+.IN attributes "B-spline curves"
+The attributes in this section control the appearance of polylines,
+non-uniform rational B-spline curves.
+Also, when the annotation text style is
+.PN PEXATextConnected ,
+the
+connection lines are drawn using the current set of line and curve attributes.
+.LP
+.sp
+.IN "line" "type"
+The line type attribute
+specifies the style to use when drawing line or curve primitives.
+Supported line types are inquirable via
+.PN PEXGetEnumTypeInfo .
+A line drawn with a line type of
+.PN PEXLineTypeSolid
+is drawn as a solid, unbroken
+line. A line of type
+.PN PEXLineTypeDashed
+is drawn using dashed lines. A line of
+type
+.PN PEXLineTypeDotted
+is drawn using dotted lines. A line of type
+.PN PEXLineTypeDashDot
+is drawn with alternating dots and dashes.
+.LP
+The default line type is
+.PN PEXLineTypeSolid .
+.LP
+.sp
+.IN line width
+The line width attribute
+is the scale factor applied to the nominal width of the polyline or curve
+primitive to
+be rendered.  Line width is applied in 2D device coordinates after the
+primitive has been transformed from 3D space to 2D device space.  It is
+multiplied by the nominal line width (see
+.PN PEXGetImpDepConstants )
+to
+determine the actual width of the line or curve to be drawn.
+.LP
+The default line width scale factor is 1.0.
+.LP
+.sp
+.IN line color
+.IN color line
+The line color attribute
+contains the color value to use when drawing line
+or curve primitives.
+.LP
+The default line color has color type
+.PN PEXColorTypeIndexed
+and a color value of one.
+.LP
+.sp
+.IN "curve approximation"
+.IN "B-spline" "curve approximation"
+The curve approximation attribute
+affects only non-uniform rational B-spline curves.
+Supported curve approximation methods are inquirable via
+.PN PEXGetEnumTypeInfo .
+If the curve approximation method is
+.PN PEXApproxImpDep , 
+an implementation-dependent method is used to approximate the curve. 
+The tolerance value is not used for this method.
+If the method is
+.PN PEXApproxConstantBetweenKnots ,
+the curve is
+tessellated with equal parametric increments between successive pairs of knots.
+When the curve includes knots and the tolerance is negative, the curve is
+evaluated at just the parametric bounds, plus all knots which are between the
+parametric bounds.  If the tolerance is positive, the curve is evaluated at
+the number of points between the knots, but only if these parametric values are
+between the parametric bounds.
+If the method is
+.PN PEXApproxWCChordalSize ,
+the curve
+is tessellated until the length of every line segment, in world coordinates, is
+less than the tolerance. If the method is
+.PN PEXApproxNPCChordalSize ,
+the curve is
+tessellated until the length of every line segment, in normalized projection
+coordinates, is less than the tolerance.
+If the method is
+.PN PEXApproxDCChordalSize ,
+the curve is
+tessellated until the length of every line segment, in device
+coordinates, is less than the tolerance. If the method is
+.PN PEXCurveApproxWCChordalDev ,
+the curve is tessellated until the maximum
+deviation, in world coordinates, between the line and the curve is less than
+the tolerance. If the method is
+.PN PEXCurveApproxNPCChordalDev ,
+the curve is
+tessellated until the maximum deviation, in normalized projection coordinates,
+between the line and the curve is less than the tolerance.
+If the method is
+.PN PEXCurveApproxDCChordalDev ,
+the curve is
+tessellated until the maximum deviation, in device coordinates,
+between the line and the curve is less than the tolerance. 
+If the method is
+.PN PEXApproxWCRelative ,
+the tolerance value must be between 0 and 1.
+The tolerance specifies an approximation value which
+indicates a relative quality of rendering to be maintained independent of 
+scaling in world coordinates.
+Values closer to 1 specify a better relative quality.
+If the method is
+.PN PEXApproxNPCRelative ,
+the tolerance value must be between 0 and 1.
+The tolerance specifies an approximation value which
+indicates a relative quality of rendering to be maintained independent of 
+scaling in normalized projection coordinates.
+Values closer to 1 specify a better relative quality.
+If the method is
+.PN PEXApproxDCRelative ,
+the tolerance value must be between 0 and 1.
+The tolerance specifies an approximation value which
+indicates a relative quality of rendering to be maintained independent of 
+scaling in device coordinates. 
+Values closer to 1 specify a better relative quality.
+.LP
+The default curve
+approximation method is
+.PN PEXApproxImpDep .
+.LP
+.sp
+.IN "line" "interpolation"
+.IN "polyline" "interpolation"
+.IN "B-spline" "polyline interpolation"
+The polyline interpolation attribute
+does not affect non-uniform rational B-spline curves.
+Supported polyline interpolation methods are inquirable via
+.PN PEXGetEnumTypeInfo .
+If the method is
+.PN PEXPolylineInterpNone ,
+color values are not interpolated between
+vertices, when they are provided.  If colors are specified at the vertices of a
+polyline set primitive, the color of the ith vertex is used when drawing the
+line segment between the ith and i+1th vertices.
+If the method is
+.PN PEXPolylineInterpColor ,
+color values are
+interpolated along the line segment for pixels between the vertices.
+.LP
+The default polyline interpolation method is
+.PN PEXPolylineInterpNone .
+.LP
+.sp
+.IN "line" "bundle index"
+.IN "polyline" "bundle index"
+.IN "bundle" "line"
+The line bundle index attribute
+contains the lookup table index used
+to obtain bundled line and curve attributes from the line
+bundle table.
+.LP
+The default line bundle index is one.
+.NH 2
+Surface Attributes
+.XS
+\*(SN Surface Attributes
+.XE
+.LP
+.IN "surface" "attributes"
+.IN "attributes" "surface"
+This section describes attributes that affect the appearance of
+area-defining (surface) primitives.  The list of surface primitives
+includes fill areas, fill area sets, triangle strips, quadrilateral meshes,
+non-uniform rational B-spline surfaces and SOFAS (Set Of Fill Area Sets).
+.LP
+.sp
+.IN "surface" "interior style"
+.IN "interior style"
+.IN "surface" "facing"
+The surface interior style attribute
+defines the interior style used when
+drawing front-facing surfaces.  This attribute will also be used as
+the interior style for back-facing surfaces if the surface distinguish
+attribute is
+.PN False .
+Supported surface interior styles are inquirable via
+.PN PEXGetEnumTypeInfo .
+If the surface interior style is
+.PN PEXInteriorStyleHollow ,
+only the boundary is drawn.
+If the interior style is
+.PN PEXInteriorStyleSolid ,
+the surface interior is filled.
+If the interior style is
+.PN PEXInteriorStylePattern ,
+the surface interior is filled with the
+currently selected pattern, oriented according to the current pattern size,
+pattern reference point, and pattern reference vectors.
+If the interior style is
+.PN PEXInteriorStyleHatch ,
+the surface interior is filled with the currently
+selected hatch style.  If
+the interior style is
+.PN PEXInteriorStyleEmpty ,
+the surface interior is not drawn
+at all.
+.LP
+The default interior style is
+.PN PEXInteriorStyleHollow .
+.LP
+.sp
+.IN "surface" "interior style index"
+.IN "interior style index"
+If the current surface interior style is
+.PN PEXInteriorStylePattern ,
+the surface interior style index attribute
+selects which pattern will
+be used to render fill areas.  If the current surface interior style is
+.PN PEXInteriorStyleHatch ,
+this index selects which hatch style will
+be used to render fill areas.  This attribute is not used with other
+interior styles.
+.LP
+The default interior style index is one.
+.LP
+.sp
+.IN "surface" "color"
+.IN "color" "surface"
+The surface color attribute
+contains the color value to use when drawing surfaces
+(provided the primitive does not have facet or vertex colors which override the
+surface color) that are front-facing with respect to the viewing position. It
+will also be used as the color for back-facing surfaces if the surface
+distinguish attribute is
+.PN False .
+.LP
+The default front-facing surface color has color type
+.PN PEXColorTypeIndexed
+and a color value of one.
+.LP
+.sp
+.IN "surface" "reflection"
+The surface reflection attributes
+are used during the reflectance calculation stage
+of the rendering pipeline.
+These attributes will also be used as the surface reflection attributes
+for back-facing
+primitives if the surface distinguish attribute is
+.PN False .
+The specular color attribute provides an additional coefficient per primary for
+use in the specular reflection computation.  This allows highlights to be
+computed that are some color other than that of the light source.  The specular
+concentration defines the sharpness of the specular highlights or the
+"shininess" of the surface.  This value is typically used as the exponent in
+the specular reflection term of lighting equations and it ranges from zero to
+the maximum floating point value.  If the specular concentration is zero,
+specular highlights are very broad.  If the specular concentration is much
+larger than zero, the highlights are very small and sharp, as if the surface
+was very shiny.  The transmission coefficient indicates the amount of light
+that passes through a surface.  A transmission coefficient of zero indicates
+the surface is opaque (lets no light through); a transmission coefficient
+of 1.0 indicates the surface is totally invisible (lets all light through).
+.LP
+The default surface reflection attributes are: ambient coefficient = 1.0,
+diffuse coefficient = 1.0,  specular coefficient = 1.0, specular 
+concentration = 0.0, transmission coefficient = 0.0, specular color
+type =
+.PN PEXColorTypeIndexed
+and color value of one.
+.LP
+.sp
+.IN "surface" "reflection model"
+The surface reflection model attribute
+defines the method to use in approximating
+the effect of light reflecting from surface primitives.
+This attribute will also be used for back-facing primitives if the surface
+distinguishing attribute is
+.PN False .
+Supported surface reflection models are inquirable via
+.PN PEXGetEnumTypeInfo .
+If the surface reflection model is
+.PN PEXReflectionNone ,
+no reflectance calculation is performed and the surface color is not
+affected by lighting. If the reflection model is
+.PN PEXReflectionAmbient ,
+only the ambient terms of the lighting equation are used. 
+The shaded color will be the object's base color as seen under ambient light.
+If the reflection model is
+.PN PEXReflectionDiffuse ,
+only the ambient and diffuse
+terms of the lighting equation are used.  The shaded color will be the base
+color as seen under ambient light, plus a diffuse reflection component from
+each light source. If the reflection model is
+.PN PEXReflectionSpecular ,
+the
+ambient, diffuse, and specular terms of the lighting equation are all used
+during the reflectance calculation.  The shaded color will be the same
+as for
+.PN PEXReflectionDiffuse ,
+plus a specular reflection component from each
+light source.
+.LP
+The default surface reflection model is
+.PN PEXReflectionNone .
+.LP                                                                
+.sp
+.IN "surface" "interpolation"
+The surface interpolation attribute
+specifies the method used
+to compute color values in surface interiors when rendering surface primitives.
+This attribute will also be used for back-facing primitives if the surface
+distinguish attribute is
+.PN False .
+Supported surface interpolation methods are inquirable via
+.PN PEXGetEnumTypeInfo .
+If the surface interpolation method is
+.PN PEXSurfaceInterpNone ,
+the color resulting
+from a single reflectance calculation is used for the entire surface.  No
+interpolation will be performed across surface interiors or edges.  This
+surface interpolation method is also known as "flat-shading." If the method is
+.PN PEXSurfaceInterpColor ,
+the colors are computed at the vertices of the surface
+according to the current reflection model.  These color values are then
+linearly interpolated across the interior of the surface or the edges.
+If the method is
+.PN PEXSurfaceInterpDotProduct ,
+the lighting equation dot products are
+computed at the vertices.  These dot products are linearly interpolated and
+shading is applied using these values to compute the
+color value at each pixel in the interior of a surface or along a surface edge.
+If the method is
+.PN PEXSurfaceInterpNormal ,
+the reflectance calculation is performed at each pixel in the surface
+interior or along a surface edge using the interpolated normal.
+.LP
+The default surface interpolation method is
+.PN PEXSurfaceInterpNone .
+.LP
+.sp
+.IN "interior style" "back-face"
+.IN "back-face" "interior style"
+If the distinguish attribute is
+.PN True ,
+the back-face interior style attribute
+is used to render surfaces that are back-facing with
+respect to the viewing position.
+.LP
+The default back-face interior style is
+.PN PEXInteriorStyleHollow .
+.LP
+.sp
+If the distinguish attribute is
+.PN True ,
+the back-face interior style index attribute
+is used to choose a pattern or hatch style with which 
+back-facing surfaces are rendered, if the back-face interior style is
+.PN PEXInteriorStylePattern
+or
+.PN PEXInteriorStyleHatch ,
+respectively.
+This attribute is not used with other back-face interior styles.
+.LP
+The default back-face interior style index is one.
+.LP
+.sp
+.IN "back-face" "color"
+.IN "color" "back-face"
+.IN "surface" "back-face color"
+If the distinguish attribute is
+.PN True ,
+the back-face surface color attribute
+is used to render surfaces that are back-facing with respect to the viewing
+position.
+.LP
+The default back-facing surface color has color type
+.PN PEXColorTypeIndexed
+and a
+color value of one.
+.LP
+.sp
+.IN "surface" "back-face reflection"
+.IN "back-face" "reflection"
+If the distinguish attribute is
+.PN True ,
+the back-face surface reflection attributes
+are used instead of the reflection attributes to render surfaces
+that are back-facing with respect to the viewing position.
+.LP
+The default back-face surface reflection attributes are: ambient
+coefficient = 1.0, diffuse coefficient = 1.0,  specular coefficient = 1.0,
+specular concentration = 0.0, transmission coefficient = 0.0, specular color
+type =
+.PN PEXColorTypeIndexed
+and color value of one.
+.LP
+.sp
+If the distinguish attribute is
+.PN True ,
+the back-face surface reflection model attribute
+is used instead of the surface reflection model attribute to render surfaces
+that are back-facing with respect to the viewing position.
+.LP
+The default back-face reflection model is
+.PN PEXReflectionNone .
+.LP
+.sp
+.IN "back-face" "interpolation"
+.IN "surface" "back-face interpolation"
+If the distinguish attribute is
+.PN True ,
+the back-face surface interpolation attribute
+is used instead of the surface interpolation attribute to render surfaces
+that are back-facing with respect to the viewing position.
+.LP
+The default back-face surface interpolation method is
+.PN PEXSurfaceInterpNone .
+.LP
+.sp
+The surface approximation attribute
+only affects non-uniform rational B-spline surfaces.
+Supported surface approximation methods are inquirable via
+.PN PEXGetEnumTypeInfo .
+If the surface approximation method is
+.PN PEXApproxImpDep ,
+an implementation-dependent
+method is used to approximate surfaces in the u and v parameter dimensions.
+The tolerance values are not used for this method.
+For a method of
+.PN PEXApproxConstantBetweenKnots ,
+the surface is tessellated with
+equal parametric increments between successive pairs of knots.  When the
+surface includes knots and the tolerance is negative, the surface is
+evaluated at just the parametric bounds, plus all knots which are between the
+parametric bounds.  If the tolerance is positive, the surface is
+evaluated at the number of points between the knots, but only if these
+parametric values are between the parametric bounds.
+If the method is
+.PN PEXApproxWCChordalSize ,
+the surface is tessellated until 
+the maximum length chord measured in world coordinates for both u and v 
+parameter directions is less than the corresponding tolerance.
+If the method is
+.PN PEXApproxNPCChordalSize ,
+the surface is tessellated until 
+the maximum length chord measured in normalized projection coordinates for 
+both u and v parameter directions is less than the corresponding tolerance.
+If the method is
+.PN PEXApproxDCChordalSize ,
+the surface is tessellated until 
+the maximum length chord measured in device coordinates for both u and v 
+parameter directions is less than the corresponding tolerance.
+If the method is
+.PN PEXSurfaceApproxWCPlanarDev ,
+the surface is tessellated until
+the maximum deviation, in world coordinates, between the plane and the surface
+is less than the tolerance.
+If the method is
+.PN PEXSurfaceApproxNPCPlanarDev ,
+the surface is tessellated until
+the maximum deviation in normalized projection coordinates between the plane
+and the surface is less than the tolerance.
+If the method is
+.PN PEXSurfaceApproxDCPlanarDev ,
+the surface is tessellated until
+the maximum deviation in device coordinates between the plane
+and the surface is less than the tolerance.
+If the method is
+.PN PEXApproxWCRelative ,
+the u tolerance value must be between 0 and 1.  The v tolerance value is not
+used for this method.
+The u tolerance specifies an approximation value which
+indicates a relative quality of rendering to be maintained independent of 
+scaling in world coordinates.
+Values closer to 1 specify a better relative quality.
+If the method is
+.PN PEXApproxNPCRelative ,
+the u tolerance value must be between 0 and 1.  The v tolerance value is not
+used for this method.
+The u tolerance specifies an approximation value which
+indicates a relative quality of rendering to be maintained independent of 
+scaling in normalized projection coordinates.
+Values closer to 1 specify a better relative quality.
+If the method is
+.PN PEXApproxDCRelative ,
+the u tolerance value must be between 0 and 1.  The v tolerance value is not
+used for this method.
+The u tolerance specifies an approximation value which
+indicates a relative quality of rendering to be maintained independent of 
+scaling in device coordinates. 
+Values closer to 1 specify a better relative quality.
+.LP
+The default surface approximation method is
+.PN PEXApproxImpDep .
+.LP
+.sp
+If the culling mode attribute is
+.PN PEXBackFaces ,
+all back-facing surfaces will be culled and
+only front-facing surfaces will be rendered. If the culling mode is
+.PN PEXFrontFaces ,
+all front-facing surfaces will be culled and only back-facing
+surfaces will be rendered. If the culling mode is
+.PN PEXNone ,
+both
+front- and back-facing fill areas will be rendered.
+.LP
+The default culling mode is
+.PN PEXNone .
+.LP
+.sp
+The facet distinguishing flag attribute
+selects whether back-facing surfaces are rendered with the back-face
+surface attributes or the front-face surface attributes.
+If distinguish is
+.PN True ,
+then back-face attributes are used to render the surface.
+If distinguish is
+.PN False ,
+then front-face attributes are used to render the surface.
+.LP
+The default face distinguish flag is
+.PN False .
+.LP
+.sp
+The pattern size attribute
+determines the scaling of the pattern used to render fill areas when the
+interior style or back-facing interior style attribute is
+.PN PEXInteriorStylePattern .
+The value <width 0.0> will be used 
+as the pattern width vector, and the value <0.0 height> will be used as the
+pattern height vector.
+.LP
+The default pattern size is <1.0, 1.0>.
+.LP
+.sp
+The pattern reference point attribute
+determines the position, in model coordinates, of
+one corner of the pattern box used to render fill areas when the interior
+style or back-facing interior style attribute is
+.PN PEXInteriorStylePattern .
+.LP
+The default pattern reference point is <0.0, 0.0, 0.0>.
+.LP
+.sp
+The pattern reference vector 1 attribute
+determines the direction, in model coordinates, onto
+which a pattern's width will be mapped, when the interior style or the
+back-facing interior style attribute is
+.PN PEXInteriorStylePattern .
+.LP
+The default pattern reference vector 1 is <1.0, 0.0, 0.0>.
+.LP
+.sp
+The pattern reference vector 2 attribute
+determines the direction, in model coordinates, onto
+which a pattern's height will be mapped, when the interior style or the
+back-facing interior style attribute is
+.PN PEXInteriorStylePattern .
+.LP
+The default pattern reference vector 2 is <0.0, 1.0, 0.0>.
+.LP
+.sp
+.IN "surface" "interior bundle index"
+.IN "bundle" "surface"
+The interior bundle index attribute
+contains the lookup table index
+used to obtain bundled surface attributes from the interior bundle
+table.
+.LP
+The default interior bundle index is one.
+.LP
+.sp
+The parametric surface characteristics attribute
+controls the surface characteristics of non-uniform B-spline surfaces.
+The supported parametric surface characteristics are obtained by calling
+.PN PEXGetEnumTypeInfo .
+.LP
+The default parametric surface characteristics type is
+.PN PEXPSCNone .
+.NH 2
+Surface Edge Attributes
+.XS
+\*(SN Surface Edge Attributes
+.XE
+.LP
+.IN "surface" "edges"
+.IN "edges"
+If the surface edges flag is
+.PN PEXOn ,
+surface edges
+are drawn.  If it is
+.PN PEXOff ,
+surface edges are not drawn.
+.LP
+The default surface edges flag is
+.PN PEXOff .
+.LP
+.sp
+.IN "surface" "edge type"
+.IN "edge type"
+The surface edge type attribute
+specifies the style to use when drawing edges of surface primitives.
+Supported surface edge types are inquirable via
+.PN PEXGetEnumTypeInfo .
+If the edge type is
+.PN PEXSurfaceEdgeSolid ,
+edges are drawn as solid, unbroken
+lines.
+If the edge type is
+.PN PEXSurfaceEdgeDashed ,
+edges are drawn using dashed lines. 
+If the edge type is
+.PN PEXSurfaceEdgeDotted ,
+edges are drawn using dotted lines. 
+If the edge type is
+.PN PEXSurfaceEdgeDashDot ,
+edges are drawn using alternating
+dots and dashes.
+.LP
+The default surface edge type is
+.PN PEXSurfaceEdgeSolid .
+.LP
+.sp
+.IN "surface" "edge width"
+.IN "edge width"
+The surface edge width attribute
+is the scale factor applied to the nominal width of the surface edges
+when they are rendered.  Edge width is applied in 2D device
+coordinates after the edge has been transformed from 3D
+space to 2D device space.  It is multiplied by the nominal edge width (see
+.PN PEXGetImpDepConstants )
+to determine the actual width of
+the surface edge to be drawn.
+.LP
+The default surface edge width scale factor is 1.0.
+.LP
+.sp
+The surface edge color attribute
+contains the color value used 
+when drawing edges of surface primitives.
+.LP
+The default surface edge color has color type
+.PN PEXColorTypeIndexed
+and a color value of one.
+.LP
+.sp
+.IN "surface" "edge bundle index"
+.IN "edge bundle index"
+The edge bundle index attribute
+contains the lookup table index
+used to obtain bundled surface edge attributes from the edge bundle
+table.
+.LP
+The default edge bundle index is one.
+.NH 2
+Geometry Transformation Attributes
+.XS
+\*(SN Geometry Transformation Attributes
+.XE
+.LP
+.IN "transformations"
+.IN "local transformation matrix"
+.IN "transformation" "local"
+The local transformation matrix attribute
+contains the local modeling transformation matrix used
+when drawing output primitives.
+.LP
+The default local transformation matrix is the identity matrix.
+.LP
+.sp
+.IN "transformation" "global"
+.IN "global transformation matrix"
+The global transformation matrix attribute
+contains the global modeling transformation matrix used
+when drawing output primitives.  The current local modeling matrix and
+the current global modeling matrix are concatenated to form the composite
+modeling transformation matrix.  The composite modeling transformation matrix
+is used to transform geometry in modeling coordinates into world coordinates.
+.LP
+The default global transformation matrix is the identity matrix.
+.LP
+.sp
+.IN "modeling clipping"
+.IN "clipping" "modeling"
+The modeling clipping flag attribute
+determines whether output primitives are
+clipped against the modeling clipping volume.
+.LP
+The default model clipping flag is
+.PN PEXNoClip .
+.LP
+.sp
+.IN "modeling clipping" "clip volume"
+.IN "clipping" "volume"
+The model clip volume attribute
+specifies the volume to which
+output primitives will be clipped, if the modeling clipping flag is
+.PN True .
+.LP
+The default model clipping volume is
+an empty list (i.e. no half-spaces specified).
+.LP
+.sp
+.IN "view index"
+The view index attribute
+contains the lookup table index used to obtain viewing attributes
+from the view table.  The view table contains the attribute that defines the
+view mapping transformation to be used (mapping), the attribute that defines
+the view orientation (projection) transformation to be used, and the attribute
+containing the min/max values of the clipping volume (clip limits).  The view
+table also contains a mask (clip flags) indicating whether clipping should
+be performed at the front, back, and sides of the clipping volume.
+.LP
+The default view index is zero.
+.NH 2
+Color Transformation Attributes
+.XS
+\*(SN Color Transformation Attributes
+.XE
+.LP
+.IN "light source"
+The light source state attribute specifies which lights are enabled.
+The supported types of lights are obtained by calling
+.PN PEXGetEnumTypeInfo .
+The maximum number of simultaneously active non-ambient lights are
+queried by calling
+.PN PEXGetImpDepConstants .
+The size of the light table is obtained by calling
+.PN PEXGetTableInfo .
+.LP
+The default light state is an empty list (all lights are disabled).
+.LP
+.sp
+.IN "depth-cue"
+The depth-cue index attribute determines the depth-cue lookup table entry
+used to determine depth-cueing parameters.
+.LP
+The default depth-cue index is zero.
+.LP
+.sp
+.IN "color approximation"
+The color approximation index attribute
+determines the color approximation lookup table entry used
+for mapping rendering color to device color.
+.LP
+The default color approximation index is zero.
+.LP
+.sp
+The rendering color model attribute
+controls which color
+model is used for lighting, shading and depth-cueing computations.
+Supported rendering color models are inquirable via
+.PN PEXGetEnumTypeInfo .
+.LP
+The default rendering color model is
+.PN PEXRenderingColorModelImpDep .
+.NH 2
+Aspect Source Flags
+.XS
+\*(SN Aspect Source Flags
+.XE
+.LP
+.IN "aspect source flag"
+.IN "ASF"
+The bits in the aspect source flag (ASF) values bitmask contain an ASF value
+for each attribute obtained from a lookup (bundle) table.  If the value is
+.PN PEXIndividual
+during rendering, the value for the corresponding attribute
+is obtained directly from the current rendering pipeline state.  If the value
+for the ASF is
+.PN PEXBundled ,
+the value for the attribute is obtained from the
+appropriate bundle lookup table. The default value for all ASF
+values is
+.PN PEXIndividual .
+.LP
+A bitmask of ASF enables is also used when setting the ASF values.  For each
+bit in the enables bitmask which is set to one, the corresponding value is
+taken from the ASF values bitmask and set in the pipeline context.
+The individual bits in both the ASF values and ASF enables bitmasks are
+referenced using the following constants:
+.ID
+.PN PEXASFMarkerType
+.PN PEXASFMarkerScale
+.PN PEXASFMarkerColor
+.PN PEXASFTextFontIndex
+.PN PEXASFTextPrec
+.PN PEXASFCharExpansion
+.PN PEXASFCharSpacing
+.PN PEXASFTextColor
+.PN PEXASFLineType
+.PN PEXASFLineWidth
+.PN PEXASFLineColor
+.PN PEXASFCurveApprox
+.PN PEXASFPolylineInterp
+.PN PEXASFInteriorStyle
+.PN PEXASFInteriorStyleIndex
+.PN PEXASFSurfaceColor
+.PN PEXASFSurfaceInterp
+.PN PEXASFReflectionModel
+.PN PEXASFReflectionAttr
+.PN PEXASFBFInteriorStyle
+.PN PEXASFBFInteriorStyleIndex
+.PN PEXASFBFSurfaceColor
+.PN PEXASFBFSurfaceInterp
+.PN PEXASFBFReflectionModel
+.PN PEXASFBFReflectionAttr
+.PN PEXASFSurfaceApprox
+.PN PEXASFSurfaceEdges
+.PN PEXASFSurfaceEdgeType
+.PN PEXASFSurfaceEdgeWidth
+.PN PEXASFSurfaceEdgeColor
+.DE
+.NH 2
+Miscellaneous Attributes
+.XS
+\*(SN Miscellaneous Attributes
+.XE
+.LP
+.IN "pick" "identifier"
+The pick identifier attribute
+contains the pick id used with picking
+operations.  The pick identification is set to values which make it
+convenient for applications to identify the picked primitive(s).
+.LP
+The default pick identification is zero.
+.LP        
+.sp
+The HLHSR (hidden-line, hidden-surface removal) identifier attribute
+has no meaning for any standard HLHSR mode except
+.PN PEXHLHSRZBufferID ,
+where it enables or disables HLHSR.
+When the renderer's HLHSR mode is set to 
+.PN PEXHLHSRZBufferID ,
+a value of
+.PN PEXHLHSRIDDisable
+for the HLHSR identifier will disable z-buffering and a value of
+.PN PEXHLHSRIDEnable
+will enable z-buffering.  For non-standard HLHSR modes (returned by
+.PN PEXGetEnumTypeInfo ),
+the meaning of HLHSR identifier is implementation-dependent.
+.LP
+The default HLHSR identifier is zero.  If an application wanted to have the
+renderer automatically z-buffer when the HLHSR mode was set to
+.PN PEXHLHSRZBufferID ,
+the application could change the pipeline context HLHSR identifier attribute
+to
+.PN PEXHLHSRIDEnable .
+This would then alleviate the need for an
+.PN PEXSetHLHSRID
+attribute call after every
+.PN PEXBeginRendering
+when using immediate mode rendering.
+.LP
+.sp
+.IN "name set"
+The name set attribute contains a reference to a name set resource.
+The contents of the specified name set are used to initialize a
+rendering pipeline's name set attribute.
+The contents of the rendering pipeline's name set is then
+modified using the
+.PN PEXAddToNameSet
+and
+.PN PEXRemoveFromNameSet
+output
+commands.
+.LP
+The default name set is the empty set.
+.NH 2
+Common Data Structures
+.XS
+\*(SN Common Data Structures
+.XE
+.LP
+Below are the data structures used that are common to more than one function
+described in this section.
+.ID
+.Co
+/* pipeline context attributes */
+.sp
+typedef struct {
+    PEXEnumTypeIndex    marker_type;		/* PEXMarkerDot, PEXMarkerCross, */
+								/* PEXMarkerAsterisk, PEXMarkerCircle, PEXMarkerX */
+    float               marker_scale;
+    PEXColorSpecifier   marker_color;
+    PEXTableIndex       marker_bundle_index;
+    PEXTableIndex       text_font;
+    unsigned short      text_precision;		/* PEXStringPrecision, PEXCharPrecision, PEXStrokePrecision */
+    float               char_expansion;
+    float               char_spacing;
+    PEXColorSpecifier   text_color;
+    float               char_height;
+    PEXVector2D         char_up_vector;
+    unsigned short      text_path; 		/* PEXPathRight, PEXPathLeft, PEXPathUp, PEXPathDown */
+    PEXTextAlignment    text_alignment;
+    float               atext_height;
+    PEXVector2D         atext_up_vector;
+    unsigned short      atext_path; 		/* PEXPathRight, PEXPathLeft, PEXPathUp, PEXPathDown */
+    PEXTextAlignment    atext_alignment;
+    PEXEnumTypeIndex    atext_style;		/* PEXATextNotConnected, PEXATextConnected */
+    PEXTableIndex       text_bundle_index;
+    PEXEnumTypeIndex    line_type;			/* PEXLineTypeSolid, PEXLineTypeDashed, */
+								/* PEXLineTypeDotted, PEXLineTypeDashDot */
+    float               line_width;
+    PEXColorSpecifier   line_color;
+    PEXCurveApprox      curve_approx;
+    PEXEnumTypeIndex    polyline_interp;		/* PEXPolylineInterpNone, PEXPolylineInterpColor */
+    PEXTableIndex       line_bundle_index;
+    PEXEnumTypeIndex    interior_style;		/* PEXInteriorStyleHollow, PEXInteriorStyleSolid, */
+								/* PEXInteriorStylePattern, PEXInteriorStyleHatch, */
+								/* PEXInteriorStyleEmpty */
+    PEXTypeOrTableIndex interior_style_index;
+    PEXColorSpecifier   surface_color;
+    PEXReflectionAttributes   reflection_attr;
+    PEXEnumTypeIndex    reflection_model;	/* PEXReflectionNone, PEXReflectionAmbient, */
+								/* PEXReflectionDiffuse, PEXReflectionSpecular */
+    PEXEnumTypeIndex    surface_interp;		/* PEXSurfaceInterpNone, PEXSurfaceInterpColor, */
+								/* PEXSurfaceInterpDotProduct, PEXSurfaceInterpNormal */
+    PEXEnumTypeIndex    bf_interior_style;	/* PEXInteriorStyleHollow, PEXInteriorStyleSolid, */
+								/* PEXInteriorStylePattern, PEXInteriorStyleHatch, */
+								/* PEXInteriorStyleEmpty */
+    PEXTypeOrTableIndex bf_interior_style_index;
+    PEXColorSpecifier   bf_surface_color;
+    PEXReflectionAttributes   bf_reflection_attr;
+    PEXEnumTypeIndex    bf_reflection_model;	/* PEXReflectionNone, PEXReflectionAmbient, */
+								/* PEXReflectionDiffuse, PEXReflectionSpecular */
+    PEXEnumTypeIndex    bf_surface_interp;	/* PEXSurfaceInterpNone, PEXSurfaceInterpColor, */
+								/* PEXSurfaceInterpDotProduct, PEXSurfaceInterpNormal */
+    PEXSurfaceApprox    surface_approx;
+    unsigned short      culling_mode;		/* PEXNone, PEXBackFaces, PEXFrontFaces */
+    Bool                distinguish;		/* True or False */
+    PEXCoord2D          pattern_size;
+    PEXCoord            pattern_ref_point;
+    PEXVector           pattern_ref_vec1;
+    PEXVector           pattern_ref_vec2;
+    PEXTableIndex       interior_bundle_index;
+    PEXSwitch           surface_edges;		/* True or False */
+    PEXEnumTypeIndex    surface_edge_type;	/* PEXSurfaceEdgeSolid, PEXSurfaceEdgeDashed, */
+								/* PEXSurfaceEdgeDotted, PEXSurfaceEdgeDashDot */
+    float               surface_edge_width;
+    PEXColorSpecifier   surface_edge_color;
+    PEXTableIndex       edge_bundle_index;
+    PEXMatrix           local_transform;
+    PEXMatrix           global_transform;
+    unsigned short      model_clip;		/* PEXClip, PEXNoClip */
+    PEXModelClipVolume  model_clip_volume;
+    PEXTableIndex       view_index;
+    PEXListOfLight      light_state;
+    PEXTableIndex       depth_cue_index;
+    PEXBitmask          asf_enables;
+    PEXBitmask          asf_values;
+    long                pick_id;
+    unsigned long       hlhsr_id;			/* PEXHLHSRIDDisable, PEXHLHSRIDEnable */
+    PEXNameSet          name_set;
+    PEXTableIndex       color_approx_index;
+    PEXEnumTypeIndex    rendering_color_model;	/* PEXRenderingColorModelImpDep, */
+						/* PEXRenderingColorModelRGB, PEXRenderingColorModelCIE, */
+						/* PEXRenderingColorModelHSV, PEXRenderingColorModelHLS */
+    PEXPSCSpecifier     para_surf_char;
+} PEXPCAttributes;
+.sp
+typedef short           PEXEnumTypeIndex;
+typedef unsigned short  PEXTableIndex;
+typedef unsigned short  PEXTypeOrTableIndex;
+typedef unsigned char   PEXSwitch;
+typedef float           PEXMatrix[4][4];
+typedef unsigned long   PEXBitmask;
+typedef XID             PEXNameSet;
+.sp
+typedef struct {
+    PEXColorType        type;			/* PEXColorTypeIndexed, PEXColorTypeRGB, */
+								/* PEXColorTypeCIE, PEXColorTypeHSV, */
+								/* PEXColorTypeHLS, PEXColorTypeRGB8, */
+								/* PEXColorTypeRGB16 */
+    unsigned short      reserved;
+    PEXColor            value;
+} PEXColorSpecifier;
+.sp
+typedef short           PEXColorType;
+.sp
+typedef union {
+    PEXColorIndexed     indexed;
+    PEXColorRGB         rgb;
+    PEXColorHSV         hsv;
+    PEXColorHLS         hls;
+    PEXColorCIE         cie;
+    PEXColorRGB8        rgb8;
+    PEXColorRGB16       rgb16;
+} PEXColor;
+.sp
+typedef struct {
+    PEXTableIndex       index;
+    unsigned short      reserved;
+} PEXColorIndexed;
+.sp
+typedef struct {
+    float               red;
+    float               green;
+    float               blue;
+} PEXColorRGB;
+.sp
+typedef struct {
+    float               hue;
+    float               saturation;
+    float               value;
+} PEXColorHSV;
+.sp
+typedef struct {
+    float               hue;
+    float               lightness;
+    float               saturation;
+} PEXColorHLS;
+.sp
+typedef struct {
+    float               x;
+    float               y;
+    float               z;
+} PEXColorCIE;
+.sp
+typedef struct {
+    unsigned char       red;
+    unsigned char       green;
+    unsigned char       blue;
+    unsigned char       reserved;
+} PEXColorRGB8;
+.sp
+typedef struct {
+    unsigned short      red;
+    unsigned short      green;
+    unsigned short      blue;
+    unsigned short      reserved;
+} PEXColorRGB16;
+.sp
+typedef struct {
+    float               x;
+    float               y;
+    float               z;
+} PEXVector;
+.sp
+typedef struct {
+    float               x;
+    float               y;
+} PEXVector2D;
+.sp
+typedef struct {
+    float               x;
+    float               y;
+    float               z;
+} PEXCoord;
+.sp
+typedef struct {
+    float               x;
+    float               y;
+} PEXCoord2D;
+.sp
+typedef struct {
+    unsigned short      vertical;		/* PEXVAlignNormal, PEXVAlignTop, PEXVAlignCap, */
+							/* PEXVAlignHalf, PEXVAlignBase, PEXVAlignBottom */
+    unsigned short      horizontal;	/* PEXHAlignNormal, PEXHAlignLeft, */
+							/* PEXHAlignCenter, PEXHAlignRight */
+} PEXTextAlignment;
+.sp
+typedef struct {
+    PEXEnumTypeIndex    method;			/* See PEXGetEnumTypeInfo */
+    unsigned short      reserved;
+    float               tolerance;
+} PEXCurveApprox;
+.sp
+typedef struct {
+    float               ambient;
+    float               diffuse;
+    float               specular;
+    float               specular_conc;
+    float               transmission;
+    PEXColorSpecifier   specular_color;
+} PEXReflectionAttributes;
+.sp
+typedef struct {
+    PEXEnumTypeIndex    method;			/* See PEXGetEnumTypeInfo */
+    unsigned short      reserved;
+    float               u_tolerance;
+    float               v_tolerance;
+} PEXSurfaceApprox;
+.sp
+typedef struct {
+    unsigned short      count;                  /* number of half spaces */
+    PEXHalfSpace        *half_spaces;
+} PEXModelClipVolume;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXVector           vector;
+} PEXHalfSpace;
+.sp
+typedef struct {
+    unsigned short      count;                  /* number of lights */
+    PEXTableIndex       *indices;
+} PEXListOfLight;
+.sp
+typedef struct {
+    short               type;			/* PEXPSCNone, PEXPSCImpDep, PEXPSCIsoCurves, */
+								/* PEXPSCMCLevelCurves, PEXPSCWCLevelCurves */
+    PEXPSCData          psc;
+} PEXPSCSpecifier;
+.sp
+typedef union {
+    PEXPSCIsoparametricCurves iso_curves;
+    PEXPSCLevelCurves       level_curves;
+    PEXPSCImpDepData        imp_dep;
+} PEXPSCData;
+.sp
+typedef struct {
+    unsigned short      placement_type;
+    unsigned short      reserved;
+    unsigned short      u_count;
+    unsigned short      v_count;
+} PEXPSCIsoparametricCurves;
+.sp
+typedef struct {
+    PEXCoord            origin;
+    PEXVector           direction;
+    unsigned short      count;                  /* number of parameters */
+    unsigned short      reserved;
+    float               *parameters;
+} PEXPSCLevelCurves;
+.sp
+typedef struct {
+    unsigned short      length;
+    char                *data;
+} PEXPSCImpDepData;
+.ft P
+.DE
+.bp
+.XS
+Function Descriptions
+.XE
+.SH
+PEXChangePipelineContext - Change Pipeline Context
+.XS
+	PEXChangePipelineContext
+.XE
+.IN "PEXChangePipelineContext" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXChangePipelineContext\^(\^Display *\fIdisplay\fP\^, PEXPipelineContext \fIcontext\fP\^, unsigned long *\fIvalue_mask\fP\^, PEXPCAttributes *\fIvalues\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIcontext\fP 1i
+The resource identifier of the pipeline context.
+.IP \fIvalue_mask\fP 1i
+A pointer to an array of three unsigned long.
+.IP \fIvalues\fP 1i
+A pointer to new values for attributes in the pipeline context.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function changes components of the specified pipeline context
+to the values specified.  The value mask indicates which attribute values are
+specified.
+.PN PEXSetPCAttributeMask
+and
+.PN PEXSetPCAttributeMaskAll
+can be called to setup the value mask.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXPipelineContext;
+.sp
+See also the \fICommon Data Structures\f section.
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXColorType\fP 1i
+The specified color type is invalid or unsupported.
+.IP \fIBadPEXNameSet\fP 1i
+The specified name set resource identifier is invalid.
+.IP \fIBadPEXPipelineContext\fP 1i
+The specified pipeline context resource identifier is invalid.
+.IP \fIBadValue\fP 1i
+A specified value is out of range, or an invalid bit is set in the value mask.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreatePipelineContext ,
+.PN PEXGetPipelineContext ,
+.PN PEXSetPCAttributeMask
+.RE
+.bp
+.SH
+PEXCopyPipelineContext - Copy Pipeline Context
+.XS
+	PEXCopyPipelineContext
+.XE
+.IN "PEXCopyPipelineContext" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXCopyPipelineContext\^(\^Display *\fIdisplay\fP\^, unsigned long *\fIvalue_mask\fP\^, PEXPipelineContext \fIsrc_context\fP\^, PEXPipelineContext \fIdst_context\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIvalue_mask\fP 1i
+A pointer to an array of three unsigned long.
+.IP \fIsrc_context\fP 1i
+The resource identifier of the source pipeline.
+.IP \fIdst_context\fP 1i
+The resource identifier of the destination pipeline context.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function copies attributes from the source pipeline context
+to the destination pipeline context.  Both must
+already exist as valid pipeline context resources.  Only the attributes
+indicated by the value mask are copied and
+the remainder of the attributes are left as they were.
+.PN PEXSetPCAttributeMask
+and
+.PN PEXSetPCAttributeMaskAll
+can be called to setup the value mask.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXPipelineContext;
+.sp
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXPipelineContext\fP 1i
+A specified pipeline context resource identifier is invalid.
+.IP \fIBadValue\fP 1i
+An invalid bit is set in the value mask.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreatePipelineContext ,
+.PN PEXSetPCAttributeMask
+.RE
+.bp
+.SH
+PEXCreatePipelineContext - Create Pipeline Context
+.XS
+	PEXCreatePipelineContext
+.XE
+.IN "PEXCreatePipelineContext" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+PEXPipelineContext PEXCreatePipelineContext\^(\^Display *\fIdisplay\fP\^, unsigned long *\fIvalue_mask\fP\^, PEXPCAttributes *\fIvalues\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIvalue_mask\fP 1i
+A pointer to an array of three unsigned long.
+.IP \fIvalues\fP 1i
+A pointer to values to override default attribute values in the new pipeline context.
+.RE
+.SH
+Returns
+.RS
+.LP
+The resource identifier of the newly-created pipeline context.
+.RE
+.SH
+Description
+.RS
+.LP
+This function creates a pipeline context and returns its resource identifier.
+The value mask indicates the values specified.
+Attribute values not specified will be initialized to the default values.
+.PN PEXSetPCAttributeMask
+and
+.PN PEXSetPCAttributeMaskAll
+can be called to setup the value mask.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXPipelineContext;
+.sp
+See also the \fICommon Data Structures\f section.
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadAlloc\fP 1i
+The server failed to allocate the resource.
+.IP \fIBadPEXColorType\fP 1i
+The specified color type is invalid or unsupported.
+.IP \fIBadPEXNameSet\fP 1i
+A specified name set resource identifier is invalid.
+.IP \fIBadValue\fP 1i
+A specified value is out of range, or an invalid bit is set in the value mask.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXFreePipelineContext
+.RE
+.bp
+.SH
+PEXFreePCAttributes - Free Storage Returned by PEXGetPipelineContext
+.XS
+	PEXFreePCAttributes
+.XE
+.IN "PEXFreePCAttributes" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXFreePCAttributes\^(\^PEXPCAttributes *\fIvalues\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIvalues\fP 1i
+A pointer to the pipeline context attribute values.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+.LP
+This function deallocates memory returned by
+.PN PEXGetPipelineContext .
+.RE
+.SH
+Errors
+.RS
+.IP None 1i
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXGetPipelineContext
+.RE
+.bp
+.SH
+PEXFreePipelineContext - Free Pipeline Context
+.XS
+	PEXFreePipelineContext
+.XE
+.IN "PEXFreePipelineContext" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXFreePipelineContext\^(\^Display *\fIdisplay\fP\^, PEXPipelineContext \fIcontext\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIcontext\fP 1i
+The resource identifier of the pipeline context.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function deletes the association between the pipeline context
+resource identifier and the pipeline context.  The pipeline context
+is freed when no other resource references it.
+.RE
+.SH
+Errors
+.RS
+.IP \fIBadPEXPipelineContext\fP 1i
+The specified pipeline context resource identifier is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreatePipelineContext
+.RE
+.bp
+.SH
+PEXGetPipelineContext - Get Pipeline Context Attributes
+.XS
+	PEXGetPipelineContext
+.XE
+.IN "PEXGetPipelineContext" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+PEXPCAttributes *PEXGetPipelineContext\^(\^Display *\fIdisplay\fP\^, PEXPipelineContext \fIcontext\fP\^, unsigned long *\fIvalue_mask\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIcontext\fP 1i
+The resource identifier of the pipeline context.
+.IP \fIvalue_mask\fP 1i
+A pointer to an array of three unsigned long.
+.RE
+.SH
+Returns
+.RS
+.LP
+A pointer to pipeline context values; a null pointer if unsuccessful.
+.RE
+.SH
+Description
+.RS
+.LP
+This function returns the requested attribute values of the pipeline context.
+The value mask indicates which attribute values are requested.
+.PN PEXSetPCAttributeMask
+and
+.PN PEXSetPCAttributeMaskAll
+can be called to setup the value mask.
+PEXlib allocates the memory for the return value.
+.PN PEXFreePCAttributes
+should be called to deallocate the memory.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXPipelineContext;
+.sp
+See also the \fICommon Data Structures\f section.
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXPipelineContext\fP 1i
+The specified pipeline context resource identifier is invalid.
+.IP \fIBadValue\fP 1i
+An invalid bit is set in the value mask.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreatePipelineContext ,
+.PN PEXChangePipelineContext
+.RE
+.bp
+.SH
+PEXSetPCAttributeMask - Macro to Setup Pipeline Context Attributes Value Mask
+.XS
+	PEXSetPCAttributeMask
+.XE
+.IN "PEXSetPCAttributeMask" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+PEXSetPCAttributeMask(\^\fImask\fP\^, \fIattr\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fImask\fP 1i
+The address of the value mask - an array of three unsigned long.
+.IP \fIattr\fP 1i
+A single pipeline context attribute bitmask constant.
+.RE
+.SH
+Description
+.RS
+.LP
+This is a utility macro
+to aid in setting up the bitmask for the pipeline
+context attributes.
+.LP
+The following attribute bitmask constants must be used:
+.ID
+.PN PEXPCMarkerType
+.PN PEXPCMarkerScale
+.PN PEXPCMarkerColor
+.PN PEXPCMarkerBundleIndex
+.PN PEXPCTextFont
+.PN PEXPCTextPrecision
+.PN PEXPCCharExpansion
+.PN PEXPCCharSpacing
+.PN PEXPCTextColor
+.PN PEXPCCharHeight
+.PN PEXPCCharUpVector
+.PN PEXPCTextPath
+.PN PEXPCTextAlignment
+.PN PEXPCATextHeight
+.PN PEXPCATextUpVector
+.PN PEXPCATextPath
+.PN PEXPCATextAlignment
+.PN PEXPCATextStyle
+.PN PEXPCTextBundleIndex
+.PN PEXPCLineType
+.PN PEXPCLineWidth
+.PN PEXPCLineColor
+.PN PEXPCCurveApprox
+.PN PEXPCPolylineInterp
+.PN PEXPCLineBundleIndex
+.PN PEXPCInteriorStyle
+.PN PEXPCInteriorStyleIndex
+.PN PEXPCSurfaceColor
+.PN PEXPCReflectionAttr
+.PN PEXPCReflectionModel
+.PN PEXPCSurfaceInterp
+.PN PEXPCBFInteriorStyle
+.PN PEXPCBFInteriorStyleIndex
+.PN PEXPCBFSurfaceColor
+.PN PEXPCBFReflectionAttr
+.PN PEXPCBFReflectionModel
+.PN PEXPCBFSurfaceInterp
+.PN PEXPCSurfaceApprox
+.PN PEXPCCullingMode
+.PN PEXPCDistinguishFlag
+.PN PEXPCPatternSize
+.PN PEXPCPatternRefPoint
+.PN PEXPCPatternRefVec1
+.PN PEXPCPatternRefVec2
+.PN PEXPCInteriorBundleIndex
+.PN PEXPCSurfaceEdgeFlag
+.PN PEXPCSurfaceEdgeType
+.PN PEXPCSurfaceEdgeWidth
+.PN PEXPCSurfaceEdgeColor
+.PN PEXPCEdgeBundleIndex
+.PN PEXPCLocalTransform
+.PN PEXPCGlobalTransform
+.PN PEXPCModelClip
+.PN PEXPCModelClipVolume
+.PN PEXPCViewIndex
+.PN PEXPCLightState
+.PN PEXPCDepthCueIndex
+.PN PEXPCASFValues
+.PN PEXPCPickID
+.PN PEXPCHLHSRIdentifier
+.PN PEXPCNameSet
+.PN PEXPCColorApproxIndex
+.PN PEXPCRenderingColorModel
+.PN PEXPCParaSurfCharacteristics
+.DE
+Note that this macro does multiple evaluations of the value for attr.
+.RE
+.SH
+Errors
+.RS
+.IP None 1i
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreatePipelineContext ,
+.PN PEXChangePipelineContext ,
+.PN PEXCopyPipelineContext ,
+.PN PEXGetPipelineContext
+.RE
+.bp
+.SH
+PEXSetPCAttributeMaskAll - Macro to Set All Pipeline Context Attributes in Value Mask
+.XS
+	PEXSetPCAttributeMaskAll
+.XE
+.IN "PEXSetPCAttributeMaskAll" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+PEXSetPCAttributeMaskAll(\^\fImask\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fImask\fP 1i
+The address of the value mask - an array of three unsigned long.
+.RE
+.SH
+Description
+.RS
+.LP
+This is a utility macro
+to aid in setting up the bitmask for the pipeline
+context attributes.  This macro will set all valid bits in the mask.
+.RE
+.SH
+Errors
+.RS
+.IP None 1i
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreatePipelineContext ,
+.PN PEXChangePipelineContext ,
+.PN PEXCopyPipelineContext ,
+.PN PEXGetPipelineContext
+.RE
+.bp

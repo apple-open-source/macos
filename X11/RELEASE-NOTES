@@ -1,0 +1,119 @@
+
+Welcome!
+========
+
+This document contains information about the X11 for Mac OS X that you
+should read before you install this product. You will learn about
+getting started, supported computer systems, hardware requirements,
+software features, and known issues.
+
+X11 for Mac OS X is an implementation of the X Window System that makes
+it possible to run X11-based applications in Mac OS X.  Based on the
+open source XFree86 project -- the most common implementation of X11 --
+X11 for Mac OS X is compatible, fast, and fully integrated with Mac OS
+X. It includes the full X11R6.6 technology including an X11 window
+server, Quartz window manager, libraries, and basic utilities such as
+xterm.
+
+For more information about X11 for Mac OS X, visit the Apple Mac OS X
+website page for X11 at
+
+          <www.apple.com/macosx/x11/>
+
+
+Getting Started
+===============
+
+X11 for Mac OS X is distributed as part of the Mac OS system install.
+Simply select the optional X11 package when installing. Note that if
+you want to compile applications for use with X11, you will also need
+to download the X11 SDK package.
+
+After installing, you can activate the software by launching
+
+          /Applications/Utilities/X11.app
+
+The application opens an initial xterm window with the PATH and DISPLAY
+variables set to the appropriate values. You can open additional
+windows from the "Applications" menu of X11.app.
+
+
+System Requirements
+===================
+
+Your computer must have:
+
+ - at least 256 MB of RAM
+
+ - a built-in display or a display connected to an Apple-supplied video card
+
+ - at least 200 MB of hard disk space available
+
+
+Features
+========
+
+Key features of the X11 for Mac OS X include:
+
+ - direct and indirect native OpenGL support
+
+   Direct rendering has exactly the same performance as the native Mac
+   OS X OpenGL framework. Indirect rendering also uses the native GL
+   implementation, but incurs the penalty of marshalling, transmitting
+   and unmarshalling all GL primitives.
+
+ - improved performance of X11 server operations through direct use of
+   Quartz services
+
+	- hardware-accelerated fill, copy (scroll) and compositing
+	  operations
+
+	- more efficient dirty-region accounting
+
+	- better support for shaped windows
+
+	- minimized intermediate copies when resizing windows
+
+ - new X11.app front end, including a fully-functional "Windows" menu
+
+ - new "quartz-wm" window manager
+
+	- provides a native Mac OS X look and feel for window decorations
+
+	- uses the Mac OS X Dock for minimization and window placement
+
+ - /usr/bin/open-x11 shell script available to launch X apps from
+   Terminal.
+
+ - ability to cut and paste between X11 and native applications using
+   PRIMARY and PASTEBOARD selections.
+
+ - Native fonts are available to Xft applications. 
+
+ - supports multi-button mice and scroll-wheel events
+
+ - now handles display changes correctly
+
+
+Known Issues
+============
+
+For the list of known issues and any recent changes, please visit:
+
+	   http://developer.apple.com/qa/qa2001/qa1232.html
+
+
+Feedback
+========
+
+Bug reports and feature requests related to X11 for Mac OS X can and
+should be filed at developer.apple.com/bugreporter. Questions and other
+feedback can be sent to Apple by subscribing to the
+x11-users@lists.apple.com via the mailing list page at 
+http://www.lists.apple.com/x11-users
+
+
+© 2003 Apple Computer, Inc. All rights reserved. Apple, the Apple logo,
+iBook, Mac, Macintosh, PowerBook, and Power Macintosh are trademarks of
+Apple Computer, Inc., registered in the U.S. and other countries. iMac
+and Power Mac are trademarks of Apple Computer, Inc.

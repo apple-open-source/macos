@@ -1,0 +1,48 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/18 15:17:40 xorgcvs Exp $
+
+
+
+
+XCOMM $XFree86: xc/fonts/scaled/Type1/Imakefile,v 1.16 2002/05/22 04:30:14 keithp Exp $
+
+
+#define PassCDebugFlags /* as nothing */
+
+FONTS = UTRG____.pfa UTB_____.pfa UTBI____.pfa UTI_____.pfa \
+        cour.pfa courb.pfa courbi.pfa couri.pfa \
+        c0648bt_.pfb c0649bt_.pfb c0632bt_.pfb c0633bt_.pfb \
+        c0419bt_.pfb c0582bt_.pfb c0583bt_.pfb c0611bt_.pfb cursor.pfa
+
+AFMS = UTRG____.afm UTB_____.afm UTBI____.afm UTI_____.afm \
+       cour.afm courb.afm courbi.afm couri.afm \
+       c0648bt_.afm c0649bt_.afm c0632bt_.afm c0633bt_.afm \
+       c0419bt_.afm c0582bt_.afm c0583bt_.afm c0611bt_.afm
+
+BHFONTS = l047013t.pfa l047036t.pfa l048033t.pfa l049016t.pfa \
+          l047016t.pfa l048013t.pfa l048036t.pfa l049033t.pfa \
+          l047033t.pfa l048016t.pfa l049013t.pfa l049036t.pfa
+
+BHAFMS = l047013t.afm l047036t.afm l048033t.afm l049016t.afm \
+         l047016t.afm l048013t.afm l048036t.afm l049033t.afm \
+         l047033t.afm l048016t.afm l049013t.afm l049036t.afm
+
+OBJS = $(FONTS) $(BHFONTS) $(AFMS) $(BHAFMS)
+
+FONTINSTDIR = $(FONTDIR)/Type1
+
+MakeFontsDir(fonts.scale)
+#if UseFreetype2
+MakeFcCache($(FONTS))
+#endif
+
+InstallFonts($(FONTINSTDIR))
+InstallFontScale($(FONTINSTDIR))
+InstallEncodingsDir($(ENCODINGSSRC),$(FONTINSTDIR))
+#if UseFreetype2
+InstallFcCache($(FONTINSTDIR))
+#endif
+
+#ifdef IHaveSubdirs
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))
+#endif

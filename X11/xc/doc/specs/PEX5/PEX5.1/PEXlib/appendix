@@ -1,0 +1,200 @@
+\&
+.sp 1
+.ce 3
+\s+1\fBAppendix A\fP\s-1
+
+\s+1\fBPEXlib Programming for both 5.0 and 5.1\fP\s-1
+.sp 2
+.nr H1 0
+.nr H2 0
+.nr H3 0
+.nr H4 0
+.nr H5 0
+.na
+.LP
+.XS
+Appendix A:  PEXlib Programming for both 5.0 and 5.1
+.XE
+.SH
+Introduction
+.XS
+	Introduction
+.XE
+.LP
+A PEXlib program written to use only functionality specified
+in PEX 5.0 will work with a PEX server that supports either
+PEX 5.0 or PEX 5.1 protocol.  However, if a PEXlib program
+uses functionality present only in PEX 5.1, the program will
+likely fail on a PEX 5.0 server.
+.LP
+This addendum gathers the differences between PEX 5.0 and PEX
+5.1 in one place so the programmer can understand and account
+for the changes.  The programmer may wish to take advantage
+of PEX 5.1 functions, if present, and perform some alternate
+action if not.
+.SH
+Determining the Protocol Version
+.XS
+	Determining the Protocol Version
+.XE
+.LP
+The first task is for the programmer to determine the protocol
+version that the server supports, so the program may behave
+accordingly.  This is accomplished with the
+.PN PEXGetExtensionInfo
+function:
+.ID
+.Co
+int                     status;
+PEXExtensionInfo        *pexinfo;
+char                    errstr[PEXErrorStringLength];
+.
+.
+.
+status = PEXInitialize( display, PEXErrorStringLength, errstr );
+if (status != 0) {
+    fprintf( stderr, "%s\n", errstr );
+    exit(0);
+}
+pexinfo = PEXGetExtensionInfo( display );
+
+/* The server is a PEX 5.1 server if (pexinfo->major_version == 5) */
+/* and (pexinfo->minor_version == 1). */
+.ft P
+.DE
+.SH
+Events
+.XS
+	Events
+.XE
+.LP
+PEX 5.1 defines a new X Event,
+.PN PEXMaxHitsReached .
+Some 5.1
+programs that use
+.PN PEXPickAll
+may wish to watch for this event to decide
+if additional pick passes are necessary.  This event will
+not be sent by a PEX 5.0 server.
+.SH
+Enumerated Type Information
+.XS
+	Enumerated Type Information
+.XE
+.LP
+.PN PEXETHLHSRMode
+- PEX 5.1 defines the new registered value
+.PN PEXHLHSRZBufferID
+.br
+.PN PEXETPickOneMethod
+- New enum type for 5.1.
+.br
+.PN PEXETPickAllMethod
+- New enum type for 5.1.
+.br
+.PN PEXETEscape
+- New enum type for 5.1
+.LP
+Applications should not expect to find the
+.PN PEXHLHSRZBufferID
+standard
+value when querying the HLHSR mode enum type from a 5.0 server
+and should therefore not attempt to use it.
+Applications should not attempt to query the other three types
+from a PEX 5.0 server.
+.SH
+Implementation Dependent Constants
+.XS
+	Implementation Dependent Constants
+.XE
+.LP
+.PN PEXIDMaxHitsEventSupported
+- New for PEX 5.1
+.LP
+Applications should not attempt to query this value using the
+.PN PEXGetImpDepConstants
+function from a PEX 5.0 server.
+.SH
+General Functions
+.XS
+	General Functions
+.XE
+.LP
+The following PEXlib functions are new for PEX 5.1 and should
+not be sent to a PEX 5.0 server.
+.ID
+.PN PEXMatchRenderingTargets
+.PN PEXEscape
+.PN PEXEscapeWithReply
+.PN PEXSetEchoColor
+.DE
+.SH
+Output Commands
+.XS
+	Output Commands
+.XE
+.LP
+The
+.PN PEXNoop
+output command function must not be sent to a PEX 5.0 server
+or stored in a structure network that will be rendered by a
+PEX 5.0 server.
+.SH
+Renderer Functions
+.XS
+	Renderer Functions
+.XE
+.LP
+The following PEXlib functions are new for PEX 5.1 and should
+not be sent to a PEX 5.0 server.
+.ID
+.PN PEXRenderElements
+.PN PEXAccumulateState
+.DE
+.SH
+Renderer Dynamics
+.XS
+	Renderer Dynamics
+.XE
+.LP
+The following dynamics bits cannot be queried from a PEX 5.0
+server.
+.ID
+.PN PEXRDNPickNameSet
+.PN PEXRDNPickNameSetContents
+.PN PEXRDAEchoMode
+.DE
+.SH
+Renderer Attributes
+.XS
+	Renderer Attributes
+.XE
+.LP
+The following renderer attributes should not be used with a PEX
+5.0 server.
+.ID
+.PN PEXRAPickIncl
+.PN PEXRAPickExcl
+.PN PEXRAPickStartPath
+.PN PEXRABackgroundColor
+.PN PEXRAClearImage
+.PN PEXRAClearZ
+.PN PEXRAEchoMode
+.DE
+.SH
+Renderer Picking Functions
+.XS
+	Renderer Picking Functions
+.XE
+.LP
+The following PEXlib functions are new for PEX 5.1 and should
+not be sent to a PEX 5.0 server.
+.ID
+.PN PEXPickOne
+.PN PEXBeginPickOne
+.PN PEXEndPickOne
+.PN PEXPickAll
+.PN PEXBeginPickAll
+.PN PEXEndPickAll
+.DE
+.bp

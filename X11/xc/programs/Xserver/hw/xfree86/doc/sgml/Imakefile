@@ -1,0 +1,174 @@
+XCOMM $XConsortium: Imakefile /main/16 1996/10/28 05:13:04 kaleb $
+
+
+
+
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/Imakefile,v 3.83 2003/02/26 21:59:44 dawes Exp $
+
+#include <Server.tmpl>
+#include <lnxdoc.rules>
+
+/* Set this to YES if the RELNOTES file is up to date (and during devel) */
+#ifndef BuildRelnotes
+#define BuildRelnotes YES
+#endif
+
+#if BuildRelnotes
+RELNOTES=RELNOTES.sgml
+#endif
+
+SGMLDEPENDS = defs.ent
+MANSGMLDEPENDS = mdefs.ent
+  INDEXLIST = README.sgml $(RELNOTES) Status.sgml LICENSE.sgml Install.sgml \
+	      BUILD.sgml DESIGN.sgml Versions.sgml \
+	      mouse.sgml fonts.sgml DRI.sgml DRIcomp.sgml dps.sgml \
+	      XKB-Config.sgml XKB-Enhancing.sgml \
+	      Darwin.sgml isc.sgml LynxOS.sgml NetBSD.sgml OpenBSD.sgml \
+	      OS2Notes.sgml SCO.sgml Solaris.sgml \
+              apm.sgml ati.sgml chips.sgml cyrix.sgml DECtga.sgml \
+	      I128.sgml i740.sgml i810.sgml newport.sgml \
+	      r128.sgml rendition.sgml s3virge.sgml SiS.sgml
+
+#ifdef DEADDOCS
+LinuxDocReadmeTarget(Bsdi)
+#endif
+LinuxDocReadmeTarget(Darwin)
+#ifdef OUTOFDATE
+LinuxDocReadmeTarget(DGUX)
+LinuxDocReadmeTarget(FreeBSD)
+#endif
+LinuxDocReadmeTarget(isc)
+#ifdef OUTOFDATE
+LinuxDocReadmeTarget(Linux)
+#endif
+LinuxDocReadmeTarget(LynxOS)
+LinuxDocReadmeTarget(NetBSD)
+LinuxDocReadmeTarget(OpenBSD)
+#ifdef OUTOFDATE
+LinuxDocReadmeTarget(OS2)
+#endif
+LinuxDocTargetLong(OS2Notes.sgml,OS2.Notes,OS2Notes)
+LinuxDocReadmeTarget(SCO)
+LinuxDocReadmeTarget(Solaris)
+#ifdef OUTOFDATE
+LinuxDocReadmeTarget(SVR4)
+#endif
+
+/* Hardware docs */
+#ifdef OUTOFDATE
+LinuxDocReadmeTarget(3Dlabs)
+#endif
+LinuxDocReadmeTarget(apm)
+#ifdef OUTOFDATE
+LinuxDocReadmeTarget(ark)
+LinuxDocReadmeTarget(agx)
+#endif
+LinuxDocReadmeTarget(ati)
+LinuxDocReadmeTarget(chips)
+#ifdef OUTOFDATE
+LinuxDocReadmeTarget(cirrus)
+#endif
+LinuxDocReadmeTarget(cyrix)
+LinuxDocReadmeTarget(DECtga)
+#ifdef OUTOFDATE
+LinuxDocReadmeTarget(epson)
+LinuxDocReadmeTarget(fbdev)
+#endif
+LinuxDocReadmeTarget(I128)
+LinuxDocReadmeTarget(i740)
+LinuxDocReadmeTarget(i810)
+#ifdef OUTOFDATE
+LinuxDocReadmeTarget(neomagic)
+#endif
+LinuxDocReadmeTarget(newport)
+#ifdef OUTOFDATE
+LinuxDocReadmeTarget(Mach32)
+LinuxDocReadmeTarget(Mach64)
+LinuxDocReadmeTarget(MGA)
+LinuxDocReadmeTarget(NVIDIA)
+LinuxDocReadmeTarget(Oak)
+LinuxDocReadmeTarget(P9000)
+#endif
+LinuxDocReadmeTarget(r128)
+LinuxDocReadmeTarget(rendition)
+#ifdef OUTOFDATE
+LinuxDocReadmeTarget(S3)
+#endif
+LinuxDocReadmeTarget(s3virge)
+LinuxDocReadmeTarget(SiS)
+#ifdef OUTOFDATE
+LinuxDocReadmeTarget(trident)
+LinuxDocReadmeTarget(tseng)
+LinuxDocReadmeTarget(Video7)
+LinuxDocReadmeTarget(WstDig)
+#endif
+
+/* Main docs */
+LinuxDocTarget(BUILD)
+#ifdef OUTOFDATE
+LinuxDocReadmeTarget(Config)
+#endif
+LinuxDocTarget(DESIGN)
+LinuxDocTarget(Install)
+LinuxDocTarget(LICENSE)
+#ifdef OUTOFDATE
+LinuxDocTargetLong(QuickStart.sgml,QuickStart.doc,QuickStart)
+#endif
+LinuxDocTarget(README)
+#if BuildRelnotes
+LinuxDocTarget(RELNOTES)
+#endif
+LinuxDocTarget(Status)
+
+/* Other docs */
+LinuxDocReadmeTarget(fonts)
+LinuxDocReadmeTarget(mouse)
+LinuxDocTarget(Versions)
+#ifdef OUTOFDATE
+LinuxDocTargetLong(VideoModes.sgml,VideoModes.doc,VideoModes)
+LinuxDocTarget(xinput)
+#endif
+LinuxDocReadmeTarget(DRI)
+LinuxDocReadmeTarget(DRIcomp)
+LinuxDocReadmeTarget(dps)
+LinuxDocReadmeTarget(XKB-Config)
+LinuxDocReadmeTarget(XKB-Enhancing)
+
+SGMLMANDEFS=-D__drivermansuffix__='"$(DRIVERMANSUFFIX)"' \
+	    -D__filemansuffix__='"$(FILEMANSUFFIX)"' \
+	    -D__miscmansuffix__='"$(MISCMANSUFFIX)"'
+
+#if BuildHtmlManPages
+HTMLMANDEFS=-DHTML_MANPAGES
+#endif
+
+AllTarget(mdefs.ent)
+CppRawFileTarget(mdefs.ent,mdefs.cpp,$(SGMLMANDEFS) $(HTMLMANDEFS),NullParameter)
+
+/* Generate the documentation index */
+index.sgml: $(INDEXLIST) index.pre index.post add.sh Imakefile $(SGMLDEPENDS) $(MANSGMLDEPENDS)
+	RemoveFile(index.sgml)
+	cat index.pre > index.sgml
+	echo "<!-- This file is auto-generated.  Do not edit! -->" >> index.sgml
+	for i in $(INDEXLIST); do \
+		$(SHELL) add.sh $$i; \
+	done
+	cat index.post >> index.sgml
+
+LinuxDocTarget(index)
+
+clean::
+	RemoveFile(index.sgml)
+
+
+FORMATTEDDIR = ..
+
+#if BuildRelnotes
+/* Update RELNOTES at top level */
+UpdateFormattedDoc(RELNOTES,$(TOP))
+#endif
+
+/* Update the README files in xc/programs/xkbcomp */
+UpdateFormattedDocLong(README.XKB-Config,$(PROGRAMSRC)/xkbcomp,README.config)
+UpdateFormattedDocLong(README.XKB-Enhancing,$(PROGRAMSRC)/xkbcomp,README.enhancing)
+

@@ -1,0 +1,185 @@
+// This file was inspired by XFree86 version 3.3.2
+// as distributed with RedHat Linux 5.1
+// This file was created by Eric Moreau, 1998-09-27
+// I am reachable at eric_moreau@compuserve.com
+//
+// $XFree86: xc/programs/xkbcomp/symbols/ca_enhanced,v 1.1 1998/12/13 05:33:06 dawes Exp $
+//
+// Those are intened to be modifications to the symbols
+// defined by /usr/X11R6/lib/X11/xkb/symbols/ca
+//
+// Most of the french canadian keyboards availables on PCs
+// are mapped like this.
+// Note that I remaped the ISO9995-3 keyboard but took
+// care of not loosing symbols.
+
+partial alphanumeric_keys
+xkb_symbols "basic" {
+    include "ca(basic)"
+    key <TLDE> {
+		type[Group1]="THREE_LEVEL",
+		symbols[Group1]= [ numbersign, bar, backslash ],
+		symbols[Group2]= [ backslash, exclamdown ]
+		};
+    key <AE01> {
+		type[Group1]="THREE_LEVEL",
+		symbols[Group1]= [ 1, exclam, plusminus ],
+		symbols[Group2]= [ plusminus, onesuperior ]
+		};
+    key <AE02> {
+		type[Group1]="THREE_LEVEL",
+		symbols[Group1]= [ 2, quotedbl, at ],
+		symbols[Group2]= [ at, oneeighth ]
+		};
+    key <AE03> {
+		type[Group1]="THREE_LEVEL",
+		symbols[Group1]= [ 3, slash, sterling ],
+		symbols[Group2]= [ sterling ]
+		};
+    key <AE04> {
+		type[Group1]="THREE_LEVEL",
+		symbols[Group1]= [ 4, dollar, cent ],
+		symbols[Group2]= [ cent ]
+		};
+    key <AE05> {
+		type[Group1]="THREE_LEVEL",
+		symbols[Group1]= [ 5, percent, currency ],
+		symbols[Group2]= [ currency, threeeighths ]
+		};
+    key <AE06> {
+		type[Group1]="THREE_LEVEL",
+		symbols[Group1]= [ 6, question, notsign ],
+		symbols[Group2]= [ notsign, fiveeighths ]
+		};
+    key <AE07> {
+		type[Group1]="THREE_LEVEL",
+		symbols[Group1]= [ 7, ampersand, brokenbar ],
+		symbols[Group2]= [ brokenbar, seveneighths ]
+		};
+    key <AE08> {
+		type[Group1]="THREE_LEVEL",
+		symbols[Group1]= [ 8, asterisk, twosuperior ],
+		symbols[Group2]= [ twosuperior, trademark ]
+		};
+    key <AE09> {
+		type[Group1]="THREE_LEVEL",
+		symbols[Group1]= [ 9, parenleft, threesuperior ],
+		symbols[Group2]= [ threesuperior ]
+		};
+    key <AE10> {
+		type[Group1]="THREE_LEVEL",
+		symbols[Group1]= [ 0, parenright, onequarter ],
+		symbols[Group2]= [ onequarter ]
+		};
+    key <AE11> {
+		type[Group1]="THREE_LEVEL",
+		symbols[Group1]= [ minus, underscore, onehalf ],
+		symbols[Group2]= [ onehalf, questiondown ]
+		};
+    key <AE12> {
+		type[Group1]="THREE_LEVEL",
+		symbols[Group1]= [ equal, plus, threequarters ],
+		symbols[Group2]= [ threequarters, dead_ogonek ]
+		};
+
+    key <AD01> {
+		symbols[Group1]= [ q, Q ],
+		symbols[Group2]= [ oslash, Ooblique ]
+		};
+    key <AD04> {
+		symbols[Group1]= [ r, R ],
+		symbols[Group2]= [ thorn, Thorn ]
+		};
+    key <AD09> {
+		type[Group1]="THREE_LEVEL",
+		symbols[Group1]= [ o, O, section ],
+		symbols[Group2]= [ section, Greek_OMEGA ]
+		};
+    key <AD10> {
+		type[Group1]="THREE_LEVEL",
+		symbols[Group1]= [ p, P, paragraph ],
+		symbols[Group2]= [ paragraph, registered ]
+		};
+    key <AD11> {
+		type[Group1]="THREE_LEVEL",
+		symbols[Group1]= [ dead_circumflex, dead_circumflex, bracketleft ],
+		symbols[Group2]= [ bracketleft, dead_abovering ]
+		};
+    key <AD12> {
+		type[Group1]="THREE_LEVEL",
+		symbols[Group1]= [ dead_cedilla, dead_diaeresis, bracketright ],
+		symbols[Group2]= [ bracketright, horizconnector ]
+		};
+
+    key <AC10> {
+		type[Group1]="THREE_LEVEL",
+		symbols[Group1]= [ semicolon, colon, asciitilde ],
+		symbols[Group2]= [ asciitilde, dead_doubleacute ]
+		};
+    key <AC11> {
+		type[Group1]="THREE_LEVEL",
+		symbols[Group1]= [ dead_grave, dead_grave, braceleft ],
+		symbols[Group2]= [ braceleft, dead_caron ]
+		};
+
+    key <AB01> {
+		symbols[Group1]= [ z, Z ],
+		symbols[Group2]= [ dead_belowdot, dead_abovedot ]
+		};
+    key <AB07> {
+		type[Group1]="THREE_LEVEL",
+		symbols[Group1]= [ m, M, mu ],
+		symbols[Group2]= [ mu, masculine ]
+		};
+    key <AB08> {
+		type[Group1]="THREE_LEVEL",
+		symbols[Group1]= [ comma, quoteright, horizconnector ],
+		symbols[Group2]= [ dead_macron, multiply ]
+		};
+    key <AB09> {
+		type[Group1]="THREE_LEVEL",
+		symbols[Group1]= [ period, period, periodcentered ],
+		symbols[Group2]= [ periodcentered, division ]
+		};
+    key <AB10> {
+		type[Group1]="THREE_LEVEL",
+		symbols[Group1]= [ eacute, Eacute, dead_acute ],
+		symbols[Group2]= [ dead_acute ]
+		};
+    key <BKSL> {
+		type[Group1]="THREE_LEVEL",
+		symbols[Group1]= [ less, greater, braceright ],
+		symbols[Group2]= [ braceright, dead_breve ]
+		};
+
+    key <LSGT> {
+		type[Group1]="THREE_LEVEL",
+		symbols[Group1]= [ guillemotleft, guillemotright, degree ],
+		symbols[Group2]= [ degree ]
+		};
+};
+
+partial alphanumeric_keys
+xkb_symbols "Sundeadkeys" {
+    include "ca_enhanced(basic)"    
+    key <AD11> {
+		type[Group1]="THREE_LEVEL",
+		symbols[Group1]= [ SunFA_Circum, SunFA_Circum, bracketleft ],
+		symbols[Group2]= [ bracketleft, dead_abovering ]
+		};
+    key <AD12> {
+		type[Group1]="THREE_LEVEL",
+		symbols[Group1]= [ SunFA_Cedilla, SunFA_Diaeresis, bracketright ],
+		symbols[Group2]= [ bracketright, horizconnector ]
+		};
+    key <AC11> {
+		type[Group1]="THREE_LEVEL",
+		symbols[Group1]= [ SunFA_Grave, SunFA_Grave, braceleft ],
+		symbols[Group2]= [ braceleft, dead_caron ]
+		};
+};
+
+partial alphanumeric_keys
+xkb_symbols "sundeadkeys" {
+    include "ca_enhanced(Sundeadkeys)"
+};

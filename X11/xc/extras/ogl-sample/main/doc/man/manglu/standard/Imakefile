@@ -1,0 +1,216 @@
+XCOMM License Applicability. Except to the extent portions of this file are
+XCOMM made subject to an alternative license as permitted in the SGI Free
+XCOMM Software License B, Version 1.1 (the "License"), the contents of this
+XCOMM file are subject only to the provisions of the License. You may not use
+XCOMM this file except in compliance with the License. You may obtain a copy
+XCOMM of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+XCOMM Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+XCOMM 
+XCOMM http://oss.sgi.com/projects/FreeB
+XCOMM 
+XCOMM Note that, as provided in the License, the Software is distributed on an
+XCOMM "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+XCOMM DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+XCOMM CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+XCOMM PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+XCOMM 
+XCOMM Original Code. The Original Code is: OpenGL Sample Implementation,
+XCOMM Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+XCOMM Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+XCOMM Copyright in any portions created by third parties is as indicated
+XCOMM elsewhere herein. All Rights Reserved.
+XCOMM 
+XCOMM Additional Notice Provisions: The application programming interfaces
+XCOMM established by SGI in conjunction with the Original Code are The
+XCOMM OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+XCOMM April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+XCOMM 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+XCOMM Window System(R) (Version 1.3), released October 19, 1998. This software
+XCOMM was created using the OpenGL(R) version 1.2.1 Sample Implementation
+XCOMM published by SGI, but has not been independently verified as being
+XCOMM compliant with the OpenGL(R) version 1.2.1 Specification.
+XCOMM
+
+#ifdef	ManPageAlias
+#undef	ManPageAlias
+#endif
+#define	ManPageAlias(file,destdir,alias)				@@\
+alias.$(MANSUFFIX): file.$(MANSUFFIX)					@@\
+	echo .so `basename destdir`/file.$(MANSUFFIX) > alias.$(MANSUFFIX) @@\
+
+MANSUFFIX = 3gl
+
+MAN_PAGES = \
+gluBeginCurve.$(MANSUFFIX)           gluBeginPolygon.$(MANSUFFIX)         \
+gluBeginSurface.$(MANSUFFIX)         gluBeginTrim.$(MANSUFFIX)            \
+gluBuild1DMipmaps.$(MANSUFFIX)       gluBuild2DMipmaps.$(MANSUFFIX)       \
+gluCylinder.$(MANSUFFIX)             gluDeleteNurbsRenderer.$(MANSUFFIX)  \
+gluDeleteQuadric.$(MANSUFFIX)        gluDeleteTess.$(MANSUFFIX)           \
+gluDisk.$(MANSUFFIX)                 gluEndCurve.$(MANSUFFIX)             \
+gluEndPolygon.$(MANSUFFIX)           gluEndSurface.$(MANSUFFIX)           \
+gluEndTrim.$(MANSUFFIX)              gluErrorString.$(MANSUFFIX)          \
+gluGetNurbsProperty.$(MANSUFFIX)     gluGetString.$(MANSUFFIX)            \
+gluGetTessProperty.$(MANSUFFIX)      gluLoadSamplingMatrices.$(MANSUFFIX) \
+gluLookAt.$(MANSUFFIX)               gluNewNurbsRenderer.$(MANSUFFIX)     \
+gluNewQuadric.$(MANSUFFIX)           gluNewTess.$(MANSUFFIX)              \
+gluNextContour.$(MANSUFFIX)          gluNurbsCallback.$(MANSUFFIX)        \
+gluNurbsCallbackDataEXT.$(MANSUFFIX) gluNurbsCurve.$(MANSUFFIX)           \
+gluNurbsProperty.$(MANSUFFIX)        gluNurbsSurface.$(MANSUFFIX)         \
+gluOrtho2D.$(MANSUFFIX)              gluPartialDisk.$(MANSUFFIX)          \
+gluPerspective.$(MANSUFFIX)          gluPickMatrix.$(MANSUFFIX)           \
+gluProject.$(MANSUFFIX)              gluPwlCurve.$(MANSUFFIX)             \
+gluQuadricCallback.$(MANSUFFIX)      gluQuadricDrawStyle.$(MANSUFFIX)     \
+gluQuadricNormals.$(MANSUFFIX)       gluQuadricOrientation.$(MANSUFFIX)   \
+gluQuadricTexture.$(MANSUFFIX)       gluScaleImage.$(MANSUFFIX)           \
+gluSphere.$(MANSUFFIX)               gluTessBeginContour.$(MANSUFFIX)     \
+gluTessBeginPolygon.$(MANSUFFIX)     gluTessCallback.$(MANSUFFIX)         \
+gluTessEndContour.$(MANSUFFIX)       gluTessEndPolygon.$(MANSUFFIX)       \
+gluTessNormal.$(MANSUFFIX)           gluTessProperty.$(MANSUFFIX)         \
+gluTessVertex.$(MANSUFFIX)           gluUnProject.$(MANSUFFIX)            
+
+LINK_NAMES = \
+gluBeginCurve.$(MANSUFFIX)           gluBeginPolygon.$(MANSUFFIX)         \
+gluBeginSurface.$(MANSUFFIX)         gluBeginTrim.$(MANSUFFIX)            \
+gluBuild1DMipmaps.$(MANSUFFIX)       gluBuild2DMipmaps.$(MANSUFFIX)       \
+gluCylinder.$(MANSUFFIX)             gluDeleteNurbsRenderer.$(MANSUFFIX)  \
+gluDeleteQuadric.$(MANSUFFIX)        gluDeleteTess.$(MANSUFFIX)           \
+gluDisk.$(MANSUFFIX)                 gluErrorString.$(MANSUFFIX)          \
+gluGetNurbsProperty.$(MANSUFFIX)     gluGetString.$(MANSUFFIX)            \
+gluGetTessProperty.$(MANSUFFIX)      gluLoadSamplingMatrices.$(MANSUFFIX) \
+gluLookAt.$(MANSUFFIX)               gluNewNurbsRenderer.$(MANSUFFIX)     \
+gluNewQuadric.$(MANSUFFIX)           gluNewTess.$(MANSUFFIX)              \
+gluNextContour.$(MANSUFFIX)          gluNurbsCallback.$(MANSUFFIX)        \
+gluNurbsCallbackDataEXT.$(MANSUFFIX) gluNurbsCurve.$(MANSUFFIX)           \
+gluNurbsProperty.$(MANSUFFIX)        gluNurbsSurface.$(MANSUFFIX)         \
+gluOrtho2D.$(MANSUFFIX)              gluPartialDisk.$(MANSUFFIX)          \
+gluPerspective.$(MANSUFFIX)          gluPickMatrix.$(MANSUFFIX)           \
+gluProject.$(MANSUFFIX)              gluPwlCurve.$(MANSUFFIX)             \
+gluQuadricCallback.$(MANSUFFIX)      gluQuadricDrawStyle.$(MANSUFFIX)     \
+gluQuadricNormals.$(MANSUFFIX)       gluQuadricOrientation.$(MANSUFFIX)   \
+gluQuadricTexture.$(MANSUFFIX)       gluScaleImage.$(MANSUFFIX)           \
+gluSphere.$(MANSUFFIX)               gluTessBeginContour.$(MANSUFFIX)     \
+gluTessBeginPolygon.$(MANSUFFIX)     gluTessCallback.$(MANSUFFIX)         \
+gluTessEndPolygon.$(MANSUFFIX)       gluTessNormal.$(MANSUFFIX)           \
+gluTessProperty.$(MANSUFFIX)         gluTessVertex.$(MANSUFFIX)           \
+gluUnProject.$(MANSUFFIX)            
+
+ALIAS_NAMES = \
+gluEndCurve.$(MANSUFFIX)       gluEndPolygon.$(MANSUFFIX)     \
+gluEndSurface.$(MANSUFFIX)     gluEndTrim.$(MANSUFFIX)        \
+gluTessEndContour.$(MANSUFFIX) 
+
+
+AllTarget($(MAN_PAGES))
+
+list:
+	@for i in $(MAN_PAGES); do echo $$i; done;
+
+install_list:
+	@for i in $(MAN_PAGES); do echo $(LIBMANDIR)/$$i; done;
+
+install:: install.man
+
+clean::
+	$(RM) $(LINK_NAMES) $(ALIAS_NAMES)
+
+InstallMultipleMan($(MAN_PAGES),$(LIBMANDIR))
+
+LinkFile(gluBeginCurve.$(MANSUFFIX), begincurve.3gl)
+ManPageAlias(gluBeginCurve, $(LIBMANDIR), gluEndCurve)
+
+LinkFile(gluBeginPolygon.$(MANSUFFIX), beginpolygon.3gl)
+ManPageAlias(gluBeginPolygon, $(LIBMANDIR), gluEndPolygon)
+
+LinkFile(gluBeginSurface.$(MANSUFFIX), beginsurface.3gl)
+ManPageAlias(gluBeginSurface, $(LIBMANDIR), gluEndSurface)
+
+LinkFile(gluBeginTrim.$(MANSUFFIX), begintrim.3gl)
+ManPageAlias(gluBeginTrim, $(LIBMANDIR), gluEndTrim)
+
+LinkFile(gluBuild1DMipmaps.$(MANSUFFIX), build1dmipmaps.3gl)
+
+LinkFile(gluBuild2DMipmaps.$(MANSUFFIX), build2dmipmaps.3gl)
+
+LinkFile(gluCylinder.$(MANSUFFIX), cylinder.3gl)
+
+LinkFile(gluDeleteNurbsRenderer.$(MANSUFFIX), deletenurbsrenderer.3gl)
+
+LinkFile(gluDeleteQuadric.$(MANSUFFIX), deletequadric.3gl)
+
+LinkFile(gluDeleteTess.$(MANSUFFIX), deletetess.3gl)
+
+LinkFile(gluDisk.$(MANSUFFIX), disk.3gl)
+
+LinkFile(gluErrorString.$(MANSUFFIX), errorstring.3gl)
+
+LinkFile(gluGetNurbsProperty.$(MANSUFFIX), getnurbsproperty.3gl)
+
+LinkFile(gluGetString.$(MANSUFFIX), getstring.3gl)
+
+LinkFile(gluGetTessProperty.$(MANSUFFIX), gettessproperty.3gl)
+
+LinkFile(gluLoadSamplingMatrices.$(MANSUFFIX), loadsamplingmatrices.3gl)
+
+LinkFile(gluLookAt.$(MANSUFFIX), lookat.3gl)
+
+LinkFile(gluNewNurbsRenderer.$(MANSUFFIX), newnurbsrenderer.3gl)
+
+LinkFile(gluNewQuadric.$(MANSUFFIX), newquadric.3gl)
+
+LinkFile(gluNewTess.$(MANSUFFIX), newtess.3gl)
+
+LinkFile(gluNextContour.$(MANSUFFIX), nextcontour.3gl)
+
+LinkFile(gluNurbsCallback.$(MANSUFFIX), nurbscallback.3gl)
+
+LinkFile(gluNurbsCallbackDataEXT.$(MANSUFFIX), nurbscallbackdataext.3gl)
+
+LinkFile(gluNurbsCurve.$(MANSUFFIX), nurbscurve.3gl)
+
+LinkFile(gluNurbsProperty.$(MANSUFFIX), nurbsproperty.3gl)
+
+LinkFile(gluNurbsSurface.$(MANSUFFIX), nurbssurface.3gl)
+
+LinkFile(gluOrtho2D.$(MANSUFFIX), ortho2d.3gl)
+
+LinkFile(gluPartialDisk.$(MANSUFFIX), partialdisk.3gl)
+
+LinkFile(gluPerspective.$(MANSUFFIX), perspective.3gl)
+
+LinkFile(gluPickMatrix.$(MANSUFFIX), pickmatrix.3gl)
+
+LinkFile(gluProject.$(MANSUFFIX), project.3gl)
+
+LinkFile(gluPwlCurve.$(MANSUFFIX), pwlcurve.3gl)
+
+LinkFile(gluQuadricCallback.$(MANSUFFIX), quadriccallback.3gl)
+
+LinkFile(gluQuadricDrawStyle.$(MANSUFFIX), quadricdrawstyle.3gl)
+
+LinkFile(gluQuadricNormals.$(MANSUFFIX), quadricnormals.3gl)
+
+LinkFile(gluQuadricOrientation.$(MANSUFFIX), quadricorientation.3gl)
+
+LinkFile(gluQuadricTexture.$(MANSUFFIX), quadrictexture.3gl)
+
+LinkFile(gluScaleImage.$(MANSUFFIX), scaleimage.3gl)
+
+LinkFile(gluSphere.$(MANSUFFIX), sphere.3gl)
+
+LinkFile(gluTessBeginContour.$(MANSUFFIX), tessbegincontour.3gl)
+ManPageAlias(gluTessBeginContour, $(LIBMANDIR), gluTessEndContour)
+
+LinkFile(gluTessBeginPolygon.$(MANSUFFIX), tessbeginpolygon.3gl)
+
+LinkFile(gluTessCallback.$(MANSUFFIX), tesscallback.3gl)
+
+LinkFile(gluTessEndPolygon.$(MANSUFFIX), tessendpolygon.3gl)
+
+LinkFile(gluTessNormal.$(MANSUFFIX), tessnormal.3gl)
+
+LinkFile(gluTessProperty.$(MANSUFFIX), tessproperty.3gl)
+
+LinkFile(gluTessVertex.$(MANSUFFIX), tessvertex.3gl)
+
+LinkFile(gluUnProject.$(MANSUFFIX), unproject.3gl)
+

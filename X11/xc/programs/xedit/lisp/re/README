@@ -1,0 +1,121 @@
+$XFree86: xc/programs/xedit/lisp/re/README,v 1.4 2002/11/15 07:01:32 paulo Exp $
+
+LAST UPDATED:	$Date: 2003/03/13 23:58:55 $
+
+  This is a small regex library for fast matching tokens in text. It was built
+to be used by xedit and it's syntax highlight code. It is not compliant with
+IEEE Std 1003.2, but is expected to be used where very fast matching is
+required, and exotic patterns will not be used.
+
+  To understand what kind of patterns this library is expected to be used with,
+see the file <XRoot>xc/programs/xedit/lisp/modules/progmodes/c.lsp and some
+samples in the file tests.txt, with comments for patterns that will not work,
+or may give incorrect results.
+
+  The library is not built upon the standard regex library by Henry Spencer,
+but is completely written from scratch, but it's syntax is heavily based on
+that library, and the only reason for it to exist is that unfortunately
+the standard version does not fit the requirements needed by xedit.
+Anyways, I would like to thanks Henry for his regex library, it is a really
+very useful tool.
+
+  Small description of understood tokens:
+
+		M A T C H I N G
+------------------------------------------------------------------------
+.		Any character (won't match newline if compiled with RE_NEWLINE)
+\w		Any word letter (shortcut to [a-zA-Z0-9_]
+\W		Not a word letter (shortcut to [^a-zA-Z0-9_]
+\d		Decimal number
+\D		Not a decimal number
+\s		A space
+\S		Not a space
+\l		A lower case letter
+\u		An upper case letter
+\c		A control character, currently the range 1-32 (minus tab)
+\C		Not a control character
+\o		Octal number
+\O		Not an octal number
+\x		Hexadecimal number
+\X		Not an hexadecimal number
+\<		Beginning of a word (matches an empty string)
+\>		End of a word (matches an empty string)
+^		Beginning of a line (matches an empty string)
+$		End of a line (matches an empty string)
+[...]		Matches one of the characters inside the brackets
+		ranges are specified separating two characters with "-".
+		If the first character is "^", matches only if the
+		character is not in this range. To add a "]" make it
+		the first character, and to add a "-" make it the last.
+\1 to \9	Backreference, matches the text that was matched by a group,
+		that is, text that was matched by the pattern inside
+		"(" and ")".
+
+
+		O P E R A T O R S
+------------------------------------------------------------------------
+()		Any pattern inside works as a backreference, and is also
+		used to group patterns.
+|		Alternation, allows choosing different possibilities, like
+		character ranges, but allows patterns of different lengths.
+
+
+		R E P E T I T I O N
+------------------------------------------------------------------------
+<re>*		<re> may occur any number of times, including zero
+<re>+		<re> must occur at least once
+<re>?		<re> is optional
+<re>{<e>}	<re> must occur exactly <e> times
+<re>{<n>,}	<re> must occur at least <n> times
+<re>{,<m>}	<re> must not occur more than <m> times
+<re>{<n>,<m>}	<re> must occur at least <n> times, but no more than <m>
+
+
+  Note that "." is a special character, and when used with a repetition
+operator it changes completely its meaning. For example, ".*" matches
+anything up to the end of the input string (unless the pattern was compiled
+with RE_NEWLINE, in that case it will match anything, but a newline).
+
+
+  Limitations:
+
+o Only minimal matches supported. The engine has only one level "backtracking",
+  so, it also only does minimal matches to allow backreferences working
+  properly, and to avoid failing to match depending on the input.
+
+o Only one level "grouping", for example, with the pattern:
+	(a(b)c)
+   If "abc" is anywhere in the input, it will be in "\1", but there will
+  not exist a "\2" for "b".
+
+o Some "special repetitions" were not implemented, these are:
+	.{<e>}
+	.{<n>,}
+	.{,<m>}
+	.{<n>,<m>}
+
+o Some patterns will never match, for example:
+	\w*\d
+    Since "\w*" already includes all possible matches of "\d", "\d" will
+  only be tested when "\w*" failed. There are no plans to make such
+  patterns work.
+
+
+  Some of these limitations may be worked on future versions of the library,
+but this is not what the library is expected to do, and, adding support for
+correct handling of these would probably make the library slower, what is
+not the reason of it to exist in the first time.
+
+  If you need "true" regex than this library is not for you, but if all
+you need is support for very quickly finding simple patterns, than this
+library can be a very powerful tool, on some patterns it can run more
+than 200 times faster than "true" regex implementations! And this is
+the reason it was written.
+
+
+
+  Send comments and code to me (paulo@XFree86.Org) or to the XFree86
+mailing/patch lists.
+
+--
+Paulo

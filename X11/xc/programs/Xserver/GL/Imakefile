@@ -1,0 +1,58 @@
+XCOMM $XFree86: xc/programs/Xserver/GL/Imakefile,v 1.10 2002/11/14 21:01:20 tsi Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+
+#define IHaveSubdirs
+
+#if GlxUseSGISI
+ CORE_SUBDIR = /* opengl */
+#elif defined(XAppleServer) && XAppleServer
+ CORE_SUBDIR = apple mesa
+#elif defined(DarwinArchitecture) && GlxUseAqua
+ CORE_SUBDIR = aqua mesa
+#else
+ CORE_SUBDIR = mesa
+#endif
+
+#if BuildXF86DRI
+DRI_SUBDIR = dri
+#endif
+
+SUBDIRS = glx $(DRI_SUBDIR) $(CORE_SUBDIR)
+
+#if DoLoadableServer
+MSRCS = glxmodule.c
+MOBJS = glxmodule.o
+#endif
+
+SRCS = glx/?*.c $(MSRCS)
+OBJS = glx/?*.o $(MOBJS)
+
+DONES = glx/DONE
+
+INCLUDES = -Iinclude -Idri -I$(SERVERSRC)/include -I$(SERVERSRC)/mi \
+	   -I$(XINCLUDESRC) -I$(EXTINCSRC) -I$(XF86OSSRC)
+DEPEND_DEFINES = $(EXT_DEFINES) DependDefines
+DEFINES = $(GLX_DEFINES)
+
+#if HasParallelMake
+MakeMutex($(SUBDIRS) $(OBJS) $(DONES))
+#endif
+
+#if HasGnuMake || HasBsdMake 
+$(DONES): $(SUBDIRS)
+#endif
+
+ModuleObjectRule()
+
+DepLibraryModuleTarget(glx,$(SUBDIRS) $(DONES) $(MOBJS),$(OBJS))
+
+InstallLibraryModule(glx,$(MODULEDIR),extensions)
+ForceSubdirs($(SUBDIRS))
+
+DependSubdirs($(SUBDIRS))
+MakeLintLibSubdirs($(SUBDIRS))
+LintSubdirs($(SUBDIRS))
+
+InstallDriverSDKLibraryModule(glx,$(DRIVERSDKMODULEDIR),extensions)

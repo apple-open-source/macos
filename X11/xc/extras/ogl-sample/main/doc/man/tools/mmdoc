@@ -1,0 +1,220 @@
+#! /bin/sh -x
+
+#	@(#)mmdoc	1.21	/doccenter/tmadm/src/shell/s.mmdoc
+#	general documentation generator
+#
+#	Files begining with a ".TH" macro are treated as manual pages.
+#	Files whose first line is
+#		'\" x
+#	where "x" is a string begining with "c", "e", "t" are also treated as
+#	manual pages.
+#	Files whose first line is
+#		'\"! text
+#	are processed by the command line "text" with the file provided
+#	as the standard input.
+#	Files whose first line is
+#		'\"macro name
+#	where "name" is the name of a file in TMMACRO will be run off with
+#	that macro package.  "name"s begining "-" will be flag arguments
+#	to nroff.
+#	All others are handed to nroff with -cm and mmdoc
+#
+#	Assumes mdate.pl will be found by the current search path.
+#
+umask 0		#	nroff must be able to write into files it closes
+while [ -n "$1" ]
+do
+	case $1 in
+	-D )
+		DrafT=-rC3
+		export DrafT
+		;;
+	-T* )
+		TERM=`expr $1 : '-T\(.*\)'`
+		case ${TERM} in
+			eps)
+				post="|deps"
+				flavor=troff
+				;;
+			aps)
+				post="|apsend b=m305"
+				flavor=troff
+				;;
+			Aps)	# This is a fake out so that collections
+				# can be sent as a unit to APS-5
+				# instead of series of calls. Used only by
+				# collection routine 'tcol_final'
+				post=
+				flavor=troff
+				TERM=aps
+				;;
+			image)
+				post="|apsend b=m305 d=i"
+				flavor=troff
+				TERM=aps
+				;;
+			i300)
+				post="|dimpress"
+				flavor=troff
+				;;
+			8300)
+				post="|dimpress"
+				flavor=troff
+				TERM=aps
+				;;
+			psc)
+				post="|psdit |lp -oh"
+				flavor=troff
+				export TERM
+				;;
+
+			PS)
+				post="|psdit"
+				flavor=troff
+				TERM=psc
+				export TERM
+				;;
+			X100)
+				post=""
+				flavor=troff
+				TERM=X100
+				export TERM
+				;;
+			*)
+				post=
+				flavor=nroff
+				;;
+		esac
+		export post flavor
+		;;
+	-r[ymd]* )
+		DocdatE="$DocdatE $1"
+		export DocdatE
+		dateset=yes
+		;;
+	-?* )
+		flags="$flags $1"
+		export flags
+		;;
+	- | * )
+		break
+	esac
+	shift
+done
+if [ $# = 0 ]
+then
+	set -- -
+fi
+for i
+{
+	if [ "$i" != "-" -a ! -s "$i" ]
+	then
+		echo "Cannot input file: $i"
+		continue
+	fi
+	case $i in
+	- )
+		;;
+	* )
+		Line1=`line <$i`
+		if [ ! "${dateset}" ]
+		then
+			#	DocdatE is intentionally capitalized that way
+			#	to cut the possibility of env name collision.
+			DocdatE=`mdate.pl $i`
+			export DocdatE
+		fi
+	esac
+
+	MacrO=${TMMACRO}
+
+	case "${Line1}" in
+	.TH*  |  "'\\\" "[cet]* )
+		man -T${TERM} -d ${DocdatE} $*
+		;;
+	"'\\\"!"* )
+		cmd=`echo "${Line1}"  |  sed 's/^....//'`
+		if [ "$flavor" != troff ]
+		then
+			cmd=`echo " ${cmd} " | sed 's/ eqn / neqn /'`
+		fi
+		Line1=`sed -n -e 2p -e 2q ${i}`
+		export Line1
+		if [ "$flavor" = troff ]
+		then
+			eval '<$i' $cmd
+			#eval `parse "$cmd" ${i}`
+		else
+			TERM=lp
+			eval '<$i' $cmd
+		fi
+		;;
+	"'\\\"macro"* )
+		cmd=`echo "${Line1}"  |
+			sed '	s/.."macro//'"
+				s:[	]\([^-	]\): ${TMMACRO?}/\1:g"`
+		cmd=`echo $cmd|sed "s;[         ]*.*/stdmacro;${MacrO?}/strings.mm ${MacrO?}/stdmacro;"`
+		cmd="$cmd $OTHERFILES"
+		if [ "$flavor" = troff ]
+		then
+			case "$cmd" in
+			*stdmacro*)
+				case "$flags" in
+				*-rs[0-9]*)
+					;;
+				*)
+					flags="${flags} -rs1"
+				esac
+			esac
+			eval troff -T${TERM} ${DrafT} ${DocdatE} ${flags} ${cmd} $i ${post}
+		else
+			eval nroff ${DrafT} ${DocdatE} ${flags} ${cmd} $i
+		fi
+		;;
+	"'\\\"text"* )
+		cmd=`echo "${Line1}"  |
+			sed '	s/.."text//'"
+				s:[	]\([^-	]\): ${TMMACRO?}/\1:g"`
+		cmd=`echo $cmd|sed "s;[         ]*.*/docmacs;${MacrO?}/docmacs;"`
+		if [ "$flavor" = troff ]
+		then
+			eval troff -T${TERM} ${DrafT} ${DocdatE} ${flags} ${cmd} $i ${post}
+		else
+			eval nroff ${DrafT} ${DocdatE} ${flags} ${cmd} $i
+		fi
+		;;
+	.tH* )
+		# Right now 2/12/85 this stuff not used for DSG work.
+		# No enhancements to do troff done yet.
+		# Will do as necessary
+		if [ -r ${TMMACRO}/mandocvar ]
+		then
+			. ${TMMACRO}/mandocvar
+		fi
+		nroff -T${TERM} ${DocdatE} ${flags} \
+			-can ${MacrO?}/mandoc ${i}  |
+		  col
+		;;
+	.pH* | '' | * )
+		if [ -r ${TMMACRO}/mmdocvar ]
+		then
+			. ${TMMACRO}/mmdocvar
+		fi
+		if [ "$flavor" = troff ]
+		then
+			eval troff -T${TERM} -rW${Width:-5}i \
+				-rL${Length:-8.5}i \
+				${DocdatE} ${DrafT} ${flags} \
+				/usr/bin/mmt $i ${post}
+		else
+			TERM=lp
+			nroff -T${TERM} -u${Overstrike:-1} -rW${Width:-79} \
+				-rO${Offset:-0} -rL${Length:-66} \
+				${DocdatE} ${DrafT} ${flags} \
+				${MacrO?}/newmm \
+				${MacrO?}/mmdoc ${TMMACRO}/custom $i  |
+			col
+		fi
+		;;
+	esac
+}

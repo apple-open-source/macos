@@ -1,0 +1,76 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:48:07 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/programs/Xserver/Xprint/pcl/Imakefile,v 1.8 2002/11/11 17:55:02 alanh Exp $
+
+#include <Server.tmpl>
+
+#ifndef PixelSize
+#define PixelSize 8
+#endif
+
+#ifdef PclDriver
+PCL_DRIVER = PclDriver
+#else
+PCL_DRIVER = -DXP_PCL_COLOR
+#endif
+
+SRCS1 =	PclInit.c PclMisc.c PclWindow.c PclFonts.c PclPrint.c \
+        PclArea.c PclArc.c PclGC.c PclLine.c PclPixel.c PclPolygon.c \
+	PclSpans.c PclText.c PclCursor.c PclAttr.c PclPixmap.c PclSFonts.c \
+	PclColor.c PclAttVal.c
+
+OBJS1 = PclInit.o PclMisc.o PclWindow.o PclFonts.o PclPrint.o \
+        PclArea.o PclArc.o PclGC.o PclLine.o PclPixel.o PclPolygon.o \
+	PclSpans.o PclText.o PclCursor.o PclAttr.o PclPixmap.o PclSFonts.o \
+	PclColor.o PclAttVal.o
+
+SRCS = $(SRCS1)
+
+OBJS = $(OBJS1)
+
+DEFINES = -DPSZ=PixelSize $(PCL_DRIVER) -UXFree86LOADER -D_XP_PRINT_SERVER_
+
+   INCLUDES = -I. -I$(XINCLUDESRC) -I.. -I$(LIBSRC) \
+	      -I../../include -I$(TOP)/include \
+	      -I$(TOP)/include/extensions -I$(TOP)/include/fonts \
+	      -I../../mi -I../../mfb -I../../cfb
+
+   LINTLIBS = ../../dix/llib-ldix.ln ../../os/llib-los.ln \
+	      ../../mfb/llib-lmfb.ln ../../mi/llib-lmi.ln \
+	      ../../cfb/llib-lcfb.ln
+
+NormalLibraryObjectRule()
+
+NormalLibraryTarget(pcl,$(OBJS))
+NormalLintTarget($(SRCS1) $(SRCS2))
+#ifdef LinkDirectory
+LinkSourceFile(Pcl.h,LinkDirectory)
+LinkSourceFile(Pclmap.h,LinkDirectory)
+LinkSourceFile(PclDef.h,LinkDirectory)
+LinkSourceFile(PclSFonts.h,LinkDirectory)
+
+LinkSourceFile(PclArc.c,LinkDirectory)
+LinkSourceFile(PclArea.c,LinkDirectory)
+LinkSourceFile(PclAttr.c,LinkDirectory)
+LinkSourceFile(PclAttVal.c,LinkDirectory)
+LinkSourceFile(PclColor.c,LinkDirectory)
+LinkSourceFile(PclCursor.c,LinkDirectory)
+LinkSourceFile(PclFonts.c,LinkDirectory)
+LinkSourceFile(PclGC.c,LinkDirectory)
+LinkSourceFile(PclInit.c,LinkDirectory)
+LinkSourceFile(PclLine.c,LinkDirectory)
+LinkSourceFile(PclMisc.c,LinkDirectory)
+LinkSourceFile(PclPixel.c,LinkDirectory)
+LinkSourceFile(PclPixmap.c,LinkDirectory)
+LinkSourceFile(PclPolygon.c,LinkDirectory)
+LinkSourceFile(PclPrint.c,LinkDirectory)
+LinkSourceFile(PclSFonts.c,LinkDirectory)
+LinkSourceFile(PclSpans.c,LinkDirectory)
+LinkSourceFile(PclText.c,LinkDirectory)
+LinkSourceFile(PclWindow.c,LinkDirectory)
+#endif
+
+DependTarget()

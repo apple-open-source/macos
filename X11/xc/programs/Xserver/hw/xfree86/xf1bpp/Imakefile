@@ -1,0 +1,118 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/xf1bpp/Imakefile,v 1.6 2002/05/31 18:46:03 dawes Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+
+#if DoLoadableServer
+XF86INCL = -I$(XF86COMSRC) -I$(XF86SRC)
+XFMODSRC = mfbmodule.c
+XFMODOBJ = mfbmodule.o
+#endif
+
+SRCS1 =	 mfbgc.c mfbwindow.c mfbfont.c \
+	 mfbfillrct.c mfbpntwin.c maskbits.c mfbpixmap.c \
+	 mfbimage.c mfbline.c mfbbres.c mfbhrzvert.c mfbbresd.c \
+	 mfbpushpxl.c mfbzerarc.c mfbfillarc.c \
+         mfbfillsp.c mfbsetsp.c mfbscrinit.c mfbscrclse.c mfbclip.c \
+         mfbbitblt.c mfbgetsp.c mfbpolypnt.c \
+	 mfbbltC.c mfbbltX.c mfbbltCI.c mfbbltO.c mfbbltG.c \
+	 mfbcmap.c mfbtileC.c mfbtileG.c mfbmisc.c mfbbstore.c $(XFMODSRC)
+
+SRCS =	 $(SRCS1) mfbseg.c mfbpgbwht.c mfbpgbblak.c mfbpgbinv.c mfbigbwht.c \
+	 mfbigbblak.c mfbpawhite.c mfbpablack.c mfbpainv.c mfbtewhite.c \
+	 mfbteblack.c mfbbltC.c mfbbltX.c mfbbltCI.c mfbbltO.c mfbbltG.c \
+	 mfbtileC.c mfbtileG.c mfbplywhite.c mfbplyblack.c mfbplyinv.c
+
+OBJS =   mfbgc.o mfbwindow.o mfbfont.o \
+	 mfbfillrct.o mfbpntwin.o maskbits.o mfbpixmap.o \
+	 mfbimage.o mfbline.o mfbbres.o mfbhrzvert.o mfbbresd.o mfbseg.o \
+	 mfbpushpxl.o mfbzerarc.o mfbfillarc.o \
+	 mfbfillsp.o mfbsetsp.o mfbscrinit.o mfbscrclse.o mfbclip.o \
+         mfbbitblt.o mfbgetsp.o mfbpolypnt.o \
+	 mfbbltC.o mfbbltX.o mfbbltCI.o mfbbltO.o mfbbltG.o \
+	 mfbpgbwht.o mfbpgbblak.o mfbpgbinv.o \
+	 mfbigbwht.o mfbigbblak.o mfbcmap.o \
+	 mfbpawhite.o mfbpablack.o mfbpainv.o mfbtileC.o mfbtileG.o \
+         mfbtewhite.o mfbteblack.o mfbmisc.o mfbbstore.o \
+         mfbplywhite.o mfbplyblack.o mfbplyinv.o $(XFMODOBJ)
+
+INCLUDES = -I. -I$(SERVERSRC)/mfb -I$(SERVERSRC)/mi -I$(SERVERSRC)/include \
+           -I$(XINCLUDESRC) -I$(FONTINCSRC) $(XF86INCL)
+LINTDEFS = -DMFBPOLYGLYPHBLT=mfbPolyGlyphBltWhite \
+	   -DMFBIMAGEGLYPHBLT=mfbImageGlyphBltWhite \
+	   -DEQWHOLEWORD=\=\~0 -DOPEQ=\|=
+LINTLIBS = $(SERVERSRC)/dix/llib-ldix.ln $(SERVERSRC)/os/llib-los.ln \
+           $(SERVERSRC)/mi/llib-lmi.ln
+
+DEFINES = -DXF86MONO
+
+ModuleObjectRule()
+LibraryModuleTarget(xf1bpp,$(OBJS))
+LintLibraryTarget(xf1bpp,$(SRCS1))
+NormalLintTarget($(LINTDEFS) $(SRCS1))
+
+ObjectMapIncludeFromSpecialSource(maskbits,$(SERVERSRC)/mfb/maskbits,/**/)
+ObjectMapIncludeFromSpecialSource(mfbbitblt,$(SERVERSRC)/mfb/mfbbitblt,/**/)
+ObjectMapIncludeFromSpecialSource(mfbblt,$(SERVERSRC)/mfb/mfbblt,/**/)
+ObjectMapIncludeFromSpecialSource(mfbbres,$(SERVERSRC)/mfb/mfbbres,/**/)
+ObjectMapIncludeFromSpecialSource(mfbbresd,$(SERVERSRC)/mfb/mfbbresd,/**/)
+ObjectMapIncludeFromSpecialSource(mfbbstore,$(SERVERSRC)/mfb/mfbbstore,/**/)
+ObjectMapIncludeFromSpecialSource(mfbclip,$(SERVERSRC)/mfb/mfbclip,/**/)
+ObjectMapIncludeFromSpecialSource(mfbcmap,$(SERVERSRC)/mfb/mfbcmap,/**/)
+ObjectMapIncludeFromSpecialSource(mfbfillarc,$(SERVERSRC)/mfb/mfbfillarc,/**/)
+ObjectMapIncludeFromSpecialSource(mfbfillrct,$(SERVERSRC)/mfb/mfbfillrct,/**/)
+ObjectMapIncludeFromSpecialSource(mfbfillsp,$(SERVERSRC)/mfb/mfbfillsp,/**/)
+ObjectMapIncludeFromSpecialSource(mfbfont,$(SERVERSRC)/mfb/mfbfont,/**/)
+ObjectMapIncludeFromSpecialSource(mfbgc,$(SERVERSRC)/mfb/mfbgc,/**/)
+ObjectMapIncludeFromSpecialSource(mfbgetsp,$(SERVERSRC)/mfb/mfbgetsp,/**/)
+ObjectMapIncludeFromSpecialSource(mfbhrzvert,$(SERVERSRC)/mfb/mfbhrzvert,/**/)
+ObjectMapIncludeFromSpecialSource(mfbimage,$(SERVERSRC)/mfb/mfbimage,/**/)
+ObjectMapIncludeFromSpecialSource(mfbimggblt,$(SERVERSRC)/mfb/mfbimggblt,/**/)
+ObjectMapIncludeFromSpecialSource(mfbline,$(SERVERSRC)/mfb/mfbline,/**/)
+ObjectMapIncludeFromSpecialSource(mfbmisc,$(SERVERSRC)/mfb/mfbmisc,/**/)
+ObjectMapIncludeFromSpecialSource(mfbpixmap,$(SERVERSRC)/mfb/mfbpixmap,/**/)
+ObjectMapIncludeFromSpecialSource(mfbply1rct,$(SERVERSRC)/mfb/mfbply1rct,/**/)
+ObjectMapIncludeFromSpecialSource(mfbplygblt,$(SERVERSRC)/mfb/mfbplygblt,/**/)
+ObjectMapIncludeFromSpecialSource(mfbpntarea,$(SERVERSRC)/mfb/mfbpntarea,/**/)
+ObjectMapIncludeFromSpecialSource(mfbpntwin,$(SERVERSRC)/mfb/mfbpntwin,/**/)
+ObjectMapIncludeFromSpecialSource(mfbpolypnt,$(SERVERSRC)/mfb/mfbpolypnt,/**/)
+ObjectMapIncludeFromSpecialSource(mfbpushpxl,$(SERVERSRC)/mfb/mfbpushpxl,/**/)
+ObjectMapIncludeFromSpecialSource(mfbscrclse,$(SERVERSRC)/mfb/mfbscrclse,/**/)
+ObjectMapIncludeFromSpecialSource(mfbscrinit,$(SERVERSRC)/mfb/mfbscrinit,/**/)
+ObjectMapIncludeFromSpecialSource(mfbsetsp,$(SERVERSRC)/mfb/mfbsetsp,/**/)
+ObjectMapIncludeFromSpecialSource(mfbtegblt,$(SERVERSRC)/mfb/mfbtegblt,/**/)
+ObjectMapIncludeFromSpecialSource(mfbtile,$(SERVERSRC)/mfb/mfbtile,/**/)
+ObjectMapIncludeFromSpecialSource(mfbwindow,$(SERVERSRC)/mfb/mfbwindow,/**/)
+ObjectMapIncludeFromSpecialSource(mfbzerarc,$(SERVERSRC)/mfb/mfbzerarc,/**/)
+
+ObjectFromSpecialSource(mfbseg,mfbline,-DPOLYSEGMENT)
+ObjectFromSpecialSource(mfbpgbwht,mfbplygblt,-DMFBPOLYGLYPHBLT=mfbPolyGlyphBltWhite -DOPEQ=\|=)
+ObjectFromSpecialSource(mfbpgbblak,mfbplygblt,-DMFBPOLYGLYPHBLT=mfbPolyGlyphBltBlack -DOPEQ=\&=\~)
+ObjectFromSpecialSource(mfbpgbinv,mfbplygblt,-DMFBPOLYGLYPHBLT=mfbPolyGlyphBltInvert -DOPEQ=\^=)
+ObjectFromSpecialSource(mfbigbwht,mfbimggblt,-DMFBIMAGEGLYPHBLT=mfbImageGlyphBltWhite -DOPEQ=\|=)
+ObjectFromSpecialSource(mfbigbblak,mfbimggblt,-DMFBIMAGEGLYPHBLT=mfbImageGlyphBltBlack -DOPEQ=\&=\~)
+ObjectFromSpecialSource(mfbpawhite,mfbpntarea,-DMFBSOLIDFILLAREA=mfbSolidWhiteArea -DMFBSTIPPLEFILLAREA=mfbStippleWhiteArea -DOPEQ=\|= -DEQWHOLEWORD=\=\~0)
+ObjectFromSpecialSource(mfbpablack,mfbpntarea,-DMFBSOLIDFILLAREA=mfbSolidBlackArea -DMFBSTIPPLEFILLAREA=mfbStippleBlackArea -DOPEQ=\&=\~ -DEQWHOLEWORD=\=0)
+ObjectFromSpecialSource(mfbpainv,mfbpntarea,-DMFBSOLIDFILLAREA=mfbSolidInvertArea -DMFBSTIPPLEFILLAREA=mfbStippleInvertArea -DOPEQ=\^= -DEQWHOLEWORD=\^=\~0)
+ObjectFromSpecialSource(mfbtewhite,mfbtegblt,-DMFBTEGLYPHBLT=mfbTEGlyphBltWhite -DOP= -DCLIPTETEXT=mfbImageGlyphBltWhite)
+ObjectFromSpecialSource(mfbteblack,mfbtegblt,-DMFBTEGLYPHBLT=mfbTEGlyphBltBlack -DOP=\~ -DCLIPTETEXT=mfbImageGlyphBltBlack)
+ObjectFromSpecialSource(mfbplywhite,mfbply1rct,-DMFBFILLPOLY1RECT=mfbFillPolyWhite -DOPEQ=\|= -DEQWHOLEWORD=\=\~0)
+ObjectFromSpecialSource(mfbplyblack,mfbply1rct,-DMFBFILLPOLY1RECT=mfbFillPolyBlack -DOPEQ=\&=\~ -DEQWHOLEWORD=\=0)
+ObjectFromSpecialSource(mfbplyinv,mfbply1rct,-DMFBFILLPOLY1RECT=mfbFillPolyInvert -DOPEQ=\^= -DEQWHOLEWORD=\^=\~0)
+ObjectFromSpecialSource(mfbbltC,mfbblt,-DMROP=Mcopy)
+ObjectFromSpecialSource(mfbbltX,mfbblt,-DMROP=Mxor)
+ObjectFromSpecialSource(mfbbltCI,mfbblt,-DMROP=McopyInverted)
+ObjectFromSpecialSource(mfbbltO,mfbblt,'-DMROP=Mor')
+ObjectFromSpecialSource(mfbbltG,mfbblt,-DMROP=0)
+ObjectFromSpecialSource(mfbtileC,mfbtile,-DMROP=Mcopy)
+ObjectFromSpecialSource(mfbtileG,mfbtile,-DMROP=0)
+
+InstallLibraryModule(xf1bpp,$(MODULEDIR),.)
+
+DependTarget()
+
+InstallDriverSDKLibraryModule(xf1bpp,$(DRIVERSDKMODULEDIR),.)
+
+InstallDriverSDKNonExecFile(mfbmap.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(mfbunmap.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(xf1bpp.h,$(DRIVERSDKINCLUDEDIR))

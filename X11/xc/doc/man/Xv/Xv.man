@@ -1,0 +1,69 @@
+.TH Xv 3X __vendorversion__
+.\"
+.\" $XFree86: xc/doc/man/Xv/Xv.man,v 1.6 2001/01/27 18:20:35 dawes Exp $
+.SH Name
+Xv \- X Window System video extension
+.SH Description
+The Xv extension provides support for video adaptors attached to an X
+display.  It takes the approach that a display may have one or more
+video adaptors, each of which has one or more ports through which
+independent video streams pass.  
+.PP
+An adaptor may be able to display video in a drawable, capture video
+from a drawable, or both.  It translates between video encoding (NTSC,
+PAL, SECAM, etc...) and drawable format (depth and visual-id pair). An
+adaptor may support multiple video encodings and/or multiple drawable
+formats.
+.PP
+Clients use Xv(3X) to gain access and manage sharing of a display's
+video resources.  Typically, a client will use XvQueryExtension(3X) to
+determine the status of the extension, XvQueryAdaptors(3X) to get a
+description of what video adaptors exist, and XvQueryEncodings(3X) to
+get a description of what video encodings an adaptor supports.
+.PP
+Once a client has determined what video resources are available, it is
+free to put video into a drawable or get video from a drawable,
+according the capabilities supported.  Clients can select to receive
+events when video activity changes in a drawable and when port
+attributes have changed.
+.SH Summary of Library Functions
+The following is a summary of Xv library functions:
+.sp 1l
+XvGetPortAttribute(3X) \- return current port attribute value
+.sp 1l
+XvGetStill(3X) \- capture a single frame of video from a drawable
+.sp 1l
+XvGetVideo(3X) \- capture video from a drawable
+.sp 1l
+XvGrabPort(3X) \- lock port for exclusive use by client
+.sp 1l
+XvPortNotify(3X) \- event generated when port attributes change
+.sp 1l
+XvPutStill(3X) \- write a single frame of video to a drawable
+.sp 1l
+XvPutVideo(3X) \- write video into a drawable
+.sp 1l
+XvQueryAdaptors(3X) \- return adaptor information for a screen
+.sp 1l
+XvQueryBestSize(3X) \- determine the optimum drawable region size
+.sp 1l
+XvQueryEncodings(3X) \- return list of encodings for an adaptor
+.sp 1l
+XvQueryExtension(3X) \- return version and revision of extension
+.sp 1l
+XvSelectPortNotify(3X) \- enable or disable XvPortNotify events
+.sp 1l
+XvSelectVideoNotify(3X) \- enable or disable XvVideoNotify events
+.sp 1l
+XvSetPortAttribute(3X) \- set an attribute for a port 
+.sp 1l
+XvStopVideo(3X) \- stop active video 
+.sp 1l
+XvUngrabPort(3X) \- release a grabbed port
+.sp 1l
+XvVideoNotify(3X) \- event generated for video processing
+.sp 1l
+.PP
+Each of these functions is described in its own Xv man page.
+.br
+

@@ -1,0 +1,67 @@
+XCOMM $XConsortium: Imakefile,v 1.22 91/09/09 16:02:18 rws Exp $
+XCOMM $XFree86: xc/programs/xman/Imakefile,v 1.8 2002/09/21 02:38:25 dawes Exp $
+
+#ifdef XmanSearchPath
+XMANSYSPATH = XmanSearchPath
+SYSMANPATH = -DSYSMANPATH=\"$(XMANSYSPATH)\"
+#endif
+#ifdef XmanLocalSearchPath
+XMANLOCALPATH = XmanLocalSearchPath
+LOCALMANPATH = -DLOCALMANPATH=\"$(XMANLOCALPATH)\"
+#endif
+MANPATHS = $(SYSMANPATH) $(LOCALMANPATH)
+HELPFILE = -DHELPFILE=\"$(LIBDIR)$(PATHSEP)xman.help\"
+#if HasMkstemp
+MKSTEMP = -DHAS_MKSTEMP
+#endif
+
+XCOMM select internal format of manpath configuration file
+#if defined(FreeBSDArchitecture) || \
+    (defined(LinuxDistribution) && (LinuxDistribution == LinuxDebian)) || \
+    (defined(DarwinArchitecture) && (OSMajorVersion >= 6))
+    MANCONFIGSTYLE = -DMANCONFIGSTYLE_FreeBSD
+    MANCONF = -DMANCONF=\"/etc/manpath.config\"
+#elif defined(LinuxArchitecture)
+    MANCONFIGSTYLE = -DMANCONFIGSTYLE_Linux
+# if defined(LinuxDistribution) && (LinuxDistribution == LinuxRedHat)
+    MANCONF = -DMANCONF=\"/etc/man.config\"
+# else
+    MANCONF = -DMANCONF=\"/etc/man.conf\"
+# endif
+#elif defined(OpenBSDArchitecture) || defined(NetBSDArchitecture) || \
+    defined(DarwinArchitecture)
+    MANCONFIGSTYLE = -DMANCONFIGSTYLE_OpenBSD
+    MANCONF = -DMANCONF=\"/etc/man.conf\"
+#elif defined(BSDArchitecture)
+    MANCONFIGSTYLE = -DMANCONFIGSTYLE_BSD
+    MANCONF = -DMANCONF=\"/etc/man.conf\"
+#endif
+
+#if HasGroff
+GROFF = -DHAS_GROFF
+#endif
+
+#if HasSnprintf
+SNPDEFINES = -DHAS_SNPRINTF
+#else
+SNPINCLUDES = $(LIBSRC)/misc
+#endif
+
+ OSMAJORVERSION = OSMajorVersion
+ OSMINORVERSION = OSMinorVersion
+        DEFINES = -DOSMAJORVERSION=$(OSMAJORVERSION) \
+		  -DOSMINORVERSION=$(OSMINORVERSION) \
+		  $(SNPDEFINES) $(HELPFILE) $(MANPATHS) $(MKSTEMP) $(GROFF) \
+		  $(MANCONFIGSTYLE) $(MANCONF)
+       INCLUDES = -I$(SNPINCLUDES)
+        DEPLIBS = XawClientDepLibs
+LOCAL_LIBRARIES = XawClientLibs
+           SRCS = ScrollByL.c handler.c man.c buttons.c help.c \
+                  search.c globals.c main.c misc.c tkfuncs.c vendor.c
+           OBJS = ScrollByL.o handler.o man.o buttons.o help.o \
+                  search.o globals.o main.o misc.o tkfuncs.o vendor.o
+
+ComplexProgramTarget(xman)
+
+InstallNonExecFile(xman.help,$(LIBDIR))
+InstallAppDefaults(Xman)

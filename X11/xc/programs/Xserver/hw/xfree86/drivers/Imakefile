@@ -1,0 +1,44 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/drivers/Imakefile,v 1.23 2002/05/31 18:45:59 dawes Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+#define IHaveSubdirs
+
+SUBDIRS = XF86CardDrivers
+DRIVERS = XF86CardDrivers
+
+OBJS = `cat driver.list`
+
+#if DoLoadableServer
+MakeSubdirs($(SUBDIRS))
+#endif
+
+#if MakeHasPosixVariableSubstitutions
+DONES = $(SUBDIRS:%=%/DONE)
+#if HasGnuMake || HasBsdMake
+$(DONES): $(SUBDIRS)
+#endif
+#if !DoLoadableServer
+NormalDepLibraryTarget(driver,$(SUBDIRS) $(DONES) driver.list,$(OBJS))
+#endif
+#else
+#if !DoLoadableServer
+NormalDepLibraryTarget(driver,$(SUBDIRS) driver.list,$(OBJS))
+#endif
+#endif
+
+INCLUDES = -I$(XF86COMSRC) -I$(XF86OSSRC) -I$(SERVERSRC)/include \
+		-I$(XINCLUDESRC)
+#if !DoLoadableServer
+ConfigTargetNoDepend(drvConf,$(ICONFIGFILES),confdrv.SHsuf,$(DRIVERS))
+DriverObjectList($(DRIVERS),driver.list)
+#endif
+
+NormalLibraryObjectRule()
+
+ForceSubdirs($(SUBDIRS))
+
+DependSubdirs($(SUBDIRS))
+
+InstallDriverSDKNonExecFile(Imakefile,$(DRIVERSDKDIR)/drivers)
+

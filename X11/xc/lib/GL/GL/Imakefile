@@ -1,0 +1,283 @@
+XCOMM $XFree86: xc/lib/GL/GL/Imakefile,v 1.16 2002/12/04 21:38:34 tsi Exp $
+
+#include <Threads.tmpl>
+
+#define DoNormalLib NormalLibGlx
+#define DoSharedLib SharedLibGlx
+#define DoExtraLib SharedLibGlx
+#define DoDebugLib DebugLibGlx
+#define DoProfileLib ProfileLibGlx
+
+#ifndef ShLibBindGlobals
+#if !HasGcc2 || (GccMajorVersion > 2) || (GccMinorVersion > 7)
+#define ShlibBindGlobals YES
+#endif
+#endif
+
+     LIBNAME = GL
+     SOREV   = $(SOGLREV)
+
+#ifdef SharedGLReqs
+BASEREQUIREDLIBS = SharedGLReqs
+#endif
+
+#include "../mesa/src/array_cache/Imakefile.inc"
+#include "../mesa/src/math/Imakefile.inc"
+#include "../mesa/src/swrast/Imakefile.inc"
+#include "../mesa/src/swrast_setup/Imakefile.inc"
+#include "../mesa/src/tnl/Imakefile.inc"
+#include "../mesa/src/tnl_dd/Imakefile.inc"
+#include "../mesa/src/Imakefile.inc"
+#ifdef i386Architecture
+#include "../mesa/src/X86/Imakefile.inc"
+#endif
+#ifdef SparcArchitecture
+#include "../mesa/src/SPARC/Imakefile.inc"
+#endif
+
+XCOMM
+XCOMM Not related to ProfileLibGlx - I dont know how that works.  KW.
+XCOMM
+#ifdef GlxSoProf
+      PROFSRC = lowpc.c highpc.c
+      PROFOBJ = lowpc.o highpc.o
+
+SubdirLibraryRule($(PROFOBJ))
+NormalLintTarget($(PROFSRC))
+#endif
+
+#if BuildXF86DRI && defined(i386Architecture)
+    GLAPI_OBJ = $(GLXLIBSRC)/glx/glapi_x86.o
+#endif
+
+      GLXOBJS = $(GLXLIBSRC)/glx/?*.o
+     GLXUOBJS = $(GLXLIBSRC)/glx/unshared/?*.o $(GLAPI_OBJ)
+     GLXDOBJS = $(GLXLIBSRC)/glx/debugger/?*.o $(GLAPI_OBJ)
+     GLXPOBJS = $(GLXLIBSRC)/glx/profiled/?*.o $(GLAPI_OBJ)
+
+#if BuildXF86DRI
+      DRIOBJS = $(GLXLIBSRC)/dri/XF86dri.o $(GLXLIBSRC)/dri/dri_glx.o
+     DRIUOBJS = $(GLXLIBSRC)/dri/unshared/XF86dri.o $(GLXLIBSRC)/dri/unshared/dri_glx.o
+     DRIDOBJS = $(GLXLIBSRC)/dri/debugger/XF86dri.o $(GLXLIBSRC)/dri/debugger/dri_glx.o
+     DRIPOBJS = $(GLXLIBSRC)/dri/profiled/XF86dri.o $(GLXLIBSRC)/dri/profiled/dri_glx.o
+
+      DRMOBJS = $(GLXLIBSRC)/dri/drm/?*.o
+     DRMUOBJS = $(GLXLIBSRC)/dri/drm/unshared/?*.o
+     DRMDOBJS = $(GLXLIBSRC)/dri/drm/debugger/?*.o
+     DRMPOBJS = $(GLXLIBSRC)/dri/drm/profiled/?*.o
+
+    MESAOBJS = $(COREMESAOBJS)  $(MESA_ASM_OBJS)
+   MESAUOBJS = $(COREMESAUOBJS) $(MESA_ASM_UOBJS)
+   MESADOBJS = $(COREMESADOBJS) $(MESA_ASM_DOBJS)
+   MESAPOBJS = $(COREMESAPOBJS) $(MESA_ASM_POBJS)
+
+ DRIMESAOBJS = $(GLXLIBSRC)/mesa/dri/?*.o
+DRIMESAUOBJS = $(GLXLIBSRC)/mesa/dri/unshared/?*.o
+DRIMESADOBJS = $(GLXLIBSRC)/mesa/dri/debugger/?*.o
+DRIMESAPOBJS = $(GLXLIBSRC)/mesa/dri/profiled/?*.o
+
+#if GlxUseBuiltInDRIDriver
+#include "../mesa/src/drv/common/Imakefile.inc"
+#endif
+
+
+#if GlxUseSGISI
+
+XCOMM nothing
+
+#elif GlxBuiltInGamma
+
+#define MesaDrvGammaBuildDir $(GLXLIBSRC)/mesa/src/drv/gamma/
+#include "../mesa/src/drv/gamma/Imakefile.inc"
+
+     DRVOBJS = $(GAMMAOBJS)  $(MESAOBJS)  $(DRIMESAOBJS)  $(DRMOBJS)
+    DRVUOBJS = $(GAMMAUOBJS) $(MESAUOBJS) $(DRIMESAUOBJS) $(DRMUOBJS)
+    DRVDOBJS = $(GAMMADOBJS) $(MESADOBJS) $(DRIMESADOBJS) $(DRMDOBJS)
+    DRVPOBJS = $(GAMMAPOBJS) $(MESAPOBJS) $(DRIMESAPOBJS) $(DRMPOBJS)
+
+#elif GlxBuiltInTdfx
+
+#define MesaDrvTdfxBuildDir $(GLXLIBSRC)/mesa/src/drv/tdfx/
+#include "../mesa/src/drv/tdfx/Imakefile.inc"
+
+     DRVOBJS = $(TDFXOBJS)  $(MESAOBJS)  $(DRIMESAOBJS)  $(DRMOBJS)
+    DRVUOBJS = $(TDFXUOBJS) $(MESAUOBJS) $(DRIMESAUOBJS) $(DRMUOBJS)
+    DRVDOBJS = $(TDFXDOBJS) $(MESADOBJS) $(DRIMESADOBJS) $(DRMDOBJS)
+    DRVPOBJS = $(TDFXPOBJS) $(MESAPOBJS) $(DRIMESAPOBJS) $(DRMPOBJS)
+
+OTHERREQUIREDLIBS = -lglide3 -ldl
+
+#elif GlxBuiltInI810
+
+#define MesaDrvI810BuildDir $(GLXLIBSRC)/mesa/src/drv/i810/
+#include "../mesa/src/drv/i810/Imakefile.inc"
+
+     DRVOBJS = $(I810OBJS)  $(COMMONOBJS)  $(MESAOBJS)  $(DRIMESAOBJS) \
+		$(DRMOBJS)
+    DRVUOBJS = $(I810UOBJS) $(COMMONUOBJS) $(MESAUOBJS) $(DRIMESAUOBJS) \
+		$(DRMUOBJS)
+    DRVDOBJS = $(I810DOBJS) $(COMMONDOBJS) $(MESADOBJS) $(DRIMESADOBJS) \
+		$(DRMDOBJS)
+    DRVPOBJS = $(I810POBJS) $(COMMONPOBJS) $(MESAPOBJS) $(DRIMESAPOBJS) \
+		$(DRMPOBJS)
+
+#elif GlxBuiltInI830
+#define MesaDrvI830BuildDir $(GLXLIBSRC)/mesa/src/drv/i830/
+#include "../mesa/src/drv/i830/Imakefile.inc"
+
+     DRVOBJS = $(I830OBJS)  $(COMMONOBJS)  $(MESAOBJS)  $(DRIMESAOBJS) \
+		$(DRMOBJS)
+    DRVUOBJS = $(I830UOBJS) $(COMMONUOBJS) $(MESAUOBJS) $(DRIMESAUOBJS) \
+		$(DRMUOBJS)
+    DRVDOBJS = $(I830DOBJS) $(COMMONDOBJS) $(MESADOBJS) $(DRIMESADOBJS) \
+		$(DRMDOBJS)
+    DRVPOBJS = $(I830POBJS) $(COMMONPOBJS) $(MESAPOBJS) $(DRIMESAPOBJS) \
+		$(DRMPOBJS)
+
+#elif GlxBuiltInMga
+
+#define MesaDrvMgaBuildDir $(GLXLIBSRC)/mesa/src/drv/mga/
+#include "../mesa/src/drv/mga/Imakefile.inc"
+
+     DRVOBJS = $(MGAOBJS)  $(COMMONOBJS)  $(MESAOBJS)  $(DRIMESAOBJS) \
+		 $(DRMOBJS)
+    DRVUOBJS = $(MGAUOBJS) $(COMMONUOBJS) $(MESAUOBJS) $(DRIMESAUOBJS) \
+		$(DRMUOBJS)
+    DRVDOBJS = $(MGADOBJS) $(COMMONDOBJS) $(MESADOBJS) $(DRIMESADOBJS) \
+		$(DRMDOBJS)
+    DRVPOBJS = $(MGAPOBJS) $(COMMONPOBJS) $(MESAPOBJS) $(DRIMESAPOBJS) \
+		$(DRMPOBJS)
+
+#elif GlxBuiltInR128
+
+#define MesaDrvR128BuildDir $(GLXLIBSRC)/mesa/src/drv/r128/
+#include "../mesa/src/drv/r128/Imakefile.inc"
+
+     DRVOBJS = $(R128OBJS)  $(COMMONOBJS)  $(MESAOBJS)  $(DRIMESAOBJS) \
+		$(DRMOBJS)
+    DRVUOBJS = $(R128UOBJS) $(COMMONUOBJS) $(MESAUOBJS) $(DRIMESAUOBJS) \
+		$(DRMUOBJS)
+    DRVDOBJS = $(R128DOBJS) $(COMMONDOBJS) $(MESADOBJS) $(DRIMESADOBJS) \
+		$(DRMDOBJS)
+    DRVPOBJS = $(R128POBJS) $(COMMONPOBJS) $(MESAPOBJS) $(DRIMESAPOBJS) \
+		$(DRMPOBJS)
+
+#elif GlxBuiltInRadeon
+
+#define MesaDrvRadeonBuildDir $(GLXLIBSRC)/mesa/src/drv/radeon/
+#include "../mesa/src/drv/radeon/Imakefile.inc"
+
+     DRVOBJS = $(RADEONOBJS)  $(COMMONOBJS)  $(MESAOBJS)  $(DRIMESAOBJS) \
+		$(DRMOBJS)
+    DRVUOBJS = $(RADEONUOBJS) $(COMMONUOBJS) $(MESAUOBJS) $(DRIMESAUOBJS) \
+		$(DRMUOBJS)
+    DRVDOBJS = $(RADEONDOBJS) $(COMMONDOBJS) $(MESADOBJS) $(DRIMESADOBJS) \
+		$(DRMDOBJS)
+    DRVPOBJS = $(RADEONPOBJS) $(COMMONPOBJS) $(MESAPOBJS) $(DRIMESAPOBJS) \
+		$(DRMPOBJS)
+
+#elif GlxBuiltInFfb
+
+#define MesaDrvFfbBuildDir $(GLXLIBSRC)/mesa/src/drv/ffb/
+#include "../mesa/src/drv/ffb/Imakefile.inc"
+
+     DRVOBJS = $(FFBOBJS)  $(MESAOBJS)  $(DRIMESAOBJS)  $(DRMOBJS)
+    DRVUOBJS = $(FFBUOBJS) $(MESAUOBJS) $(DRIMESAUOBJS) $(DRMUOBJS)
+    DRVDOBJS = $(FFBDOBJS) $(MESADOBJS) $(DRIMESADOBJS) $(DRMDOBJS)
+    DRVPOBJS = $(FFBPOBJS) $(MESAPOBJS) $(DRIMESAPOBJS) $(DRMPOBJS)
+
+#elif GlxBuiltInSIS
+
+#define MesaDrvSisBuildDir $(GLXLIBSRC)/mesa/src/drv/sis/
+#include "../mesa/src/drv/sis/Imakefile.inc"
+
+     DRVOBJS = $(SISOBJS)  $(MESAOBJS)  $(DRIMESAOBJS)  $(DRMOBJS)
+    DRVUOBJS = $(SISUOBJS) $(MESAUOBJS) $(DRIMESAUOBJS) $(DRMUOBJS)
+    DRVDOBJS = $(SISDOBJS) $(MESADOBJS) $(DRIMESADOBJS) $(DRMDOBJS)
+    DRVPOBJS = $(SISPOBJS) $(MESAPOBJS) $(DRIMESAPOBJS) $(DRMPOBJS)
+
+#elif GlxBuiltInXMesa
+
+#include "../mesa/src/X/Imakefile.inc"
+
+     DRVOBJS = $(MESAOBJS) $(XMESA_OBJS)
+    DRVUOBJS = $(MESAUOBJS) $(XMESA_UOBJS)
+    DRVDOBJS = $(MESADOBJS) $(XMESA_DOBJS)
+    DRVPOBJS = $(MESAPOBJS) $(XMESA_POBJS)
+
+#else
+
+XCOMM No built-in drivers. This is the usual case.
+
+#endif
+
+#endif /* BuildXF86DRI */
+
+#if XAppleServer
+   APPLEOBJS = appledri.o dri_dispatch.o dri_driver.o dri_glx.o x-list.o x-hash.o
+     DRIOBJS = $(APPLEOBJS:%.o=$(GLXLIBSRC)/apple/%.o)
+    DRIUOBJS = $(APPLEOBJS:%.o=$(GLXLIBSRC)/apple/unshared/%.o)
+    DRIDOBJS = $(APPLEOBJS:%.o=$(GLXLIBSRC)/apple/debugger/%.o)
+    DRIPOBJS = $(APPLEOBJS:%.o=$(GLXLIBSRC)/apple/profiled/%.o)
+
+OTHERREQUIREDLIBS = \
+       $(XPLUGIN_LIB) -framework OpenGL -sub_umbrella OpenGL \
+       -framework ApplicationServices -framework CoreFoundation
+#endif
+
+/*
+ * Note: DRIDIRS is empty for !BuildXF86DRI, and DRVSUBDIRS is empty
+ * for no built-in drivers.
+ */
+
+REQUIREDLIBS = $(BASEREQUIREDLIBS) $(OTHERREQUIREDLIBS)
+
+        OBJS = $(GLXOBJS) $(DRIOBJS) $(DRVOBJS) 
+#if HasSharedLibraries && !SharedLibGlxWithoutPIC
+       UOBJS = $(GLXUOBJS) $(DRIUOBJS) $(DRVUOBJS)
+#else
+       UOBJS = $(OBJS)
+#endif
+       DOBJS = $(GLXDOBJS) $(DRIDOBJS) $(DRVDOBJS)
+       POBJS = $(GLXPOBJS) $(DRIPOBJS) $(DRVPOBJS)
+
+#if LocalThreads
+#if NeedUIThrStubs
+  THREADOBJS = $(LDPRELIB) $(XTHRSTUBLIB)
+#else
+  THREADOBJS = $(THREADS_LIBS)
+#endif
+#endif
+
+#include <Library.tmpl>
+
+#undef _LinkBuildLibrary
+#define _LinkBuildLibrary(lib) LinkBuildLibrary(lib)
+
+
+#if NormalLibGlx
+NormalLibraryTarget($(LIBNAME),$(UOBJS))
+InstallLibrary($(LIBNAME),$(USRLIBDIR))
+#endif
+#if SharedLibGlx
+SharedDepLibraryTarget($(LIBNAME),$(SOREV),$(OBJS),$(OBJS) $(THREADOBJS),.,.)
+InstallSharedLibrary($(LIBNAME),$(SOREV),$(SHLIBDIR))
+#if LinkGLToUsrLib && AlternateUsrLibDir
+install::
+	MakeDir($(DESTDIR)$(SYSTEMUSRLIBDIR))
+	$(RM) $(DESTDIR)$(SYSTEMUSRLIBDIR)/lib$(LIBNAME).so
+	$(LN) $(SHLIBDIR)/lib$(LIBNAME).so $(DESTDIR)$(SYSTEMUSRLIBDIR)/lib$(LIBNAME).so || true
+	$(RM) $(DESTDIR)$(SYSTEMUSRLIBDIR)/lib$(LIBNAME).so.1
+	$(LN) $(SHLIBDIR)/lib$(LIBNAME).so.1 $(DESTDIR)$(SYSTEMUSRLIBDIR)/lib$(LIBNAME).so.1 || true
+#endif
+#endif
+#if DebugLibGlx
+DebuggedLibraryTarget($(LIBNAME),$(DOBJS))
+InstallLibrary($(LIBNAME)_d,$(USRLIBDIR))
+#endif
+#if ProfileLibGlx
+ProfiledLibraryTarget($(LIBNAME),$(POBJS))
+InstallLibrary($(LIBNAME)_p,$(USRLIBDIR))
+#endif
+
+

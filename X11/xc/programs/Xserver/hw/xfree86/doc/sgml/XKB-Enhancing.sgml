@@ -1,0 +1,557 @@
+<!DOCTYPE linuxdoc PUBLIC "-//XFree86//DTD linuxdoc//EN">
+
+<article>
+<title>How to further enhance XKB configuration
+<author>Kamil Toman, Ivan U. Pascal
+<date>25 November 2002
+
+<ident>
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/XKB-Enhancing.sgml,v 1.2 2003/02/25 19:31:02 dawes Exp $
+</ident>
+
+<abstract>
+This guide is aimed to relieve one's labour to create a new (internationalized)
+keyboard layout. Unlike other documents this guide accents the keymap 
+developer's point of view.
+</abstract>
+
+<toc>
+
+<p>
+
+<sect>Overview
+<p>
+The developer of a new layout should read the xkb
+protocol specification (<url url="http://www.x-docs.org/XKB/XKBproto.pdf"
+name="The X Keyboard Extension: Protocol Specification">) at least
+to clarify for himself some xkb-specific terms used in this document
+and elsewhere in xkb configuration. Also it shows wise to understand
+how the X server and a client digest their keyboard inputs 
+(with and without xkb).
+<p>
+A useful source is also <url url="http://www.tsu.ru/~pascal/en/xkb" name="Ivan 
+Pascal's text about xkb configuration"> often referenced throughout this 
+document.
+
+<p>
+Note that this document covers only enhancements which
+are to be made to XFree86 version 4.3.x and above.
+
+
+<sect>The Basics
+<p>
+At the startup (or at later at user's command) X server starts its xkb
+keyboard module extension and reads data from a compiled configuration
+file.
+<p>
+This compiled configuration file is prepared by the program <tt>xkbcomp</tt>
+which behaves altogether as an ordinary compiler (see <tt>man xkbcomp</tt>). 
+Its input are human readable xkb configuration files which are verified and
+then composed into a useful xkb configuration. Users don't need to mess with
+<tt>xkbcomp</tt> themselves, for them it is invisible. Usually, it is started 
+upon X server startup.
+<p>
+As you probably already know, the xkb configuration consists of five
+main modules:
+<descrip>
+<tag/Keycodes/
+     Tables that defines translation from keyboard scan codes into reasonable
+     symbolic names, maximum, minimum legal keycodes, symbolic aliases and
+     description of physically present LED-indicators. The primary sence of 
+     this component is to allow definitions of maps of symbols (see below) 
+     to be independent of physical keyboard scancodes. There are two main 
+     naming conventions for symbolic names (always four bytes long): 
+     <itemize>
+       <item> names which express some traditional meaning like 
+       <tt>&lt;SPCE&gt;</tt> (stands for space bar) or 
+       <item> names which express some relative positioning on a keyboard, for 
+       example <tt>&lt;AE01&gt;</tt> (an exclamation mark on US keyboards), on 
+       the right there are keys <tt>&lt;AE02&gt;</tt>, <tt>&lt;AE03&gt;</tt> 
+       etc.
+     </itemize>
+
+<tag/Types/
+    Types describe how the produced key is changed by active modifiers (like
+    Shift, Control, Alt, ...). There are several predefined types which
+    cover most of used combinations.
+
+<tag/Compat/
+    Compatibility component defines internal behaviour of modifiers. Using
+    compat component you can assign various actions (elaborately described
+    in xkb specification) to key events. This is also the place where
+    LED-indicators behaviour is defined.
+
+<tag/Symbols/
+    For i18n purposes, this is the most important table. It defines what
+    values (=symbols) are assigned to what keycodes (represented by their
+    symbolic name, see above). There may be defined more than one value
+    for each key and then it depends on a key type and on modifiers state
+    (respective compat component) which value will be the resulting one.
+
+<tag/Geometry/
+    Geometry files aren't used by xkb itself but they may be used by some
+    external programs to depict a keyboard image.
+</descrip>
+All these components have the files located in xkb configuration tree
+in subdirectories with the same names (usually in <tt>/usr/lib/X11/xkb</tt>).
+
+
+<sect>Enhancing XKB Configuration
+<p>
+Most of xkb enhancements concerns a need to define new output symbols
+for the some input key events. In other words, a need to define a new
+symbol map (for a new language, standard or just to feel more comfortable
+when typing text).
+<p>
+What do you need to do? Generally, you have to define following things:
+<itemize>
+<item> the map of symbols itself
+<item> the rules to allow users to select the new mapping
+<item> the description of the new layout
+</itemize>
+<p>
+First of all, it is good to go through existing layouts and to examine
+them if there is something you could easily adjust to fit your needs.
+Even if there is nothing similar you may get some ideas about basic
+concepts and used tricks.
+<p>
+<sect1>Levels And Groups
+<p>
+Since XFree86 4.3.0 you can use <bf>multi-layout</bf> concept of xkb 
+configuration.
+Though it is still in boundaries of xkb protocol and general ideas, the
+keymap designer must obey new rules when creating new maps. In exchange
+we get a more powerful and cleaner configuration system.
+<p>
+Remember that it is the application which must decide which symbol
+matches which keycode according to effective modifier state. The X server
+itself sends only an input event message to. Of course, usually
+the general interpretation is processed by Xlib, Xaw, Motif, Qt, Gtk
+and similar libraries. The X server only supplies its mapping table
+(usually upon an application startup).
+<p>
+You can think of the X server's symbol table as of a irregular table where each
+keycode has its row and where each combination of modifiers determines exactly
+one column. The resulting cell then gives the proper symbolic value. Not all
+keycodes need to bind different values for different combination of modifiers.
+<tt>&lt;ENTER&gt;</tt> key, for instance, usually doesn't depend on any
+modifiers so it its row has only one column defined.
+<p>
+Note that in XKB there is no prior assumption that certain modifiers are bound
+to certain columns. By editing proper files (see <ref id="keytypes">) this 
+mapping can be changed as well.
+<p>
+Unlike the original X protocol the XKB approach is far more
+flexible. It is comfortable to add one additional XKB term - group. You can
+think of a group as of a vector of columns per each keycode (naturally the
+dimension of this vector may differ for different keycodes). What is it good
+for? The group is not very useful unless you intend to use more than one
+logically different set of symbols (like more than one alphabet) defined in a
+single mapping table. But then, the group has a natural meaning - each symbol
+set has its own group and changing it means selecting a different one.
+XKB approach allows up to four different groups. The columns inside each group 
+are called (shift) levels. The X server knows the current group and reports it 
+together with modifier set and with a keycode in key events.
+<p>
+To sum it up:
+<p>
+<itemize>
+<item> for each keycode XKB keyboard map contains up to four one-dimensional
+   tables - groups (logically different symbol sets)
+<item> for each group of a keycode XKB keyboard map contains some columns 
+   - shift levels (values reached by combinations of Shift, Ctrl, Alt, ... 
+     modifiers)
+<item> different keycodes can have different number of groups
+<item> different groups of one keycode can have different number of shift levels
+<item> the current group number is tracked by X server 
+</itemize>
+<p>
+It is clear that if you sanely define levels, groups and sanely bind
+modifiers and associated actions you can have simultaneously loaded up to
+four different symbol sets where each of them would reside in its own group.
+<p>
+The multi-layout concept provides a facility to manipulate xkb groups
+and symbol definitions in a way that allows almost arbitrary composition of 
+predefined symbol tables. To keep it fully functional you have to:
+<itemize>
+<item> define all symbols only in the first group
+<item> (re)define any modifiers with extra care to avoid strange (anisometric)
+   behaviour
+</itemize>
+<p>
+<sect>Defining New Layouts
+<p>
+<!--
+  TODO: It may be better to merge IP01 docs and this guide.
+-->
+See <url url="http://www.tsu.ru/~pascal/en/xkb/internals.html" name="Some Words 
+About XKB internals"> for explanation of used xkb terms and problems
+addressed by XKB extension.
+<p>
+See <url url="http://www.tsu.ru/~pascal/en/xkb/gram-common.html" name="Common 
+notes about XKB configuration files language"> for more precise explanation of 
+syntax of xkb configuration files.
+<p>
+<sect1>Predefined XKB Symbol Sets
+<p>
+If you are about to define some European symbol map extension, you might
+want to use on of four predefined latin alphabet layouts.
+<!--
+    TODO: more details
+    TODO: something similiar for phonetic layouts
+    TODO: what are pc/pc layouts good for???
+-->
+<p>
+Okay, let's assume you want extend an existing keymap and you want to override
+a few keys. Let's take a simple U.K. keyboard as an example (defined in 
+<tt>pc/gb</tt>):
+<p>
+<tscreen><verb>
+partial default alphanumeric_keys
+xkb_symbols "basic" {
+  include "pc/latin"
+
+  name[Group1]="Great Britain";
+
+  key <AE02>  { [         2,   quotedbl,  twosuperior,    oneeighth ] };
+  key <AE03>  { [         3,   sterling, threesuperior,    sterling ] };
+  key <AC11>  { [apostrophe,         at, dead_circumflex, dead_caron] };
+  key <TLDE>  { [     grave,    notsign,          bar,          bar ] };
+  key <BKSL>  { [numbersign, asciitilde,   dead_grave,   dead_breve ] };
+  key <RALT>  { type[Group1]="TWO_LEVEL",
+                [ ISO_Level3_Shift, Multi_key ]   };
+
+  modifier_map Mod5   { <RALT> };
+};
+</verb></tscreen>
+<!--
+    TODO: ref IP01 file syntax TODO: some words about symbolic names like 
+    'sterling' and also about
+    TODO: unicode characters (for non-latin alphabets),
+    TODO: ref to compatibility symbolic names vs. unicode
+-->
+<p>
+It defines a new layout in <tt>basic</tt> variant as an extension of common 
+latin alphabet layout. The layout (symbol set) name is set to "Great Britain".
+Then there are redefinitions of a few keycodes and a modifiers binding. As you 
+can see the number of shift levels is the same for <tt>&lt;AE02&gt;</tt>, 
+<tt>&lt;AE03&gt;</tt>, <tt>&lt;AC11&gt;</tt>, <tt>&lt;TLDE&gt;</tt> and 
+<tt>&lt;BKSL&gt;</tt> keys but it differs from number of shift levels of 
+<tt>&lt;RALT&gt;</tt>.
+<p>
+Note that the <tt>&lt;RALT&gt;</tt> key itself is a binding key for Mod5 and 
+that it
+serves like a shift modifier for LevelThree, together with Shift
+as a multi-key. It is a good habit to respect this rule in a new similar
+layout.
+<p>
+Okay, you could now define more variants of your new layout besides
+<tt>basic</tt> simply by including (augmenting/overriding/...) the basic 
+definition and altering what may be needed.
+
+<sect1>Key Types<label id="keytypes">
+<p>
+
+The differences in the number of columns (shift levels) are caused by 
+a different types of keys (see the types definition in section basics).  Most 
+keycodes have implicitly set the keytype in the included 
+<tt>&dquot;pc/latin&dquot;</tt> file to 
+<tt>&dquot;FOUR_LEVEL_ALPHABETIC&dquot;</tt>. The only exception is 
+<tt>&lt;RALT&gt;</tt> keycode which is explicitly set 
+<tt>&dquot;TWO_LEVEL&dquot;</tt> keytype.
+<p>
+All those names refer to pre-defined shift level schemes. Usually you can
+choose a suitable shift level scheme from <tt>default</tt> types scheme list
+in proper xkb component's subdirectory. 
+<p>
+The most used schemes are:
+<descrip>
+<tag/ONE_LEVEL/
+   The key does not depend on any modifiers. The symbol from first level
+   is always chosen.
+
+<tag/TWO_LEVEL/
+   The key uses a modifier Shift and may have two possible values.
+   The second level may be chosen by Shift modifier. If Lock modifier
+   (usually Caps-lock) applies the symbol is further processed using
+   system-specific capitalization rules. If both Shift+Lock modifier apply the
+   symbol from the second level is taken and capitalization rules are applied
+   (and usually have no effect).
+    
+<tag/ALPHABETIC/
+   The key uses modifiers Shift and Lock. It may have two possible
+   values. The second level may be chosen by Shift modifier. When Lock
+   modifier applies, the symbol from the first level is taken and further
+   processed using system-specific capitalization rules. If both Shift+Lock
+   modifier apply the symbol from the first level is taken and no
+   capitalization rules applied. This is often called shift-cancels-caps
+   behaviour.
+
+<tag/THREE_LEVEL/
+   Is the same as TWO_LEVEL but it considers an extra modifier -
+   LevelThree which can be used to gain the symbol value from the third
+   level. If both Shift+LevelThree modifiers apply the value from the third
+   level is also taken. As in TWO_LEVEL, the Lock modifier doesn't influence
+   the resulting level. Only Shift and LevelThree are taken into that
+   consideration. If the Lock modifier is active capitalization rules
+   are applied on the resulting symbol.
+   
+<tag/FOUR_LEVEL/
+   Is the same as THREE_LEVEL but unlike LEVEL_THREE if both Shift+LevelThree
+   modifiers apply the symbol is taken from the fourth level.
+
+<tag/FOUR_LEVEL_ALPHABETIC/
+   Is similar to FOUR_LEVEL but also defines shift-cancels-caps behaviour
+   as in ALPHABETIC. If Lock+LevelThree apply the symbol from the
+   third level is taken and the capitalization rules are applied.
+   If Lock+Shift+LevelThree apply the symbol from the third level is taken
+   and no capitalization rules are applied.
+ 
+<tag/KEYPAD/
+   As the name suggest this scheme is primarily used for numeric keypads.
+   The scheme considers two modifiers - Shift and NumLock. If none
+   of modifiers applies the symbol from the first level is taken. If either 
+   Shift or NumLock modifiers apply the symbol from the second level is taken.
+   If both Shift+NumLock modifiers apply the symbol from the first level
+   is taken. Again, shift-cancels-caps variant.
+   
+<tag/FOUR_LEVEL_KEYPAD/
+   Is similar to KEYPAD scheme but considers also LevelThree modifier.
+   If LevelThree modifier applies the symbol from the third level is taken.
+   If Shift+LevelThree or NumLock+LevelThree apply the symbol from the fourth
+   level is taken. If all Shift+NumLock+LevelThree modifiers apply the symbol
+   from the third level is taken. This also, shift-cancels-caps variant.
+</descrip>
+<p>
+Besides that, there are several schemes for special purposes:
+<descrip>
+<tag/PC_BREAK/
+    It is similar to TWO_LEVEL scheme but it considers the Control
+    modifier rather than Shift. That means, the symbol from the second level
+    is chosen by Control rather than by Shift.
+<tag/PC_SYSRQ/
+    It is similar to TWO_LEVEL scheme but it considers the Alt modifier rather 
+    than Shift. That means, the symbol from the second level
+    is chosen by Alt rather than by Shift.
+<tag/CTRL+ALT/
+    The key uses modifiers Alt and Control. It may have two possible
+    values. If only one modifier (Alt or Control) applies the symbol
+    from the first level is chosen. Only if both Alt+Control modifiers apply
+    the symbol from the second level is chosen.
+<tag/SHIFT+ALT/
+    The key uses modifiers Shift and Alt. It may have two possible values.
+    If only one modifier (Alt or Shift) applies the symbol
+    from the first level is chosen. Only if both Alt+Shift modifiers apply
+    the symbol from the second level is chosen.
+</descrip>
+<p>
+If needed, special <tt>caps</tt> schemes may be used. They redefine the 
+standard behaviour of all <tt>*ALPHABETIC</tt> types. The layouts (maps of 
+symbols) with keys defined in respective types then automatically change
+their behaviour accordingly. Possible redefinitions are:
+<itemize>
+<item>internal
+<item>internal_nocancel
+<item>shift
+<item>shift_nocancel
+</itemize>
+None of these schemes should be used directly. They are defined merely
+for <tt>'caps:'</tt> xkb options (used to globally change the layouts 
+behaviour).
+<p>
+Don't alter any of existing key types. If you need a different behaviour
+create a new one.
+
+<sect2>More On Definitions Of Types
+<p>
+When the XKB software deals with a separate type description it gets
+a complete list of modifiers that should be taken into account from the 
+<tt>'modifiers=&lt;list of modifiers&gt;'</tt> list and expects that a set
+of <tt>'map[&lt;combination of modifiers&gt;]=&lt;list of modifiers&gt;'</tt>
+instructions that contain the mapping for each combination of modifiers 
+mentioned in that list. Modifiers that are not explicitly listed are NOT taken 
+into account
+when the resulting shift level is computed.
+If some combination is omitted the program (subroutine) should choose the first
+level for this combination (a quite reasonable behavior).
+<p>
+Lets consider an example with two modifiers <tt>ModOne</tt> and <tt>ModTwo</tt>:
+<tscreen><verb>
+type "..." {
+    modifiers = ModOne+ModTwo;
+    map[None] = Level1;
+    map[ModOne] = Level2;
+};
+</verb></tscreen>
+In this case the map statements for <tt>ModTwo</tt> only and 
+<tt>ModOne+ModTwo</tt> are omitted.  It means that if the <tt>ModTwo</tt> is 
+active the subroutine can't found explicit mapping for such combination an will 
+use the <em>default level</em> i.e. Level1.
+<p>
+But in the case the type described as:
+<tscreen><verb>
+type "..." {
+    modifiers = ModOne;
+    map[None] = Level1;
+    map[ModOne] = Level2;
+};
+</verb></tscreen>
+the ModTwo will not be taken into account and the resulting level depends on 
+the ModOne state only. That means, ModTwo alone produces the Level1 but the 
+combination ModOne+ModTwo produces the Level2 as well as ModOne alone.
+<p>
+What does it mean if the second modifier is the Lock? It means that in
+the first case (the Lock itself is included in the list of modifiers but 
+combinations with this modifier aren't mentioned in the map statements) 
+the internal capitalization rules will be applied to the symbol from the first 
+level. But in the second case the capitalization will be applied to the symbol
+chosen accordingly to he first modifier - and this can be the symbol from the
+first as well as from the second level.
+<p>
+Usually, all modifiers introduced in <tt>'modifiers=&lt;list of 
+modifiers&gt;'</tt> list are used for shift level calculation and then 
+discarded. Sometimes this is not desirable. If you want to use a modifier
+for shift level calculation but you don't want to discard it, you may
+list in '<tt>preserve[&lt;combination of modifiers&gt;]=&lt;list of 
+modifiers&gt;'</tt>. That means, for a given combination all listed modifiers
+will be preserved. If the Lock modifier is preserved then the resulting
+symbol is passed to internal capitalization routine regardless whether
+it has been used for a shift level calculation or not.
+<p>
+Any key type description can use both real and virtual modifiers. Since real 
+modifiers always have standard names it is not necessary to explicitly declare  
+them. Virtual modifiers can have arbitrary names and can be declared (prior
+using them) directly in key type definition:
+<tscreen><verb>
+virtual_modifiers &lt;comma-separated list of modifiers&gt;  ;
+</verb></tscreen>
+as seen in for example <tt>basic</tt>, <tt>pc</tt> or <tt>mousekeys</tt> key 
+type definitions.
+
+<sect1>Rules
+<p>
+Once you are finished with your symbol map you need to add it
+to rules file. The rules file describes how all the
+five basic keycodes, types, compat, symbols and geometry components
+should be composed to give a sensible resulting xkb configuration.
+<p>
+The main advantage of rules over formerly used keymaps is a possibility
+to simply parameterize (once) fixed patterns of configurations and thus
+to elegantly allow substitutions of various local configurations
+into predefined templates.
+<p>
+A pattern in a rules file (often located in 
+<tt>/usr/lib/X11/xkb/rules</tt>) can be parameterized with four other arguments:
+<tt>Model</tt>, <tt>Layout</tt>, <tt>Variant</tt> and <tt>Options</tt>.
+For most cases parameters <tt>model</tt> and <tt>layout</tt> should
+be sufficient for choosing a functional keyboard mapping.
+<p>
+The rules file itself is composed of pattern lines and lines with rules. The pattern line starts with an exclamation mark ('<tt>!</tt>') 
+and describes how will the xkb interpret the following lines (rules). A sample 
+rules file looks like this:
+<tscreen><verb>
+! model 	                =	keycodes
+  macintosh_old	                =	macintosh
+  ...
+  *		                =	xfree86
+  
+! model		                =	symbols
+  hp		                =	+inet(&percnt;m)
+  microsoftpro	                =	+inet(&percnt;m)
+  geniuscomfy	                =	+inet(&percnt;m)
+
+! model	    layout[1]	        =	symbols
+  macintosh	us	        =	macintosh/us&percnt;(v[1])
+  *             *               =       pc/pc(&percnt;m)+pc/&percnt;l[1]&percnt;(v[1])
+  
+! model     layout[2]	        =	symbols
+  macintosh     us              =	+macintosh/us[2]&percnt;(v[2]):2
+  *		*               =	+pc/&percnt;l[2]&percnt;(v[2]):2
+  
+! option			=	types
+  caps:internal			=	+caps(internal)
+  caps:internal_nocancel	=	+caps(internal_nocancel)
+</verb></tscreen>
+
+Each rule defines what certain combination of values on the left side
+of equal sign ('<tt>=</tt>') results in. For example a (keyboard) model 
+<tt>macintosh_old</tt> instructs xkb to take definitions of keycodes
+from file <tt>keycodes/macintosh</tt> while the rest of models
+(represented by a wild card '<tt>*</tt>') instructs it to take them from
+file <tt>keycodes/xfree86</tt>. The wild card represents all possible
+values on the left side which were not found in any of the previous rules.
+The more specialized (more complete) rules have higher precedence than general 
+ones, i.e. the more general rules supply reasonable default values.
+<p>
+As you can see some lines contain substitution parameters - the parameters 
+preceded by the percent sign ('<tt>&percnt;</tt>'). The first alphabetical character 
+after the percent sign expands to the value which has been found on the left 
+side. For example <tt>+&percnt;l&percnt;(v)</tt> expands into <tt>+cz(bksl)</tt> if the 
+respective values on the left side were <tt>cz</tt> layout in its <tt>bksl</tt> 
+variant. More, if the layout resp. variant  parameter is followed by a pair of 
+brackets ('<tt>[</tt>', '<tt>]</tt>') it means that xkb should <em>place the 
+layout resp. variant into specified xkb group</em>. If the brackets are omitted
+the first group is the default value.
+<p>
+So the second block of rules enhances symbol definitions for some particular 
+keyboard models with extra keys (for internet, multimedia, ...) . Other models 
+are left intact. Similarly, the last block overrides some key type definitions,
+so the common global behaviour ''shift cancels caps'' or ''shift doesn't cancel 
+caps'' can be selected. The rest of rules produces special symbols for each 
+variant <tt>us</tt> layout of <tt>macintosh</tt> keyboard and standard pc 
+symbols in appropriate variants as a default. 
+
+<!--
+  TODO: more words about group switching (XkbOptions grp:...)?
+-->
+
+<!--
+    TODO: user & 3rd party xkb tree?
+    TODO: better and more complex explanation of rules
+-->
+
+<sect1>Descriptive Files of Rules
+<p>
+Now you just need to add a detailed description to <tt>&lt;rules&gt;.xml</tt> 
+description file so the other users (and external programs which often parse 
+this file) know what is your work about.
+
+
+<!-- 
+    TODO: format and semantics
+-->
+
+<sect2>Old Descriptive Files
+<p>
+The formerly used descriptive files were named <tt>&lt;rules&gt;.lst</tt>
+Its structure is very simple and quite self descriptive but such simplicity
+had also some cavities, for example there was no way how to describe local 
+variants of layouts and there were problems with the localization of 
+descriptions. To preserve compatibility with some older programs,
+new XML descriptive files can be converted to old format '.lst'.
+<p>
+For each parameter of rules file should be described its meaning. For the rules 
+file described above the <tt>.lst</tt> file could look like:
+<tscreen><verb>
+! model
+  pc104		Generic 104-key PC
+  microsoft	Microsoft Natural
+  pc98		PC-98xx Series
+  macintosh     Original Macintosh
+  ...
+
+! layout
+  us		U.S. English
+  cz		Czech
+  de		German
+  ...
+
+! option
+  caps:internal		 uses internal capitalization. Shift cancels Caps
+  caps:internal_nocancel uses internal capitalization. Shift doesn't cancel Caps  
+  
+</verb></tscreen>
+<p>
+And that should be it. Enjoy creating your own xkb mapping.
+
+</article>

@@ -1,0 +1,14 @@
+.EH ''''
+.OH ''''
+.EF ''''
+.OF ''''
+.bp
+\&
+.XS
+Index
+.XE
+.EQ
+delim $$
+.EN
+.tm .pn \n%
+.PX

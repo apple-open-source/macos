@@ -1,0 +1,656 @@
+<!DOCTYPE linuxdoc PUBLIC "-//XFree86//DTD linuxdoc//EN">
+
+<article>
+<title>README for XFree86 on OS/2
+<author>Holger Veit
+<Date>Last modified on: August 1st, 1999
+
+<toc>
+
+<sect>Introductory Note about the release 3.3.5
+<p>
+
+Before looking into this file, please check for any LATEST.OS2 files
+that may come with the binary distribution. Please also check out the
+following XFree86/OS2 WWW pages:
+<itemize>
+<item><htmlurl name="http://set.gmd.de/~veit/os2/xf86os2.html" url="http://set.gmd.de/~veit/os2/xf86os2.html"> 
+<item><htmlurl name="http://set.gmd.de/~veit/os2/xf86bugs.html" url="http://set.gmd.de/~veit/os2/xf86bugs.html"> 
+<item><htmlurl name="http://set.gmd.de/~veit/os2/x11os2faq.html" url="http://set.gmd.de/~veit/os2/x11os2faq.html"> 
+</itemize>
+before you claim to have found any problems.
+
+This version of the code is called XFree86/OS2 3.3.5. This is a
+bugfix release for 3.3.3.1 (3.3.4 was never released for XFree86/OS2)
+which also adds hardware support for some newer cards, including AGP 
+boards. XFree86-3.3.5 contains all security fixes that were released 
+for earlier versions. See the RELNOTES document for details. 
+
+XFree86/OS2-3.3.5 is a full, unrestricted version which does not
+expire, and for which the complete  source code is available. In
+contrast to beta versions, we consider this  code as sufficiently
+stable for use by an end user. Since there  have been numerous
+bugfixes, we recommend this version, even if you had  XFree86/OS2 3.3.x
+before and it worked satisfyingly with your hardware. By the time
+3.3.5 is released, the older version 3.3 will be withdrawn, and
+archives will be updated to this version. There may still be
+references  to 3.3 or 3.3.x still in documents; these apply 
+to 3.3.5 as well, unless otherwise noted.
+
+Previous versions have been tested in a large number of configurations
+and have been found to be working, with some bugs left, rather flawlessly.
+
+This release is almost complete (with a few exceptions) regarding
+the X11R6.3 ``core'' distribution. A subset of the ``contrib'' distribution
+is available from the ported software page 
+<htmlurl name="http://set.gmd.de/~veit/os2/xf86ported.html" url="http://set.gmd.de/~veit/os2/xf86ported.html"> 
+
+In the past beta testing, it has been found that the software itself
+is rather stable and does not damage hardware - provided the user
+does not try to push the builtin limits and change certain
+configuration parameters which could operate the video hardware out
+of specs.
+
+However,
+<itemize>
+<item>even with a code we consider stable there is no explicit or implicit 
+       warranty that certain code works correctly or works at all
+<item>although no damage reports are known, it does not mean that it is
+       impossible to damage hardware with this code; some deeply hidden
+       bugs may still be present in the software.
+</itemize>
+
+It is recommended that you backup essential data of your system before
+installing this software, but this should be your general precautions 
+before ANY installation. No reports exist that a crashing X server itself
+actively destroys or modifies data, but it is possible in rare cases
+that the system is left in an unusable state (video display mode garbled
+or system unresponsive, not reacting to mouse or keyboard actions).
+If you then hard reset or switch off the system, file caches of the operating
+system might not be written correctly back to disk, thus causing data loss.
+
+<sect>What and Where is XFree86?
+
+<p>
+XFree86 is a port of X11R6.3 that supports several versions of
+Intel-based Unix.  It is derived from X386 1.2, which was the X server
+distributed with X11R5.  This release consists of many new features
+and performance improvements as well as many bug fixes.  The release
+is available as source patches against the X Consortium X11R6 code, as
+well as binary distributions for many architectures.
+<p>XFree86/OS2 is the name of the implementation of XFree86
+on OS/2 based systems.
+
+See the <htmlurl url="COPYRIGHT.html" name="Copyright Notice">.
+
+<!--
+The sources for XFree86/OS2 are available by anonymous ftp from:
+
+<htmlurl name="ftp.XFree86.org:/pub/XFree86/3.3.5/source"
+url="ftp://ftp.XFree86.org/pub/XFree86/3.3.5/source">
+-->
+
+Binaries for OS/2 Warp and Merlin are available from:
+<htmlurl name="ftp.XFree86.org:/pub/XFree86/3.3.5/OS2"
+url="ftp://ftp.XFree86.org/pub/XFree86/3.3.5/OS2">
+<p>
+The WWW page
+<htmlurl name="http://borneo.gmd.de/~veit/os2/xf86os2.html"
+url="http://borneo.gmd.de/~veit/os2/xf86os2.html"> will
+usually show more references to FTP or WWW sites to retrieve
+sources or binaries.
+<p>
+
+Other versions:
+
+XFree86/OS2 will run on all dialects of Warp 3, including Warp "red spine box",
+Warp "blue spine box", Warp Connect, Warp Server, and Warp 4.
+
+For Warp 3 installing fixpack level 17 or later is strongly recommended.
+There have been a few reports that the installation of FP26 causes XFree86 
+no longer to work, but I am not sure about a real reason. Current fixpacks 
+for Warp 3, like FP36, seem to work well also.
+
+Warp 4 may be used with or without the recent public fixpack.
+
+Please check in all cases a LATEST.OS2 file.
+
+OS/2 2.11 is not supported any longer with this release, due to lack
+of a working test environment. Consequently, OS/2 SMP 2.11 is not supported 
+either. Warp Server SMP is supported, but SMP does not give significant
+advantage, other than the general speedup because of multiple processors 
+working. OS/2 versions 1.X are definitely not supported and will never be.
+
+It is possible to build XFree86/OS2 from the sources.  Read about this
+in the document OS2.NOTES.
+
+<sect>Bug Reports for This Document
+
+<p>
+Send email to <em/Holger.Veit@gmd.de/ (Holger Veit) or
+<em/XFree86@XFree86.org/ if you have comments or suggestions about
+this file and we'll revise it.
+
+<sect>Hardware and Software Requirements
+
+<p>
+<sect1>Supported, Required, and Recommended Hardware
+
+<p>
+<itemize>
+<item>At least a 486DX33 with 16MB RAM is required. A Pentium or Pentium Pro
+       and more main memory is recommended. A 386 or a system with 8MB or less
+       memory is an insufficient configuration.
+<item>There are no specific requirements concerning network cards, disk types,
+       or CD ROM equipment; of course the more powerful, the better.
+<item>Depending on the packages installed, a disk space of 20-55MB on a
+       HPFS formatted partition (or a NFS or ext2fs partition natively 
+       allowing long filenames) is required. XFree86/OS2 will not run on FAT partitions.
+<item>You need a video card that is supported by XFree86. Refer to the general
+       README document for a list of supported cards. Note that the sets
+       of video cards supported by XFree86 on one hand and OS/2 on the other 
+       hand overlap, but do not match exactly, i.e. the fact that your card
+       is supported by OS/2 does not mean it works with XFree86 as well, and
+       vice versa. XFree86 does not use the video services of the OS/2
+       operating system.
+</itemize>
+
+<sect1>Required Software
+
+<p>
+<itemize>
+<item>Any version of Warp 3 with at least fixpack 17, or Warp 4 is required
+<item>XFree86/OS2-3.3.5 may use a local named-pipe connection or a TCP/IP 
+       based network connection.
+       <enum>
+       <item>Warp comes with the Internet Access Kit (IAK), which is
+              sufficient. Warp Connect and Warp Server come with a full
+              version of TCP/IP (3.0). Use of this software is preferred over
+              IAK then.
+       <item>Warp 4 comes with TCP/IP 4.0 which should also work.
+       <item>There are reports that with EMX 0.9 fix 4, you can also use
+              the new 32 bit IBM TCP/IP 4.1 product.
+       <item>The old IBM TCP/IP 2.0, that comes with the IBM PMX product
+              may be used with Warp as well, although it is no longer supported
+	      by IBM. Please ensure that you have the latest CSDs installed.
+       </enum>
+       Other versions of TCP/IP, such as FTP's, DEC's, or Hummingbird's 
+       TCP/IP versions, as well as IBM TCP/IP 1.X are not supported. Nor does
+       any networking support from DOS (packet drivers, winsock), Netware,
+       or NetBIOS work, and I won't to provide support for that in the future.
+<item>If you want to write or port applications for XFree86, you are
+       encouraged to do so. You will need a complete installation of
+       EMX/gcc 0.9C fix4 or later for doing so. Neither the second (obsolete)
+       implementation of gcc, nor any commercial package, including
+       Cset/2, VAC++, Borland C++/OS2, Watcom C++, Metaware C, and others,
+       is suitable for porting, because various parts of the X DLLs rely
+       on certain features only present with EMX.
+</itemize>
+
+<sect>Installing the System
+
+<p>
+The binary distribution is composed of a number of zip archives
+which are the executables, servers, fonts, libraries, include files,
+man pages, and config files.  The full distribution requires about 
+40-55MB of disk space.  
+
+All archives of this alpha version are packed with the <tt/info-zip/ utility, 
+which is available under the name <tt/UNZ512X2.EXE/ (or a later version)
+from many OS/2 archives. Please obtain a native OS/2 version of this unpacker.
+DOS <tt/PKUNZIP/ does not work, because it cannot unpack long file names and
+extended attributes.
+
+At this moment, the distribution covers only the ``core'' distribution
+which somewhat reduces the usability. Refer to WWW sites and archives listed 
+in the XFree86/OS2 FAQ and elsewhere to obtain pre-built X clients which
+were ported to XFree86.
+
+    The contents of the packages are:
+
+<descrip>
+<tag/REQUIRED:/
+    <descrip>
+    <tag/Xbase/	A special device driver and the SuperProbe program
+    <tag/Xdoc/	READMEs and XFree86 specific man pages.
+    <tag/Xbin/	all of the executable X client applications and shared libs
+    <tag/Xfnts/	the misc and 75dpi fonts
+    <tag/emxrt/         Runtime libraries of EMX
+    </descrip>
+
+    Choose at least one of the following to match your hardware:
+
+    <descrip>
+    <tag/X8514/	the X server for IBM 8514/A and compatible boards
+    <tag/XAGX/	the X server for AGX boards
+    <tag/XGlnt/	the X server for Permedia / GLINT boards
+    <tag/XI128/	the X server for &num;9 Imagination 128 boards
+    <tag/XMa32/	the X server for ATI Mach32 graphics boards
+    <tag/XMa64/	the X server for ATI Mach64 graphics boards
+    <tag/XMa8/	the X server for ATI Mach8 graphics boards
+    <tag/XMono/	the Monochrome X Server
+    <tag/XP9K/	the X server for P9000 based boards
+    <tag/XS3/ 	the X server for S3 based boards (excluding S3 ViRGE)
+    <tag/XS3V/ 	the X server for S3 ViRGE based boards
+    <tag/XSVGA/	the 8-bit pseudo-color X server for Super VGA cards
+    <tag/XVG16/	the 4-bit pseudo-color X server for VGA &amp; SVGA cards.
+    <tag/XW32/	the X server for et4000w32 based boards
+    </descrip>
+
+<tag/OPTIONAL:/
+
+    <descrip>
+    <tag/Xman/ 	pre-formatted man pages for the X11 interface and clients
+    <tag/Xf100/	100dpi fonts
+    <tag/Xfscl/	Speedo and Type1 fonts
+    <tag/Xfnon/ Japanese, Chinese and other fonts
+    <tag/Xfcyr/	Cyrillic fonts
+    <tag/Xfsrv/	the font server with man pages.
+    <tag/Xprog/	the X11 header files and programmer's utilities
+		for compiling other X applications
+    <tag/Xpex/	PEX fonts and libraries required for PEX applications
+    </descrip>
+</descrip>
+
+In order to save space on your disk and reduce net bandwidth, choose the
+software to obtain carefully. Each X server is an archive of about 1.2MB
+and occupies 3.0MB on the disk. You won't normally need more than the
+single Xserver tailored to your video card.
+
+If it is your first time install, get the <tt/Xbase/ archive before any
+of the other packages. This package contains a driver and a test program,
+which analyzes your video hardware. If this program fails or reports an
+incompatible hardware, it makes no sense to obtain the other packages in
+the hope that they would magically work.
+
+<sect>Troubleshooting
+
+<p>
+Surprised to see this section directly in the beginning? We have put it here
+because chances are best here not to overlook it. This does not mean that
+you will necessarily encounter trouble when installing XFree86, but be warned:
+the following sections are <bf/IMPORTANT/ and neglecting one or more things
+out of impatience or sloppiness will leave you with a non-working X11
+system and us with unnecessary problems.
+
+Still, due to the incredibly large number of hardware configurations, there 
+may be some special situations and configurations where the below description
+is not successful. If this happens, read - I repeat <bf/READ/ - the list
+of ``frequently asked questions'' (FAQ) which has meanwhile evolved to
+a troubleshooting guide. The latest version is always at
+<htmlurl name="http://set.gmd.de/~veit/os2/x11os2faq.html" url="http://set.gmd.de/~veit/os2/x11os2faq.html"> .
+
+Maybe - but we found you must be very creative - you find a bug. Consult the
+page <htmlurl name="http://set.gmd.de/~veit/os2/xf86bugs.html" url="http://set.gmd.de/~veit/os2/xf86bugs.html"> 
+whether it is already known. If not, you have a case and should report it
+to XFree86 (<em/xfree86@xfree86.org/). Please refer to the FAQ about the
+information to be provided for a complete problem report.
+
+The recommended newsgroup for setup questions is <em/comp.os.os2.setup.misc/.
+I read this group, so it won't speed up the process or enforce anything if
+you post to other groups, or forward the report to my mail address as well
+or to xfree86@xfree86.org.
+
+So, not to discourage you completely, the setup section begins:
+
+
+<sect>Checking Compatibility of Video Hardware
+
+<p>
+In the following, we assume that you want to install XFree86/OS2 on a disk
+drive with the letter Y: (which you probably don't have). Change the letter
+in all commands accordingly.
+
+<enum>
+<item>Obtain the package <tt/Xbase/ and install it from the root directory
+       of the Y: drive, by entering the following commands:
+<tscreen><verb>
+[C:\] Y:
+[Y:\] cd \
+[Y:\] unzip \path_of_package\Xbase.zip
+</verb></tscreen>
+
+<item>Edit your CONFIG.SYS file to contain the following line somewhere:
+<tscreen><verb>
+DEVICE=Y:\XFree86\lib\xf86sup.sys
+</verb></tscreen>
+       Of course replace ``Y:'' with the correct drive letter.
+
+<item>At this point, you may consider to add the variables required for
+       XFree86/OS2 as well, which will save you from one additional reboot.
+       Refer to section <ref id="envvar" name="Adding Variables to CONFIG.SYS">
+       below.
+
+<item>After adding the device driver entry to the CONFIG.SYS file, you must
+       reboot to install the driver. XFree86/OS2 will not work without this
+       driver.
+
+<item>Start a full screen OS/2 CMD session and enter the following
+       command:
+<tscreen><verb>
+[C:\] Y:\XFree86\bin\SuperProbe
+</verb></tscreen>
+
+<item>This command will (normally) report important information about your
+       video configuration, i.e. the type of chipset, the available video
+       memory and the RAMDAC circuit available. Please write this down or
+       redirect the output of ``SuperProbe'' into a file by entering:
+<tscreen><verb>
+[C:\] Y:\XFree86\bin\SuperProbe >filename
+</verb></tscreen>
+
+<item>SuperProbe can identify many more video cards than are supported by
+       XFree86. In some cases, SuperProbe unfortunately detects a wrong
+       card, often it claims to have seen a MCGA card which is some sort of
+       a fallback. Generally, if it is approximately right, there are only
+       few reasons for doubts; if it is totally off (e.g. saying it has
+       seen a ET4000, and you have a Cirrus card), you should report a
+       mis-detection as a bug to the given address. In all cases, please
+       take the few minutes and check the accompanying README.* files to
+       check for special precautions, options, or features of the card.
+
+<item>If the README files tell you that your hardware is supported, please
+       obtain the rest of the software.
+
+</enum>
+
+<sect>Installing the packages
+
+<p>
+XFree86/OS2 assumes a directory hierarchy starting from <tt>drive:&bsol;XFree86</tt>.
+This can be changed, but is strictly discouraged.
+
+<enum>
+<item>Choose a HPFS partition with sufficient free space.
+<item>For each package to install, go to the root directory of this
+       drive, and type:
+<tscreen><verb>
+drive:> cd \
+drive:> unzip \path_of_packages\Xxxxx.zip
+</verb></tscreen>
+<item>You might encounter that some packages report duplicate files, e.g.
+the X server packages install corresponding README files, which are also
+in the Xdoc package. This is okay, the files are the same. Let unzip
+replace the files.
+<item>No special sequence to unpack the files is required.
+</enum>
+
+<sect>Adding Variables to CONFIG.SYS <label id="envvar">
+
+<p>
+XFree86/OS2 requires a number of settings in the CONFIG.SYS file to work
+correctly. Please add the following settings, and in particular take
+care to set forward versus backward slashes correctly:
+
+<descrip>
+<tag/TERM/
+	Set the preferred terminal type for the xterm or editor to be used.
+	Some programs need this setting. I have my type set to
+<tscreen><verb>SET TERM=ansi</verb></tscreen>
+	<tt>&bsol;XFree86&bsol;lib&bsol;X11&bsol;etc&bsol;termcap.x11</tt>
+	contains a suitable termcap which
+	can be used in place of termcap files that come with EMX, EMACS, or
+	other ported software.
+<tag/TERMCAP/
+	This variable must be set to the location where the termcap file
+	used for the above <tt/TERM/ variable is searched. My setting, for
+	instance, is:
+<tscreen><verb>SET TERMCAP=D:/EMX/ETC/TERMCAP.X11</verb></tscreen>
+	Note that forward ``/'' is used as a directory separator.
+<tag/ETC/
+	Set to an ETC directory. Normally, this is already set to the ETC
+        directory of the TCP/IP code, such as
+<tscreen><verb>SET ETC=C:&bsol;TCPIP&bsol;ETC</verb></tscreen>
+<tag/TMP/
+	Set to an TMP directory. Normally, this is already set to the TMP
+        directory of the TCP/IP code, such as
+<tscreen><verb>SET TMP=C:&bsol;TCPIP&bsol;TMP</verb></tscreen>
+<tag/HOSTNAME/
+	Set to the internet hostname. Normally, this is already set by the
+	TCP/IP installation program, such as
+<tscreen><verb>SET HOSTNAME=myhost</verb></tscreen>
+	With IAK, you would normally run a loopback configuration 
+	<ref id="loopback" name="Network configuration"> and would then
+	set this to
+<tscreen><verb>SET HOSTNAME=localhost</verb></tscreen>
+<tag/USER/
+
+<tag/LOGNAME/
+	Set both to a username. Currently, they are there just to make some
+	programs happy; in the future, this variable might be set by a
+	login shell of a multiuser configuration. My variable, for instance,
+	is set to
+<tscreen><verb>
+        SET USER=holger
+        SET LOGNAME=holger
+</verb></tscreen>
+<tag/HOME/
+	Set this to an existing directory that is supposed to be a home directory
+	of a user. Some utilities place temporary and init files here. This
+	is also future investment for a multiuser configuration, but must still
+	be there. For instance, this variable might be set to
+<tscreen><verb>SET HOME=H:&bsol;user&bsol;holger</verb></tscreen>
+<tag/X11ROOT/
+	This is one of the most important settings, it determines the root
+	of the XFree86 directory tree. Normally, you will set this to the
+	drive letter of the partition where the &bsol;XFree86 tree resides,
+	such as in
+<tscreen><verb>SET X11ROOT=Y:</verb></tscreen>
+	You may try to move the tree to another subdirectory, e.g. to
+	<tt>K:&bsol;OS2&bsol;X11&bsol;XFree86...</tt> and would then have
+	to change this to
+<tscreen><verb>SET X11ROOT=K:/OS2/X11</verb></tscreen>,
+	but this is discouraged, since some utilities might not accept this.
+	Note the forward ``/'' as a directory separator here.
+<tag/DISPLAY/
+	This variable may be set to the display to be used for displaying
+	clients. Normally you will set this variable to the same value as
+	the <tt/HOSTNAME/ variable and simply add a <tt/:0.0/ after it, such as
+<tscreen><verb>SET DISPLAY=myhost:0.0</verb></tscreen>
+	Read the X11 man page on the exact meaning of these postfixes and
+	other options.
+<tag/XSERVER/
+	Set this to the executable name of the X server to be used. This
+	must be a complete path. My setting is as follows:
+<tscreen><verb>SET XSERVER=D:/XFree86/bin/XF86_Mach64.exe</verb></tscreen>
+<tag/PATH/
+	Add the binary directory for the X11 utilities to your search PATH.
+	This is normally the directory (adjust the letter)
+<tscreen><verb>Y:&bsol;XFree86&bsol;bin</verb></tscreen>
+	It is possible to move the binaries to another directory in the
+	search path; for maintenance reasons and clarity of the structure, this
+	is not recommended, though.
+<tag/LIBPATH/
+	Add the DLL directory for the X11 utilities to the LIBPATH.
+	This is normally the directory (adjust the letter)
+<tscreen><verb>Y:&bsol;XFree86&bsol;lib</verb></tscreen>
+	It is possible to move the DLLs to another directory in the
+	library path; for maintenance reasons and clarity of the structure, 
+	this is not recommended, though. Note that
+	<tt>Y:&bsol;XFree86&bsol;lib</tt>
+	has several other subdirectories; these may not be moved elsewhere,
+	rather they must stay there, because most utilities form a path to
+	these directories by using <tt>%X11ROOT%&bsol;XFree86&bsol;lib</tt>
+	as a base.
+</descrip>
+
+The recent version of XFree86/OS2 has a REXX script named <tt/checkinstall.cmd/
+which you can (and should) use to check whether you have entered most things
+correctly. This is not bullet-proof, but prevents the most obvious 
+setup problems. Also, the X server itself will do some checking and will
+refuse to start if something is wrong.
+
+<sect>Remarks on the Network Configuration
+
+<p>
+It is beyond the scope of this document to even give an introduction about
+the correct installation of the TCP/IP networking system. You must do this
+yourself or seek assistance elsewhere. It is only possible to say here that
+a PC working well in a TCP/IP based LAN network will also work with 
+XFree86/OS2 (when all other prerequisites are matched as well). 
+
+<label id="loopback">With IAK, there is a special configuration necessary,
+unless you want to use XFree86/OS2 only during a hot link to your Internet
+provider, the so called ``localhost'' or ``loopback'' configuration. This is
+a local network interface which ``loops'' back to the same host. The following
+settings are necessary for this:
+
+<enum>
+<item>Create a file <tt>&bsol;tcpip&bsol;etc&bsol;hosts</tt> with the
+	following content:
+<tscreen><verb>127.0.0.1  localhost</verb></tscreen>
+<item>Add the following line to your
+	<tt>&bsol;tcpip&bsol;bin&bsol;tcpstart.cmd</tt>:
+<tscreen><verb>ifconfig lo 127.0.0.1 up</verb></tscreen>
+      If you don't have such a tcpstart.cmd file (Warp 4 calls this file
+<tt>&bsol;MPTN&bsol;BIN&bsol;MPTSTART.CMD</tt>), create one, and add a line
+like the following to your config.sys file:
+	<tt>CALL=C:&bsol;OS2&bsol;CMD.EXE /Q /C C:&bsol;tcpip&bsol;bin&bsol;tcpstart.cmd &gt;NUL</tt>:
+(implying that your bootdrive is C:).
+<item>Set the HOSTNAME environment variable to <tt/localhost/ as described
+       in the last section.
+<item>Add the following line to CONFIG.SYS:
+<tscreen><verb>SET USE_HOSTS_FIRST=1</verb></tscreen>
+<item>After rebooting, verify that the following command works:
+<tscreen><verb>[C:&bsol;] ping localhost</verb></tscreen>
+</enum>
+
+You don't need this ``loopback'' interface if your PC is connected to a LAN
+(either directly or through SLIP/PPP).
+
+In case of a SLIP/PPP line, you have to establish this connection BEFORE
+you start XFree86.
+
+The <tt/checkinstall.cmd/ script coming with XFree86/OS2 gives some advice
+on the configuration as well.
+
+If you have problems to get this or other basic networking things running,
+seek assistance elsewhere.
+
+<sect>Configuring X for Your Hardware
+
+<p>
+After you have added the required settings and setup a working network,
+run the <tt/xf86config/ program to create a standard configuration file
+in <tt>Y:&bsol;XFree86&bsol;lib&bsol;X11&bsol;XF86Config</tt> from a windowed
+or full screen OS/2 text session:
+<tscreen><verb>[C:&bsol;] xf86config</verb></tscreen>
+
+The <tt/xf86config/ program will ask a number of questions. You will need 
+the information obtained from the SuperProbe program here. The program should 
+be self explanatory; if you have problems to understand something though, seek
+assistance in the newsgroups.
+
+It is possible, but strongly discouraged for the non-expert, to edit the
+<tt/XF86Config/ file with a text editor. In a few situations as described in
+the FAQ, however, this might even be mandatory. This file is not a hacker's area,
+such as the Win95 registry, but it has in common with it that you can
+easily cause damage.
+
+For details about the <tt/XF86Config/ file format, refer to the
+<em>XF86Config(4/5)</em> manual page.
+
+If you know the configuration process from Linux or other XFree86 platform, 
+you will encounter a few differences:
+<itemize>
+<item>There is no configuration for the mouse type or device. The mouse
+       device name is fixed to OSMOUSE, and this cannot be changed.
+       If you have a three-button-mouse, install the correct OS/2 driver 
+       for it, such as
+<tscreen><verb>
+DEVICE=D:&bsol;OS2&bsol;BOOT&bsol;PCLOGIC.SYS SERIAL=COM1
+DEVICE=D:&bsol;OS2&bsol;BOOT&bsol;MOUSE.SYS TYPE=PCLOGIC$
+</verb></tscreen>
+       for a MouseSystems compatible mouse, for instance.
+<item>The X server does not read the native OS/2 keyboard map, but the new XKB
+       server extension might already give you a correct keyboard layout,
+       provided your language was selectable in the <tt/xf86config/ program. If you
+       encounter incorrect settings, please send a mail to <tt/XFree86@XFree86.org/
+       describing in detail what is wrong. Even with XKB, you have the option
+       to replace some key settings with a xmodmap file. See the man page
+       for xmodmap for details (or use some available xmodmap file from Linux -
+       they are the same).
+<item>There is no support for the Wacom and Elographics input devices yet.
+</itemize>
+
+In most cases, an existing <tt/XF86Config/ file for the same XFree86 version
+from Linux or another platform may be used without changes. There is one 
+prominent exception: some S3 805 based VLB cards put their video memory
+in odd locations. The X server can search for this memory by experimentally
+mapping and unmapping possible memory regions. In XFree86/OS2, the OS may
+run out of memory tiles during this process. If this happens, you must
+find out the location of the memory yourself and add it as an option
+<tscreen><verb>
+	MemBase 0x12345678
+</verb></tscreen>
+to the XF86Config file.
+
+Once you've set up a XF86Config file, you can fine tune the video
+modes with the <tt>xvidtune</tt> utility. 
+
+<sect>Running X
+
+<p>
+16mb of memory is a recommended minimum for running the network software,
+X and the presentation manager in parallel.  The server, window manager and 
+an xterm take about 4-6 Mb of memory themselves.  X will start up on a
+system with 8MB or less, but the performance will severely suffer from
+heavy disk swapping. Your mileage may vary, though, so some people might
+consider this still tolerable.
+
+The easiest way for new users to start X windows is to type: 
+<tscreen><verb>[C:&bsol;] startx</verb></tscreen>.
+
+To get out of X windows, type: ``<tt/exit/'' in the console xterm.
+You can customize your X by creating <tt/.xinitrc/, <tt/.xserverrc/,
+and <tt/.twmrc/ files in the directory that the <tt/HOME/ environment 
+variable points to. These files are described in the xinit and startx
+man pages.
+
+By default, the systemwide <tt/xinitrc/ file (in <tt>Y:/XFree86/lib/X11/xinit/xinitrc.cmd</tt>)
+installs the rather simplistic <tt/twm/ window manager. You can find better
+window managers on the ported software page at 
+<htmlurl name="http://set.gmd.de/~veit/os2/xf86ported.html" url="http://set.gmd.de/~veit/os2/xf86ported.html"> .
+
+
+<sect>Rebuilding the XFree86 Distribution
+
+<p>
+Do you really want to rebuild XFree86/OS2 from source? Read the file
+<htmlurl name=OS2.Notes url=OS2Notes.html>
+on details to recompile XFree86/OS2 from scratch.
+
+<sect>Building New X Clients
+
+<p>
+The easiest way to build a new client (X application) is to use
+<tt/xmkmf/ if an <tt/Imakefile/ is included in the sources.  Type
+``<tt/xmkmf -a/'' to create the Makefiles, check the configuration if
+necessary and type ``<tt/xmake/''. ``<tt/xmake/'' is a wrapper for the
+GNU make program which defeats the improper SHELL setting typically found
+in a Makefile generated from an Imakefile. Also see the XFree86/OS2 FAQ 
+for more hints about porting X clients.
+
+<sect>Acknowledgements
+
+<p>
+Many thanks to:
+<itemize>
+<item><bf/Sebastien Marineau/ for his great work on getting the server code
+debugged
+<item><bf/Eberhard Mattes/ for the wonderful base platform EMX which this
+port heavily relies on
+<item><bf/ME/ - no, no, forget this: I won't praise myself :-)
+</itemize>
+
+<verb>
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/OS2.sgml,v 3.13 1999/08/23 06:38:49 dawes Exp $
+
+
+
+
+
+$XConsortium: OS2.sgml /main/4 1996/03/11 10:46:06 kaleb $
+</verb>
+
+</article>

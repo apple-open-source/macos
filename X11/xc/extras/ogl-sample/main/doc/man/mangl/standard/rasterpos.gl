@@ -1,0 +1,173 @@
+_C_ License Applicability. Except to the extent portions of this file are
+_C_ made subject to an alternative license as permitted in the SGI Free
+_C_ Software License B, Version 1.1 (the "License"), the contents of this
+_C_ file are subject only to the provisions of the License. You may not use
+_C_ this file except in compliance with the License. You may obtain a copy
+_C_ of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+_C_ Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+_C_ 
+_C_ http://oss.sgi.com/projects/FreeB
+_C_ 
+_C_ Note that, as provided in the License, the Software is distributed on an
+_C_ "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+_C_ DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+_C_ CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+_C_ PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+_C_ 
+_C_ Original Code. The Original Code is: OpenGL Sample Implementation,
+_C_ Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+_C_ Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+_C_ Copyright in any portions created by third parties is as indicated
+_C_ elsewhere herein. All Rights Reserved.
+_C_ 
+_C_ Additional Notice Provisions: The application programming interfaces
+_C_ established by SGI in conjunction with the Original Code are The
+_C_ OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+_C_ April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+_C_ 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+_C_ Window System(R) (Version 1.3), released October 19, 1998. This software
+_C_ was created using the OpenGL(R) version 1.2.1 Sample Implementation
+_C_ published by SGI, but has not been independently verified as being
+_C_ compliant with the OpenGL(R) version 1.2.1 Specification.
+_C_
+_C_ The first character in this file must be an '_'!
+_C_ Anything on a line after _C_ is ignored
+_define(_filters,eqn)_C_
+_C_      eqn is automatically replaced with neqn for nroff
+_header(RasterPos,specify the raster position for pixel operations)
+_names(RasterPos,[2-4][sifd])
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+_phead(_param1 _param2 _param3 _param4)
+Specify the $x$, $y$, $z$, and $w$ object coordinates
+(if present)
+for the raster position.
+_names(RasterPos,[2-4][sifd]v)
+.SH PARAMETERS
+_phead(_param1)
+Specifies a pointer to an array of two,
+three,
+or four elements,
+specifying $x$, $y$, $z$, and $w$ coordinates, respectively.
+.SH DESCRIPTION
+The GL maintains a 3D position in window coordinates.
+This position,
+called the raster position,
+is used to position pixel and bitmap write operations. It is
+maintained with subpixel accuracy.
+See _cmnd(Bitmap), _cmnd(DrawPixels), and _cmnd(CopyPixels).
+.P
+The current raster position consists of three window coordinates
+($x$, $y$, $z$),
+a clip coordinate value ($w$),
+an eye coordinate distance,
+a valid bit,
+and associated color data and texture coordinates.
+The $w$ coordinate is a clip coordinate,
+because $w$ is not projected to window coordinates.
+_cmnd(RasterPos4) specifies object coordinates $x$, $y$, $z$, and $w$
+explicitly.
+_cmnd(RasterPos3) specifies object coordinate $x$, $y$, and $z$ explicitly,
+while $w$ is implicitly set to 1.
+_cmnd(RasterPos2) uses the argument values for $x$ and $y$ while
+implicitly setting $z$ and $w$ to 0 and 1.  
+.P
+The object coordinates presented by _cmnd are treated just like those
+of a _cmnd(Vertex) command:
+They are transformed by the current modelview and projection matrices
+and passed to the clipping stage.
+If the vertex is not culled,
+then it is projected and scaled to window coordinates,
+which become the new current raster position,
+and the _const(CURRENT_RASTER_POSITION_VALID) flag is set.
+If the vertex 
+.I is
+culled,
+then the valid bit is cleared and the current raster position
+and associated color and texture coordinates are undefined.
+.P
+The current raster position also includes some associated color data
+and texture coordinates.
+If lighting is enabled,
+then _const(CURRENT_RASTER_COLOR)
+(in RGBA mode)
+or _const(CURRENT_RASTER_INDEX)
+(in color index mode)
+is set to the color produced by the lighting calculation
+(see _cmnd(Light), _cmnd(LightModel), and 
+.br
+_cmnd(ShadeModel)).
+If lighting is disabled, 
+current color
+(in RGBA mode, state variable _const(CURRENT_COLOR))
+or color index
+(in color index mode, state variable _const(CURRENT_INDEX))
+is used to update the current raster color.
+.P
+Likewise,
+_const(CURRENT_RASTER_TEXTURE_COORDS) is updated as a function
+of _const(CURRENT_TEXTURE_COORDS),
+based on the texture matrix and the texture generation functions
+(see _cmnd(TexGen)).
+Finally,
+the distance from the origin of the eye coordinate system to the
+vertex as transformed by only the modelview matrix replaces
+_const(CURRENT_RASTER_DISTANCE).
+.P
+Initially, the current raster position is (0, 0, 0, 1),
+the current raster distance is 0,
+the valid bit is set,
+the associated RGBA color is (1, 1, 1, 1),
+the associated color index is 1,
+and the associated texture coordinates are (0, 0, 0, 1).
+In RGBA mode,
+_const(CURRENT_RASTER_INDEX) is always 1;
+in color index mode,
+the current raster RGBA color always maintains its initial value.
+.SH NOTES
+The raster position is modified both by _cmnd and by _cmnd(Bitmap). 
+.P
+When the raster position coordinates are invalid,
+drawing commands that are based on the raster position are
+ignored (that is, they do not result in changes to GL state).
+.P
+Calling _cmnd(DrawElements), or _cmnd(DrawRangeElements) may leave the
+current color or index indeterminate.
+If _cmnd is executed while the current color or index is indeterminate, the
+current raster color or current raster index remains indeterminate.
+.P
+To set a valid raster position outside the viewport, first set a valid
+raster position, then call _cmnd(Bitmap) with NULL as the \f2bitmap\fP
+parameter.
+.P
+When the _arbstring(imaging) extension is supported, there are distinct
+raster texture coordinates for each texture unit. Each texture unit's
+current ratster texture coordinates are updated by _cmnd.
+.SH ERRORS
+_const(INVALID_OPERATION) is generated if _cmnd
+is executed between the execution of _cmnd(Begin)
+and the corresponding execution of _cmnd(End).
+.SH ASSOCIATED GETS
+_cmnd(Get) with argument _const(CURRENT_RASTER_POSITION)
+.br
+_cmnd(Get) with argument _const(CURRENT_RASTER_POSITION_VALID)
+.br
+_cmnd(Get) with argument _const(CURRENT_RASTER_DISTANCE)
+.br
+_cmnd(Get) with argument _const(CURRENT_RASTER_COLOR)
+.br
+_cmnd(Get) with argument _const(CURRENT_RASTER_INDEX)
+.br
+_cmnd(Get) with argument _const(CURRENT_RASTER_TEXTURE_COORDS)
+.SH SEE ALSO
+_cmnd(Bitmap),
+_cmnd(CopyPixels),
+_cmnd(DrawArrays),
+_cmnd(DrawElements),
+_cmnd(DrawRangeElements),
+_cmnd(DrawPixels),
+_cmnd(TexCoord),
+_cmnd(TexGen),
+_cmnd(Vertex)

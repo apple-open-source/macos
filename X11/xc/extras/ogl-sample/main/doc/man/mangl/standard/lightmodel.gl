@@ -1,0 +1,172 @@
+_C_ License Applicability. Except to the extent portions of this file are
+_C_ made subject to an alternative license as permitted in the SGI Free
+_C_ Software License B, Version 1.1 (the "License"), the contents of this
+_C_ file are subject only to the provisions of the License. You may not use
+_C_ this file except in compliance with the License. You may obtain a copy
+_C_ of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+_C_ Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+_C_ 
+_C_ http://oss.sgi.com/projects/FreeB
+_C_ 
+_C_ Note that, as provided in the License, the Software is distributed on an
+_C_ "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+_C_ DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+_C_ CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+_C_ PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+_C_ 
+_C_ Original Code. The Original Code is: OpenGL Sample Implementation,
+_C_ Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+_C_ Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+_C_ Copyright in any portions created by third parties is as indicated
+_C_ elsewhere herein. All Rights Reserved.
+_C_ 
+_C_ Additional Notice Provisions: The application programming interfaces
+_C_ established by SGI in conjunction with the Original Code are The
+_C_ OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+_C_ April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+_C_ 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+_C_ Window System(R) (Version 1.3), released October 19, 1998. This software
+_C_ was created using the OpenGL(R) version 1.2.1 Sample Implementation
+_C_ published by SGI, but has not been independently verified as being
+_C_ compliant with the OpenGL(R) version 1.2.1 Specification.
+_C_
+_C_ The first character in this file must be an '_'!
+_C_ Anything on a line after _C_ is ignored
+_define(_filters,tbl|eqn)_C_
+_C_      eqn is automatically replaced with neqn for nroff
+_header(LightModel,set the lighting model parameters)
+_names(LightModel,[fi])
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+_phead(_param1)
+Specifies a single-valued lighting model parameter.
+_const(LIGHT_MODEL_LOCAL_VIEWER),
+_const(LIGHT_MODEL_COLOR_CONTROL), and
+_const(LIGHT_MODEL_TWO_SIDE) are accepted.
+_phead(_param2)
+Specifies the value that _param2 will be set to.
+_names(LightModel,[fi]v)
+.SH PARAMETERS
+_phead(_param1)
+Specifies a lighting model parameter.
+_const(LIGHT_MODEL_AMBIENT),
+_const(LIGHT_MODEL_COLOR_CONTROL),
+_const(LIGHT_MODEL_LOCAL_VIEWER), and
+_const(LIGHT_MODEL_TWO_SIDE) are accepted.
+_phead(_param2)
+Specifies a pointer to the value or values that _param2 will be set to.
+.SH DESCRIPTION
+_cmnd sets the lighting model parameter.
+_param1 names a parameter and _param2 gives the new value.
+There are three lighting model parameters:
+.TP 10
+_const(LIGHT_MODEL_AMBIENT)
+_param2 contains four integer or floating-point values that specify
+the ambient RGBA intensity of the entire scene.
+Integer values are mapped linearly such that the most positive representable
+value maps to 1.0,
+and the most negative representable value maps to \-1.0.
+Floating-point values are mapped directly.
+Neither integer nor floating-point values are clamped.
+The initial ambient scene intensity is (0.2, 0.2, 0.2, 1.0).
+.TP
+_const(LIGHT_MODEL_COLOR_CONTROL)
+_param2 must be either _const(SEPARATE_SPECULAR_COLOR) or
+_const(SINGLE_COLOR).
+_const(SINGLE_COLOR) specifies that a single color is generated from the
+lighting computation for a vertex.  _const(SEPARATE_SPECULAR_COLOR)
+specifies that the specular color computation of lighting be stored
+separately from the remainder of the lighting computation.  The specular
+color is summed into the generated fragment's color after the application
+of texture mapping (if enabled).  The initial value is _const(SINGLE_COLOR).
+.TP
+_const(LIGHT_MODEL_LOCAL_VIEWER)
+_param2 is a single integer or floating-point value that specifies
+how specular reflection angles are computed.
+If _param2 is 0 (or 0.0), specular reflection angles take the
+view direction to be parallel to and in the direction of the -\f2z\fP axis,
+regardless of the location of the vertex in eye coordinates.
+Otherwise, specular reflections are computed from the origin
+of the eye coordinate system.
+The initial value is 0.
+.TP
+_const(LIGHT_MODEL_TWO_SIDE)
+_param2 is a single integer or floating-point value that specifies
+whether one- or two-sided lighting calculations are done for polygons.
+It has no effect on the lighting calculations for points,
+lines,
+or bitmaps.
+If _param2 is 0 (or 0.0), one-sided lighting is specified,
+and only the \f2front\fP material parameters are used in the
+lighting equation.
+Otherwise, two-sided lighting is specified.
+In this case, vertices of back-facing polygons are lighted using the
+\f2back\fP material parameters,
+and have their normals reversed before the lighting equation is evaluated.
+Vertices of front-facing polygons are always lighted using the
+\f2front\fP material parameters,
+with no change to their normals. The initial value is 0.
+.P
+In RGBA mode, the lighted color of a vertex is the sum of
+the material emission intensity,
+the product of the material ambient reflectance and the lighting model full-scene 
+ambient intensity,
+and the contribution of each enabled light source.
+Each light source contributes the sum of three terms:
+ambient, diffuse, and specular.
+The ambient light source contribution is the product of the material ambient
+reflectance and the light's ambient intensity.
+The diffuse light source contribution is the product of the material diffuse
+reflectance,
+the light's diffuse intensity,
+and the dot product of the vertex's normal with the normalized vector from
+the vertex to the light source.
+The specular light source contribution is the product of the material specular
+reflectance,
+the light's specular intensity,
+and the dot product of the normalized vertex-to-eye and vertex-to-light
+vectors,
+raised to the power of the shininess of the material.
+All three light source contributions are attenuated equally based on
+the distance from the vertex to the light source and on light source
+direction, spread exponent, and spread cutoff angle.
+All dot products are replaced with 0 if they evaluate to a negative value.
+.P
+The alpha component of the resulting lighted color is set to the alpha value
+of the material diffuse reflectance.
+.P
+In color index mode,
+the value of the lighted index of a vertex ranges from the ambient
+to the specular values passed to _cmnd(Material) using _const(COLOR_INDEXES).
+Diffuse and specular coefficients,
+computed with a (.30, .59, .11) weighting of the lights' colors,
+the shininess of the material,
+and the same reflection and attenuation equations as in the RGBA case,
+determine how much above ambient the resulting index is.
+.SH NOTES
+_const(LIGHT_MODEL_COLOR_CONTROL) is available only if the GL version is
+1.2 or greater.
+.SH ERRORS
+_const(INVALID_ENUM) is generated if _param1 is not an accepted value.
+.P
+_const(INVALID_ENUM) is generated if _param1 is
+_const(LIGHT_MODEL_COLOR_CONTROL) and _param2 is not one of
+_const(SINGLE_COLOR) or _const(SEPARATE_SPECULAR_COLOR).
+.P
+_const(INVALID_OPERATION) is generated if _cmnd is executed between
+the execution of _cmnd(Begin) and the corresponding execution of _cmnd(End).
+.SH ASSOCIATED GETS
+_cmnd(Get) with argument _const(LIGHT_MODEL_AMBIENT)
+.br
+_cmnd(Get) with argument _const(LIGHT_MODEL_COLOR_CONTROL)
+.br
+_cmnd(Get) with argument _const(LIGHT_MODEL_LOCAL_VIEWER)
+.br
+_cmnd(Get) with argument _const(LIGHT_MODEL_TWO_SIDE)
+.br
+_cmnd(IsEnabled) with argument _const(LIGHTING)
+.SH SEE ALSO
+_cmnd(Light),
+_cmnd(Material)

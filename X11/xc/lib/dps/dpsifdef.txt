@@ -1,0 +1,7 @@
+#ifndef DPSOPS_H
+#define DPSOPS_H
+
+#if defined(__cplusplus) || defined(c_plusplus)
+extern "C" {
+#endif
+

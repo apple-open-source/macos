@@ -1,0 +1,94 @@
+.\" $Xorg: xfindproxy.man,v 1.4 2001/02/09 02:05:42 xorgcvs Exp $
+.\" Copyright 1996, 1998  The Open Group
+.\" 
+.\" Permission to use, copy, modify, distribute, and sell this software and its
+.\" documentation for any purpose is hereby granted without fee, provided that
+.\" the above copyright notice appear in all copies and that both that
+.\" copyright notice and this permission notice appear in supporting
+.\" documentation.
+.\" 
+.\" The above copyright notice and this permission notice shall be included
+.\" in all copies or substantial portions of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+.\" OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\" IN NO EVENT SHALL THE OPEN GROUP BE LIABLE FOR ANY CLAIM, DAMAGES OR
+.\" OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+.\" ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+.\" OTHER DEALINGS IN THE SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the name of The Open Group shall
+.\" not be used in advertising or otherwise to promote the sale, use or
+.\" other dealings in this Software without prior written authorization
+.\" from The Open Group.
+.\" 
+.\"
+.\" $XFree86: xc/programs/xfindproxy/xfindproxy.man,v 1.7 2001/12/14 20:01:32 dawes Exp $
+.\"
+.TH XFINDPROXY 1 __xorgversion__
+.SH NAME
+xfindproxy - locate proxy services
+.SH SYNOPSIS
+\fBxfindproxy\fP \fB\-manager\fP \fImanagerAddr\fP \fB\-name\fP \fIserviceName\fP \fB\-server\fP \fIserverAddr\fP [\fB\-auth\fP] [\fB\-host\fP \fIhostAddr\fP] [\fB\-options\fP \fIopts\fP]
+.SH DESCRIPTION
+.B xfindproxy
+is a program used to locate available proxy services.  It utilizes
+the Proxy Management Protocol to communicate with a proxy manager.  The proxy
+manager keeps track of all available proxy services, starts new proxies when
+necessary, and makes sure that proxies are shared whenever possible.
+.PP
+The
+.B \-manager
+argument is required, and it specifies the network address of the
+proxy manager.  The format of the address is a standard ICE network id (for
+example, "tcp/blah.x.org:6500").
+.PP
+The
+.B \-name
+argument is required, and it specifies the name of the desired
+proxy service (for example, "LBX").  The name is case insensitive.
+.PP
+The
+.B \-server
+argument is also required, and it specifies the address of the
+target server.  The format of the address is specific to the proxy service
+specified with the -name argument.  For example, for a proxy service of "LBX",
+the address would be an X display address (e.g, "blah.x.org:0").
+.PP
+The
+.B \-auth
+argument is optional.  If specified, xfindproxy will read 2 lines
+from standard input.  The first line is an authorization/authentication name.
+The second line is the authorization/authentication data in hex format (the
+same format used by xauth).  xfindproxy will pass this auth data to the proxy,
+and in most cases, will be used by the proxy to authorize/authenticate itself
+to the target server.
+.PP
+The
+.B \-host
+argument is optional.  If xfindproxy starts a new proxy service,
+it will pass the host specified.  The proxy may choose to restrict all
+connections to this host.  In the event that xfindproxy locates an already
+existing proxy, the host will be passed, but the semantics of how the proxy
+uses this host are undefined.
+.PP
+The
+.B \-options
+argument is optional.  If xfindproxy starts a new proxy service,
+it will pass any options specified.  The semantics of the options are specific
+to each proxy server and are not defined here.  In the event that xfindproxy
+locates an already existing proxy, the options will be passed, but the
+semantics of how the proxy uses these options are undefined.
+.PP
+If xfindproxy is successful in obtaining a proxy address, it will print it to
+stdout.  The format of the proxy address is specific to the proxy service being
+used.  For example, for a proxy service of "LBX", the proxy address would be
+the X display address of the proxy (e.g, "blah.x.org:63").
+.PP
+If xfindproxy is unsuccessful in obtaining a proxy address, it will print an
+error to stderr.
+.SH SEE ALSO
+proxymngr (1), Proxy Management Protocol spec V1.0
+.SH AUTHOR
+Ralph Mor, X Consortium

@@ -1,0 +1,14 @@
+/* config.h.in.  Generated manually by keithp.  */
+
+/* Library major version */
+#undef PACKAGE_MAJOR
+
+/* Library minor version */
+#undef PACKAGE_MINOR
+
+/* Define to the full name of this package. */
+#undef PACKAGE_NAME
+
+/* Library revision */
+#undef PACKAGE_REVISION
+

@@ -1,0 +1,51 @@
+#include "../../Xi18nLib.conf"
+
+ EXTRA_INCLUDES = -I../../..
+           SRCS = imCallbk.c imDefFlt.c imDefIc.c \
+		  imDefIm.c imDefLkup.c imDispch.c imEvToWire.c \
+		  imExten.c imImSw.c imInsClbk.c imInt.c \
+		  imLcFlt.c imLcGIc.c imLcIc.c imLcIm.c imLcLkup.c \
+		  imLcPrs.c imLcSIc.c \
+		  imRm.c imRmAttr.c \
+		  imThaiFlt.c imThaiIc.c imThaiIm.c \
+		  imTrX.c imTransR.c imTrans.c
+           OBJS = ${SRCS:.c=.o}
+
+   CONN_DEFINES = ConnectionFlags
+   XTRANS_XIM_DEFINES = -DXIM_t -DTRANS_CLIENT
+   REQUIREDLIBS = -L$(XENVLIBDIR) -lX11 -lc
+
+LinkSourceFile(imCallbk.c, ../../..)
+LinkSourceFile(imDefFlt.c, ../../..)
+LinkSourceFile(imDefIc.c, ../../..)
+LinkSourceFile(imDefIm.c, ../../..)
+LinkSourceFile(imDefLkup.c, ../../..)
+LinkSourceFile(imDispch.c, ../../..)
+LinkSourceFile(imEvToWire.c, ../../..)
+LinkSourceFile(imExten.c, ../../..)
+LinkSourceFile(imImSw.c, ../../..)
+LinkSourceFile(imInsClbk.c, ../../..)
+LinkSourceFile(imInt.c, ../../..)
+LinkSourceFile(imLcFlt.c, ../../..)
+LinkSourceFile(imLcGIc.c, ../../..)
+LinkSourceFile(imLcIc.c, ../../..)
+LinkSourceFile(imLcIm.c, ../../..)
+LinkSourceFile(imLcLkup.c, ../../..)
+LinkSourceFile(imLcPrs.c, ../../..)
+LinkSourceFile(imLcSIc.c, ../../..)
+LinkSourceFile(imThaiFlt.c, ../../..)
+LinkSourceFile(imThaiIc.c, ../../..)
+LinkSourceFile(imThaiIm.c, ../../..)
+LinkSourceFile(imRm.c, ../../..)
+LinkSourceFile(imRmAttr.c, ../../..)
+LinkSourceFile(imTrX.c, ../../..)
+LinkSourceFile(imTransR.c, ../../..)
+LinkSourceFile(imTrans.c, ../../..)
+
+SpecialCLibObjectRule(imTransR,$(ICONFIGFILES),$(CONN_DEFINES) $(XTRANS_XIM_DEFINES))
+SpecialCLibObjectRule(imTrans,$(ICONFIGFILES),$(CONN_DEFINES) $(XTRANS_XIM_DEFINES))
+#if BuildXKBlib
+SpecialCLibObjectRule(imConv,$(ICONFIGFILES),$(XKB_DEFINES))
+#endif
+
+Xi18nLibraryTarget(ximcp)

@@ -1,0 +1,57 @@
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/glint/README.pm3,v 1.13 2002/05/07 23:15:58 alanh Exp $ */
+  
+STATUS as of Tue,  8 May 2001 19:01:39 +0200
+  
+Working :
+  * Unaccelerated : Depth 8, 15, 16 and 24 are ok. I tested them upto
+    1280x1024 only as my monitor don't support higher modes.
+  * Endianess clean, thanks to Romain Dolbeau <dolbeaur@club-internet.fr> for
+    helping me debug this.
+  * HW cursor.
+  * ShadowFb.
+  * Full 2D Accels.
+    - Sync.
+    - Pixmap cache.
+    - Offscreen pixmaps.
+    - Clipping.
+    - Screen to screen copy. 
+    - Solid fills.
+    - HorVert Solid Lines .
+    - 8x8 Mono Pattern Fills.
+    - Color Expansion Fills.
+    - Images Writes.
+    - Bitmap Writes using direct FIFO writes with or without FIFO Disconnect.
+    - Pixmap Writes using direct FIFO writes with or without FIFO Disconnect.
+  * Appian J2000 second head initialization.
+  * Xv : Hardware video scaler :
+    - Needs checking on a big endian machine.
+    - Needs acceleration to work - there is a hardware bug in YV12 mode.
+    - Support both dual head and single head, trough gamma or permedia3.
+    - NOTE: depth 15 and 16 currently broken as I can't figure out the
+      colorKey equation. From the docs it needs to be padded to 8bits per RGB,
+      but that doesn't seem to work either. FIXME.
+    - Attributes are :
+      - FILTER : None, Partial (X only) or Full filtering.
+      - COLORKEY : Speaks for itself
+      - DOUBLE_BUFFER : Speaks for itself
+      - AUTOPAINT_COLORKEY : Speaks for itself
+      - MIRROR : X and/or Y Axis mirroring. (NOT DONE)
+      - ALPHA : (NOT DONE)
+        - 0 -> FB Only
+        - 1 -> 25% Video, 75% FB
+        - 2 -> 75% Video, 25% FB
+        - 3 -> Video Only
+
+Not Working :
+
+  * [NOT POSSIBLE] 2D Accel :
+    - Solid & Dashed Lines are not possible on glint hardware.
+    - 8x8 Color Pattern Fill is almost never used.
+    - Clipping needs cleaning up.
+  * [TODO] 2D Accel hooks for the Rendering extension :
+    - Render extension initialization.
+    - CPUToScreenTexture.
+    - CPUToScreenAlphaTexture.
+
+Sven Luther <luther@dpt-info.u-strasbg.fr>
+Alan Hourihane <alanh@fairlite.demon.co.uk>

@@ -1,0 +1,30 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/input/elographics/Imakefile,v 1.4 2001/01/24 00:06:35 dawes Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+
+SRCS = xf86Elo.c
+OBJS = xf86Elo.o
+
+DRIVER = elographics
+
+INCLUDES = -I. -I$(XF86COMSRC) -I$(XF86SRC)/loader -I$(XF86OSSRC) \
+			-I$(SERVERSRC)/include -I$(XINCLUDESRC) -I$(EXTINCSRC)
+
+#if MakeHasPosixVariableSubstitutions
+SubdirLibraryRule($(OBJS))
+#endif
+
+ModuleObjectRule()
+
+ObjectModuleTarget($(DRIVER),$(OBJS))
+
+InstallObjectModule($(DRIVER),$(MODULEDIR),input)
+
+#if !defined(XF86DriverSDK)
+InstallModuleManPage($(DRIVER))
+#endif
+
+DependTarget()
+
+InstallDriverSDKObjectModule($(DRIVER),$(DRIVERSDKMODULEDIR),input)

@@ -1,0 +1,11 @@
+lib/modules/drivers/glint_drv.o
+lib/modules/drivers/mga_drv.o
+lib/modules/drivers/nv_drv.o
+lib/modules/drivers/s3virge_drv.o
+lib/modules/drivers/savage_drv.o
+lib/modules/drivers/vga_drv.o
+lib/modules/extensions/libextmod.a
+lib/modules/fonts/libfreetype.a
+lib/modules/input/mouse_drv.o
+lib/modules/libvgahw.a
+lib/modules/libxf8_16bpp.a

@@ -1,0 +1,14 @@
+XCOMM $XFree86: xc/programs/Xserver/GL/mesa/Imakefile,v 1.6 2002/02/25 00:45:41 dawes Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+
+#define IHaveSubdirs
+
+      SUBDIRS = src GLcore
+      DEFINES = $(GLX_DEFINES)
+
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))
+MakeLintLibSubdirs($(SUBDIRS))
+LintSubdirs($(SUBDIRS))

@@ -1,0 +1,18 @@
+------------------------------------------
+Please submit bug reports to gcp@sjeng.org
+------------------------------------------
+
+KNOWN
+-----
+
+Trouble detecting variants and partner tells on chess.net. This is 
+an XBoard/WinBoard Zippy problem, not related to Sjeng itself.
+
+The 'ping' command interrupts the search.
+
+'white' and 'black' do not always work as intended.
+
+A condition which ends the game will stop the program when in analysis 
+mode.
+
+Loses sometimes.

@@ -1,0 +1,129 @@
+		      Information for i740 Users
+		      i740 Driver Version 3.0
+
+
+1. Supported Hardware
+
+   * Intel 740 based cards
+
+
+2. Features
+
+   * Full support for 8, 15, 16, 24 and 32 bit per pixel depths.
+   * Hardware cursor support to reduce sprite flicker.
+   * Hardware accelerated 2D drawing engine support for 8, 15, 16 and
+     24 bit per pixel depths.
+   * Support for high resolution video modes up to 1600x1200.
+   * Support for doublescan video modes (e.g., 320x200 and 320x240).
+   * Support for gamma correction at all pixel depths.
+   * Fully programmable clock supported.
+   * Robust text mode restore for VT switching.
+
+
+3. Technical Notes
+
+   * Hardware acceleration is not possible in 32 bit per pixel depth.
+   * Interlace modes cannot be supported.
+
+
+4. Reported Working Video Cards
+
+   *** Currently support for PCI based cards is not working ***
+
+   * Real3D Starfighter AGP
+   * Real3D Starfighter PCI
+   * Diamond Stealth II/G460 AGP
+   * 3DVision-i740 AGP
+   * ABIT G740 8MB SDRAM
+   * Acorp AGP i740
+   * AGP 2D/3D V. 1N, AGP-740D
+   * AOpen AGP 2X 3D Navigator PA740
+   * ARISTO i740 AGP (ART-i740-G)
+   * ASUS AGP-V2740
+   * Atrend (Speedy) 3DIO740 AGP (ATC-2740)
+   * Chaintech AGP-740D
+   * EliteGroup(ECS) 3DVision-i740 AGP
+   * EONtronics Picasso 740
+   * EONtronics Van Gogh
+   * Everex MVGA i740/AG
+   * Flagpoint Shocker i740 8MB
+   * Gainward CardExpert 740 8MB
+   * Genoa Systems Phantom 740
+   * Gigabyte Predator i740 8MB AGP
+   * Hercules Terminator 128 2X/i AGP
+   * HOT-158 (Shuttle)
+   * Intel Express 3D AGP
+   * Jaton Video-740 AGP 3D
+   * Jetway J-740-3D 8MB AGP, i740 AGP 3D
+   * Joymedia Apollo 7400
+   * Leadtek Winfast S900
+   * Machspeed Raptor i740 AGP 4600
+   * Magic-Pro MP-740DVD
+   * MAXI Gamer AGP 8 MB
+   * Palit Daytona AGP740
+   * PowerColor C740 (SG/SD) AGP
+   * QDI Amazing I
+   * Soyo AGP (SY-740 AGP)
+   * Spacewalker Hot-158 
+   * VideoExcel AGP 740
+   * ViewTop ZeusL 8MB 
+   * Winfast S900 i740 AGP 8MB
+
+
+5. Configuration
+
+   The driver auto-detects all device information necessary to
+   initialize the card.  The only lines you need in the "Device"
+   section of your XF86Config file are:
+
+       Section "Device"
+           Identifier "Intel i740"
+	   Driver     "i740"
+       EndSection
+
+   or let xf86config or XF86Setup do this for you.
+
+   However, if you have problems with auto-detection, you can specify:
+
+       VideoRam - in kilobytes
+       DacSpeed - in MHz
+       MemBase  - physical address of the linear framebuffer
+       IOBase   - physical address of the memory mapped IO registers
+
+
+6. Driver Options
+
+   The server automatically detects its configuration, so none of
+   these options should be required.
+
+   "NoAccel"  - Turn off hardware acceleration
+   "SWCursor" - Request a software cursor (hardware is default)
+   "SDRAM"    - Force the use of SDRAM timings
+   "SGRAM"    - Force the use of SGRAM timings
+   "SlowRam"  - Force the use of slower ram timings
+   "Dac6Bit"  - Force the use of a 6 Bit Dac (8 Bit is the default)
+   "UsePIO    - Force the use of programmed IO (Memory mapped is the default)
+
+7. Known Limitations
+
+   * Certain drawing operations are very slow when using 24 bit per
+     pixel depth mode.
+
+8. Author
+
+   Original version by Kevin E Martin <kevin@precisioninsight.com>
+
+   Daryll Strauss <daryll@precisioninsight.com>
+
+   Precision Insight, Inc.
+   Cedar Park, TX
+   USA
+
+   http://www.precisioninsight.com
+
+   XVideo and DGA drivers by Patrick Lerda with some small modification by
+   Stephen Blackheath <stephen@blacksapphire.com>
+
+
+
+$XFree86: xc/programs/Xserver/hw/xfree86/drivers/i740/README,v 1.2 2003/01/15 03:39:42 dawes Exp $

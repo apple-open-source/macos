@@ -1,0 +1,30 @@
+XCOMM $XFree86: xc/lib/Xxf86rush/Imakefile,v 1.2 2002/10/16 00:37:34 dawes Exp $
+#define DoNormalLib NormalLibXxf86rush
+#define DoSharedLib SharedLibXxf86rush
+#define DoDebugLib DebugLibXxf86rush
+#define DoProfileLib ProfileLibXxf86rush
+#define LibName Xxf86rush
+#define SoRev SOXXF86RUSHREV
+#define LibHeaders NO
+
+#include <Threads.tmpl>
+
+#ifdef SharedXxf86rushReqs
+REQUIREDLIBS = SharedXxf86rushReqs
+#endif
+
+XF86RUSHSRCS = XF86Rush.c
+XF86RUSHOBJS = XF86Rush.o
+
+#if Malloc0ReturnsNull
+ALLOC_DEFINES = -DMALLOC_0_RETURNS_NULL
+#endif
+
+      DEFINES = $(ALLOC_DEFINES)
+         SRCS = $(XF86RUSHSRCS)
+         OBJS = $(XF86RUSHOBJS)
+     LINTLIBS = $(LINTXLIB)
+
+#include <Library.tmpl>
+
+DependTarget()

@@ -1,0 +1,76 @@
+_C_ License Applicability. Except to the extent portions of this file are
+_C_ made subject to an alternative license as permitted in the SGI Free
+_C_ Software License B, Version 1.1 (the "License"), the contents of this
+_C_ file are subject only to the provisions of the License. You may not use
+_C_ this file except in compliance with the License. You may obtain a copy
+_C_ of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+_C_ Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+_C_ 
+_C_ http://oss.sgi.com/projects/FreeB
+_C_ 
+_C_ Note that, as provided in the License, the Software is distributed on an
+_C_ "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+_C_ DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+_C_ CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+_C_ PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+_C_ 
+_C_ Original Code. The Original Code is: OpenGL Sample Implementation,
+_C_ Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+_C_ Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+_C_ Copyright in any portions created by third parties is as indicated
+_C_ elsewhere herein. All Rights Reserved.
+_C_ 
+_C_ Additional Notice Provisions: The application programming interfaces
+_C_ established by SGI in conjunction with the Original Code are The
+_C_ OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+_C_ April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+_C_ 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+_C_ Window System(R) (Version 1.3), released October 19, 1998. This software
+_C_ was created using the OpenGL(R) version 1.2.1 Sample Implementation
+_C_ published by SGI, but has not been independently verified as being
+_C_ compliant with the OpenGL(R) version 1.2.1 Specification.
+_C_
+_C_ The first character in this file must be an '_'!
+_C_ Anything on a line after _C_ is ignored
+_define(_filters,eqn)_C_
+_C_      eqn is automatically replaced with neqn for nroff
+_header(EdgeFlag,flag edges as either boundary or nonboundary)
+_names(EdgeFlag)
+.SH PARAMETERS
+_phead(_param1)
+Specifies the current edge flag value,
+either _const(TRUE) or _const(FALSE). The initial value is _const(TRUE).
+_names(EdgeFlagv)
+.SH PARAMETERS
+_phead(_param1)
+Specifies a pointer to an array that contains a single boolean element,
+which replaces the current edge flag value.
+.SH DESCRIPTION
+Each vertex of a polygon,
+separate triangle,
+or separate quadrilateral specified between a _cmnd(Begin)/_cmnd(End) pair
+is marked as the start of either a boundary or nonboundary edge.
+If the current edge flag is true when the vertex is specified,
+the vertex is marked as the start of a boundary edge.
+Otherwise, the vertex is marked as the start of a nonboundary edge.
+_cmnd sets the edge flag bit to _const(TRUE) if _param1 is _const(TRUE),
+and to _const(FALSE) otherwise.
+.P
+The vertices of connected triangles and connected quadrilaterals are always
+marked as boundary,
+regardless of the value of the edge flag.
+.P
+Boundary and nonboundary edge flags on vertices are significant only if
+_const(POLYGON_MODE) is set to _const(POINT) or _const(LINE).
+See _cmnd(PolygonMode).
+.SH NOTES
+The current edge flag can be updated at any time.
+In particular,
+_cmnd can be called between a call to _cmnd(Begin) and the corresponding
+call to _cmnd(End).
+.SH ASSOCIATED GETS
+_cmnd(Get) with argument _const(EDGE_FLAG)
+.SH SEE ALSO
+_cmnd(Begin),
+_cmnd(EdgeFlagPointer),
+_cmnd(PolygonMode)

@@ -1,0 +1,59 @@
+XCOMM $XConsortium: Imakefile /main/8 1996/09/28 17:25:44 rws $
+
+
+
+
+
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/xf4bpp/Imakefile,v 1.6 2002/05/31 18:46:03 dawes Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+
+#if DoLoadableServer
+XFMODSRC = vgamodule.c
+XFMODOBJ = vgamodule.o
+#endif
+
+SRCS =	ppcArea.c ppcBStore.c ppcClip.c ppcCpArea.c ppcCReduce.c ppcDepth.c \
+	ppcFillRct.c ppcWinFS.c ppcPixFS.c ppcGC.c ppcGetSp.c ppcImg.c \
+	ppcPixmap.c ppcPntWin.c ppcPolyPnt.c ppcPolyRec.c ppcQuery.c \
+	ppcRslvC.c ppcSetSp.c ppcWindow.c ppcIO.c \
+	emulOpStip.c emulRepAre.c emulTile.c \
+	vgaGC.c vgaBitBlt.c vgaImages.c vgaStipple.c vgaSolid.c \
+	offscreen.c wm3.c \
+	mfbimggblt.c mfbline.c mfbseg.c mfbhrzvert.c mfbbres.c mfbbresd.c \
+	mfbfillarc.c mfbzerarc.c \
+	$(XFMODSRC)
+
+OBJS =	ppcArea.o ppcBStore.o ppcClip.o ppcCpArea.o ppcCReduce.o ppcDepth.o \
+	ppcFillRct.o ppcWinFS.o ppcPixFS.o ppcGC.o ppcGetSp.o ppcImg.o \
+	ppcPixmap.o ppcPntWin.o ppcPolyPnt.o ppcPolyRec.o ppcQuery.o \
+	ppcRslvC.o ppcSetSp.o ppcWindow.o ppcIO.o \
+	emulOpStip.o emulRepAre.o emulTile.o \
+	vgaGC.o vgaBitBlt.o vgaImages.o vgaStipple.o vgaSolid.o \
+	offscreen.o wm3.o \
+	mfbimggblt.o mfbline.o mfbseg.o mfbhrzvert.o mfbbres.o mfbbresd.o \
+	mfbfillarc.o mfbzerarc.o \
+	$(XFMODOBJ)
+
+DEFINES = -DXF86VGA16
+
+INCLUDES = -I. -I$(XF86SRC)/xf1bpp -I$(SERVERSRC)/mfb \
+	-I$(SERVERSRC)/cfb -I$(SERVERSRC)/mi -I$(SERVERSRC)/include \
+	-I$(XF86OSSRC) -I$(XF86COMSRC) \
+	-I$(FONTINCSRC) -I$(XINCLUDESRC)
+
+ModuleObjectRule()
+LibraryModuleTarget(xf4bpp,$(OBJS))
+LintLibraryTarget(xf4bpp,$(SRCS))
+NormalLintTarget($(LINTDEFS) $(SRCS))
+
+ObjectFromSpecialSource(mfbseg,mfbline,-DPOLYSEGMENT)
+
+InstallLibraryModule(xf4bpp,$(MODULEDIR),.)
+
+DependTarget()
+
+InstallDriverSDKLibraryModule(xf4bpp,$(DRIVERSDKMODULEDIR),.)
+
+InstallDriverSDKNonExecFile(xf4bpp.h,$(DRIVERSDKINCLUDEDIR))

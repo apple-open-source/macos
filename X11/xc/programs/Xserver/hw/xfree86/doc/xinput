@@ -1,0 +1,242 @@
+            Information about the XInput extension in XFree86[tm]
+
+                               Frédéric Lepied
+
+                               2 November 1998
+
+1.  Introduction
+
+This document provides  some information  about  the XInput  extension imple-
+mented in XFree86[tm].
+
+If  you have any suggestions,  comments, fixes  or ideas regarding the XInput
+extension in XFree86[tm] or about this document, send e-mail to
+
+lepied@XFree86.Org
+
+Bug Reports should be sent to
+
+XFree86@XFree86.Org
+
+Questions or anything else should be posted to the NewsGroup
+
+comp.windows.x.i386unix
+
+2.  Description
+
+The XInput extension is a standard X Consortium extension. The goal of this
+extension is to allow additional input  devices management to the X Window
+System. The documentation could  be found in the X Consortium distribution
+under xc/doc/hardcopy/Xi.
+
+3.  XFree86 implementation
+
+The XFree86 implementation contains 2 parts : the server part and two clients
+(xsetpointer and xsetmode).
+
+3.1  Server side
+
+The server supports the following extended devices :
+
+   o Joystick (only on  supported systems ie. Linux, FreeBSD and NetBSD).
+     Features :
+
+        o Relative mode.
+
+        o 2 valuators (x and y axis).
+
+        o 2 buttons.
+
+   o Elographics touchscreen. Features :
+
+        o Absolute mode.
+
+        o 2 valuators (x and y axis).
+
+        o 1 button.
+
+   o Stylus on MicroTouch touchscreen. Features :
+
+        o Absolute mode.
+
+        o 2 valuators (x and y axis).
+
+        o 1 button.
+
+   o Finger on MicroTouch touchscreen. Features :
+
+        o Absolute mode.
+
+        o 2 valuators (x and y axis).
+
+        o 1 button.
+
+   o Mouse. Features :
+
+        o Relative mode.
+
+        o 2 valuators (x and y axis).
+
+        o up to 4 buttons.
+
+   o Wacom stylus. Features :
+
+        o Absolute or relative modes.
+
+        o 6 valuators :
+
+            1.  X axis.
+
+            2.  Y axis.
+
+            3.  pressure.
+
+            4.  X tilt.
+
+            5.  Y tilt.
+
+            6.  wheel.
+
+        o 3 buttons.
+
+        o Proximity report.
+
+        o Motion history capability.
+
+        o Macro/function buttons are reported as keys.
+
+   o Wacom eraser. Features :
+
+        o Absolute or relative modes.
+
+        o 6 valuators :
+
+            1.  X axis.
+
+            2.  Y axis.
+
+            3.  pressure.
+
+            4.  X tilt.
+
+            5.  Y tilt.
+
+            6.  wheel.
+
+        o 1 button.
+
+        o Proximity report.
+
+        o Motion history capability.
+
+        o Macro/function buttons are reported as keys.
+
+   o Wacom cursor. Features :
+
+        o Absolute or relative modes.
+
+        o 6 valuators :
+
+            1.  X axis.
+
+            2.  Y axis.
+
+            3.  pressure.
+
+            4.  X tilt.
+
+            5.  Y tilt.
+
+            6.  wheel.
+
+        o 16 buttons.
+
+        o Proximity report.
+
+        o Motion history capability.
+
+        o Macro/function buttons are reported as keys.
+
+   o SummaSketch tablet. Features :
+
+        o Absolute or relative modes.
+
+        o 2 valuators (x and y axis).
+
+        o 2 buttons stylus or 4 buttons puck.
+
+        o Proximity report.
+
+        o Motion history capability.
+
+   o AceCad tablet. Features :
+
+        o Absolute or relative modes.
+
+        o 2 valuators (x and y axis).
+
+        o 2 buttons stylus or 4 buttons puck.
+
+        o Proximity report.
+
+        o Motion history capability.
+
+   o Calcomp DrawingBoard tablet. Features :
+
+        o Absolute or relative modes.
+
+        o 2 valuators (x and y axis).
+
+        o 4 buttons stylus or 16 buttons puck.
+
+        o Proximity report.
+
+        o Motion history capability.
+
+   o SWITCH virtual device. Features :
+
+        o Absolute mode.
+
+        o 1 valuator (device id) which reports the id of the device control-
+          ling the core pointer (works with the AlwaysCore feature see bel-
+          low).
+
+   o SGI button box. Features :
+
+        o Absolute or relative modes.
+
+        o 8 valuators.
+
+        o 32 buttons.
+
+        o Motion history capability.
+
+To  enable  an   extended  device, you  must   add   en  entry  in the
+XF86Config file.   Consult   to  the XF86Config  man pages to see the
+details.
+
+The  XFree86 implementation supports  a  non  standard feature  called
+AlwaysCore which enables an  XInput device to send both  core and extended
+events at the same time. To enable it you have to add the AlwaysCore keyword
+to the  subsection describing your  device in the XF86Config  file.  The
+SWITCH virtual device reports a Motion event when another  device takes over
+the control of the core pointer. The id of the new device is reported in the
+first valuator of the event.
+
+3.2  Clients
+
+xsetpointer is used to  change the device controlling the core pointer and to
+list available extended devices.
+
+xsetmode is used to change the mode (absolute or relative) of an extended
+device. The device  has to  support relative and  absolute modes and the
+device must not control the core pointer.
+
+Consult the man pages for details.
+
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/xinput.sgml,v 3.7 1999/08/23 06:38:55 dawes Exp $
+
+     $XConsortium: xinput.sgml /main/3 1996/10/27 11:06:13 kaleb $
+
+
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/xinput,v 3.11 2000/03/01 01:48:32 dawes Exp $

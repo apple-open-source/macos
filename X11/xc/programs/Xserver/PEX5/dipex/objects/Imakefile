@@ -1,0 +1,74 @@
+XCOMM
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:47:13 cpqbld Exp $
+XCOMM
+XCOMM
+XCOMM
+XCOMM $XFree86: xc/programs/Xserver/PEX5/dipex/objects/Imakefile,v 3.16 2001/01/17 22:12:37 dawes Exp $
+XCOMM
+XCOMM 
+XCOMM Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium
+XCOMM 
+XCOMM			 All Rights Reserved
+XCOMM 
+XCOMM Permission to use, copy, modify, and distribute this software and its 
+XCOMM documentation for any purpose and without fee is hereby granted, 
+XCOMM provided that the above copyright notice appear in all copies and that
+XCOMM both that copyright notice and this permission notice appear in 
+XCOMM supporting documentation, and that the names of Sun Microsystems
+XCOMM and the X Consortium not be used in advertising or publicity 
+XCOMM pertaining to distribution of the software without specific, written 
+XCOMM prior permission.  
+XCOMM 
+XCOMM SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+XCOMM INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+XCOMM EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+XCOMM CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+XCOMM USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+XCOMM OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+XCOMM PERFORMANCE OF THIS SOFTWARE.
+
+#define IHaveModules
+#include <Server.tmpl>
+
+#ifndef PassCDebugFlags
+#define PassCDebugFlags
+#endif
+
+#ifndef PexDipexCDebugFlags
+#define PexDipexCDebugFlags ServerCDebugFlags
+#endif
+
+    CDEBUGFLAGS = PexDipexCDebugFlags
+        DEFINES = PexDipexDefines
+       LINTLIBS =  ../../../dix/llib-ldix.ln \
+		../../../os/llib-los.ln \
+		../../ddpex/mi/level4/llib-ldp4.ln \
+		../../ddpex/mi/shared/llib-ldps.ln
+
+
+   PEXSRVINC = ../../include
+    INCLUDES = -I. -I$(PEXSRVINC) -I$(XINCLUDESRC) -I$(SERVERSRC)/include
+
+
+SRCS =  pexRndr.c pexFont.c pexLut.c pexNs.c pexStr.c \
+	pexPhigs.c pexInfo.c pexSc.c pexPick.c pexPc.c pexRndrPick.c
+XCOMM	pexTM.c pexAccBuf.c
+
+OBJS =  pexRndr.o pexFont.o pexLut.o pexNs.o pexStr.o \
+	pexPhigs.o pexInfo.o pexSc.o pexPick.o pexPc.o pexRndrPick.o
+XCOMM	pexTM.o pexAccBuf.o
+
+ModuleObjectRule()
+
+SubdirLibraryRule($(OBJS))
+
+LibraryModuleTarget(diobpex,$(OBJS))
+
+LintLibraryTarget(obj,$(SRCS))
+NormalLintTarget($(SRCS))
+
+#ifdef HPArchitecture
+SpecialCObjectRule(hpext, $(IRULESRC)/$(MACROFILE), $(EXT_DEFINES))
+#endif
+
+DependTarget()

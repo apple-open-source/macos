@@ -1,0 +1,63 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:55:02 cpqbld Exp $
+
+XCOMM where and which is the plugin to test
+PLUGINDIR = ../plugin
+   PLUGIN = -L$(PLUGINDIR) -lxrx
+
+XCOMM where are motif includes and lib
+#ifdef SunArchitecture
+MOTIFINCDIR = /usr/dt/include
+MOTIFLIBDIR = /usr/dt/lib
+#else
+MOTIFINCDIR = /usr/include
+MOTIFLIBDIR = /usr/lib
+#endif
+
+XCOMM avoid build libraries and link against installed libraries
+LDPRELIB =
+LDPRELIBS =
+
+XCOMM we need to link in the very same libraries as the plugin
+#if !VendorHasX11R7libXext
+#ifdef SunArchitecture
+OPENWINLIBDIR = /usr/openwin/lib
+OPENWINLIB = -L$(OPENWINLIBDIR)
+#endif
+#endif
+
+ INCLUDES = -I$(MOTIFINCDIR) -I$(PLUGINDIR)/include
+LOCAL_LIBRARIES = $(PLUGIN) -L$(MOTIFLIBDIR) -lXm \
+                  $(OPENWINLIB) $(XTOOLONLYLIB) $(XLIB)
+  DEFINES = -DXP_UNIX
+
+XCOMM set debug and plugin trace on
+CDEBUGFLAGS = -g -DPLUGIN_TRACE
+
+XCOMM override default to get correct path
+CCENVSETUP = \
+     LD_RUN_PATH=$(USRLIBDIRPATH):$(OPENWINLIBDIR):$(MOTIFLIBDIR):$(PLUGINDIR)
+
+EXTRA_LOAD_FLAGS =
+
+        DEPLIBS = $(DEPXTOOLLIB) $(DEPXLIB)
+
+SRCS = testplugin.c
+OBJS = testplugin.o
+
+#ifdef SGIArchitecture
+/* Even though we want to build the distribution with -n32, Navigator 3.0 
+ * binaries are still built on IRIX 5.2, which means we need to use the 
+ * old style object format. This is a hack because this Imakefile gets
+ * included too late to do this properly, that is to say that the
+ * CCOPTIONS in Imake.tmpl gets the -n32 options that we don't want,
+ * but the CCOPTIONS in Library.tmpl does get set correctly, and over-
+ * rides the value. So it works, but it's not pretty.
+ */
+        CCOPTIONS = -xansi
+#ifdef Mips64Architecture
+     SHLIBLDFLAGS = -shared
+#endif
+               LD = ld
+#endif
+
+ComplexProgramTarget(testplugin);

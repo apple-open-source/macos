@@ -1,0 +1,130 @@
+// Author: Damjan Georgievski <gdamjan@freemail.org.mk>
+// Revision: 1.4
+// Quick usage: setxkbmap -layout mk
+//
+// shift-leftALT and win95 menu key  toggles cyrillic/latin
+// rightALT and left win95-logo keys are Mode_switch
+// right win95-logo key is Multi_key (Compose)
+//
+// $XFree86: xc/programs/xkbcomp/symbols/mk,v 3.4 2000/11/27 17:45:57 dawes Exp $
+//
+partial default alphanumeric_keys
+xkb_symbols "basic" { 
+    name[Group2]= "Macedonian";
+    key <AB01> {  [ ], [     Cyrillic_ze,     Cyrillic_ZE	]	};
+    key <AC02> {  [ ], [     Cyrillic_es,     Cyrillic_ES	]	};
+    key <AC01> {  [ ], [      Cyrillic_a,      Cyrillic_A	]	};
+    key <AD01> {  [ ], [    Cyrillic_lje,    Cyrillic_LJE	]	};
+    key <AD02> {  [ ], [    Cyrillic_nje,    Cyrillic_NJE	]	};
+    key <AB03> {  [ ], [    Cyrillic_tse,    Cyrillic_TSE	]	};
+    key <AB02> {  [ ], [   Cyrillic_dzhe,   Cyrillic_DZHE	]	};
+    key <AC03> {  [ ], [     Cyrillic_de,     Cyrillic_DE	]	};
+    key <AD03> {  [ ], [     Cyrillic_ie,     Cyrillic_IE	]	};
+    key <AB04> {  [ ], [     Cyrillic_ve,     Cyrillic_VE	]	};
+    key <AC04> {  [ ], [     Cyrillic_ef,     Cyrillic_EF	]	};
+    key <AD05> {  [ ], [     Cyrillic_te,     Cyrillic_TE	]	};
+    key <AD04> {  [ ], [     Cyrillic_er,     Cyrillic_ER	]	};
+    key <AB06> {  [ ], [     Cyrillic_en,     Cyrillic_EN	]	};
+    key <AB05> {  [ ], [     Cyrillic_be,     Cyrillic_BE	]	};
+    key <AC06> {  [ ], [     Cyrillic_ha,     Cyrillic_HA	]	};
+    key <AC05> {  [ ], [    Cyrillic_ghe,    Cyrillic_GHE	]	};
+    key <AD06> {  [ ], [   Macedonia_dse,   Macedonia_DSE	]	};
+    key <AB07> {  [ ], [     Cyrillic_em,     Cyrillic_EM	]	};
+    key <AC07> {  [ ], [     Cyrillic_je,     Cyrillic_JE	]	};
+    key <AD07> {  [ ], [      Cyrillic_u,      Cyrillic_U	]	};
+    key <AC08> {  [ ], [     Cyrillic_ka,     Cyrillic_KA	]	};
+    key <AD08> {  [ ], [      Cyrillic_i,      Cyrillic_I	]	};
+    key <AD09> {  [ ], [      Cyrillic_o,      Cyrillic_O	]	};
+    key <AC09> {  [ ], [     Cyrillic_el,     Cyrillic_EL	]	};
+    key <AC10> {  [ ], [    Cyrillic_che,    Cyrillic_CHE	]	};
+    key <AD10> {  [ ], [     Cyrillic_pe,     Cyrillic_PE	]	};
+    key <AC11> {  [ ], [   Macedonia_kje,   Macedonia_KJE	]	};
+    key <AD11> {  [ ], [    Cyrillic_sha,    Cyrillic_SHA	]	};
+    key <AD12> {  [ ], [   Macedonia_gje,   Macedonia_GJE	]	};
+    key <BKSL> {  [ ], [    Cyrillic_zhe,    Cyrillic_ZHE	]	};
+    key <AE12> {  [ ], [           equal,            plus	]	};
+    key <AE11> {  [ ], [           minus,      underscore	]	};
+    key <TLDE> {  [ ], [           grave,      asciitilde	]	};
+    key <AE01> {  [ ], [               1,          exclam	]	};
+    key <AE02> {  [ ], [               2, doublelowquotemark	]	};
+    key <AE03> {  [ ], [               3, leftdoublequotemark	]	};
+    key <AE04> {  [ ], [               4,          dollar	]	};
+    key <AE05> {  [ ], [               5,         percent	]	};
+    key <AE06> {  [ ], [               6,     asciicircum	]	};
+    key <AE07> {  [ ], [               7,       ampersand	]	};
+    key <AE08> {  [ ], [               8,        asterisk	]	};
+    key <AE09> {  [ ], [               9,       parenleft	]	};
+    key <AE10> {  [ ], [               0,      parenright	]	};
+    key <AB08> {  [ ], [           comma,       semicolon	]	};
+    key <AB09> {  [ ], [          period,           colon	]	};
+    key <AB10> {  [ ], [           slash,        question	]	};
+
+};
+
+partial alphanumeric_keys
+xkb_symbols "group1" { 
+    name[Group1]= "Macedonian";
+    name[Group2]= "US/ASCII";
+    key <AB01> {  [  Cyrillic_ze,   Cyrillic_ZE	], [ z, Z ]	};
+    key <AC02> {  [  Cyrillic_es,   Cyrillic_ES	], [ s, S ]	};
+    key <AC01> {  [   Cyrillic_a,    Cyrillic_A	], [ a, A ]	};
+    key <AD01> {  [ Cyrillic_lje,  Cyrillic_LJE	], [ q, Q ]	};
+    key <AD02> {  [ Cyrillic_nje,  Cyrillic_NJE	], [ w, W ]	};
+    key <AD03> {  [  Cyrillic_ie,   Cyrillic_IE	], [ e, E ]	};
+    key <AD04> {  [  Cyrillic_er,   Cyrillic_ER	], [ r, R ]	};
+    key <AB03> {  [ Cyrillic_tse,  Cyrillic_TSE	], [ c, C ]	};
+    key <AB02> {  [Cyrillic_dzhe, Cyrillic_DZHE	], [ x, X ]	};
+    key <AC03> {  [  Cyrillic_de,   Cyrillic_DE	], [ d, D ]	};
+    key <AB04> {  [  Cyrillic_ve,   Cyrillic_VE	], [ v, V ]	};
+    key <AC04> {  [  Cyrillic_ef,   Cyrillic_EF	], [ f, F ]	};
+    key <AD05> {  [  Cyrillic_te,   Cyrillic_TE	], [ t, T ]	};
+    key <AB06> {  [  Cyrillic_en,   Cyrillic_EN	], [ n, N ]	};
+    key <AB05> {  [  Cyrillic_be,   Cyrillic_BE	], [ b, B ]	};
+    key <AC06> {  [  Cyrillic_ha,   Cyrillic_HA	], [ h, H ]	};
+    key <AC05> {  [ Cyrillic_ghe,  Cyrillic_GHE	], [ g, G ]	};
+    key <AD06> {  [Macedonia_dse, Macedonia_DSE	], [ y, Y ]	};
+    key <AB07> {  [  Cyrillic_em,   Cyrillic_EM	], [ m, M ]	};
+    key <AC07> {  [  Cyrillic_je,   Cyrillic_JE	], [ j, J ]	};
+    key <AD07> {  [   Cyrillic_u,    Cyrillic_U	], [ u, U ]	};
+    key <AC08> {  [  Cyrillic_ka,   Cyrillic_KA	], [ k, K ]	};
+    key <AD08> {  [   Cyrillic_i,    Cyrillic_I	], [ i, I ]	};
+    key <AD09> {  [   Cyrillic_o,    Cyrillic_O	], [ o, O ]	};
+    key <AD10> {  [  Cyrillic_pe,   Cyrillic_PE	], [ p, P ]	};
+    key <AC09> {  [  Cyrillic_el,   Cyrillic_EL	], [ l, L ]	};
+
+    key <AC10> {  [ Cyrillic_che,  Cyrillic_CHE	], [ semicolon, colon ] };
+    key <AC11> {  [Macedonia_kje, Macedonia_KJE	], [ quoteright, quotedbl ] }; 
+    key <AD11> {  [ Cyrillic_sha,  Cyrillic_SHA	], [ bracketleft, braceleft ] };
+    key <AD12> {  [Macedonia_gje, Macedonia_GJE	], [bracketright, braceright] };
+    key <BKSL> {  [ Cyrillic_zhe,  Cyrillic_ZHE	], [ backslash, bar ] };
+
+    key <AB10> {  [  slash,  question  ], [  slash, question  ] };
+    key <AE12> {  [  equal,       plus	], [ equal,       plus ] };
+    key <AE11> {  [  minus, underscore	], [ minus, underscore ] };
+    key <TLDE> {  [  grave, asciitilde	], [ grave, asciitilde ] };
+    key <AE01> {  [      1,     exclam	], [     1,     exclam ] };
+    key <AE02> {  [      2, doublelowquotemark ], [  2,     at ] };
+    key <AE03> {  [      3, leftdoublequotemark ], [  3, numbersign ] };
+    key <AE04> {  [      4,     dollar	], [     4,     dollar ] };
+    key <AE05> {  [      5,    percent	], [     5,    percent ] };
+    key <AE06> {  [      6,asciicircum	], [     6,asciicircum ] };
+    key <AE07> {  [      7,  ampersand	], [     7,  ampersand ] };
+    key <AE08> {  [      8,   asterisk	], [     8,   asterisk ] };
+    key <AE09> {  [      9,  parenleft	], [     9,  parenleft ] };
+    key <AE10> {  [      0, parenright	], [     0, parenright ] };
+    key <AB08> {  [  comma,  semicolon	], [  comma,    less	] };
+    key <AB09> {  [ period,      colon	], [ period, greater	] };
+};
+
+partial alphanumeric_keys
+xkb_symbols "pc104" {
+    include "mk(basic)"
+    include "mk(win)"	
+};
+
+partial alphanumeric_keys
+xkb_symbols "win" {
+    key <MENU> { [ 		ISO_Next_Group		]	};
+    key <RWIN> { [		Multi_key		]	};
+    key <LWIN> { [		Mode_switch		]	};
+};

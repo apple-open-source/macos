@@ -1,0 +1,47 @@
+Importing Mesa.
+
+Mesa should be imported from a tree checked out from the Mesa CVS
+repository (:pserver:anonymous@cvs.mesa3d.sourceforge.net:/cvsroot/mesa3d).
+
+Instructions for importing a tagged Mesa release X.Y.
+
+1. Check out the release version from the Mesa CVS repository:
+
+  % cvs -d :pserver:anonymous@cvs.mesa3d.sourceforge.net:/cvsroot/mesa3d \
+		co -r mesa_X_Y Mesa
+
+2. Remove the CVSROOT directory:
+
+  % cd Mesa
+  % rm -fr CVSROOT
+
+3. Remove the CVS admin directories:
+
+  % find . -name CVS -print | xargs rm -fr
+
+4. Import:
+
+  % cvs import -m "Mesa version X.Y" xc/extras/Mesa MESA MESA-X_Y
+
+5. Merge:
+
+  % cvs co -j MESA_PREV -j MESA-X_Y xc/extras/Mesa
+
+  resolve conflicts, and commit.
+
+6. Check for new files that are GPL'd or which were in directories
+   previously removed.  Remove them from the main branch.
+
+
+
+
+When importing a snapshot of a Mesa (stable) branch, do everything as above,
+except check out the branch with:
+
+  % cvs -d :pserver:anonymous@cvs.mesa3d.sourceforge.net:/cvsroot/mesa3d \
+		co -r mesa_X_Y_branch Mesa
+
+and import with the tag MESA-X_Y-yyyymmdd indicating the date of the snapshot.
+
+
+$XFree86: xc/extras/Mesa/README.XF86,v 1.2 2001/03/21 17:22:44 dawes Exp $

@@ -1,0 +1,11 @@
+XCOMM $XFree86: xc/extras/X-TrueType/GBK/Imakefile,v 1.1 2001/03/06 18:03:14 dawes Exp $
+
+/* code converter: GBK */
+
+#define ModuleName GBK
+SRCS = GBKtoUCS2.c main.c
+OBJS = GBKtoUCS2.o main.o
+
+#include <xttMod.tmpl>
+
+/* end of file */

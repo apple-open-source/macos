@@ -1,0 +1,869 @@
+\&
+.sp 1
+.ce 3
+\s+1\fBChapter 11\fP\s-1
+
+\s+1\fBPHIGS Workstation Picking\fP\s-1
+.sp 2
+.nr H1 11
+.nr H2 0
+.nr H3 0
+.nr H4 0
+.nr H5 0
+.na
+.LP
+.XS
+Chapter 11: PHIGS Workstation Picking
+.XE
+.LP
+.IN "PHIGS workstation"
+.IN "workstation" "PHIGS"
+.IN "workstation" "picking"
+The PHIGS workstation resource encapsulates the PEX functionality to support
+the PHIGS concept of a workstation.  The following functionality encapsulates
+the picking support for the PHIGS workstation.  There are two parts to the
+PHIGS workstation picking.  A pick device is actually a part of the PHIGS
+workstation resource, but the support for inquiring and setting the pick
+device attributes is documented here.  A pick measure is a separate resource
+that works with the PHIGS workstation resource to perform the actual pick
+operation.
+.NH 2
+Workstation Pick Devices
+.XS
+\*(SN Workstation Pick Devices
+.XE
+.IN "workstation" "pick device"
+.LP
+Each PHIGS workstation resource maintains a list of pick device descriptors.
+Each entry in the list maintains state values for a particular type of pick
+device, such as a mouse or a tablet.  Together, the entries in the pick device
+descriptor list maintain state values for all the pick devices that are
+supported by the workstation resource.  This list of values can be set or
+inquired for each of the supported pick devices.
+.LP
+Two of the pick device descriptor attributes are name set resources.  If a
+name set is created, bound to a pick device descriptor, and the freed, the
+contents of the name set will remain, since it is still being referenced by
+the pick device descriptor.  However, when a pick device descriptor is
+inquired, the value
+.PN PEXAlreadyFreed
+will be returned for the name set identifier, since it no longer has a valid
+resource identifier by which it can be referenced.
+.LP
+The pick device descriptor attributes, in order, are:
+.ID
+pick status
+pick path
+pick path order
+pick inclusion
+pick exclusion
+pick data record
+prompt and echo type
+echo volume
+echo switch
+.DE
+.LP
+The pick status attribute contains the initial pick status that will be bound
+to a pick measure resource.
+.LP
+The pick path attribute contains the initial pick path that will be bound to a
+pick measure resource.
+.LP
+The pick path order attribute specifies the order in which elements of the
+picked path are to be written into the pick measure resource.  If the order is
+.PN PEXTopFirst ,
+elements of the pick measure's picked path attribute will be listed in the
+order they would have been encountered during a traversal.  If the order is
+.PN PEXBottomFirst ,
+elements of the pick measure's picked path attribute will be listed in the
+order opposite from the order they would have been encountered during a
+traversal.
+.LP
+The pick inclusion attribute specifies the resource identifier of the name set
+that is to be used as the pick inclusion filter during pick operations.
+.LP
+The pick exclusion attribute specifies the resource identifier of the name set
+that is to be used as the pick exclusion filter during pick operations.
+.LP
+The pick data record attribute contains a pick-device-dependent data record used
+to initialize a pick measure resource when it is created.
+.LP
+The prompt and echo type attribute contains a value that specifies the
+prompt and echo type to be used during pick operations.  The supported types
+are inquirable via
+.PN PEXGetEnumTypeInfo .
+.LP
+The echo volume attribute specifies where prompting and echoing is to occur.
+The default is that the echo volume will be defined to be the size of the
+drawable bound to the workstation resource at the time it was created.
+.LP
+The echo switch attribute specifies the initial echo state for a pick measure.
+.bp
+.XS
+Function Descriptions
+.XE
+.SH
+PEXFreePDAttributes - Free Storage Returned by PEXGetPickDevice
+.XS
+	PEXFreePDAttributes
+.XE
+.IN "PEXFreePDAttributes" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXFreePDAttributes\^(\^PEXPDAttributes *\fIvalues\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIvalues\fP 1i
+A pointer to the pick device attribute values.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function deallocates memory returned by
+.PN PEXGetPickDevice .
+.RE
+.SH
+Errors
+.RS
+.IP None 1i
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXGetPickDevice
+.RE
+.bp
+.SH
+PEXGetPickDevice - Get Pick Device Attributes
+.XS
+	PEXGetPickDevice
+.XE
+.IN "PEXGetPickDevice" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+PEXPDAttributes *PEXGetPickDevice\^(\^Display *\fIdisplay\fP\^, PEXWorkstation \fIworkstation\fP\^, int \fIpick_device_type\fP\^, unsigned long \fIvalue_mask\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIworkstation\fP 1i
+The resource identifier of the workstation.
+.IP \fIpick_device_type\fP 1i
+The pick device type
+.Pn ( PEXPickDeviceDCHitBox
+or
+.PN PEXPickDeviceNPCHitVolume ).
+.IP \fIvalue_mask\fP 1i
+A mask indicating which attributes to return.
+.RE
+.SH
+Returns
+.RS
+.LP
+A pointer to the pick device attribute values; a null pointer if unsuccessful.
+.RE
+.SH
+Description
+.RS
+.LP
+This function returns the attribute values of a pick descriptor for the PHIGS
+workstation resource specified.  The descriptor returned will be the
+currently-defined descriptor for the pick device of the type specified.
+Supported pick device types are inquirable via
+.PN PEXGetEnumTypeInfo .
+The value mask indicates which attributes are to be returned.
+The value mask is constructed by or'ing together the following constants:
+.ID
+.PN PEXPDPickStatus
+.PN PEXPDPickPath
+.PN PEXPDPickPathOrder
+.PN PEXPDPickIncl
+.PN PEXPDPickExcl
+.PN PEXPDPickDataRec
+.PN PEXPDPromptEchoType
+.PN PEXPDEchoVolume
+.PN PEXPDEchoSwitch
+.DE
+.LP
+PEXlib allocates memory for the return value.
+.PN PEXFreePDAttributes
+should be called to deallocate the memory.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXWorkstation;
+.sp
+typedef struct {
+    unsigned short      status;
+    PEXPickPath         path;
+    int                 path_order;
+    PEXNameSet          inclusion;
+    PEXNameSet          exclusion;
+    PEXPickRecord       pick_record;
+    PEXEnumTypeIndex    prompt_echo_type;
+    PEXViewport         echo_volume;
+    int                 echo_switch;
+} PEXPDAttributes;
+.sp
+typedef struct {
+    unsigned long       count;                  /* number of elements */
+    PEXPickElementRef   *elements;
+} PEXPickPath;
+.sp
+typedef struct {
+    PEXStructure        sid;
+    unsigned long       offset;
+    unsigned long       pick_id;
+} PEXPickElementRef;
+.sp
+typedef XID             PEXStructure;
+.sp
+typedef XID             PEXNameSet;
+.sp
+typedef union {
+    PEXPDNPCHitVolume       volume;
+    PEXPDDCHitBox           box;
+    PEXPickDataRecord       data;
+} PEXPickRecord;
+.sp
+typedef PEXNPCSubVolume PEXPDNPCHitVolume;
+.sp
+typedef struct {
+    PEXCoord            min;
+    PEXCoord            max;
+} PEXNPCSubVolume;
+.sp
+typedef struct {
+    float               x;
+    float               y;
+    float               z;
+} PEXCoord;
+.sp
+typedef struct {
+    PEXDeviceCoord2D    position;
+    float               distance;
+} PEXPDDCHitBox;
+.sp
+typedef struct {
+    short               x;
+    short               y;
+} PEXDeviceCoord2D;
+.sp
+typedef struct {
+    unsigned short      length;                 /* number of bytes in record */
+    char                *record;
+} PEXPickDataRecord;
+.sp
+typedef short           PEXEnumTypeIndex;
+.sp
+typedef struct {
+    PEXDeviceCoord      min;
+    PEXDeviceCoord      max;
+    PEXSwitch           use_drawable;
+    unsigned char       reserved[3];
+} PEXViewport;
+.sp
+typedef struct {
+    short               x;
+    short               y;
+    float               z;
+} PEXDeviceCoord;
+.sp
+typedef unsigned char   PEXSwitch;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXWorkstation\fP 1i
+The specified workstation resource identifier is invalid.
+.IP \fIBadValue\fP 1i
+The specified pick device type is invalid, or an invalid bit set in the value
+mask.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXChangePickDevice ,
+.PN PEXGetEnumTypeInfo
+.RE
+.bp
+.SH
+PEXChangePickDevice - Change Pick Device Attributes
+.XS
+	PEXChangePickDevice
+.XE
+.IN "PEXChangePickDevice" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXChangePickDevice\^(\^Display *\fIdisplay\fP\^, PEXWorkstation \fIworkstation\fP\^, int \fIpick_device_type\fP\^, unsigned long \fIvalue_mask\fP\^, PEXPDAttributes *\fIvalues\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIworkstation\fP 1i
+The resource identifier of the workstation.
+.IP \fIpick_device_type\fP 1i
+The pick device type
+.Pn ( PEXPickDeviceDCHitBox
+or
+.PN PEXPickDeviceNPCHitVolume ).
+.IP \fIvalue_mask\fP 1i
+A mask indicating which attributes to return.
+.IP \fIvalues\fP 1i
+A pointer to the pick device attribute values.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function will modify the attributes of a pick descriptor for the PHIGS
+workstation resource specified.  The descriptor to be modified will be the
+currently-defined descriptor for the pick device of the type specified.
+Supported pick device types are inquirable via
+.PN PEXGetEnumTypeInfo .
+The value mask indicates which attributes are to be changed.
+The value mask is constructed by or'ing together the following constants:
+.ID
+.PN PEXPDPickStatus
+.PN PEXPDPickPath
+.PN PEXPDPickPathOrder
+.PN PEXPDPickIncl
+.PN PEXPDPickExcl
+.PN PEXPDPickDataRec
+.PN PEXPDPromptEchoType
+.PN PEXPDEchoVolume
+.PN PEXPDEchoSwitch
+.DE
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXWorkstation;
+.sp
+typedef struct {
+    unsigned short      status;
+    PEXPickPath         path;
+    int                 path_order;
+    PEXNameSet          inclusion;
+    PEXNameSet          exclusion;
+    PEXPickRecord       pick_record;
+    PEXEnumTypeIndex    prompt_echo_type;
+    PEXViewport         echo_volume;
+    int                 echo_switch;
+} PEXPDAttributes;
+.sp
+typedef struct {
+    unsigned long       count;                  /* number of elements */
+    PEXPickElementRef   *elements;
+} PEXPickPath;
+.sp
+typedef struct {
+    PEXStructure        sid;
+    unsigned long       offset;
+    unsigned long       pick_id;
+} PEXPickElementRef;
+.sp
+typedef XID             PEXStructure;
+.sp
+typedef XID             PEXNameSet;
+.sp
+typedef union {
+    PEXPDNPCHitVolume       volume;
+    PEXPDDCHitBox           box;
+    PEXPickDataRecord       data;
+} PEXPickRecord;
+.sp
+typedef PEXNPCSubVolume PEXPDNPCHitVolume;
+.sp
+typedef struct {
+    PEXCoord            min;
+    PEXCoord            max;
+} PEXNPCSubVolume;
+.sp
+typedef struct {
+    float               x;
+    float               y;
+    float               z;
+} PEXCoord;
+.sp
+typedef struct {
+    PEXDeviceCoord2D    position;
+    float               distance;
+} PEXPDDCHitBox;
+.sp
+typedef struct {
+    short               x;
+    short               y;
+} PEXDeviceCoord2D;
+.sp
+typedef struct {
+    unsigned short      length;                 /* number of bytes in record */
+    char                *record;
+} PEXPickDataRecord;
+.sp
+typedef short           PEXEnumTypeIndex;
+.sp
+typedef struct {
+    PEXDeviceCoord      min;
+    PEXDeviceCoord      max;
+    PEXSwitch           use_drawable;
+    unsigned char       reserved[3];
+} PEXViewport;
+.sp
+typedef struct {
+    short               x;
+    short               y;
+    float               z;
+} PEXDeviceCoord;
+.sp
+typedef unsigned char   PEXSwitch;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXNameSet\fP 1i
+The specified name set resource identifier is invalid.
+.IP \fIBadPEXPath\fP 1i
+The specified path is invalid.
+.IP \fIBadPEXWorkstation\fP 1i
+The specified workstation resource identifier is invalid.
+.IP \fIBadValue\fP 1i
+The specified pick device type is invalid, a specified value is invalid, or
+an invalid bit set in the value mask.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXGetPickDevice ,
+.PN PEXGetEnumTypeInfo
+.RE
+.bp
+.NH 2
+Workstation Pick Measures
+.XS
+\*(SN Workstation Pick Measures
+.XE
+.IN "workstation" "pick measure"
+.LP
+A pick measure resource must be created to actually perform a pick operation
+using a PHIGS workstation.  A pick device type is specified at the time a
+pick measure resource is created in order to provide the parameters for the
+pick operation.  The pick measure accepts input in the form of input records
+which are defined for each type of pick device.  When the pick measure is
+passed a valid input record, its attributes will be updated.  Operation on
+a pick measure are potentially lengthy since a great number of structure
+elements may have to be processed in order to produce the pick results.
+.LP
+The pick measure resource attributes are:
+.ID
+status
+pick path
+.DE
+.LP
+The pick status attribute contains the result of the last update operation
+that was performed.  It is set to
+.PN PEXPick
+if a primitive was successfully picked, and
+.PN PEXNoPick
+if the pick operation was unsuccessful.
+.LP
+The pick path attribute contains the path of the structure element that
+was picked as a result of the last update operation.
+.bp
+.SH
+PEXCreatePickMeasure - Create Pick Measure
+.XS
+	PEXCreatePickMeasure
+.XE
+.IN "PEXCreatePickMeasure" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+PEXPickMeasure PEXCreatePickMeasure\^(\^Display *\fIdisplay\fP\^, PEXWorkstation \fIworkstation\fP\^, int \fIpick_device_type\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIworkstation\fP 1i
+The resource identifier of the workstation.
+.IP \fIpick_device_type\fP 1i
+The pick device type
+.Pn ( PEXPickDeviceDCHitBox
+or
+.PN PEXPickDeviceNPCHitVolume ).
+.RE
+.SH
+Returns
+.RS
+.LP
+The resource identifier of the newly-created pick measure.
+.RE
+.SH
+Description
+.RS
+.LP
+This function creates a pick measure resource of the type specified.  The
+pick measure is initialized with the values contained in the appropriate
+pick device descriptor stored in the specified workstation.  The supported
+pick device types are inquirable via
+.PN PEXGetEnumTypeInfo .
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXWorkstation;
+typedef XID             PEXPickMeasure;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadAlloc\fP 1i
+The server failed to allocate the resource.
+.IP \fIBadPEXWorkstation\fP 1i
+The specified workstation resource identifier is invalid.
+.IP \fIBadValue\fP 1i
+The specified pick device type is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXFreePickMeasure ,
+.PN PEXGetEnumTypeInfo
+.RE
+.bp
+.SH
+PEXFreePickMeasure - Free Pick Measure
+.XS
+	PEXFreePickMeasure
+.XE
+.IN "PEXFreePickMeasure" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXFreePickMeasure\^(\^Display *\fIdisplay\fP\^, PEXPickMeasure \fIpick_measure\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIpick_measure\fP 1i
+The resource identifier of the pick measure.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function deletes the pick measure resource and frees memory
+associated with it.
+.RE
+.SH
+Errors
+.RS
+.IP \fIBadPEXPickMeasure\fP 1i
+The specified pick measure resource identifier is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreatePickMeasure
+.RE
+.bp
+.SH
+PEXFreePMAttributes - Free Storage Returned by PEXGetPickMeasure
+.XS
+	PEXFreePMAttributes
+.XE
+.IN "PEXFreePMAttributes" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXFreePMAttributes\^(\^PEXPMAttributes *\fIvalues\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIvalues\fP 1i
+A pointer to the pick measure attribute values.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function deallocates memory returned by
+.PN PEXGetPickMeasure .
+.RE
+.SH
+Errors
+.RS
+.IP None 1i
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXGetPickMeasure
+.RE
+.bp
+.SH
+PEXGetPickMeasure - Get Pick Measure Attributes
+.XS
+	PEXGetPickMeasure
+.XE
+.IN "PEXGetPickMeasure" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+PEXPMAttributes *PEXGetPickMeasure\^(\^Display *\fIdisplay\fP\^, PEXPickMeasure \fIpick_measure\fP\^, unsigned long \fIvalue_mask\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIpick_measure\fP 1i
+The resource identifier of the pick measure.
+.IP \fIvalue_mask\fP 1i
+A mask indicating which attributes to return.
+.RE
+.SH
+Returns
+.RS
+.LP
+A pointer to the pick measure attribute values; a null pointer if unsuccessful.
+.RE
+.SH
+Description
+.RS
+.LP
+This function returns the specified pick measure attribute values.
+The value mask indicates which attributes are to be returned.
+The value mask is constructed by or'ing together the following constants:
+.ID
+.PN PEXPMStatus
+.PN PEXPMPath
+.DE
+.LP
+PEXlib allocates memory for the return value.
+.PN PEXFreePMAttributes
+should be called to deallocate the memory.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXPickMeasure;
+.sp
+typedef struct {
+    unsigned short      status;
+    PEXPickPath         pick_path;
+} PEXPMAttributes;
+.sp
+typedef struct {
+    unsigned long       count;                  /* number of elements */
+    PEXPickElementRef   *elements;
+} PEXPickPath;
+.sp
+typedef struct {
+    PEXStructure        sid;
+    unsigned long       offset;
+    unsigned long       pick_id;
+} PEXPickElementRef;
+.sp
+typedef XID             PEXStructure;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXPickMeasure\fP 1i
+The specified pick measure resource identifier is invalid.
+.IP \fIBadValue\fP 1i
+An invalid bit is set in the value mask.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreatePickMeasure
+.RE
+.bp
+.SH
+PEXUpdatePickMeasure - Update Pick Measure
+.XS
+	PEXUpdatePickMeasure
+.XE
+.IN "PEXUpdatePickMeasure" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXUpdatePickMeasure\^(\^Display *\fIdisplay\fP\^, PEXPickMeasure \fIpick_measure\fP\^, int \fIpick_device_type\fP\^, PEXPickRecord *\fIpick_record\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIpick_measure\fP 1i
+The resource identifier of the pick measure.
+.IP \fIpick_device_type\fP 1i
+The pick device type
+.Pn ( PEXPickDeviceDCHitBox
+or
+.PN PEXPickDeviceNPCHitVolume ).
+.IP \fIpick_record\fP 1i
+A pointer to the pick data record.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function updates the specified pick measure resource.
+If the update causes a primitive to be picked, the pick measure's pick status
+will be set to
+.PN PEXPick
+and the pick path attribute will be set to the path of the picked
+primitive.  If no primitive was picked, the pick status will be set to
+.PN PEXNoPick .
+.LP
+The pick path can be used for echoing when the pick measure is created.
+However, it is not used as a start path from which to start picking.
+.LP
+The input record is a pointer to data used to update the pick measure and
+depends on the pick device type specified when the pick measure was
+created.
+If the pick device type is
+.PN PEXPickDeviceDCHitBox ,
+the input record should point to a data structure of type
+.PN PEXPDDCHitBox .
+If the pick device type is
+.PN PEXPickDeviceNPCHitVolume ,
+the input record should point to a data structure of type
+.PN PEXPDNPCHitVolume .
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXPickMeasure;
+.sp
+typedef union {
+    PEXPDNPCHitVolume       volume;
+    PEXPDDCHitBox           box;
+    PEXPickDataRecord       data;
+} PEXPickRecord;
+.sp
+typedef PEXNPCSubVolume PEXPDNPCHitVolume;
+.sp
+typedef struct {
+    PEXCoord            min;
+    PEXCoord            max;
+} PEXNPCSubVolume;
+.sp
+typedef struct {
+    float               x;
+    float               y;
+    float               z;
+} PEXCoord;
+.sp
+typedef struct {
+    PEXDeviceCoord2D    position;
+    float               distance;
+} PEXPDDCHitBox;
+.sp
+typedef struct {
+    short               x;
+    short               y;
+} PEXDeviceCoord2D;
+.sp
+typedef struct {
+    unsigned short      length;                 /* number of bytes in record */
+    char                *record;
+} PEXPickDataRecord;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXPath\fP 1i
+The specified path is invalid.
+.IP \fIBadPEXPickMeasure\fP 1i
+The specified pick measure resource identifier is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXFreePickMeasure
+.RE
+.bp

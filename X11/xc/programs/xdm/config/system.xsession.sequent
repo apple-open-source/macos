@@ -1,0 +1,78 @@
+#!/bin/sh
+#
+#               SEQUENT DEFAULT user $HOME/.xsession script.
+#
+# The user can customize this file to personalize their initial login session.
+#
+# Add a line between "Start of User Applications" and "End of User Applications"
+# below for each application you want to start up automatically each time
+# you login.  For all applications except 'xrdb', you should end the
+# line with "&" so the application will run "in the background", allowing
+# this .xsession script to continue on to the next application.
+#
+# A special note:
+# Don't add a "&" to the final line in this file ("mwm"),
+# since it should not be run in the background.
+# When you eventually exit your 'mwm' via the Root Menu "Quit" menu item,
+# that will cause this .xsession script to exit and automatically log you out.
+#
+# Make sure the PATH contains all of the directories needed to locate
+# the initial applications started in this .xsession script.
+
+PATH=/bin:/usr/bin:/usr/bin/X11
+export PATH
+
+if test `basename $SHELL` = ksh
+then
+ENV=$HOME/.kshrc
+export ENV
+fi
+
+# ________________________ Load the User X Resources _____________________
+#
+# Use 'xrdb' to load the X server (desktop) resource database.
+
+if [ -f $HOME/.Xresources ]
+    then
+        xrdb -retain -load $HOME/.Xresources
+    else
+        if [ -f $HOME/.Xdefaults ]
+            then
+                 xrdb -retain -load $HOME/.Xdefaults
+            else
+                 xrdb -retain -load /usr/lib/X11/system.Xdefaults
+        fi
+fi
+
+# ________________________ Start of User Applications ____________________
+#
+# Note that the commands started in the background are run in a subshell
+# (denoted by surrounding parenthesis). If not run in a subshell, a 
+# background process will become a child of the program exec'ed at the end 
+# of this file. When such a child dies it may become a zombie (remain
+# a defunct process). 
+#
+# start 'xbiff' for electronic mail arrival notification
+# start 'xclock' for a display of the time.
+# start two 'xterm' windows, one in the upper right and one below that.
+
+# 'sleep 1' is added to avoid all X11 programs running in parallel
+# attempting to connect to the desktop X server at the same time.
+
+(xbiff  -display $DISPLAY -geometry +0+140 &)
+sleep 1
+(xclock -display $DISPLAY -geometry 100x100+0+0 &)
+sleep 1
+(xterm  -display $DISPLAY -geometry 80x24-5+5 &)
+sleep 1
+(xterm  -display $DISPLAY -geometry 80x24-5+375 &)
+sleep 1
+
+# _________________________ End of User Applications _____________________
+#
+# Finally, start the Motif window manager ('mwm').  Again note that this
+# line should not end with "&".  This way this user session will continue
+# until the user selects the 'mwm' Root Menu item "Quit" which will
+# cause 'mwm' to exit, and then this .xsession script will exit thereby
+# terminating this xdm user session.
+exec mwm 

@@ -1,0 +1,43 @@
+XCOMM $XConsortium: Imakefile /main/7 1996/09/28 17:24:18 rws $
+
+
+
+
+
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/os-support/os2/Imakefile,v 3.20 2002/10/17 02:22:48 dawes Exp $
+#include <Server.tmpl>
+
+BIOS_MOD = os2_bios
+
+SRCS = os2_init.c os2_video.c os2_io.c $(BIOS_MOD).c \
+       os2_ioperm.c os2_VTsw.c os2_mouse.c os2_KbdEv.c os2_stubs.c \
+       os2_select.c os2_diag.c libc_wrapper.c stdResource.c stdPci.c \
+       vidmem.c sigiostubs.c pm_noop.c kmod_noop.c agp_noop.c os2_serial.c
+
+OBJS = os2_init.o os2_video.o os2_io.o $(BIOS_MOD).o \
+       os2_ioperm.o os2_VTsw.o os2_mouse.o os2_kbdEv.o os2_stubs.o \
+       os2_select.o os2_diag.o libc_wrapper.o stdResource.o stdPci.o \
+       vidmem.o sigiostubs.o pm_noop.o kmod_noop.o agp_noop.o os2_serial.o
+
+INCLUDES = -I$(XF86COMSRC) -I$(XF86OSSRC) -I. -I$(SERVERSRC)/include \
+           -I$(SERVERSRC)/mi -I$(XINCLUDESRC) -I$(EXTINCSRC)
+
+RESDEFINES = -DUSESTDRES
+
+DEFINES = $(RESDEFINES)
+
+SubdirLibraryRule($(OBJS))
+NormalLibraryObjectRule()
+NormalAsmObjectRule()
+
+LinkSourceFile(VTsw_noop.c,../shared)
+LinkSourceFile(libc_wrapper.c,../shared)
+LinkSourceFile(stdResource.c,../shared)
+LinkSourceFile(stdPci.c,../shared)
+LinkSourceFile(vidmem.c,../shared)
+LinkSourceFile(sigiostubs.c,../shared)
+LinkSourceFile(pm_noop.c,../shared)
+LinkSourceFile(kmod_noop.c,../shared)
+LinkSourceFile(agp_noop.c,../shared)
+
+DependTarget()

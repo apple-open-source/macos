@@ -1,0 +1,1387 @@
+#From: jos@chopin.muc.de (Jochen Schwenk)
+#Date: Sat, 24 Dec 1994 02:59:00 +0100
+Section "Monitor"
+    Identifier  "AOC-15"
+    VendorName  "Unknown"
+    ModelName   "Unknown"
+   BandWidth   135
+    HorizSync   23.5-86
+    VertRefresh 50-120
+    ModeLine "640x480"    25  640  672  768  800  480  490  492  525
+    ModeLine "800x600"    50  800  856  976 1040  600  637  643  666
+    ModeLine "1024x768"   85 1024 1032 1152 1360  768  784  787  823
+    ModeLine "1152x900"  110 1152 1284 1416 1536  900  902  905  941
+    ModeLine "1280x1024" 135 1280 1312 1456 1712 1024 1027 1030 1064
+EndSection
+
+#Date: Fri, 16 Sep 1994 23:16:32 -0700
+#From: "Leonard N. Zubkoff" <lnz@dandelion.com>
+Section "Monitor"
+    Identifier "Apollo 1280x1024-68Hz"
+    VendorName "Apollo"
+    ModelName "010700-005"
+    BandWidth 125
+    HorizSync 73.702
+    VertRefresh 68.24
+    Mode "1280x1024"
+	DotClock 124.996
+	HTimings 1280 1312 1504 1696 VTimings 1024 1027 1030 1080
+    EndMode
+EndSection
+
+#Date: Fri, 16 Sep 1994 23:16:32 -0700
+#From: "Leonard N. Zubkoff" <lnz@dandelion.com>
+Section "Monitor"
+    Identifier "Apollo 1280x1024-70Hz"
+    VendorName "Apollo"
+    ModelName "010700-005"
+    BandWidth 125
+    HorizSync 75.118
+    VertRefresh 70.07
+    Mode "1280x1024"
+	DotClock 124.996
+	HTimings 1280 1312 1472 1664 VTimings 1024 1027 1030 1072
+    EndMode
+EndSection
+
+#From: peterc@a3.ph.man.ac.uk (Peter Chang)
+#Date: Fri, 23 Sep 1994 17:40:40 +0100
+Section "Monitor"
+    Identifier	"Chuntex CTX CPS-1560/LR"
+    VendorName	"Chuntex"
+    ModelName	"CTX CPS-1560/LR"
+    Bandwidth	75.0
+    HorizSync   30.00-60.00
+    VertRefresh 50.00-100.00
+    Mode "640x480"
+        DotClock 25
+        HTimings 640 664 760 800 VTimings 480 491 493 525
+    EndMode
+    Mode "800x600"
+        DotClock 50
+        HTimings 800 856 976 1040 VTimings 600 637 643 666
+	Flags "+HSync" "+VSync"
+    EndMode
+    Mode "1024x768"
+        DotClock 75
+        HTimings 1024 1048 1184 1328 VTimings 768  771  777  806
+	Flags "-HSync" "-VSync"
+    EndMode
+EndSection
+
+#From: dlj0@chern.math.lehigh.edu (DAVID L. JOHNSON)
+#Date: Fri, 23 Sep 1994 23:23:18 -0400
+Section "Monitor"
+    Identifier  "Compudyne KD-1500N"
+    VendorName  "Compudyne"
+    ModelName   "KD-1500N"
+    Bandwidth   74.8
+    HorizSync   30.00-66
+    VertRefresh 50-90
+    Mode "640x480"
+        DotClock 25
+        HTimings 640 664 760 800 VTimings 480 491 493 525
+    EndMode
+    Mode "1024x768"
+        DotClock 74.8
+        HTimings 1024 1056 1256 1328 VTimings 768 776 786 806
+    EndMode
+EndSection
+ 
+#From: forsse@meaddata.com (Steve Forsythe)
+#Date: Sun, 18 Sep 94 3:27:15 EDT
+Section "Monitor"
+    Identifier "CTX-1561"
+    VendorName "CTX"
+    ModelName "CMS-1561"
+    BandWidth 100
+    HorizSync 30-60
+    VertRefresh 50-90
+    ModeLine "640x480" 25 640 664 760 800 480 491 493 525
+    ModeLine "800x600" 40 800 872 1000 1056 600 601 605 628
+    ModeLine "800x600" 50 800 856 976 1040 600 637 643 666
+    ModeLine "1024x768" 75 1024 1072 1216 1352 768 769 775 806
+EndSection
+
+#Date: Wed, 21 Sep 1994 14:22:23 -0700 (PDT)
+#From: James Dooley <jdooley@ugcs.caltech.edu>
+#Updated Date: Date: Mon, 3 Oct 94 22:03:47 EST
+#Updated From: "Bill C. Riemers" <bcr@physics.purdue.edu>
+Section "Monitor"
+    Identifier  "CrystalScan 1572FS"
+    VendorName  "CrystalScan"
+    ModelName   "1572FS"
+    Bandwidth   110
+    HorizSync   30.00-60.00
+    VertRefresh 50.00-100.00
+    Mode "640x480"
+        DotClock 25
+        HTimings 640 664 760 800 VTimings 480 491 493 525
+    EndMode
+    Mode "1024x768"
+        DotClock 80
+        HTimings 1024 1136 1340 1432 VTimings 768 770 774 805
+    EndMode
+    ModeLine "1024x768i" 45 1024 1048 1208 1264 768 776 784 817 Interlace
+    Mode "1280x1024"
+        DotClock 80
+        HTimings 1280 1296 1512 1568 VTimings 1024 1025 1037 1165
+        Flags "Interlace"
+    EndMode
+EndSection
+
+#Date: Fri, 16 Sep 1994 11:42:19 +0100
+#From: Doug Rabson <dfr@render.com>
+#Note: Two submissions by the same author? Be careful.
+Section "Monitor"
+    Identifier "Dell VS17"
+    VendorName "Dell"
+    ModelName "VS17"
+    BandWidth 78.0
+    HorizSync 30.0-62.0
+    VertRefresh 50-90
+    ModeLine "640x480" 28.3 640 680 720 864 480 488 491 521
+    ModeLine "1024x768" 60 1024 1128 1240 1344 768 770 775 788
+EndSection
+ 
+#From: Doug Rabson <dfr@render.com>
+#Date: Sat, 24 Sep 1994 14:54:58 +0100
+#Note: display shifted to the left.
+#Note: Two submissions by the same author? Be careful.
+Section "Monitor"
+    Identifier  "DELL VS17"
+    VendorName  "DELL"
+    ModelName   "VS17"
+    Bandwidth   25.2 mhz
+    HorizSync   30-62
+    VertRefresh 50-90
+    # Refresh rate = 73.46Hz ; Horizontal Frequency = 59.29KHz
+    Mode "1024x768"
+        DotClock        81
+        HTimings        1024 1120 1272 1368
+        VTimings         768  788  801  847
+    EndMode
+EndSection
+ 
+#Date: Fri, 16 Sep 1994 12:58:21 +0200 (MET DST)
+#From: kiwi@belly.in-berlin.de (Axel Habermann)
+Section "Monitor"
+    Identifier "EIZO FlexScan T660"
+    VendorName "EIZO"
+    ModelName "FlexScan T660i-T/TCO"
+    BandWidth   135.0
+    HorizSync   30.0-82.0
+    VertRefresh 55.0-90.0
+    ModeLine "1536x1152" 168 1536 1616 1760 2048 1152 1154 1158 1188
+    ModeLine "1280x1024" 135 1280 1328 1408 1688 1024 1025 1026 1060
+    ModeLine "1024x768" 80 1024 1088 1152 1280 768 770 772 778
+EndSection
+ 
+#Date: Sat, 30 Sep 1995 17:25:00 EDT
+#From: David E. Wexelblat <dwex@xfree86.org>
+Section "Monitor"
+    Identifier "EIZO/Nanao FlexScan 9070u"
+    VendorName "EIZO/Nanao"
+    ModelName "FlexScan 9070u"
+    BandWidth 50.0
+    HorizSync 20.0-50.0
+    VertRefresh 50.0-105.0  #Out of spec, but it works
+    ModeLine "640x480" 25 640 664 760 800 480 491 493 525
+    ModeLine "640x480" 36 640 672 768 800 480 490 492 525
+    ModeLine "800x600" 45 800 848 960 1008 600 603 620 640
+    ModeLine "1024x768" 65 1024 1088 1224 1304 768 772 788 824
+    ModeLine "1152x900i" 75 1152 1224 1384 1504 900 905 923 965 interlace
+EndSection
+
+#Date: Mon, 26 Sep 1994 23:30:00 -1000 (EST)
+#From: dawes@XFree86.org (David Dawes)
+Section "Monitor"
+    Identifier "EIZO FlexScan 9080i"
+    VendorName "EIZO"
+    ModelName "FlexScan 9080i"
+    BandWidth   60.0
+    HorizSync   30.0-64.0
+    VertRefresh 50.0-90.0
+    ModeLine "640x480" 31 640 664 704 832 480 489 492 520
+    ModeLine "640x480" 28 640 672 768 800 480 490 492 525
+    ModeLine "640x480" 25 640 672 768 800 480 490 492 525
+    ModeLine "800x600" 50 800 856 976 1040 600 637 643 666
+    ModeLine "800x600" 40 800 864 896 1008 600 600 606 624
+    ModeLine "800x600" 36 800 816 952 1056 600 608 610 633
+    ModeLine "1024x768i" 45 1024 1064 1224 1264 768 777 783 815 interlace
+    ModeLine "1024x768i" 44 1024 1064 1224 1264 768 777 785 817 interlace
+    ModeLine "1024x768" 80 1024 1032 1152 1360 768 784 787 823
+    ModeLine "1152x900" 80 1152 1152 1368 1400 900 912 929 945
+    ModeLine "1280x1024i" 80 1280 1296 1412 1632 1024 1025 1037 1165 interlace
+EndSection
+ 
+#From: Helmut Geyer <Helmut.Geyer@iwr.uni-heidelberg.de>
+#Date: Wed, 21 Sep 1994 23:48:57 +0200 (MET DST)
+Section "Monitor"
+    Identifier "ELSA GDM-17E40"
+    VendorName "ELSA GmbH"
+    ModelName "GDM-17E40"
+    BandWidth 135
+    HorizSync 29-82
+    VertRefresh 50-150
+    ModeLine "640x480" 25 640 664 760 800 480 491 493 525
+    ModeLine "640x480" 31 640 664 704 832 480 489 492 520
+    ModeLine "800x600x32" 45 800 820 904 964 600 601 604 621
+    ModeLine "1024x768x16" 78.7 1024 1044 1140 1264 768 770 773 796
+    ModeLine "1152x875" 135 1152 1416 1456 1664 875 875 877 906
+    ModeLine "1152x900" 135 1152 1400 1440 1648  900 901 905 935
+    ModeLine "1280x1024i" 80 1280 1296 1512 1568 1024 1025 1037 1165 interlace
+    ModeLine "1280x1024" 110 1280 1328 1512 1712 1024 1025 1028 1054
+    ModeLine "1280x1024" 135 1280 1312 1456 1712 1024 1027 1030 1064
+EndSection
+
+#From: wolff@dutecai.et.tudelft.nl (Rogier Wolff)
+#Date: Sat, 24 Sep 1994 17:27:09 +0200 (MET DST)
+Section "Monitor"
+    Identifier "ESCOM MONO-LCD-screen"
+    VendorName "ESCOM"
+    ModelName "Unknown"
+    BandWidth 28
+    HorizSync 30-36
+    VertRefresh 43-72
+    ModeLine "640x480" 25.175 640 664 760 800 480 491 493 525
+EndSection
+ 
+#From: Alan Hourihane <alanh@fairlite.demon.co.uk>
+#Date: Mon, 26 Sep 1994 21:04:34 +0000 (GMT)
+Section "Monitor"
+    Identifier "Gateway 2000 CrystalScan 1776LE"
+    VendorName "Gateway 2000"
+    ModelName "CrystalScan 1776LE"
+    BandWidth 110
+    HorizSync 30-64
+    VertRefresh 50-120
+    ModeLine "640x480" 25 640 664 760 800 480 491 493 525
+    ModeLine "640x480" 31 640 664 704 832 480 489 492 520
+    ModeLine "800x600" 50 800 856 976 1040 600 637 643 666 +hsync +vsync
+    ModeLine "1024x768i" 44 1024 1040 1216 1264 768 777 785 817 interlace
+    ModeLine "1024x768" 75 1024 1072 1184 1328 768 768 770 800 -hsync -vsync
+    ModeLine "1280x1024i" 80 1280 1296 1512 1568 1024 1025 1037 1165 interlace
+    ModeLine "1280x1024" 110 1280 1360 1428 1720 1024 1025 1036 1065
+EndSection
+
+#From: David Dawes <dawes@XFree86.org>
+#Date: Fri, 16 Sep 1994 12:40:08 +1000 (EST)
+# GJA -- Changed dotclock from 25 to 25.2
+Section "Monitor"
+    Identifier	"Generic Monitor"
+    VendorName	"Unknown"
+    ModelName	"Unknown"
+    Bandwidth	25.2
+    HorizSync   31.5
+    VertRefresh 60
+    Mode "640x480"
+        DotClock 25.2
+        HTimings 640 664 760 800 VTimings 480 491 493 525
+    EndMode
+EndSection
+
+#Date: Fri, 16 Sep 1994 23:16:32 -0700
+#From: "Leonard N. Zubkoff" <lnz@dandelion.com>
+Section "Monitor"
+    Identifier "HP 1280x1024-72Hz"
+    VendorName "Hewlett-Packard"
+    ModelName "A1097A"
+    BandWidth 135
+    HorizSync 78.125
+    VertRefresh 72.008
+    Mode "1280x1024"
+	DotClock 135.00
+	HTimings 1280 1344 1536 1728 VTimings 1024 1027 1030 1085
+    EndMode
+EndSection
+
+#From: Gertjan Akkerman <akkerman@dutiba.twi.tudelft.nl>
+#Date: Tue, 20 Sep 1994 11:45:21 +0200 (MET DST)
+Section "Monitor"
+    Identifier "Highscreen LE 1024"
+    VendorName "Vobis"
+    ModelName "LE 1024"
+    BandWidth 45 # MHz
+    HorizSync 31.4-31.6, 35.1-35.2, 35.5-35.6 # KHz
+    VertRefresh 50-87 # Hz
+    ModeLine "640x480"   25.2 640 664 760 800 480 491 493 525
+    ModeLine "800x600"   36.0 800 824 896 1024 600 601 603 625
+    ModeLine "1024x768i" 44.9 1024 1040 1216 1264 768 777 785 817 interlace
+EndSection
+ 
+#From: rich@id.slip.bcm.tmc.edu (Rich Murphey)
+#Date: Thu, 15 Sep 1994 23:30:52 -0501
+Section "Monitor"
+    Identifier "Hitachi SuperScan 20S"
+    VendorName "Hitachi"
+    ModelName "SuperScan 20S model no. CM2095MU"
+    BandWidth 100.0
+    HorizSync 30-69
+    VertRefresh 50-100
+    ModeLine "1152x90085" 85 1152 1192 1384 1480 900 905 923 955
+EndSection
+ 
+#From: wolff@dutecai.et.tudelft.nl (Rogier Wolff)
+#Date: Sat, 24 Sep 1994 17:27:09 +0200 (MET DST)
+# This monitor does the VESA 640x480@60Hz, 800x600@58Hz and 1024x768i@43Hz.
+Section "Monitor"
+    Identifier "Hyundai hcm-421E"
+    VendorName "Hyundai"
+    ModelName "421E"
+    BandWidth 110
+    HorizSync 30-36
+    VertRefresh 43-72
+    ModeLine "640x480" 25.175 640 664 760 800 480 491 493 525
+EndSection
+
+#Date: Thu, 22 Sep 1994 01:38:45 -0400
+#From: Chris Mason <mason@mail.csh.rit.edu>
+Section "Monitor"
+    Identifier "IDEK VisionMaster 17 (1)"
+    # was: "IDEK 8617"
+    VendorName "IDEK"
+    ModelName "8617"
+    BandWidth 135
+    HorizSync 31.5-85.0
+    VertRefresh 60-80
+    ModeLine "800x600" 49 800 816 932 996 600 607 612 635
+    ModeLine "1024x768" 85 1024 1028 1196 1348 768 769 775 804
+    ModeLine "1280x1024.1" 135 1280 1296 1456 1726 1024 1025 1028 1066
+    ModeLine "1280x1128.1" 135 1280 1284 1456 1661 1128 1129 1132 1161
+EndSection
+ 
+#Date: Wed, 21 Sep 1994 22:22:42 +0100
+#From: Andrew Dyer <adyer@zarniwoop.chi.il.us>
+Section "Monitor"
+    Identifier "IDEK VisionMaster 17 (2)"
+    # was: "IDEK MF-8617"
+    VendorName  "Idek"
+    ModelName   "MF-8617"
+    Bandwidth   135.0
+    HorizSync   23.5-86.0
+    VertRefresh 50-120
+    Mode "640x480"
+        DotClock 25
+        HTimings 640 664 760 800 VTimings 480 491 493 525
+    EndMode
+    Mode "1024x768"
+        DotClock 75
+        HTimings 1024 1056 1192 1280 VTimings 768  770  776  806
+        Flags "-vsync" "-hsync"
+    EndMode
+EndSection
+ 
+#Date: Mon, 19 Sep 1994 20:37:05 +0200
+#From: eddy@dutecae.et.tudelft.nl (J.G.E. Olk)
+Section "Monitor"
+    Identifier "IDEK VisionMaster 17 (3)"
+    VendorName "IDEK"
+    ModelName  "MF-8617"
+    BandWidth   135
+    HorizSync   23.5-86
+    VertRefresh 50-120
+    ModeLine "640x480"    25  640  672  768  800  480  490  492  525
+    ModeLine "800x600"    50  800  856  976 1040  600  637  643  666
+    ModeLine "1024x768"   85 1024 1032 1152 1360  768  784  787  823
+    ModeLine "1152x900"  110 1152 1284 1416 1536  900  902  905  941
+    ModeLine "1280x1024" 135 1280 1312 1456 1712 1024 1027 1030 1064
+EndSection
+ 
+#From: Richard Coley <rcoley@pyra.co.uk>
+#Date: Thu, 15 Sep 1994 12:29:10 +0100 (BST)
+Section "Monitor"
+    Identifier "IDEK Vision Master 17 (4)"
+    VendorName "LIYAMA"
+    ModelName "Vision Master 17 (MF8617)"
+    BandWidth 135.0
+    HorizSync 23.5-86.0
+    VertRefresh 50-120
+    ModeLine "1024x768" 80 1024 1032 1216 1344 768 768 773 805
+    ModeLine "800x600" 32 800 832 976 1016 600 604 606 634 +hsync +vsync
+    ModeLine "640x480" 25 640 672 768 800 480 490 492 525 -hsync -vsync
+EndSection
+ 
+#From: Bob Mende Pie <mende@piecomputer.rutgers.edu>
+#Date: Fri, 23 Sep 1994 22:51:51 -0400
+Section "Monitor"
+    Identifier "IDEK Vision Master 17 (5)"
+    #Was: "Idek 8617"
+    VendorName "Idek"
+    ModelName "8617"
+    BandWidth 135.0     # EDIT THIS!
+    HorizSync 23.5-86   # EDIT THIS!
+    VertRefresh 50-120  # EDIT THIS!
+ 
+    ModeLine "640x480"  28      640  656  752  792      480  490  492  519
+    ModeLine "800x600"  40      800  840  968  1032     600  601  605  625
+    ModeLine "1024x768" 75.0    1024 1088 1240 1368     768  770  777  800
+    ModeLine "1152x900" 95.0    1152 1232 1384 1528     900  914  917  943
+        -hsync -vsync
+    ModeLine "1280x1024" 135    1280 1320 1536 1704     1024 1027 1030 1073
+       -hsync -vsync
+EndSection
+
+#Date: Mon, 19 Sep 1994 13:37:39 +0100
+#From: Charles Hawkins <ceh@eng.cam.ac.uk>
+Section "Monitor"
+    Identifier "Lite-On CM1414E"
+    VendorName "Lite-On Technology"
+    ModelName "CM1414E"
+    BandWidth 45.0
+    HorizSync 30-40        # actually 31.5,35.5, but this avoids comma bug
+    VertRefresh 40.0-87.0  # actually spec'd at 50.0-87.0
+    ModeLine "640x480" 25 640 672 768 800 480 490 492 509
+    ModeLine "800x600" 35 800 824 920 968 600 601 603 624
+    Mode "1024x768i"
+        DotClock 45
+        HTimings 1024 1040 1210 1267 VTimings 768 777 785 817
+        Flags "Interlace"
+    EndMode
+EndSection
+
+#From: Farrell.McKay@nms.otc.com.au (Farrell McKay)
+#Date: Mon, 26 Sep 1994 10:05:03 +1000 (EST)
+Section "Monitor"
+  Identifier "MAG MX15F (1)"
+  VendorName "MAG"
+  ModelName "MX15F"
+  BandWidth 100 MHz
+  HorizSync 30-65 KHz
+  VertRefresh 50-120 Hz
+  ModeLine "800x600"     50  800  856  976 1040  600  637  643  666 
+	+hsync +vsync
+  ModeLine "1024x768"    75 1024 1048 1184 1328  768  771  777  806 
+	-hsync -vsync
+  ModeLine "1280x1024"  110 1280 1320 1480 1728 1024 1029 1036 1077
+EndSection
+ 
+#From: "M{kinen Sami J." <sjm@cs.tut.fi>
+#Date: Mon, 19 Sep 1994 23:47:01 +0300
+Section "Monitor"
+    Identifier      "MAG MX15F (2)"
+    VendorName      "MAG"
+    ModelName       "MX15F"
+    Bandwidth       100.0
+    HorizSync       30.00-65.00
+    VertRefresh     40.00-120.00
+    Mode "640x480"
+        DotClock 25
+        HTimings 640 664 760 800 VTimings 480 491 493 525
+    EndMode
+    Mode "1024x768"
+        DotClock 80
+        HTimings 1024 1128 1300 1400 VTimings 768 770 774 800
+    EndMode
+EndSection
+ 
+#Date: Tue, 20 Sep 94 08:32:45 EDT
+#From: bremner@muff.cs.mcgill.ca (David BREMNER)
+Section "Monitor"
+    Identifier "MegaImage 17"
+    VendorName "MegaImage"
+    ModelName "S17MGP"
+    BandWidth 106
+    HorizSync 30-64
+    VertRefresh 50-100
+    ModeLine "1152x864" 92 1152 1192 1352 1440 864 865 875 895
+    ModeLine "1024x768" 85 1024 1032 1152 1360 768 784 787 823
+    ModeLine "640x480" 31 640 664 704 832 480 489 492 520
+    ModeLine "800x600" 50 800 856 976 1040 600 637 643 666
+EndSection
+ 
+#From: erik@kroete2.freinet.de (Erik Corry)
+#Date: Wed, 8 Feb 1995 02:03:20 +0100 (MET)
+Section "Monitor"
+    Identifier "Miro 20inch CAD Monitor"
+    VendorName "Miro"
+    ModelName "Unknown-model-name"
+    BandWidth 100.0     # Actually about 64
+    HorizSync 47-49     # Actually fixed sync at ca. 48KHz
+    VertRefresh 58-62   # Actually fixed at ca. 60Hz
+    ModeLine "1096x776" 65 1096 1162 1326 1344 776 779 785 806  +vsync -hsync
+EndSection
+
+#From: ciotti@nas.nasa.gov (Robert B. Ciotti)
+#Date: Fri, 30 Sep 1994 10:34:37 -0700
+Section "Monitor"
+    Identifier "AUM1371A"
+    VendorName "Mitsubishi"
+    ModelName "DiamondScan"
+    BandWidth 30
+    HorizSync 15-38
+    VertRefresh 40-90 # monitor Spec
+    #VertRefresh 40-92 # pushed from spec to support 1000x750
+    ModeLine "1000x750" 45 1000 1040 1208 1248 750 750 756 788 interlace
+    ModeLine "800x600"  36 800 851 987  1056  600 608 610 633 
+    ModeLine "vesa640x480a" 25.175 640 664 760 800 480 491 493 525
+    ModeLine "vesa640x480b" 25.175 640 672 768 800 480 490 492 525
+    ModeLine "vesa640x480c" 31.5 640 664 704 832 480 489 492 520
+EndSection
+
+#Date: Mon, 26 Sep 1994 23:30:00 -1000 (EST)
+#From: dawes@XFree86.org (David Dawes)
+Section "Monitor"
+    Identifier "NED 3D"
+    VendorName "NEC"
+    ModelName "MultiSync 3D"
+    BandWidth   45.0
+    HorizSync   15.5-38.0
+    VertRefresh 50.0-90.0
+    ModeLine "640x480" 25 640 672 768 800 480 490 492 525
+    ModeLine "800x600" 45 800 840 1224 1264 600 600 606 624
+    ModeLine "800x600" 36 800 824 896 1024 600 601 603 625
+    ModeLine "1024x768i" 46 1024 1064 1224 1264 768 777 785 817 interlace
+EndSection
+ 
+#Date: Sun, 18 Sep 1994 16:00:53 +1000
+#From: Stephen Hocking <sysseh@devetir.qld.gov.au>
+Section "Monitor"
+    Identifier "NEC 4D"
+    VendorName "NEC"
+    ModelName "4D"
+    BandWidth 75
+    HorizSync 30-57
+    VertRefresh 50-90
+    ModeLine "640x480" 25.175 640 672 768 800 480 490 492 525
+    ModeLine "800x600" 40 800 840 968 1056 600 601 605 628 +hsync +vsync
+    ModeLine "1024x768i" 44.9 1024 1064 1224 1264 768 777 785 817 interlace
+    ModeLine "1024x768" 64 1024 1144 1208 1320 768 778 782 808
+    ModeLine "1024x768" 75 1024 1048 1184 1328 768 771 777 806 -hsync +vsync
+EndSection
+
+#Date: Sat, 17 Sep 1994 00:50:57 -0400
+#From: Erik Nygren <nygren@mit.edu>
+Section "Monitor"
+    Identifier "NEC MultiSync 4FGe"
+    VendorName "NEC"
+    ModelName "MultiSync 4FGe"
+    BandWidth 80Mhz        #\
+    HorizSync 27-62KHz      #> from monitor documentation
+    VertRefresh 55-90Hz    #/
+    ModeLine "640x480"  31  640  680  704  832 480 489 492 520
+    ModeLine "800x600"  50  800  864  976 1040 600 637 643 666
+    ModeLine "1024x768" 81 1024 1068 1204 1324 768 776 782 807
+EndSection
+ 
+#From: Hans Nasten <nasten@everyware.se>
+#Date: Tue, 27 Sep 1994 10:18:05 +0100 (MET)
+Section "Monitor"
+    Identifier "NEC 5FG"
+    VendorName "NEC"
+    ModelName "5FG"
+    BandWidth 135.0
+    HorizSync 27-79
+    VertRefresh 55-90
+    ModeLine "640x480" 28 640 664 704 832 480 489 492 520
+    ModeLine "640x480" 32 640 664 704 832 480 489 492 520
+    ModeLine "800x600" 50 800 856 976 1040 600 637 643 666
+    ModeLine "1024x768" 75 1024 1048 1184 1328 768 771 777 806 -hsync -vsync
+    ModeLine "1152x900" 90 1152 1176 1234 1464 900 906 914 943 -hsync -vsync
+    ModeLine "1280x1024" 115 1280 1276 1372 1664 1024 1028 1035 1062
+             -hsync -vsync
+EndSection
+
+#From: karlcz@uclink.berkeley.edu (Karl Frederick Czajkowski)
+#Date: Thu, 15 Sep 1994 23:14:30 -0700
+Section "Monitor"
+    Identifier "Nanao F340i-W"
+    VendorName "Nanao"
+    ModelName "F340i-W"
+    BandWidth 75.0
+    HorizSync 27-61
+    VertRefresh 55-90
+    ModeLine "1024x768" 80 1024 1048 1192 1344 768 772 780 821 +hsync +vsync
+    ModeLine "1024x768" 72 1024 1056 1129 1280 768 770 776 806 -hsync -vsync
+    ModeLine "1024x768" 85 1024 1032 1152 1360 768 784 787 823 +hsync +vsync
+    ModeLine "800x600" 50 800 856 976 1040 600 637 643 666 +hsync +vsync
+    ModeLine "640x480" 32 640 664 704 832 480 489 492 520
+    ModeLine "LowRes" 25 400 416 512 560 300 396 398 498
+EndSection
+ 
+#From: Mark_Weaver@brown.edu (Mark_Weaver@brown.edu)
+#Date: Mon, 19 Sep 1994 14:59:09 -0400
+Section "Monitor"
+    Identifier "Nanao F550i"
+    VendorName "Nanao"
+    ModelName "F550i"
+    BandWidth 100.0     # Just a guess
+    HorizSync 30-66     # WARNING: not correct, be careful
+    VertRefresh 40-130  # WARNING: not correct, be careful
+    ModeLine "640x480" 25 640 664 760 800 480 491 493 525
+    ModeLine "640x480" 31 640 664 704 832 480 489 492 520
+    ModeLine "640x480" 40 640 704 832 904 480 530 542 615
+    ModeLine "800x600" 45 800 856 976 1040 600 637 643 666
+    ModeLine "1024x768s" 65 1024 1032 1176 1344 768 771 777 806
+    ModeLine "1024x768" 75 1024 1048 1184 1328 768 771 777 806
+    ModeLine "1152x900s" 65 1152 1168 1312 1400 900 901 907 935 Interlace
+    ModeLine "1152x900i" 80 1152 1168 1384 1440 900 901 907 945 interlace
+    ModeLine "1280x1024i" 110 1280 1328 1482 1682 1024 1025 1035 1085 interlace
+   ModeLine "1280x1024" 110 1280 1328 1482 1682 1024 1025 1028 1054
+EndSection
+
+#Date: Sun, 18 Sep 1994 22:55:32 -0700 (PDT)
+#From: Shyam Subramanyan <shyam@crl.com>
+Section "Monitor"
+    Identifier "Nanao F550i-w"
+    VendorName "Nanao"
+    ModelName "F550i-w"
+    BandWidth 80
+    HorizSync 27-65
+    VertRefresh 55-90
+    ModeLine "640x480" 31 640 664 704 832 480 489 492 520
+    ModeLine "800x600" 45 800 856 976 1040 600 637 643 666
+    ModeLine "800x600" 50 800 856 976 1040 600 637 643 666
+    ModeLine "1024x768" 75 1024 1048 1184 1328 768 771 777 806
+EndSection
+ 
+#From: Ted.Goldblatt@telematics.com (Ted Goldblatt)
+#Date: Fri, 23 Sep 1994 11:52:28 +0500
+Section "Monitor"
+    Identifier	"Nokia 445X"
+    VendorName	"Nokia"
+    ModelName	"445X"
+    Bandwidth	200
+    HorizSync   30-102
+    VertRefresh 50-120
+    ModeLine "1600x1200"  188.58 1600 1792 1856 2208   1200 1202 1205 1256
+    ModeLine "1280x1024"  135    1280 1312 1456 1712   1024 1027 1030 1064
+    ModeLine "1152x900"    95    1152 1152 1192 1472    900  900  931  939
+EndSection
+
+#From: J Wunsch <joerg_wunsch@uriah.sax.de>
+#Date: Fri, 23 Sep 1994 09:28:58 +0200 (MET DST)
+Section "Monitor"
+    Identifier "Nokia 447B (1)"
+    VendorName "Nokia"
+    ModelName "Multigraph 447B"
+    BandWidth 110       # MHz
+    HorizSync 30-64     # kHz
+    VertRefresh 48-100  # Hz
+    # "fast" 640x480, 39.17 kHz H, 76 Hz V
+    ModeLine "640x480"  31.96    640  684  756  816     480 486 489 515
+    # 800 x 600, 40.08 kHz H, 63 Hz V
+    ModeLine "800x600"  42       800  868 1008 1048     600 609 613 636
+    # 1024 x 768, 61.96 kHz H, 76 Hz V
+    ModeLine "1024x768" 80.8    1024 1048 1200 1304     768 777 785 817
+    # 1088 x 800, 63.26 kHz H (near limit!), 76 Hz V (still excellent)
+    ModeLine "1088x800" 87.04   1088 1120 1264 1376     800 806 816 834
+EndSection
+
+#Date: Wed, 21 Sep 94 16:11:47 PDT
+#From: eh@c-cube.com (Ernest Hua)
+Section "Monitor"
+    Identifier  "Nokia 447B (2)"
+    VendorName  "Nokia"
+    ModelName   "447B"
+    Bandwidth   110
+    HorizSync   30-64
+    VertRefresh 48-100
+    Mode "640x480@60Hz" # Horizontal Sync = 31.5kHz
+        DotClock 25.175
+        HTimings 640  672  768  800 VTimings 480  490  492  525
+    EndMode
+    Mode "640x480@72Hz" # Horizontal Sync = 37.9kHz
+        DotClock 31.5
+        HTimings 640  664  704  832 VTimings 480  489  492  520
+    EndMode
+    Mode "800x600@72Hz" # Horizontal Sync = 48kHz
+        DotClock 50
+        HTimings 800  856  976 1040 VTimings 600  637  643  666
+    EndMode
+    Mode "1024x768@76Hz" # Horizontal Sync = 62.5kHz
+        DotClock 85
+        HTimings 1024 1032 1152 1360 VTimings 768  784  787  823
+    EndMode
+    Mode "1280x1024@61Hz" # Horizontal Sync = 64.25kHz
+        DotClock 110
+        HTimings 1280 1328 1512 1712 VTimings 1024 1025 1028 1054
+    EndMode
+EndSection
+
+#From: Orest Zborowski  <orestz@eskimo.com>
+#Date: Tue, 27 Sep 1994 01:23:59 -0700 (PDT)
+Section "Monitor"
+    Identifier "Philips 1764DC"
+    VendorName "Philips"
+    ModelName "1764DC"
+    BandWidth 110
+    HorizSync 30-66
+    VertRefresh 50-100
+    ModeLine "640x480" 25 640 664 760 800 480 491 493 525
+    ModeLine "800x600" 50 800 856 976 1040 600 637 643 666
+    ModeLine "1024x768" 65 1024 1048 1192 1344 768 771 777 806
+    ModeLine "1280x1024" 110 1280 1328 1512 1712 1024 1025 1028 1054
+EndSection
+
+#Date: Sun, 18 Sep 1994 16:00:53 +1000
+#From: Stephen Hocking <sysseh@devetir.qld.gov.au>
+Section "Monitor"
+    Identifier "PHILIPS 7BM749"
+    VendorName "PHILIPS"
+    ModelName "7BM749"
+    BandWidth 28
+    HorizSync 30-33
+    VertRefresh 55-70
+    ModeLine "704x480m" 28 704 720 832 864 480 480 488 488
+    ModeLine "704x504m" 28 704 736 856 888 504 504 542 554
+    ModeLine "680x510m" 28 680 688 800 864 510 512 518 542 -hsync -vsync
+    ModeLine "688x516m" 28 688 720 832 864 516 516 522 542 -hsync -vsync
+    ModeLine "640x350" 25 640 672 768 800 350 387 389 449 +hsync -vsync
+    ModeLine "640x400" 25 640 672 768 800 400 412 414 449 -hsync +vsync
+    ModeLine "640x480" 25 640 672 768 800 480 480 486 504
+EndSection
+ 
+#From: "william (w.f.) conn" <conn@bnr.ca>
+#Date:  Sun, 25 Sep 1994 19:51:00 -0500
+Section "Monitor"
+    Identifier "Quantex TE1564M, Super View 1280"
+    VendorName "Quantex"
+    ModelName "TE1564M"
+    BandWidth 75
+    HorizSync 30-64
+    VertRefresh 50-100
+    ModeLine "640x480" 25 640 664 760 800 480 491 493 525
+    ModeLine "800x600" 36 800 824 896 1024 600 601 603 625
+    ModeLine "1024x768" 65 1024 1032 1176 1344 768 771 777 806
+    ModeLine "1280x1024i" 80 1280 1352 1384 1568 1024 1024 1036 1164 interlace
+EndSection
+
+#Date: Wed, 21 Sep 1994 19:54:08 -0400 (EDT)
+#From: Andrew Robinson <robinson@cnj.digex.net>
+Section "Monitor"
+    Identifier  "Relisys RE1564"
+    VendorName  "Relisys"
+    ModelName   "RE1564"
+    Bandwidth   80.0
+    HorizSync   30-64
+    VertRefresh 50-100
+    ModeLine "640x480"     31.5    640  664  704  832    480  489  492  520
+    ModeLine "800x600"     50      800  856  976 1040    600  637  643  666
+    ModeLine "1024x768"    75     1024 1048 1184 1328    768  771  777  806
+    ModeLine "1280x1024i"  80     1280 1296 1512 1568   1024 1025 1037 1165
+	Interlace
+EndSection
+
+#From: matthieu@laas.fr (Matthieu Herrb)
+#Date: Tue, 27 Sep 1994 10:05:24 +0100
+Section "Monitor"
+  Identifier "Sampo alphascan-17"
+  ModelName "AlphaScan 17"
+  VendorName "UNKNOWN"
+  BandWidth 95MHz
+  HorizSync 30-77kHz
+  VertRefresh 20-105Hz
+  ModeLine "640x480"    31.5  640  664  704  832  480  489  492  520
+  ModeLine "800x600"    40    800  840  968 1056  600  601  605  628
+  ModeLine "1024x768"   80   1024 1056 1096 1374  768  774  776  800
+  ModeLine "1024x768i"  40   1024 1064 1224 1264  768  773  781  813 interlace
+  ModeLine "1152x900"   94.6 1152 1160 1400 1536  900  906  914  954
+  ModeLine "1152x900i"  80   1152 1184 1480 1496  900  912  950 1024 interlace
+  ModeLine "1280x1024i" 80   1280 1288 1408 1624 1024 1026 1032 1076 interlace
+  ModeLine "1280x1024" 110   1280 1328 1512 1712 1024 1025 1028 1054
+EndSection
+
+#Date: Fri, 6 Oct 1995 15:55:25 -0600
+#From: kop@acm.org (Karl O. Pinc)
+Section "Monitor"
+    Identifier  "Samtron SC 428-TX"
+    VendorName  "Samtron"
+    ModelName   "SC 428-TX"
+    HorizSync   31.5, 35.2, 35.5, 37.8, 48
+    VertRefresh 56, 60, 70, 43.5, 72
+    Mode "640x480"
+        DotClock        25.175
+        HTimings        640 664 760 800
+        VTimings        480 491 493 525
+    EndMode
+#    Mode "1064x759"
+#        DotClock        65.028
+#        Htimings  1064     1096         1328  1360
+#        Vtimings   759      762          768   797
+#    EndMode
+#    Mode "1064x650"
+#        DotClock        65.028
+#        Htimings  1064     1120         1352  1360
+#        Vtimings   650      653          659   683
+#    EndMode
+EndSection
+
+#Date: Mon, 23 Jan 1995 09:50:44 -0800
+#From: "Leonard N. Zubkoff" <lnz@dandelion.com>
+Section "Monitor"
+    Identifier "Sony CPD-1430"
+    VendorName "Sony"
+    ModelName "CPD-1430"
+    BandWidth 75.0
+    HorizSync 28.0-58.0
+    VertRefresh 55.0-110.0
+    Mode "640x480-72Hz"
+        DotClock 31.150
+        HTimings 640 672 712 832
+        VTimings 480 488 491 520
+    EndMode
+    Mode "800x600-72Hz"
+        DotClock 50.000
+        HTimings 800 864 984 1040
+        VTimings 600 637 643 666
+    EndMode
+    Mode "1024x768i-45Hz"
+        DotClock 44.900
+        HTimings 1024 1032 1208 1264
+        VTimings 768 769 773 817
+        Flags "Interlace"
+    EndMode
+    Mode "1024x768-71Hz"
+        DotClock 75.267
+        HTimings 1024 1056 1152 1312
+        VTimings 768 773 775 808
+    EndMode
+    Mode "1152x900-60Hz"
+        DotClock 80.352
+        HTimings 1152 1184 1248 1440
+        VTimings 900 900 903 930
+    EndMode
+EndSection
+
+#From: koenig@nova.tat.physik.uni-tuebingen.de (Harald Koenig)
+#Date: Date: Mon, 26 Sep 94 20:33:07 MEZ
+Section "Monitor"
+    Identifier "Sony Multiscan 15sf"
+    VendorName "Sony"
+    ModelName "CPD-15SF1"
+    BandWidth 110 MHz
+    HorizSync 31.5-64 kHz
+    VertRefresh 50-120 Hz
+#
+#   here are some VESA modes to start with
+#
+    ModeLine  "640x480"    31.5    640  664  704  832    480  489  492  520
+    ModeLine  "800x600"    36      800  824  896 1024    600  601  603  625
+    ModeLine  "800x600"    40      800  840  968 1056    600  601  605  628 +hsync +vsync
+    ModeLine  "800x600"    50      800  856  976 1040    600  637  643  666  +hsync +vsync
+    ModeLine "1024x768"    65     1024 1032 1176 1344    768  771  777  806 -hsync -vsync
+    ModeLine "1024x768"    75     1024 1048 1184 1328    768  771  777  806 -hsync -vsync
+EndSection
+ 
+#From: koenig@nova.tat.physik.uni-tuebingen.de (Harald Koenig)
+#Date: Date: Mon, 26 Sep 94 20:33:07 MEZ
+Section "Monitor"
+    Identifier "Sony Multiscan 17se"
+    VendorName "Sony"
+    ModelName "GDM-17SE1T"
+    BandWidth 135 MHz
+    HorizSync 31.5-82 kHz
+    VertRefresh 50-150 Hz
+    ModeLine "640x480" 25 640 672 768 800 480 490 492 525
+    ModeLine "1024x768" 76 1024 1024 1088 1168 768 768 779 806
+    ModeLine "1280x1024" 110 1280 1340 1444 1582 1024 1024 1048 1070
+    ModeLine "1280x1024" 135 1280 1312 1456 1712 1024 1027 1030 1064
+#
+#   here are some more VESA modes to start with
+#
+    ModeLine  "640x480"    31.5    640  664  704  832    480  489  492  520
+    ModeLine  "800x600"    36      800  824  896 1024    600  601  603  625
+    ModeLine  "800x600"    40      800  840  968 1056    600  601  605  628 +hsync +vsync
+    ModeLine  "800x600"    50      800  856  976 1040    600  637  643  666  +hsync +vsync
+    ModeLine "1024x768"    65     1024 1032 1176 1344    768  771  777  806 -hsync -vsync
+    ModeLine "1024x768"    75     1024 1048 1184 1328    768  771  777  806 -hsync -vsync
+EndSection
+ 
+#From: Helmut Geyer <Helmut.Geyer@iwr.uni-heidelberg.de>
+#Date: Wed, 21 Sep 1994 23:48:57 +0200 (MET DST)
+Section "Monitor"
+    Identifier "TARGA TM 1710 D"
+        VendorName "TARGA by SONY"
+        ModelName "TM 1710 D"
+        Bandwidth 100
+        HorizSync 30-65
+        VertRefresh 50-90
+        ModeLine "640x480" 25 640 664 760 800 480 491 493 525
+        ModeLine "640x480" 31 640 664 704 832 480 489 492 520
+        ModeLine "800x600x32" 45 800 820 904 964 600 601 604 621
+        ModeLine "1024x768x16" 78.7 1024 1044 1140 1264 768 770 773 796
+        ModeLine "1024x768" 80 1024 1048 1184 1296 768 771 784 797
+        ModeLine "1024x768" 85 1024 1032 1152 1336 768 784 800 813
+        ModeLine "1152x800" 90 1152 1200 1312 1520 800 805 816 849
+        ModeLine "1152x800" 95 1152 1200 1320 1496 800 805 816 849
+        ModeLine "1152x800" 97 1152 1200 1296 1496 800 805 816 849
+EndSection
+
+#From: koenig@tat.physik.uni-tuebingen.de (Harald Koenig)
+#Date: Sat, 17 Sep 1994 15:46:10 +0200 (MET DST)
+Section "Monitor"
+    Identifier "TAXAN 875"
+    VendorName "TAXAN"
+    ModelName "MultiVision 875 PLUS LR"
+    BandWidth 130 MHz
+    HorizSync 30-78 kHz
+    VertRefresh 50-90 Hz
+ #
+ #   the TAXAN 875 PLUS LR detects the following factory preset video modes
+ #   (see App. 2 in the Owner's Guide).  At least for some S3 Vision864 and
+ #   some other S3 cards you may have to use "800x600x32" instead of "800x600"
+ #   for 24/32bpp mode.
+ #
+    ModeLine "640x350"    25.175 640 664 688  800 350 395 411 449 +hsync -vsync
+    ModeLine "640x400"    25.175 640 664 688  800 400 414 430 449 -hsync +vsync
+    ModeLine "640x480"    25.175 640 664 688  800 480 498 500 525 -hsync -vsync
+    ModeLine "800x600"    50.350 800 872 920 1048 600 636 642 668 +hsync +vsync
+    ModeLine "800x600x32" 49.197 800 856 880 1024 600 636 642 668 +hsync +vsync
+    ModeLine "1024x768"   75  1024 1048 1120 1336 768 768 774 804 -hsync -vsync
+    ModeLine "1024x768"   75  1024 1048 1120 1296 768 771 777 806 -hsync -vsync
+    ModeLine "1024x768"   80  1024 1048 1128 1304 768 783 792 807 +hsync +vsync
+    ModeLine "1280x1024" 110 1280 1312 1416 1712 1024 1030 1040 1071 
+	-hsync -vsync
+    ModeLine "1280x1024" 125 1280 1296 1552 1680 1024 1024 1032 1062 
+	-hsync -vsync
+    ModeLine "1152x900"  105 1152 1176 1234 1464 900 906 914 943 -hsync -vsync
+ #
+ #   other tested, usefull modes:
+ #
+    ModeLine "1024x768@82"   99.8  1024 1124 1288 1512  768  771  786  805
+    ModeLine "1024x768@93"  110    1024 1048 1128 1464  768  768  772  809
+    ModeLine "1280x1024@71" 135    1280 1488 1544 1824 1024 1029 1030 1042
+    ModeLine "1280x1024@74" 135    1280 1488 1544 1744 1024 1029 1030 1042
+EndSection
+
+#From: wolff@dutecai.et.tudelft.nl (Rogier Wolff)
+#Date: Sat, 24 Sep 1994 17:27:09 +0200 (MET DST)
+ # It seems I've been watching a horribly slow-refresh 54Hz screen for
+ # quite a while.... The monitor is spec-ed to do 60 Hz. I'll figure out
+ # how to adjust these later on.
+Section "Monitor"
+    Identifier "Unisys-19"
+    VendorName "Unisys"
+    ModelName "Unknown"
+    BandWidth 110
+    HorizSync 57-65
+    VertRefresh 55-65
+    ModeLine "640x480" 25.175 640 664 760 800 480 491 493 525
+    ModeLine "1024x768i" 44.9 1024 1048 1208 1264 768 776 784 817 interlace
+    ModeLine "1176x1024" 95 1176 1400 1504 1616 1024 1032 1040 1070 
+	-hsync +vsync
+    ModeLine "1176x950" 95 1176 1400 1504 1616 950 958 964 994 
+	-hsync +vsync
+    ModeLine "1280x1024" 110 1280 1584 1704 1872 1024 1032 1040 1070 
+	-hsync +vsync
+    ModeLine "640x1024" 110 640 1584 1704 1872 1024 1032 1040 1070 
+	-hsync +vsync
+EndSection
+ 
+#Date: Mon, 19 Sep 94 17:50:04 +0200
+#From: Didier Poirot <dp@chorus.fr>
+Section "Monitor"
+    Identifier "ViewSonic 17"
+    VendorName "ViewSonic"
+    ModelName "17"
+    BandWidth 75.0
+    HorizSync 30-82
+    VertRefresh 50-90
+    ModeLine "640x480"    25.175 640 664 760 800 480 491 493 525
+    Modeline "1024x768a"  65    1024 1032 1208 1288    768  768  773  798
+    Modeline "1024x768b"  65    1024 1080 1224 1344    768  776  778  808
+EndSection
+
+#Date: Sat, 30 Sep 1995 17:25:00 EDT
+#From: David E. Wexelblat <dwex@xfree86.org>
+Section "Monitor"
+    Identifier "ViewSonic17"
+    VendorName "ViewSonic"
+    ModelName "17"
+    BandWidth 135.0
+    HorizSync 30.0-82.0
+    VertRefresh 50-160
+    ModeLine   "640x480@62Hz"  25.175   640  664  760  800   480  491  493  525
+    ModeLine   "640x480@76Hz"  31.500   640  660  684  812   480  485  488  508
+    ModeLine   "800x600@65Hz"  40.000   800  804  932  980   600  605  609  624
+    ModeLine   "800x600@77Hz"  50.000   800  820  940 1024   600  605  611  634
+    ModeLine  "1024x768@62Hz"  65.000  1024 1042 1180 1308   768  775  781  798
+    ModeLine  "1024x768@72Hz"  75.000  1024 1044 1180 1292   768  771  777  806
+    ModeLine  "1152x900@79Hz" 110.000  1152 1180 1468 1484   900  902  905  941
+    ModeLine "1280x1024@76Hz" 135.000  1280 1328 1472 1648  1024 1031 1034 1076
+EndSection
+ 
+#Date: Wed, 21 Sep 1994 22:47:06 -0700
+#From: "Brett J. Vickers" <bvickers@rumba.ICS.UCI.EDU>
+Section "Monitor"
+    Identifier  "ViewSonic 5e"
+    VendorName  "ViewSonic"
+    ModelName   "5e"
+    Bandwidth   25.2 mhz
+    HorizSync   30-60
+    VertRefresh 50-90
+    # Refresh rate = 73.46Hz ; Horizontal Frequency = 59.29KHz
+    Mode "1024x768"
+        DotClock 81
+        HTimings 1024 1120 1272 1368 VTimings 768  788  801  847
+    EndMode
+    # Refresh rate = 63.87Hz ; Horizontal Frequency = 57.99KHz
+    Mode "1152x864"
+        DotClock 90
+        HTimings 1152 1248 1472 1552 VTimings 864  864  876  908
+    EndMode
+    # Refresh rate = 63.87Hz ; Horizontal Frequency = 57.99KHz
+    Mode "1152x900"
+        DotClock 90
+        HTimings 1152 1248 1472 1552 VTimings 900  900  914  946
+    EndMode
+    # Refresh rate = 59.43Hz ; Horizontal Frequency = 59.91KHz
+    Mode "1280x960"
+        DotClock 104
+        HTimings 1280 1376 1672 1736 VTimings 960  960  973 1008
+    EndMode
+EndSection
+
+#Date: 22 Sep 1994 10:25:06 -0700 (PDT)
+#From: Ken Latta <klatta@pkdla5.syntex.com>
+Section "Monitor"
+    Identifier  "ViewSonic 6"
+    VendorName  "ViewSonic"
+    ModelName   "6"
+    Bandwidth   80.0
+    HorizSync   30.00-57.00
+    VertRefresh 43.00-70.04
+    Mode "640x480"
+        DotClock 25
+        HTimings 640 664 760 800 VTimings 480 491 493 525
+    EndMode
+    Mode "1024x768"
+#        DotClock 80
+        DotClock 65
+        HTimings 1024 1080 1304 1328 VTimings 768 768 776 792
+#        HTimings 1024 1136 1340 1432 VTimings 768 770 774 805
+    EndMode
+EndSection
+ 
+#From: haw30@eng.amdahl.com (Henry A Worth )
+#Date: Tue, 27 Sep 94 22:10:01 PDT
+Section "Monitor"
+    Identifier "ViewSonic-7"
+    VendorName "ViewSonic"
+    ModelName "ViewSonic-7"
+    BandWidth 110
+    HorizSync 30.0-64.0
+    VertRefresh 50.0-90.0
+    ModeLine "1152x900" 85 1152 1218 1328 1456 900 902 912 943
+    ModeLine "1024x768" 80 1024 1032 1216 1344 768 768 773 805
+    ModeLine "1024x768" 75 1024 1048 1184 1328 768 771 777 802
+    ModeLine "1024x768" 65 1024 1032 1208 1288 768 768 773 798 
+    ModeLine "800x600"  45  800  808  920 1000 600 605 615 635
+    ModeLine "640x480"  30  640  664  728  800 480 484 490 507
+    ModeLine "640x480"  28  640  664  728  792 480 484 490 505
+EndSection
+
+#From: koen.gadeyne@barco.com (Koen Gadeyne)
+#Date: Sun, 29 Sep 96 12:54:10 CET
+Section "Monitor"
+    Identifier "MAG MagicView II"
+    VendorName "MAG"
+    ModelName "PMV1448"
+    BandWidth 65.0
+    HorizSync 30-33,45-51
+    VertRefresh 45.0-90.0
+    ModeLine "640x480"  40  640  672  712  824  480 480 482 505  +hsync -vsync
+    ModeLine "800x600"  50  800  816  848 1016  600 600 606 630  -hsync +vsync
+    ModeLine "1024x768" 65 1024 1040 1064 1306  768 768 770 795
+EndSection
+
+#From: abair@comland.com (Alan Bair)
+#Date: Wed, 21 May 1997 22:00:00 AEST
+Section Monitor
+    Identifier	"CBM1950"
+    VendorName	"Commodore"
+    ModelName	"1950"
+    HorizSync	15-35	# multisync
+    VertRefresh	50-80	# multisync
+    Mode "640x480"
+	DotClock	25.175
+	HTimings	640 664 760 800
+	VTimings	480 491 493 525
+    EndMode
+EndSection
+
+#From: Richard Gooch <rgooch@atnf.csiro.au>
+#Date: Wed, 21 May 1997 22:00:00 AEST
+Section "Monitor"
+  Identifier	"MAG MXP-17F"
+  VendorName	"MAG"
+  ModelName	"MXP-17F"
+  Bandwidth	130.1
+  HorizSync	30-82.1
+  VertRefresh	50-120
+
+  ModeLine "640x480@60Hz"   25   640  664  760  800   480 491 493 525
+  ModeLine "800x600@72Hz"   50   800  856  976  1040  600 637 643 666
+  ModeLine "1024x768@53Hz"  55   1024 1048 1208 1264  768 776 784 817
+  ModeLine "1024x768@68Hz"  70   1024 1048 1208 1264  768 776 784 817
+  ModeLine "1152x900@66Hz"  90   1152 1152 1192 1472  900 900 911 925
+  ModeLine "1152x900@65Hz"  92   1152 1184 1312 1504  900 902 906 937 +HSync +VSync # Sun
+  ModeLine "1152x900@70Hz"  95   1152 1152 1192 1472  900 900 911 925
+  ModeLine "1152x900@73Hz"  99   1152 1152 1192 1472  900 900 911 925
+  ModeLine "1152x900@81Hz"  110  1152 1176 1234 1472  900 900 911 925
+  ModeLine "1152x900@87Hz"  130  1152 1152 1168 1616  900 900 911 925
+  ModeLine "1152x900i@53Hz" 72   1152 1200 1308 1440  900 900 905 949 Interlace
+  ModeLine "1280x1024@59Hz" 110  1280 1320 1480 1728  1024 1029 1036 1077
+  ModeLine "1280x1024@70Hz" 130  1280 1320 1480 1728  1024 1029 1036 1077
+  ModeLine "1280x1024@75Hz" 140  1280 1320 1480 1728  1024 1029 1036 1077
+EndSection
+
+Section "Monitor"
+  Identifier	"MAG MX-17H"
+  VendorName	"MAG"
+  ModelName	"MX-17H"
+  Bandwidth	100.1
+  HorizSync	30-68.1
+  VertRefresh	50-120
+
+  ModeLine "640x480@60Hz"   25   640  664  760  800   480 491 493 525
+  ModeLine "800x600@72Hz"   50   800  856  976  1040  600 637 643 666
+  ModeLine "1024x768@53Hz"  55   1024 1048 1208 1264  768 776 784 817
+  ModeLine "1024x768@68Hz"  70   1024 1048 1208 1264  768 776 784 817
+  ModeLine "1152x900@66Hz"  90   1152 1152 1192 1472  900 900 911 925
+  ModeLine "1152x900@65Hz"  92   1152 1184 1312 1504  900 902 906 937 +HSync +VSync # Sun
+  ModeLine "1152x900@70Hz"  95   1152 1152 1192 1472  900 900 911 925
+  ModeLine "1152x900@73Hz"  99   1152 1216 1280 1472  900 900 911 925
+  ModeLine "1152x900i@53Hz" 72   1152 1200 1308 1440  900 900 905 949 Interlace
+EndSection
+
+Section "Monitor"
+  Identifier	"Samsung SyncMaster 17GLsi"
+  VendorName	"Samsung"
+  ModelName	"SyncMaster 17GLsi"
+  Bandwidth	135.1
+  HorizSync	30-85.1
+  VertRefresh	50-120
+
+  ModeLine "640x480@60Hz"   25   640  664  760  800   480 491 493 525
+  ModeLine "800x600@72Hz"   50   800  856  976  1040  600 637 643 666
+  ModeLine "1024x768@53Hz"  55   1024 1048 1208 1264  768 776 784 817
+  ModeLine "1024x768@68Hz"  70   1024 1048 1208 1264  768 776 784 817
+  ModeLine "1152x900@66Hz"  90   1152 1152 1192 1472  900 900 911 925
+  ModeLine "1152x900@65Hz"  92   1152 1184 1312 1504  900 902 906 937 +HSync +VSync # Sun
+  ModeLine "1152x900@70Hz"  95   1152 1152 1192 1472  900 900 911 925
+  ModeLine "1152x900@73Hz"  99   1152 1152 1192 1472  900 900 911 925
+  ModeLine "1152x900@81Hz"  110  1152 1176 1234 1472  900 900 911 925
+  ModeLine "1152x900@87Hz"  130  1152 1152 1168 1616  900 900 911 925
+  ModeLine "1152x900i@53Hz" 72   1152 1200 1308 1440  900 900 905 949 Interlace
+EndSection
+
+Section "Monitor"
+    Identifier	"KTX-15"
+    VendorName	"KTX"
+    ModelName	"15"
+    Bandwidth	80.1
+    HorizSync	30-60
+    VertRefresh	40-110
+
+  ModeLine "640x480@60Hz"   25   640  664  760  800   480 491 493 525
+  ModeLine "800x600@72Hz"   50   800  856  976  1040  600 637 643 666
+  ModeLine "1024x768@53Hz"  55   1024 1048 1208 1264  768 776 784 817
+  ModeLine "1024x768@68Hz"  70   1024 1048 1208 1264  768 776 784 817
+  ModeLine "1152x900@58Hz"  80   1152 1200 1308 1460  900 900 931 939
+  ModeLine "1152x900i@53Hz" 72   1152 1200 1308 1440  900 900 905 949 Interlace
+EndSection
+
+Section "Monitor"
+  Identifier	"MAGTRON BMC-15FX"
+  VendorName	"MAGTRON"
+  ModelName	"BMC-15FX/LR"
+  Bandwidth	65.1
+  HorizSync	30-58.1
+  VertRefresh	50-90
+
+  ModeLine  "640x480"      25   640  664  760  800   480 491 493 525
+  ModeLine  "1024x768"     70   1024 1048 1208 1264  768 776 784 817
+  ModeLine  "1152x900i"    56   1152 1200 1308 1440  900 900 905 925  Interlace
+EndSection
+
+Section "Monitor"
+  Identifier	"Videocom DCM-1588"
+  VendorName	"Videocom"
+  ModelName	"DCM-1588"
+  Bandwidth	75.1
+  HorizSync	30-65
+  VertRefresh	50-100
+
+  ModeLine  "640x480"      25   640  664  760  800   480 491 493 525
+  ModeLine  "1152x900i"    72   1152 1200 1308 1440  900 900 905 949  Interlace
+  ModeLine  "1152x900"     65   1152 1200 1308 1460  900 900 931 939
+EndSection
+
+Section "Monitor"
+  Identifier	"NEC 5FG"
+  VendorName	"NEC"
+  ModelName	"5FG"
+  Bandwidth	100.1
+  HorizSync	30-68.1
+  VertRefresh	50-120
+
+  ModeLine  "640x480"      25   640  664  760  800   480 491 493 525
+  ModeLine  "1152x900"     95   1152 1152 1192 1472  900 900 931 939
+EndSection
+
+Section "Monitor"
+  Identifier	"Videocom DCM-1488"
+  VendorName	"Videocom"
+  ModelName	"DCM01488"
+  Bandwidth	75.1
+  HorizSync	30-50.1
+  VertRefresh	30-100
+
+  ModeLine  "640x480"      25   640  664  760  800   480 491 493 525
+  ModeLine  "1024x768"     50   1024 1092 1220 1344  768 786 791 810
+  ModeLine  "1152x900i"    50   1152 1200 1308 1440  900 900 905 949  Interlace
+EndSection
+
+Section "Monitor"
+  Identifier	"Toshiba Tecra 500CDT"
+  VendorName	"Toshiba"
+  ModelName	"Tecra 500CDT"
+  Bandwidth	110.1
+  HorizSync	30-82.1
+  VertRefresh	50-120
+
+  ModeLine "640x480@68Hz"   28   640  656  752  792   480 490 492 519
+  ModeLine "800x600@87Hz"   60   800  856  976  1040  600 637 643 666
+  ModeLine "1024x768@53Hz"  55   1024 1048 1208 1264  768 776 784 817
+EndSection
+
+#From: koen.gadeyne@barco.com (Koen Gadeyne)
+#Date: 21 May 1997, 22:00:00 AEST
+
+Section "Monitor"
+  Identifier	"SMILE CA1716CL/SMILE CA1718CL"
+  VendorName	"SMILE"
+  ModelName	"CA1716CL/CA1718CL"
+  BandWidth 75     
+  HorizSync 30-65
+  VertRefresh 40-110
+
+  ModeLine "640x480@60Hz"   25   640  664  760  800   480 491 493 525
+  ModeLine "800x600@72Hz"   50   800  856  976  1040  600 637 643 666
+  ModeLine "1024x768@53Hz"  55   1024 1048 1208 1264  768 776 784 817
+  ModeLine "1024x768@68Hz"  70   1024 1048 1208 1264  768 776 784 817
+  ModeLine "1152x900@58Hz"  80   1152 1200 1308 1460  900 900 931 939
+  ModeLine "1152x900i@53Hz" 72   1152 1200 1308 1440  900 900 905 949 Interlace
+EndSection
+
+#From: jestabro@amt.tay1.dec.com (Jay Estabrook)
+#Date: 21 May 1997, 22:00:00 AEST
+
+Section "Monitor"
+    Identifier  "DEC VRC16"
+    VendorName  "DEC"
+    ModelName   "VRC16-LEM"
+    HorizSync   30-78
+    VertRefresh 50-90
+EndSection
+
+Section "Monitor"
+    Identifier  "DEC VRC17"
+    VendorName  "DEC"
+    ModelName   "VRC17-Jx"
+    HorizSync   30-86
+    VertRefresh 50-152
+EndSection
+
+Section "Monitor"
+    Identifier  "DEC VRC21-Hx"
+    VendorName  "DEC"
+    ModelName   "VRC21-Hx"
+    HorizSync   30-85
+    VertRefresh 50-152
+EndSection
+
+Section "Monitor"
+    Identifier  "DEC VRC21-Kx/Wx"
+    VendorName  "DEC"
+    ModelName   "VRC21-Kx/Wx"
+    HorizSync   30-94
+    VertRefresh 50-152
+EndSection
+
+Section "Monitor"
+    Identifier  "DEC VRT17"
+    VendorName  "DEC"
+    ModelName   "VRT17-Hx"
+    HorizSync   29-82
+    VertRefresh 50-150
+EndSection
+
+Section "Monitor"
+    Identifier  "DEC VRC20"
+    VendorName  "DEC"
+    ModelName   "VRC20-Hx"
+    HorizSync   30-82
+    VertRefresh 50-90
+EndSection
+
+Section "Monitor"
+    Identifier  "DEC PCXBV-KA/KB"
+    VendorName  "DEC"
+    ModelName   "PCXBV-KA/KB"
+    HorizSync   30-66
+    VertRefresh 50-130
+EndSection
+
+#From: ajv@greebo.net (Andrew van der Stock)
+#Date: 21 May 1997, 22:00:00 AEST
+
+Section "Monitor"
+   Identifier      "Hewlett Packard D2818A/D2819A"
+   VendorName      "HP"
+   ModelName       "D2818A/D2819A"
+   HorizSync       30-65
+   VertRefresh     50-120
+   Modeline  "1280x1024" 110.00 1280 1328 1512 1712 1024 1025 1028 1054
+   Modeline  "1152x864"   92.00 1152 1208 1368 1474 864 865 875 895
+   Modeline  "1024x768"   85.00 1024 1032 1152 1360 768 784 787 823
+   Modeline  "800x600"    60.75 800 864 928 1088 600 616 621 657 -hsync -vsync
+   Modeline  "640x480"    36.00 640 696 752 832 480 481 484 509 -hsync -vsync
+   Modeline  "640x400"    31.50 640 672 736 832 400 401 404 445 -hsync +vsync
+   Modeline  "512x384"    22.00 512 528 592 640 384 385 388 404 -hsync -vsync
+   Modeline  "480x300"    29.95 480 504 584 624 300 319 322 333 doublescan
+   Modeline  "400x300"    25.00 400 424 488 520 300 319 322 333 doublescan
+   Modeline  "320x240"    15.75 320 336 384 400 240 244 246 262 doublescan
+   Modeline  "320x200"    12.59 320 336 384 400 200 204 205 225 doublescan
+EndSection
+
+#From: hohndel@XFree86.Org (Dirk Hohndel)
+#Date: 31 July 1997, 12:18:28 MEST
+
+Section "Monitor"
+   Identifier      "Elsa 24"
+   VendorName      "Elsa"
+   ModelName       "24H96"
+   HorizSync       30-96
+   VertRefresh     50-160
+   # 640x480@60Hz
+   Modeline "640x480" 25.200 640 656 720 840 480 481 484 500
+   # 800x600@90Hz
+   Modeline "800x600" 59.400 800 816 896 1056 600 601 604 625
+   # 1024x768@90Hz
+   Modeline "1024x768" 94.464 1024 1040 1136 1312 768 769 772 800
+   # 1152x864@90Hz
+   Modeline "1152x864" 120.528 1152 1168 1280 1488 864 865 868 900
+   # 1280x1024@90Hz
+   Modeline "1280x1024" 161.947 1280 1296 1440 1688 1024 1025 1028 1066
+   # 1600x1000@90Hz
+   Modeline "1600x1000" 194.875 1600 1616 1744 2080 1000 1001 1004 1041
+   # 1600x1024@90Hz
+   Modeline "1600x1024" 201.090 1600 1616 1760 2096 1024 1025 1028 1066
+   # 1600x1200@75Hz
+   Modeline "1600x1200" 198.000 1600 1616 1776 2112 1200 1201 1204 1250
+   # 1792x1120@75Hz
+   Modeline "1792x1120" 204.983 1792 1808 1952 2344 1120 1121 1124 1166
+   # 1920x1200@75Hz
+   Modeline "1920x1200" 237.000 1920 1936 2096 2528 1200 1201 1204 1250
+   # 1920x1280@70Hz
+   Modeline "1920x1280" 235.357 1920 1936 2096 2528 1280 1281 1284 1330
+   # 2048x1280@60Hz
+   Modeline "2048x1280" 243.139 2048 2064 2576 3016 1280 1281 1284 1333
+EndSection
+
+
+# $XFree86: xc/programs/Xserver/hw/xfree86/doc/Monitors,v 3.19 2000/02/12 02:54:39 dawes Exp $
+# $XConsortium: Monitors /main/13 1996/10/25 14:11:55 kaleb $

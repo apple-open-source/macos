@@ -1,0 +1,37 @@
+XCOMM platform:  $Xorg: bsd.cf,v 1.3 2000/08/17 19:41:47 cpqbld Exp $
+
+
+
+XCOMM $XFree86: xc/config/cf/bsd.cf,v 1.3 2001/01/17 16:22:31 dawes Exp $
+
+#ifndef OSName
+#define OSName            4.3bsd
+#endif
+XCOMM operating system:  OSName
+#ifndef OSMajorVersion
+#define OSMajorVersion    4
+#endif
+#ifndef OSMinorVersion
+#define OSMinorVersion    3
+#endif
+
+#define BootstrapCFlags -DNOSTDHDRS
+#define StandardDefines -DNOSTDHDRS -DCSRG_BASED
+#define HasVoidSignalReturn NO
+#define HasBsearch NO
+#define DirFailPrefix -
+#define AvoidNullMakeCommand	YES
+
+#define BuildServer NO
+
+#ifdef VaxArchitecture
+#define UnalignedReferencesAllowed YES	       /* if arbitrary deref is okay */
+#endif
+
+#if OSMajorVersion >= 4 && OSMinorVersion >= 3
+#define SetTtyGroup YES
+#endif
+
+#if OSMajorVersion==4 && OSMinorVersion>=2
+#define HasUsableFileMmap YES
+#endif

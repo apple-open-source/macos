@@ -1,0 +1,546 @@
+<!doctype linuxdoc system>
+
+<!-- Id: README.Config.sgml,v 1.1 1994/10/05 23:31:42 klemme Exp  -->
+
+ <article>
+
+ <title>		XFree86 の設定について
+
+			段階的ガイド
+ <author> David Wexelblat と XFree86 プロジェクト社
+ <date> 1994 年 10 年 05 日
+ <trans> 岡本　一幸 Kazuyuki Okamoto &lt;ikko-@pacific.rim.or.jp&gt;
+<abstract>
+この文書は XFree86 サーバーをどうやって設定するかについてと、 
+<tt>XF86Config</tt> ファイルを機器構成に一致させる事について書いています。
+この文書の手順どおりに作業すれば、問題無くサーバーが準備でき、
+すぐに実行できるようになります。
+
+この文書は汎用になるように設計されています。設定対象 OS 固有の 
+<tt>README</tt> ファイル（例えば、
+<tt>README.SVR4</tt>）と、設定対象ビデオカード/チップセット固有の 
+<tt>README</tt>ファイル（例えば、 <tt>README.trident</tt>）
+を必ず参照して下さい。これら固有のファイルと汎用になっているファイルとで
+矛盾を生じる場合は（全部の場合がそうであるとは限りませんが）、
+固有のファイルの手順に従って下さい。
+</abstract>
+
+
+
+<toc>
+
+
+<sect>  手順概要
+<p>
+準備と実行は２つの段階で行ないます。まず最初に、使用したい適切なサーバーを
+選択して、初期値のまま設定します。次に、 <tt>XF86Config</tt>
+ファイルを設定します。このファイルはサーバーに、画面指示装置
+（例えば、マウスやトラックボール）、
+ビデオカードやモニター等、その他少しの機器について設定するものです。
+
+<tt>XF86Config</tt> ファイルはいくつかの項目で構成されています。これらの手
+続きはそれぞれの部分を書き込むことで、自然に導いてくれるでしょう。
+/usr/X11R6/lib/X11/XF86Config.sample という、初期値のサンプルとして 
+<tt>XF86Config</tt> ファイルがあります。このファイルを 
+<tt>/usr/X11R6/lib/X11/XF86Config.sample</tt> にコピーして設定対象機器構成
+に固有な部分を修正して下さい。<it>XF86Config（4 章 / 5 章）</it>
+のオンラインマニュアルに <tt>XF86Config</tt> ファイルの中身とオプションの詳
+細が書かれてます。お手元の <tt>XF86Config</tt> ファイルを書き込むために、
+オンラインマニュアルを通読して下さい。
+ 
+<tt>XF86Config</tt> ファイルの各節は次の通りです。:
+ <descrip>
+	<tag> Files </tag> 
+	  標準フォントと RGB データベースのパスを設定します。
+	<tag> Server Flags</tag> 
+	  一般的なサーバーの少量のオプションを設定します。これらについて勉
+	  強したい場合は、オンラインマニュアルを参照して下さい。
+	<tag> Keyboard</tag> 
+	  キーボード装置を設定します。少量のオプションパラメータを設定しま
+	  す。
+	<tag> Pointer</tag> 
+	  画面指示装置を設定します。少量のオプションパラメータを設定しま
+	  す。
+	<tag> Monitor</tag> 
+	  サーバーに対してモニター（複数）を記述します。
+	<tag> Graphics Device</tag> 
+	  サーバーに対してビデオカードを記述します。
+	<tag> Screen.</tag>
+	  モニターとビデオカードどのように使用するべきか記述します。
+ </descrip>
+
+
+<sect>  正しい標準サーバーの設定
+<p>
+
+標準サーバーの名前は <tt>/usr/X11R6/bin/X</tt>です。
+これは<tt>/usr/X11R6/bin/</tt>にある特定のサーバーのバイナリファイルである
+<tt>XF86_xxxx</tt> リンクファイルです。
+X が使いたいサーバーのリンクファイルになっているか確認して下さい。
+正しいリンクファイルになっていないときは、X を削除して正しい
+サーバーの新しいリンクファイルを作って下さい。サーバーのバイナリファイルは
+  次の通りです。:
+ <descrip>
+	<tag>XF86_SVGA:</tag>  
+	Super-VGA サーバー。  Cirrus 542{0,2,4,6,8,9}、543{0,4} とWestern 
+	Digital 90C3{1,3} と Oak Technologies Inc. OTI087 のチップセット対
+	応のアクセラレータと残りのチップセット対応の非アクセラレータを含ん
+	でいます。
+	<tag>XF86_Mono:</tag>  オプションで Hercules または他の白黒ビデオ
+	カードをサポートする (S)VGA 白黒サーバーが入っています。
+	<tag>XF86_VGA16:</tag>  汎用 VGA 16 色サーバー。
+	<tag>XF86_S3:</tag>     S3 アクセラレータサーバー。
+	<tag>XF86_Mach32:</tag> ATI Mach32 アクセラレータサーバー。
+	<tag>XF86_Mach64:</tag> ATI Mach64 アクセラレータサーバー。
+	<tag>XF86_Mach8:</tag>  ATI Mach8 アクセラレータサーバー。
+	<tag>XF86_8514:</tag>   8514/A アクセラレータサーバー。
+	<tag>XF86_P9000:</tag>  P9000 アクセラレータサーバー。
+	<tag>XF86_AGX:</tag>    AGX アクセラレータサーバー。
+	<tag>XF86_W32:</tag>    ET4000/W32 とET6000 アクセラレータサーバー。
+ </descrip>
+
+それぞれのサーバー対応のオンラインマニュアルがありますので、サポートしてい
+るチップセット固有の詳細とサーバー固有の構成のオプションはオンラインマニュ
+アルを参照して下さい。
+
+LinkKit にてサーバーにドライバーを組み込み、変更する場合に注意事項がありま
+す。配付物がどうゆう風に組み立てられているかによりますが、サーバーのバイナ
+リファイルには使用可能な全てのドライバーは含まれていません。組み込まれてい
+るドライバーの一覧を得るには、 <tt>/usr/X11R6/bin/X -showconfig</tt> 
+を実行して下さい。サーバーを再リンクする必要がある場合は、固有の情報について 
+LinkKit の
+<url url="LinkKit.html" name="<tt>README.LinkKit</tt>"> を参照して下さい。
+
+<sect>  XF86Config の易しい部分
+<p>
+
+<tt>XF86Config</tt> ファイルの &dquot;Files&dquot; の節は、RGB (赤緑青) のデ
+ータベース
+ファイル（一般に、これを変更するべきではありません）へのパスと、標準フォン
+トのパスを内蔵させることです。複数の FontPath 行を <tt>XF86Config</tt> に書
+いてある場合は、FontPath を結合して使用できます。それぞれの FontPath のディ
+レクトリが存在することと、ちゃんとフォントが使えることを確認して下さい。
+サーバーが 
+&dquot;Can't open default font 'fixed'&dquot;（標準の'固定幅'フォントが有り
+ません）と
+言ってきたら、それはフォントの登録が正しくないからです。それぞれのフォント
+の登録を正しくしたいなら、それぞれのフォントのディレクトリの所で 
+`mkfontdir' コマンドを実行してみて下さい。<it>XF86Config</it> のオンライン
+マニュアルの 4 章 / 5 章に、<tt>XF86Config</tt> ファイルの最初の部分の他の
+パラメタについて記述しています。
+
+次は &dquot;Keyboard&dquot; の節です。 この節には、キーボードの通信手順（Xqu
+eue または
+Normal）、キーの繰り返しの速度やいくつかの修飾キーの標準的な割り付けについ
+て設定できます。一般にここは変更する必要は無いでしょう。英語用でないキーボ
+ードのユーザーは修飾キーの定義を変えたいことでしょう。
+詳細は <it>XF86Config</it> のオンラインマニュアルの 4 章 / 5 章を見て下さ
+い。
+&lsqb; 訳注：修飾キー = 他のキーと一緒に押す、オルタネイトキー(Alt)、コントロー
+ルキー(Cntl)やシフトキー(Shift) 等押しても字の出ないキーの事でしょう &rsqb;
+
+次は &dquot;Pointer&dquot; の節です。この節では画面指示装置の通信手順と装置
+について指
+定できます。通信手順名称は製造者名称ではないことに注意して下さい。例えば、
+いくつかの Logitech のマウス（特に新しいもの）の場合、Logitech の通信手順
+名称ではなく MouseMan または Microsoft の通信手順名称を用います。その他の
+マウスのパラメタはこの節で、調整できます。２ボタンマウスを使っているとき
+は、Emulate3Buttons というキーワードをコメントにしないで下さい。
+Emulate3Buttons モードで使うときは、同時に２つのボタンを押すことで、サーバ
+ーに真ん中のボタンを押したことを知らせることになります。
+
+サーバーがマウスデバイスを認識しない、と文句を言うときはそれはサーバーの問
+題ではないことに注意して下さい。それはよく起こる設定ミスであり、99.999% の
+確率で OS にデバイスが正しく設定されていない事が理由で、いくつかの OS では
+エラーとなるでしょう。それ故、OS レベルでのサポートが正しいことをよく調べ
+るまでは、我々にバグ報告をしないで下さい。
+
+<sect>  ビデオボードの設定について
+<p>
+
+&dquot;Device&dquot; の節ではビデオボードについて記述します。複数の機器の節
+を書くこと
+を許しており、それぞれの節ごとに１つのビデオカードを記述します。
+
+設定しようとしている汎用でない情報について、サーバーのオンラインマニュア
+ルとチップセット固有の <tt>README</tt> ファイルを読んで確認して下さい。
+
+Device の節を書くために、設定対象装置のデータを集める必要があり、設定方針
+を決めて下さい。必要な装置のデータは次のとおりです。:
+<itemize>
+	<item> チップセットの種別
+	<item> 表示用メモリの量
+	<item> 使用可能なドットクロックの値（プログラム可能な場合）
+	<item> Ramdac の種別（幾つかのサーバー用）
+</itemize>
+<tt>XF86Config</tt> ファイルの中で全て指定の値を埋め込んでおくよりは、通常、
+サーバ
+ーに自分自身で装置のデータを取り込ませたほうがいいでしょう。その方が間違い
+なく設定できます。'Chipset' は設定しているドライバ（'X -showconfig'を実行
+すれば表示できます）対応のキーワードの１つです。アクセラレータサーバーで
+は、現在、いくつかのサーバーがチップセットドライバを持っています。メモリの
+量はキロバイト単位で指定しますので、１メガバイトのメモリの場合は 1024 と指
+定します。
+
+ドットクロックはグラフィックボードの設定において一番複雑な部分です。幸運に
+もドットクロックを集めた大きなデータベースが利用可能です。いくつかのグラフ
+ィクボード対応の Device のデータの一覧が `Devices' ファイルにあります。あ
+なたのグラフィックボードが見つかれば、そのデータから始めることが出来ます。
+<tt>modeDB.txt</tt> ファイルの最初の部分は無数の SVGA カードの情報が一覧になって
+います。アクセラレータカードでは、`AccelCards' ファイルを見て下さい。幸運
+ならば、自分のカードが何処かに見つかるでしょう。もしカードが見つかったら、
+<tt>XF86Config</tt> ファイルの Clocks 行にデータベースから数列を、データベー
+スに表
+示されているそのままを並べ替えたりしないで残さずコピーしましょう。新しいア
+クセラレータカードはプログラマブルクロックジェネレータを使っているので 
+<tt>XF86Config</tt> ファイルの ClockChip 行に引用符（&dquot;）付きでクロック
+ジェネレータ
+の型式が書いてあることに注意して下さい。（例えば、&num;9 GXe を使うならば、 
+`ClockChip &dquot;icd2061a&dquot;' の様に書いてあるでしょう）。
+
+グラフィックボードが一覧に見つからないときは、サーバーにグラフィックボード
+の検出を任せてしまいましょう。sh 又は ksh の場合は、
+`X -probeonly &gt;/tmp/out 2&gt;&amp;1'、csh の場合は、`X -probeonly &gt;&amp;/tmp/out' と
+コマンドを実行しましょう。この時、<tt>XF86Config</tt> ファイルに Clocks 行
+を<bf>書かない</bf>でおいて下さい。コマンドを実行したら、サーバーが素速くク
+ロックを巡回して調べる間、数秒間画面が暗くなります。調べることでモニターを
+痛めることはありませんが、表示仕様以上で検査をする場合があるため、新しいモ
+ニターの場合は自動的にそれ自身でモニターの電源を落としてしまう場合がありま
+す。とにかく、調査が終わったら、ドットクロックの検出結果の/tmp/out ファイル
+を見ましょう。/tmp/out の数列をそのまま <tt>XF86Config</tt> ファイルの 
+Clocks 行にコピーしましょう。並び変えたり、いかなる変更もしてはいけません。
+
+グラフィックボードがプログラマブルクロックジェネレータを持っている可能性が
+あります。この場合は、2、3個のクロックだけ値を持ち、残りが全てゼロになって
+いることでしょう。もし、ボードがデータベースの中に見当たらなかったら、
+XFree86 チームに連絡を取るか、 comp.windows.x.i386unix にメッセージをポス
+トして下さい。殆どの場合 Diamond 社の装置がこの種の分類になりますが、
+Diamond 社 はプログラムの詳細を公開してくれませんので、我々は助けることが
+出来ません。ネットニュースでは、倫理的に問題のある解決策が利用可能ですが、
+我々はこの方法を提唱出来ませんので、この方法について我々に連絡しないで下さ
+い。
+
+いくつかのサーバー (S3 と AGX) には RAMDAC の型式と速度が、その他の装置の
+情報を取り出すために必要になります。この指定は 'Ramdac' と 'DacSpeec' とい
+う記載を追加して行ないます。サポートしている RAMDAC の詳細は、適切なサーバ
+ーのオンラインマニュアルを参照して下さい。以前の XFree86 のバージョンで
+は、RAMDAC の型式はオプションフラグで設定していたことに注意して下さい。
+
+自分の装置に合わせて、いくつかのオプションフラグを指定する必要があるでしょ
+う。サーバーのオンラインマニュアルにこれらのオプションについて記述があり、
+チップセット固有の <tt>README</tt> ファイルにお手元のボードの為になにが必要
+か書いて
+ります。
+
+<sect>  モニターとそのモードの設定について
+<p>
+
+モニターモードの設定は、モニター装置の標準化が十分でないので、残念ながら、
+実験の繰り返しで決定します。特定のモニター情報をデータベースに収集すること
+により、この実験作業を簡単にする事と、殆どのモニターにかなり一致する機能を
+集め、汎用モードの組み合わせをまとめる事を試みています。血のにじむような努
+力で出来た全てのモニターモードの作成と改良についての詳細は、Eric Raymond 
+氏が書いた <url url="VidModes.html" name="VideoModes.doc"> を参照して下さい。
+
+<tt>XF86Config</tt> ファイルの &dquot;Monitor&dquot; 節にモニターの仕様とビ
+デオのモードを記述し
+ます。Monitor の節を書くために、自分のモニターの仕様を知る必要があります。
+特に、モニターのサポートしている水平同期信号と垂直リフレッシュ信号の速度と
+ビデオ信号の帯域について知る必要があります。この情報はモニターのユーザ ー
+マニュアルに書いてあるでしょう。また、 自分のモニターの記載があるかもしれ
+ないので 'Monitors' ファイルを見て、確認して下さい。Moniter の節にこの情報
+をどうやって登録するかの詳細は <it>XF86Config</it> のオンラインマニュアルの 
+4 章 / 
+5 章を見て下さい。
+
+次に、モニターに合わせたビデオのモードの組を与える必要があります。まず最初
+に'Monitors' と <tt>modeDB.txt</tt> ファイルの中に自分の指定するモニターに対応す
+るモードが一覧にあるか確認して下さい。あった場合は、<tt>XF86Config</tt> ファイルの 
+ModeDB の節にそれらのモードをコピーして下さい。<tt>XF86Config</tt> ファイルの 
+Clocks 行にあるクロックと、各モードの行の２番目のパラメータのドットクロッ
+クが一致しているか確認して、自分のカードのクロックと一致しないモードの行は
+消して下さい。そしてモードが残った時は、良い状態になります。
+
+特定のモードが見つからないか、もっと使いたい解像度のモードが知りたいとき
+は、後述する汎用ビデオモードの一覧を参照して下さい。モニターの仕様に対して
+設定するモードの仕様を合わせましょう; 仕様内で一番高いリフレッシュモードを
+取り出して、Clocks 行のドットクロックに合っていることを確認して下さい。解
+像度が一致する交代 (Alternate) モードに切り替える前に VESA モードを試して
+みて下さい。設定を合わせたモードを <tt>XF86Config</tt> ファイルの Monitor の
+節にコ
+ピーして下さい。これらのモードは最適な値ではない事に注意して下さい。これら
+は完璧な画面サイズではないでしょうし、真ん中に表示されてはいないでしょう。
+しかし、調整可能です。設定対象のモニターに合わせてモードを微調整したい場合
+は、VideoModes.doc ファイルの '表示の問題修正' の節を読んで下さい。
+
+微調整を行なうにあたり、注意事項があります。<tt>XF86Config</tt> ファイルの M
+onitor 
+の節に同じモードの名前が２つ以上定義されている場合に、サーバーはクロックの
+一致する最初のモードを使用します。一般的に、<tt>XF86Config</tt> ファイルに同
+じモー
+ドの名前を２つ以上定義することは悪い考えだと思います。
+
+<sect>  ビデオボードとモニターデータの組み合わせについて
+<p>
+
+一旦、サーバが設定対象のモニターとグラフィックボードをどのように使うか記述
+して指定する必要があります。これを <tt>XF86Config</tt> ファイルの &dquot;Screen&dquot; の節で行
+ないます。使用したいサーバーのドライバーの型式のそれぞれを Screen 節で与え
+ます。ドライバーの型式は &dquot;SVGA&dquot; の節では (XF86_SVGA)、 &dquot;VGA16&dquot; の節では 
+(XF86_VGA16)、&dquot;VGA2&dquot; の節では (XF86_Mono)、&dquot;MONO&dquot; の
+節では (XF86_Mono, 
+XF86_VGA16) と &dquot;ACCEL&dquot; の節では (XF86_S3, XF86_Mach32, XF86_Mach8, 
+XF86_Mach64, XF86_8514, XF86_P9000, XF86_AGX, XF86_W32) です。それぞれの 
+Screen 節は使用するモニター(Monitor) の記述とデバイス(Device) の記述を指定
+します。
+
+Screen 節は１つまたは複数の &dquot;Display&dquot; の項を含んでいます。１つの
+Display 
+項はサーバーがサポートしているそれぞれの深さを与えるでしょう。
+&lsqb; 訳注：深さとは色数や階調数を表わすのに必要なビット数です。&rsqb;
+Display 項では、使いたいサーバーの仮想スクリーンの大きさを指定できます。仮
+想スクリーンはモニターに表示できるスクリーンの大きさよりも、大きいルートウ
+ィンドウ (&dquot;root window&dquot;)を持つことが出来ます（例えば 800x600 の
+ディスプ
+レイで1280x1024 の大きさの仮想スクリーンを使えます）。Virtual というキーワ
+ードを仮想スクリーンの大きさを指定するのに使います。多くの新しいアクセラレ
+ータサーバは表示に使われないメモリをキャッシュに使うことに注意して下さい。
+キャッシュはメモリの全てを仮想ディスプレイに使うような魅力はありませんが、
+キャッシュにメモリを残さないようにして、メモリの全てを仮想ディスプレイに使
+うとサーバーの性能の 30 から 40&percnt; ほどを消費します。
+
+最後に、Display 節の設定はディスプレイのモード設定です。サーバーの使用しよ
+うとしている物理的なディスプレイの解像度の指定があります。その名前は任意で
+すが、Monitor 節にあるどれかと一致していなければいけません。一般に、これら
+の名前はディスプレイの解像度（例えば &dquot;1024x768&dquot; ）になっているで
+しょうが、
+その通りでなければいけない訳ではありません。必要な数だけ一覧形式で指定しま
+す。まず最初の定義が標準で起動される画面になり、解像度の一覧はコントロール
+キー (Ctrl) 、オルタネイトキー (Alt) 、テンキーの + を同時に押すか、コント
+ロールキー (Ctrl) 、オルタネイトキー (Alt) 、テンキーの - を同時に押すこと
+で巡回できる画面の定義になります。
+
+以上で設定は終わりです。さあ、新しい XFree86 の導入テストをする準備が出来
+ました。
+
+<sect>  汎用ビデオモードについて
+<p>
+&lsqb; 訳注 : ここはデータの再利用のために翻訳はしません。 たとえ、コメントにで
+も漢字が混じって誤動作を起こすことは無いと、信じていますがちょっと怖い:-) &rsqb;
+
+<code>
+#
+#  Mode       Refresh  Hor. Sync  Dot-clock  Interlaced?  VESA?
+#  ------------------------------------------------------------
+#  640x480     60Hz      31.5k     25.175M       No         No
+#  640x480     60Hz      31.5k     25.175M       No         No
+#  640x480     63Hz      32.8k     28.322M       No         No
+#  640x480     70Hz      36.5k     31.5M         No         No
+#  640x480     72Hz      37.9k     31.5M         No        Yes
+#  800x600     56Hz      35.1k     36.0M         No        Yes
+#  800x600     56Hz      35.4k     36.0M         No         No
+#  800x600     60Hz      37.9k     40.0M         No        Yes
+#  800x600     60Hz      37.9k     40.0M         No         No
+#  800x600     72Hz      48.0k     50.0M         No        Yes
+#  1024x768i   43.5Hz    35.5k     44.9M        Yes         No
+#  1024x768    60Hz      48.4k     65.0M         No        Yes
+#  1024x768    60Hz      48.4k     62.0M         No         No
+#  1024x768    70Hz      56.5k     75.0M         No        Yes
+#  1024x768    70Hz      56.25k    72.0M         No         No
+#  1024x768    76Hz      62.5k     85.0M         No         No
+#  1280x1024i  44Hz      51kHz     80.0M        Yes         No
+#  1280x1024i  44Hz      47.6k     75.0M        Yes         No
+#  1280x1024   59Hz      63.6k    110.0M         No         No
+#  1280x1024   61Hz      64.24k   110.0M         No         No
+#  1280x1024   74Hz      78.85k   135.0M         No         No
+
+#
+# 640x480@60Hz Non-Interlaced mode
+# Horizontal Sync = 31.5kHz
+# Timing: H=(0.95us, 3.81us, 1.59us), V=(0.35ms, 0.064ms, 1.02ms)
+#
+# name        clock   horizontal timing     vertical timing      flags
+ "640x480"     25.175  640  664  760  800    480  491  493  525
+
+#
+# Alternate 640x480@60Hz Non-Interlaced mode
+# Horizontal Sync = 31.5kHz
+# Timing: H=(1.27us, 3.81us, 1.27us) V=(0.32ms, 0.06ms, 1.05ms)
+#
+# name        clock   horizontal timing     vertical timing      flags
+ "640x480"     25.175  640  672  768  800    480  490  492  525
+
+#
+# 640x480@63Hz Non-Interlaced mode (non-standard)
+# Horizontal Sync = 32.8kHz
+# Timing: H=(1.41us, 1.41us, 5.08us) V=(0.24ms, 0.092ms, 0.92ms)
+#
+# name        clock   horizontal timing     vertical timing      flags
+ "640x480"     28.322  640  680  720  864    480  488  491  521
+
+#
+# 640x480@70Hz Non-Interlaced mode (non-standard)
+# Horizontal Sync = 36.5kHz
+# Timing: H=(1.27us, 1.27us, 4.57us) V=(0.22ms, 0.082ms, 0.82ms)
+#
+# name        clock   horizontal timing     vertical timing      flags
+ "640x480"     31.5    640  680  720  864    480  488  491  521
+
+#
+# VESA 640x480@72Hz Non-Interlaced mode
+# Horizontal Sync = 37.9kHz
+# Timing: H=(0.76us, 1.27us, 4.06us) V=(0.24ms, 0.079ms, 0.74ms)
+#
+# name        clock   horizontal timing     vertical timing      flags
+ "640x480"     31.5    640  664  704  832    480  489  492  520
+
+#
+# VESA 800x600@56Hz Non-Interlaced mode
+# Horizontal Sync = 35.1kHz
+# Timing: H=(0.67us, 2.00us, 3.56us) V=(0.03ms, 0.063ms, 0.70ms)
+#
+# name        clock   horizontal timing     vertical timing      flags
+ "800x600"     36      800  824  896 1024    600  601  603  625
+
+#
+# Alternate 800x600@56Hz Non-Interlaced mode
+# Horizontal Sync = 35.4kHz
+# Timing: H=(0.89us, 4.00us, 1.11us) V=(0.11ms, 0.057ms, 0.79ms)
+#
+# name        clock   horizontal timing     vertical timing      flags
+ "800x600"     36      800  832  976 1016    600  604  606  634
+
+#
+# VESA 800x600@60Hz Non-Interlaced mode
+# Horizontal Sync = 37.9kHz
+# Timing: H=(1.00us, 3.20us, 2.20us) V=(0.03ms, 0.106ms, 0.61ms)
+#
+# name        clock   horizontal timing     vertical timing      flags
+ "800x600"     40      800  840  968 1056    600  601  605  628 +hsync +vsync
+
+#
+# Alternate 800x600@60Hz Non-Interlaced mode
+# Horizontal Sync = 37.9kHz
+# Timing: H=(1.20us, 3.80us, 1.40us) V=(0.13ms, 0.053ms, 0.69ms)
+#
+# name        clock   horizontal timing     vertical timing      flags
+ "800x600"     40      800 848 1000 1056     600  605  607  633
+
+#
+# VESA 800x600@72Hz Non-Interlaced mode
+# Horizontal Sync = 48kHz
+# Timing: H=(1.12us, 2.40us, 1.28us) V=(0.77ms, 0.13ms, 0.48ms)
+#
+# name        clock   horizontal timing     vertical timing      flags
+ "800x600"     50      800  856  976 1040    600  637  643  666  +hsync +vsync
+
+#
+# 1024x768@43.5Hz, Interlaced mode (8514/A standard)
+# Horizontal Sync = 35.5kHz
+# Timing: H=(0.54us, 1.34us, 1.25us) V=(0.23ms, 0.23ms, 0.93ms)
+#
+# name        clock   horizontal timing     vertical timing      flags
+ "1024x768i"   44.9   1024 1048 1208 1264    768  776  784  817  Interlace
+
+#
+# VESA 1024x768@60Hz Non-Interlaced mode
+# Horizontal Sync = 48.4kHz
+# Timing: H=(0.12us, 2.22us, 2.58us) V=(0.06ms, 0.12ms, 0.60ms)
+#
+# name        clock   horizontal timing     vertical timing      flags
+ "1024x768"    65     1024 1032 1176 1344    768  771  777  806 -hsync -vsync
+
+#
+# 1024x768@60Hz Non-Interlaced mode (non-standard dot-clock)
+# Horizontal Sync = 48.4kHz
+# Timing: H=(0.65us, 2.84us, 0.65us) V=(0.12ms, 0.041ms, 0.66ms)
+#
+# name        clock   horizontal timing     vertical timing      flags
+ "1024x768"    62     1024 1064 1240 1280   768  774  776  808
+
+#
+# VESA 1024x768@70Hz Non-Interlaced mode
+# Horizontal Sync=56.5kHz
+# Timing: H=(0.32us, 1.81us, 1.92us) V=(0.05ms, 0.14ms, 0.51ms)
+#
+# name        clock   horizontal timing     vertical timing      flags
+ "1024x768"    75     1024 1048 1184 1328    768  771  777  806 -hsync -vsync
+
+#
+# 1024x768@70Hz Non-Interlaced mode (non-standard dot-clock)
+# Horizontal Sync=56.25kHz
+# Timing: H=(0.44us, 1.89us, 1.22us) V=(0.036ms, 0.11ms, 0.53ms)
+#
+# name        clock   horizontal timing     vertical timing      flags
+ "1024x768"    72     1024 1056 1192 1280    768  770  776 806   -hsync -vsync
+
+#
+# 1024x768@76Hz Non-Interlaced mode
+# Horizontal Sync=62.5kHz
+# Timing: H=(0.09us, 1.41us, 2.45us) V=(0.09ms, 0.048ms, 0.62ms)
+#
+# name        clock   horizontal timing     vertical timing      flags
+ "1024x768"    85     1024 1032 1152 1360    768  784  787  823
+
+#
+# 1280x1024@44Hz, Interlaced mode
+# Horizontal Sync=51kHz
+# Timing: H=(0.02us, 2.7us, 0.70us) V=(0.02ms, 0.24ms, 2.51ms)
+#
+# name        clock   horizontal timing     vertical timing      flags
+ "1280x1024i"  80     1280 1296 1512 1568   1024 1025 1037 1165  Interlace
+
+#
+# Alternate 1280x1024@44Hz, Interlaced mode (non-standard dot-clock)
+# Horizontal Sync=47.6kHz
+# Timing: H=(0.42us, 2.88us, 0.64us) V=(0.08ms, 0.12ms, 0.96ms)
+#
+# name        clock   horizontal timing     vertical timing      flags
+ "1280x1024i"  75     1280 1312 1528 1576   1024 1028 1034 1080  Interlace
+
+#
+# 1280x1024@59Hz Non-Interlaced mode (non-standard)
+# Horizontal Sync=63.6kHz
+# Timing: H=(0.36us, 1.45us, 2.25us) V=(0.08ms, 0.11ms, 0.65ms)
+#
+# name        clock   horizontal timing     vertical timing      flags
+ "1280x1024"  110     1280 1320 1480 1728   1024 1029 1036 1077
+
+#
+# 1280x1024@61Hz, Non-Interlaced mode
+# Horizontal Sync=64.25kHz
+# Timing: H=(0.44us, 1.67us, 1.82us) V=(0.02ms, 0.05ms, 0.41ms)
+#
+# name        clock   horizontal timing     vertical timing      flags
+ "1280x1024"  110     1280 1328 1512 1712   1024 1025 1028 1054
+
+#
+# 1280x1024@74Hz, Non-Interlaced mode
+# Horizontal Sync=78.85kHz
+# Timing: H=(0.24us, 1.07us, 1.90us) V=(0.04ms, 0.04ms, 0.43ms)
+#
+# name        clock   horizontal timing     vertical timing      flags
+ "1280x1024"  135     1280 1312 1456 1712   1024 1027 1030 1064
+
+
+</code>
+
+<verb>
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/Japanese/sgml/Config.sgml,v 3.2 1997/01/26 04:34:16 dawes Exp $
+</verb>
+<hrule>
+
+このファイルは xc/programs/Xserver/hw/xfree86/doc/sgml/Config.sgml,v 3.8 199
+6/08/13 11:30:51   を、岡本  一幸 
+( Kazuyuki Okamoto <url url="mailto:ikko-@pacific.rim.or.jp"
+name="&lt;ikko-@pacific.rim.or.jp&gt;"> ) が XFree86 3.2 を
+日本でインストールする人向けに和訳したものです。ここがおかしいとか、
+ここはこうしたほうがいいといったご意見がありましたら、電子メールで
+お知らせ下さい。
+原文の著作権は XFree86 プロジェクト社にあります。この和訳の著作権は 
+XFree86 プロジェクト社と岡本　一幸にありますが、この和訳の不具合は私に、
+電子メールで送って下さい。
+<hrule>
+&lsqb;EOF&rsqb;
+</article>
+

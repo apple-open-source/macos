@@ -1,0 +1,72 @@
+--- mktexpk.orig	Fri Feb 20 16:23:22 1998
++++ mktexpk	Tue Aug 18 08:04:40 1998
+@@ -1,5 +1,5 @@
+ #!/bin/sh
+-# original mktexpk -- make a new PK font, because one wasn't found.
++# mktexpk -- make a new PK font, because one wasn't found.
+ # 
+ # (If you change or delete the word `original' on the previous line,
+ # installation won't write this script over yours.)
+@@ -73,11 +73,48 @@
+ 
+ NAME=$1
+ 
++unset cmd
++
++# test for TTF fonts
++if test -z "$cmd"; then
++  ttf2pk -q $NAME $DPI
++  errstatus=$?
++
++  if test $errstatus -ne 2; then
++    if test $errstatus -ne 0; then
++      echo "ttf2pk failed" >&2
++      exit 1
++    fi
++    MODE=modeless
++    cmd=true
++  fi
++fi
++
++# test for HBF fonts
++if test -z "$cmd"; then
++  hbf2gf -q -p $NAME $DPI
++  errstatus=$?
++
++  if test $errstatus -ne 2; then
++    if test $errstatus -ne 0; then
++      echo "hbf2gf failed" >&2
++      exit 1
++    fi
++    MODE=modeless
++    cmd=true
++  fi
++fi
++
++unset psline
++
+ # grep for the font in $PSMAPFILE.  These are base font names, such as
+ # rpplr (the original) or pplr0 (an interim step) or pplr8r (current).
+-: ${PSMAPFILE=`kpsewhich psfonts.map`}
+-pattern="^$NAME"'([ 	]|$)' 
+-psline=`egrep "$pattern" $PSMAPFILE`
++if test -z "$cmd"; then
++  : ${PSMAPFILE=`kpsewhich psfonts.map`}
++  pattern="^$NAME"'([ 	]|$)' 
++  psline=`egrep "$pattern" $PSMAPFILE`
++fi
++
+ if test -n "$psline"; then
+   MODE=modeless
+   # ps_to_pk is set in mktex.opt
+@@ -116,7 +153,9 @@
+       cmd="$ps_to_pk $NAME $DPI" 
+       ;;
+   esac
+-else
++fi
++
++if test -z "$cmd"; then
+   # Check that $BDPI and $MODE are consistent; if not, ignore the mode and
+   # hope we can correctly guess it from bdpi.  (People like to specify the
+   # resolution on the command line, not the mode so much.)

@@ -1,0 +1,266 @@
+			LBX design notes
+			----------------
+
+Much of LBX is implemented as an extension.  Some modifications have
+been made to the Xserver OS layer to support its requirements, but
+the only other impact LBX has on the core server are some hooks for
+supporting tags.
+
+Flow control
+
+    LBX multiplexes the data streams of all its clients into one, and then
+    splits them apart again when they are received.  The X_LbxSwitch message
+    is used to tell each end which client is using the wire at the time.
+
+Swapping
+
+    Swapping is handled as with any X extension, with one caveat.
+    Since a proxy can be supporting clients with different byte orders,
+    and they all share the same wire, all length fields are converted
+    to be sent in the proxy byte order.  This prevents any problems with
+    length computation that may occur when clients are switched.
+
+Tags
+
+    Tags are used to support large data items that are expected to be
+    queried multiple times.  Such things as the keyboard map and font
+    metrics are often requested by multiple clients.  Rather than send the
+    data each time, the first time the data is sent it includes a tag.
+    The proxy saves this data, so that subsequent requests can send
+    only the tag.  The proxy then pulls up its local copy of the data
+    and sends it on to its clients.
+
+    To support this, the Xserver keeps track of what tags are known to
+    the proxy.  The proxy can send InvalidateTag messages if it doesn't
+    store the tagged data.  The server also sends InvalidateTag messages
+    when the data changes, to allow the proxy to clean out obsolete data.
+
+    If the server & proxy get out of sync, and the proxy receives a
+    tag which is cannot resolve, it can send a QueryTag message and the
+    server will respond with the requested data.
+
+    Property data makes special use of tags.  A common use of properties
+    is for inter-client communication.  If both clients use the proxy,
+    its wasteful to send the data to the server and then back, when
+    the server may never need it.  X_LbxChangeProperty does the
+    same work as X_ChangeProperty, but it does not send the data.
+    X_LbxChangeProperty replies with a tag which points to the data.
+    If the property information is used locally, the server responds to
+    X_LbxGetProperty with a tag, and the property data need never be
+    sent to the server.  If the server does require the data, it can
+    issue a QueryTag message.  The proxy can also send the data on at
+    any time if it thinks its appropriate (ie, wire goes idle).
+
+    The heuristics of property handling can be complex.  Because
+    X_LbxChangeProperty is a round-trip, it can take longer to use it
+    than X_ChangeProperty for some wires, especially if the amount of
+    property data is small.  Using X_LbxChangeProperty can also be
+    a mistake for ICCCM properties, if the window manager is not a
+    proxy client.
+
+Tag caching
+
+    The proxy contains a tag caching system that allows it to store a
+    controlled amount of tag data.  Limited proxy hosts may wish to use
+    small caches or none at all.  When the cache becomes full, it will
+    throw out the oldest data (and send the appropriate InvalidateTag
+    message to the Xserver).
+
+    Currently two tag caches are used, one for properties and another
+    for other data types.  This may want to be modified to separate
+    out font metrics.
+
+    All tagged data is stored in the proxy byte order.
+
+Short-circuiting
+
+    Short-circuiting is used to handle 'constant' data.  This includes
+    atoms, colorname/RGB mappings, and AllocColor calls.  Atoms and
+    colorname/RGB mappings stay constant for the life of the server.
+    AllocColor replies are constant for each colormap.  Short-circuiting
+    replaces round-trip requests with one-way requests, and can sometimes
+    use one in place of many.
+
+    Atoms are used heavily for ICCCM communication.  Once the proxy knows
+    the string<->atom mapping, it has no need to send the request on to
+    the server.
+
+    Colorname/RGB mappings are constant, so once the proxy sees the
+    response from X_LookupColor, it need not forward any subsequent
+    requests.
+
+    Clients often use the same color cells, so once a read-only color
+    allocation has occurred, the proxy knows what RGB values should
+    be returned to the client.  The proxy doesn't need to forward any
+    AllocColor requests it can resolve, but it must tell the server to
+    modify the color cell's reference count.  X_LbxIncrementPixel is
+    used to support this.
+
+    For all three classes of short-circuiting, the server must still
+    tell the server a request has occured, so that the request sequence
+    numbers stay in sync.  This is done with X_LbxModifySequence.
+
+    Sequence numbers cause the major complication with short-circuiting.
+    X guarantees that any replies, events or errors generated by a
+    previous request will be sent before those of a later request.
+    This means that any requests that can be handled by the proxy must
+    have their reply sent after any previous events or errors.
+
+    There are 3 possible ways to support short-circuiting:
+
+    - fully correct protocol, which ensures that nothing can be out
+	of order
+    - mostly correct protocol, where only errors can be out of order
+    - poor protocol, where events & errors can be out of order.
+
+    A smart client or test suite could send a request it knows will
+    generate an event or error, followed by an InternAtom request,
+    and get the InternAtom reply before it gets the event.
+
+    Xlib hides this problem from most applications, so the 'poor'
+    protocol can be sufficient.  For a fully safe environment, the proxy
+    can be compiled to use any of the three forms (or no short-circuiting
+    at all).  In no case do we allow replies to come back out of order.
+    The proxy knows what can come back from all the core requests --
+    for any extensions it assumes the worst case and expects a reply.
+
+Reply matching
+
+    LBX needs to store information about certain requests to support both
+    tags and short-circuiting.  To do this, it creates a Reply record for
+    each request that can return a reply.  Most of these are only used
+    as place holders, but for special requests data is stashed in them
+    (eg, InternAtom needs to save the atom name, so it can store it with
+    the returned Atom.)
+
+    Using the core protocol and Xlib, there is usually only one
+    pending Reply record per client.  One common exception is caused by
+    XGetWIndowAttributes(), which sends two roundtrip requests and then
+    collects the results from both.
+
+    Test suites and interfaces other than Xlib may not follow this
+    convention, and could result in a number of pending Reply records.
+
+    The worst case are extensions.  If the proxy doesn't know about
+    them, it must assume the worst case, and create a Reply record for
+    each extension request.  These cannot be cleaned out until data
+    comes back from the server (event, error or reply), which allows
+    the proxy to flush any Reply records with older sequence numbers.
+    This has the potential to eat a huge amount of proxy memory, if an
+    extension issues a huge number of one-way requests.
+
+Motion events
+
+    To prevent clogging the wire with MotionNotify events, the server and
+    proxy work together to minimize the number of events on the wire.
+    This is done with X_LbxAllowMotion.  The proxy determines how many
+    events 'fill' the wire (currently hardcoded -- should be computed) and
+    'allows' that many events.  When the server generates a MotionEvent
+    for a proxy client, it decrements the allowed number, throwing away
+    any after the wire is full.  When the proxy receives a MotionNotify,
+    it sends an X_LbxAllowMotion to the server.
+
+Delta cache
+
+    LBX takes advantage of the fact that an X message may be very similar
+    to one that has been previously sent.  For example, a KeyPress event
+    may differ from a previous KeyPress event in just a few bytes.  By
+    sending just the bytes that differ (or "deltas"), the number of bytes
+    sent over the wire can be substantially reduced.  Delta compaction is
+    used on requests being sent by the proxy as well as on replies and 
+    events being sent by the server.
+
+    Both the server and the proxy keep a cache of the N (currently
+    defaulted to 16) X messages sent and received.  Only messages
+    smaller than a fixed maximum (currently defaulted to 64) are
+    saved in the delta cache.
+
+    Whenever the server has a message to send, and the message is of
+    appropriate length, the message is compared to any same-length messages
+    in its send cache.  The message with the fewest number of differing 
+    bytes is selected.  If the number of differences is small enough and
+    the resulting X_LbxDelta message would not be longer than the original
+    message, the X_LbxDelta message is sent in place of the original.
+    The original message must also be place in the send cache.  The proxy
+    uses the same algorithm when it has a message to send to the server.
+
+Compression
+    Before being passed down to the transport layer, all messages are
+    passed through a general purpose data compressor (currently only LZW is
+    supported).  The LZW compressor is presented with a simple byte stream -
+    the X and LBX message boundaries are not apparent.  The data is
+    broken up into fixed sized blocks.  Each block is compressed, then a two
+    byte header is prepended, and then the entire packet is transmitted.
+    (NOTE: LBX is designed to allow other compression algorithms to be used
+    instead of LZW.  However, there is no requirement that the packet format
+    used for LZW be used for implementations involving other compression
+    algorithms.)  The LZW compressor also provides for the ability to transmit 
+    data uncompressed.  This is useful when the data has already been
+    compressed by some other means (eg. a bitmap may be compressed using a
+    FAX G4 encoding) and further compression would not be effective.
+
+    The LZW compressor attempts to buffer up enough raw data to fill out a
+    complete block before actually compressing the data.  This improves
+    compression efficiency.  However, the LZW buffers are always flushed
+    before the server/proxy goes to sleep to await more data.
+
+Master Client
+    When the initial X connection between the proxy and the server is
+    converted to LBX mode, the proxy itself becomes the "master" client.
+    New client requests and some tags related messages are sent in the
+    context of the master client.
+
+Server Grabs
+    The master client must be grab-proof because the server may need to
+    retrieve tagged data from the proxy at any time.  Since the master client
+    is multiplexed onto the same connection as other clients, the other
+    clients effectively become grab-proof as well.  While the server is
+    grabbed, messages for non-master clients can be buffered.  However, it's
+    possible for some client to eat up a large amount of buffer space before
+    the server is ungrabbed.  In order to counteract this, when the server
+    is grabbed, an X_LbxListenToOne message will be sent to the proxy.  If
+    the client grabbing the server belongs to the proxy, then only master
+    client and grabbing client messages will be transmitted to the server.
+    If the grabbing client does not belong to the proxy, then only master
+    client messages will be transmitted.  The server will transmit an
+    X_LbxListenToAll to the proxy when the server is ungrabbed.
+
+Graphics Re-encoding
+
+    The LBX proxy attempts to reencode X_PolyPoint, X_PolyLine, X_PolySegment,
+    X_PolyRectangle, X_PolyArc, X_FillPoly, X_PolyFillRectangle, and
+    X_PolyFillArc requests.  If the request can be reencoded, it is
+    replaced by an equivalent LBX form of the request.  The requests
+    are reencoded by attempting to reduce all 2-byte coordinate, length, 
+    width and angle fields to 1 byte.  Where applicable, the coordinate mode
+    is also converted to "previous" to improve the compressibility of the
+    resulting data.
+
+Data Flow
+
+    The LBX data stream goes through a number of layers, all of which
+    should be negotiable:
+
+    0. client requests
+
+    1. read by LBX proxy
+    2. potential byte-swapping
+    3. requests-specific processing and reencoding
+    4. potential byte swapping
+    5. delta replacement
+    6. stream (LZW) compression
+
+    transport
+
+    5. stream decompression
+    4. delta substitution
+    3. potential byte swapping
+    2. re-encoding
+    1. request processing
+
+    The reverse process occurs with X server replies/events/errors.
+
+
+--------
+$NCDXorg: @(#)design,v 1.4 1994/04/11 18:17:03 lemke Exp $
+$Xorg: design,v 1.3 2000/08/17 19:53:53 cpqbld Exp $

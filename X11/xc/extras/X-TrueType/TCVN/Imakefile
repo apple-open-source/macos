@@ -1,0 +1,9 @@
+/* code converter: TCVN */
+
+#define ModuleName TCVN
+SRCS = TCVNtoUCS2.c main.c
+OBJS = TCVNtoUCS2.o main.o
+
+#include <xttMod.tmpl>
+
+/* end of file */

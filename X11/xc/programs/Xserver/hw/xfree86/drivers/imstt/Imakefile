@@ -1,0 +1,51 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/drivers/imstt/Imakefile,v 1.5 2001/05/16 06:48:09 keithp Exp $
+/*
+ *
+ * Copyright 2000 Ani Joshi <ajoshi@unixbox.com>
+ *
+ */
+
+#define IHaveModules
+#include <Server.tmpl>
+
+SRCS = imstt_driver.c imstt_accel.c
+
+OBJS = imstt_driver.o imstt_accel.o
+
+#if defined(XF86DriverSDK)
+INCLUDES = -I. -I../../include
+#else
+INCLUDES = -I. -I$(XF86COMSRC) -I$(XF86OSSRC) \
+           -I$(SERVERSRC)/fb -I$(SERVERSRC)/mi \
+           -I$(XF86SRC)/xaa \
+           -I$(XF86SRC)/xf1bpp -I$(XF86SRC)/xf4bpp \
+           -I$(SERVERSRC)/Xext \
+           -I$(XF86SRC)/vgahw -I$(XF86SRC)/ramdac \
+	   -I$(XF86SRC)/rac -I$(XF86SRC)/int10 \
+	   -I$(XF86SRC)/fbdevhw -I$(SERVERSRC)/render \
+           -I$(SERVERSRC)/include -I$(XINCLUDESRC) -I$(FONTINCSRC) \
+           -I$(EXTINCSRC)
+#endif
+
+#if MakeHasPosixVariableSubstitutions
+SubdirLibraryRule($(OBJS))
+#endif
+
+NormalAsmObjectRule()
+
+ModuleObjectRule()
+ObjectModuleTarget(imstt, $(OBJS))
+
+InstallObjectModule(imstt,$(MODULEDIR),drivers)
+
+#if !defined(XF86DriverSDK)
+InstallModuleManPage(imstt)
+#endif
+
+DependTarget()
+
+InstallDriverSDKNonExecFile(Imakefile,$(DRIVERSDKDIR)/drivers/imstt)
+InstallDriverSDKNonExecFile(imstt.h,$(DRIVERSDKDIR)/drivers/imstt)
+InstallDriverSDKNonExecFile(imstt_reg.h,$(DRIVERSDKDIR)/drivers/imstt)
+InstallDriverSDKNonExecFile(imstt_driver.c,$(DRIVERSDKDIR)/drivers/imstt)
+InstallDriverSDKNonExecFile(imstt_accel.c,$(DRIVERSDKDIR)/drivers/imstt)

@@ -1,0 +1,76 @@
+XCOMM $XFree86: xc/lib/Xcursor/Imakefile,v 1.3 2002/09/26 07:52:01 alanh Exp $
+
+#ifndef NormalLibXcursor
+#define NormalLibXcursor YES
+SOXCURSORREV=1.0
+#endif
+
+#ifndef SharedLibXcursor
+#define SharedLibXcursor YES
+#endif
+
+#define DoNormalLib NormalLibXcursor
+#define DoSharedLib SharedLibXcursor
+#define DoDebugLib DebugLibXcursor
+#define DoProfileLib ProfileLibXcursor
+
+#define LibName Xcursor
+#define SoRev SOXCURSORREV
+#define IncSubdir X11
+#define IncSubSubdir Xcursor
+
+#include <Threads.tmpl>
+
+XCURSOR_REVISION=0
+
+#ifdef SharedXcursorReqs
+REQUIREDLIBS = SharedXcursorReqs
+#else
+REQUIREDLIBS = $(LDPRELIB) $(XRENDERLIB)
+#endif
+
+ICONDIR=$(LIBDIR)/icons
+
+DEFINES=-DICONDIR=\"$(ICONDIR)\"
+
+SRCS =	cursor.c display.c file.c library.c xlib.c
+
+OBJS =	cursor.o display.o file.o library.o xlib.o
+
+HEADERS = Xcursor.h
+
+SUBSTVARS=prefix="$(PROJECTROOT)" \
+	  exec_prefix="$(BINDIR)" \
+	  libdir="$(USRLIBDIR)" \
+	  includedir="$(INCROOT)" \
+	  PACKAGE_VERSION="$(SOXCURSORREV).$(XCURSOR_REVISION)"
+
+#include <Library.tmpl>
+
+MANSUFFIX=$(LIBMANSUFFIX)
+InstallManPage(Xcursor,$(LIBMANDIR))
+
+DependTarget()
+
+all:: xcursor-config.script
+
+xcursor-config.script: xcursor-config.in
+	RemoveFile($@)
+	sh config-subst $(SUBSTVARS) < xcursor-config.in > $@
+
+InstallScript(xcursor-config,$(BINDIR))
+
+clean::
+	RemoveFile(xcursor-config.script)
+
+all:: xcursor.pc
+
+xcursor.pc: xcursor.pc.in
+	RemoveFile($@)
+	sh config-subst $(SUBSTVARS) < xcursor.pc.in > $@
+
+InstallNonExecFile(xcursor.pc,$(USRLIBDIR)/pkgconfig)
+
+clean::
+	RemoveFile(xcursor.pc)
+

@@ -1,0 +1,97 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:44:11 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/lib/ICE/Imakefile,v 3.6 2001/08/01 00:44:37 tsi Exp $
+
+#define DoNormalLib NormalLibICE
+#define DoSharedLib SharedLibICE
+#define DoExtraLib SharedLibICE
+#define DoDebugLib DebugLibICE
+#define DoProfileLib ProfileLibICE
+#define LibName ICE
+#define SoRev SOICEREV
+#define IncSubdir X11
+#define IncSubSubdir ICE
+
+#ifdef SharedICEReqs
+REQUIREDLIBS = SharedICEReqs
+#endif
+
+#if (SystemV || SystemV4) && !HasSockets
+CONN_DEFINES = -DTCPCONN -DICE_t -DTRANS_CLIENT -DTRANS_SERVER
+#else
+#ifdef USLArchitecture
+/* XXX temporary hack, PTS is failing on UnixWare */
+CONN_DEFINES = -DSTREAMSCONN -DUNIXCONN -DICE_t -DTRANS_CLIENT -DTRANS_SERVER
+#else
+CONN_DEFINES = $(CONNECTION_FLAGS) -DICE_t -DTRANS_CLIENT -DTRANS_SERVER
+#endif
+#endif
+
+#if HasBSD44Sockets
+SOCK_DEFINES = -DBSD44SOCKETS
+#endif
+
+DEPEND_DEFINES = $(TRANS_INCLUDES) $(CONN_DEFINES) DependDefines
+
+HEADERS = ICE.h \
+          ICEconn.h \
+          ICEproto.h \
+          ICElib.h \
+          ICEmsg.h \
+          ICEutil.h
+
+SRCS = accept.c \
+       authutil.c \
+       connect.c \
+       error.c \
+       getauth.c \
+       iceauth.c \
+       listen.c \
+       listenwk.c \
+       locking.c \
+       misc.c \
+       ping.c \
+       process.c \
+       protosetup.c \
+       register.c \
+       replywait.c \
+       setauth.c \
+       shutdown.c \
+       transport.c \
+       watch.c
+
+OBJS = accept.o \
+       authutil.o \
+       connect.o \
+       error.o \
+       getauth.o \
+       iceauth.o \
+       listen.o \
+       listenwk.o \
+       locking.o \
+       misc.o \
+       ping.o \
+       process.o \
+       protosetup.o \
+       register.o \
+       replywait.o \
+       setauth.o \
+       shutdown.o \
+       transport.o \
+       watch.o
+
+#include <Library.tmpl>
+
+SpecialCLibObjectRule(accept,$(ICONFIGFILES),$(TRANS_INCLUDES) $(CONN_DEFINES))
+SpecialCLibObjectRule(connect,$(ICONFIGFILES),$(TRANS_INCLUDES) $(CONN_DEFINES))
+SpecialCLibObjectRule(listen,$(ICONFIGFILES),$(TRANS_INCLUDES) $(CONN_DEFINES))
+SpecialCLibObjectRule(listenwk,$(ICONFIGFILES),$(TRANS_INCLUDES) $(CONN_DEFINES))
+SpecialCLibObjectRule(misc,$(ICONFIGFILES),$(TRANS_INCLUDES) $(CONN_DEFINES))
+SpecialCLibObjectRule(shutdown,$(ICONFIGFILES),$(TRANS_INCLUDES) $(CONN_DEFINES))
+SpecialCLibObjectRule(transport,$(ICONFIGFILES),$(TRANS_INCLUDES) $(CONN_DEFINES) $(SOCK_DEFINES))
+LinkSourceFile(transport.c,$(TRANSCOMMSRC))
+
+DependTarget()

@@ -1,0 +1,66 @@
+                        Information for newport Users
+
+                                Guido Günther
+
+                              24 February 2003
+
+1.  Supported Hardware
+
+This is an unaccelerated driver for the SGI newport cards (a.k.a. XL) as
+found in the SGI Indy and Indigo2. Both the 8bit and 24bit versions are
+tested and working.
+
+2.  Features
+
+   o Support for 8 and 24 bit pixel depths
+
+   o Hardware cursor support to reduce flicker
+
+3.  Notes
+
+   o X -configure does not generate a XF86Config file.
+
+   o There's only a 1280x1024 mode.
+
+4.  Configuration
+
+The driver auto-detects all device information necessary to initialize the
+card on the Indy. The only lines you need in the "Device" section of your
+XF86Config file are:
+
+            Section "Device"
+                Identifier "SGI newport"
+                Driver     "newport"
+            EndSection
+
+Indigo2 users have to use the BusID option as documented below.
+
+However, if you have problems with auto-detection, you can specify:
+
+   o bitplanes - number of physical bitplanes (8 or 24)
+
+   o HWCursor - enable or disable hardware cursor
+
+   o BusID - set this to "1" on the Indigo2 XL
+
+5.  Authors
+
+   o Guido Guenther <agx@sigxcpu.org>
+
+6.  Acknowledgements
+
+   o Gleb O. Raiko <raiko@niisi.msk.ru> for getting the beast to build
+
+   o Ralf Baechle <ralf@oss.sgi.com> for his patience...
+
+   o Ulf Carlsson <ulfc@calypso.engr.sgi.com> for comments and elf loader
+     code
+
+   o Nina A. Podolskaya <nap@niisi.msk.ru> for elf loader code
+
+   o all the guys who wrote the newport_con linux kernel code
+
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/newport.sgml,v 1.6 2003/02/25 19:31:02 dawes Exp $
+
+
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.newport,v 1.7 2003/02/25 21:32:35 dawes Exp $

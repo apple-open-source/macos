@@ -1,0 +1,36 @@
+XCOMM $XFree86: xc/lib/fontenc/Imakefile,v 1.6 2002/02/13 21:32:49 dawes Exp $
+
+   INCLUDES = -I$(FONTINCSRC) -I$(FONTLIBSRC)/include -I$(FONTLIBSRC)/fontfile \
+	      -I$(INCLUDESRC)
+
+FONTENCDEFS = -DFONTENC_NO_LIBFONT \
+	      -DFONT_ENCODINGS_DIRECTORY=\"$(FONTDIR)/encodings/encodings.dir\"
+
+    DEFINES = StrcasecmpDefines $(FONTENCDEFS)
+
+       SRCS = fontenc.c encparse.c
+       OBJS = fontenc.o encparse.o
+
+    HEADERS = fontenc.h
+
+#define DoNormalLib NormalLibFontEnc
+#define DoSharedLib SharedLibFontEnc
+#define DoDebugLib DebugLibFontEnc
+#define DoProfileLib ProfileLibFontEnc
+#define LibName fontenc
+#define SoRev SOFONTENCREV
+#define IncSubdir X11
+#define IncSubSubdir fonts
+
+#include <Library.tmpl>
+
+#if GzipFontCompression
+  REQUIREDLIBS = GzipLibrary
+#endif
+
+LinkSourceFile(fontenc.c,$(FONTLIBSRC)/fontfile)
+LinkSourceFile(encparse.c,$(FONTLIBSRC)/fontfile)
+LinkSourceFile(fontenc.h,$(FONTLIBSRC)/include)
+
+DependTarget()
+

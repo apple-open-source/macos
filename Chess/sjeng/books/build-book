@@ -1,0 +1,11 @@
+#!/bin/sh
+#
+# Build a sjeng opening book
+#
+cat <<END_BOOK_COMMANDS | ${BUILT_PRODUCTS_DIR}/sjeng
+variant $1
+book
+$2
+10000000
+quit
+END_BOOK_COMMANDS

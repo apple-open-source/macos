@@ -1,0 +1,269 @@
+                     README for XFree86 4.3.0 on LynxOS
+
+                               Thomas Mueller
+
+                              25 February 2000
+
+1.  What and Where is XFree86?
+
+XFree86 is a port of X11R6.4 that supports several versions of Intel-based
+Unix.  It is derived from X386 1.2, which was the X server distributed with
+X11R5.  This release consists of many new features and performance improve-
+ments as well as many bug fixes.
+
+See the Copyright Notice.
+
+The sources for XFree86 4.3.0 are available by anonymous ftp from:
+
+ftp://ftp.XFree86.org/pub/XFree86/4.3.0
+
+Binaries of XFree86 for LynxOS x86 are available from:
+
+ftp://ftp.XFree86.org/pub/XFree86/4.3.0/binaries/LynxOS
+
+A list of mirror sites is provided by ftp://ftp.XFree86.org/pub/XFree86/MIR-
+RORS
+
+The binaries on the FTP site were built on the latest released LynxOS version
+at the time XFree86 4.3.0 was released. In this case it is `LynxOS x86
+3.0.1'. Because of changes made to the object format they don't run on LynxOS
+versions earlier than 3.0.0.
+
+Building of this XFree86 version has never been tested on LynxOS versions
+earlier than 2.5.1.
+
+This release contains preliminary build support for `LynxOS 3.1.0'.  Since
+this OS release was not available long enough for serious testing `LynxOS
+3.1.0' support has to be considered to be in `alpha state'.  Initial tests
+were performed on LynxOS x86 only!
+
+XFree86 4.3.0 supports LynxOS on the x86 and on the PowerPC platform. X
+servers are currently available only on the x86 platform. The X server may
+work with some PowerPC platforms supported by LynxOS though this has not
+(yet) been thoroughly tested.
+
+If you need binaries for other platforms than the one on the XFree86 FTP
+server or if you have comments or suggestions about this document contact me
+(<tmueller@sysgo.de>).
+
+2.  Installing the Binaries
+
+Please refer to the Installation Document for detailed installation instruc-
+tions.
+
+It may be necessary to increase the process stack limit in order to run
+XFree86 on your system. Edit /etc/startab and reboot your system to make the
+changes active before you begin the installation.
+
+Also, be sure to include /usr/X11R6/bin in your PATH environment variable.
+
+Refer to the next section Running XFree86 (section 3., page 1) for further
+information on necessary configuration steps before running XFree86 on
+LynxOS.
+
+2.1  Accessing XFree86 manual pages
+
+Include /usr/X11R6/man in the MANPATH environment variable or add the direc-
+tory /usr/X11R6/man to /usr/Lib/man.config
+
+3.  Running XFree86
+
+This section describes the changes to the LynxOS environment which may be
+necessary to successfully run XFree86.
+
+3.1  System tuning
+
+3.1.1  Tunable parameters
+
+To reasonably run XFree86 you may have to adjust a few system parameters.
+
+On LynxOS 2.5.x and 3.0.x include a line
+
+     #define X_WINDOWS
+
+in /sys/lynx.os/uparam.h.
+
+3.1.2  Adjustment for "nv" driver for NVidia graphics cards
+
+If you're using the "nv" driver (Riva 128, nVidia TNT, TNT2, GeForce), you
+will have to increase the value of the SMEMS parameter in
+/sys/lynx.os/uparam.h from 10 to 20.
+
+3.1.3  Increase number of ptys
+
+You should also increase the number of ptys to be able run a couple more
+xterms. You may replace /sys/cfg/pty.cfg with /usr/X11R6/lib/X11/etc/pty.cfg.
+
+3.1.4  MTRR device driver
+
+If you're using an Intel PentiumPRO or Pentium II (or higher) class CPU you
+might want to install the MTRR device driver. This driver enables the XFree86
+X server to manipulate the CPU memory type range registers which may improve
+performance on certain systems.
+
+To install the driver (on LynxOS x86 2.5.0 systems an higher) follow these
+steps:
+
+       # cd /
+       # bash /usr/X11R6/lib/X11/etc/MTRR-Lynx.shar
+       # cd sys/drivers/mtrr
+       # make install
+
+Then add a line
+
+       I:../drivers/mtrr/mtrr.cfg
+
+to /sys/lynx.os/CONFIG.TBL and rebuild the kernel (see next section).
+
+3.1.5  Kernel build
+
+If you plan to use a PS/2 mouse to the following sections before rebuilding
+the kernel, if not, you should rebuild the kernel now:
+
+          # cd /sys/lynx.os
+          # make install
+          # reboot -N
+
+3.2  Mouse support in XFree86
+
+XFree86 includes support for PnP mice (see also Mouse Support in XFree86).
+The current LynxOS TTY device driver doesn't allow the necessary manipulation
+of the RTS line and therefore the support for PnP mice has been disabled for
+LynxOS.
+
+3.3  PS/2 mouse drivers
+
+LynxOS x86 comes with a PS/2 mouse driver. If it is not currently installed
+on your system install it with /usr/bin/Install.ps2mouse. Older versions of
+this driver contained code to translate the PS/2 mouse protocol to the format
+of a serial mouse, thus you'll have to specify "Microsoft" as the mouse pro-
+tocol format. The mouse driver contained in LynxOS x86 patchlevel 015 (and
+higher) does no longer perform the protocol translation an therefore can be
+defined as "PS/2" protocol format.
+
+3.4  ATC console driver and VT switching
+
+Currently there is no support for virtual terminal switching once the server
+has started. Support for this feature may be added in future versions (it
+requires a patch to the vt100 LynxOS terminal driver).
+
+You will need a free console which the X server will use for keyboard input.
+You must disable login on at least one of the four virtual terminals in
+/etc/ttys, e.g. /dev/atc3:
+
+change
+
+            /dev/atc3:1:default:vt100at:/bin/login
+
+to
+
+            /dev/atc3:0:default:vt100at:/bin/login
+                      ^
+
+3.5  X Server debug diagnostics output and other VT peculiarities
+
+Output made by the XFree86 X on its stdout or stderr will be lost after the
+server switches to graphics mode. The XFree86 4.3.0 server stores its output
+in /usr/adm/XFree86.n.log (where n is the screen number).
+
+When the X server is running output made to other consoles will be lost.
+After server shutdown the screen contents of other consoles may be inconsis-
+tent with what one would expect (i.e. random).
+
+4.  Compiling the XFree86 Distribution
+
+The next sections contain LynxOS specific notes with respect to the build
+process.
+
+4.1  Disk space requirements
+
+Currently there is no support for shared libraries in the LynxOS XFree86
+port. A complete binary installation along with manual pages will require
+approximately 100 MBytes of disk space. To compile the system you will need
+at least 250 MBytes of free disk space.
+
+4.2  Changes to system environment (LynxOS x86)
+
+Before compiling the XFree86 distribution you will have to make a few little
+adjustments to your system:
+
+   o If not already installed on your system create a shell script named
+     /lib/cpp as follows:
+
+            #!/bin/sh
+            /usr/lib/gcc-lib/i386-unknown-lynxos2.5/2.7-96q1/cpp \
+               -traditional "$@"
+
+     On other platforms than the x86 the paths for the compiler support pro-
+     grams are different. You may use
+
+            gcc -v
+
+     to find out the correct path. Set the file mode of /lib/cpp with
+
+            # chown root /lib/cpp
+            # chmod 755 /lib/cpp
+
+   o Modify /lib/liblynx.a. The X servers need the smem_create() system call
+     to map the frame buffer into their address space. The system call is in
+     liblynx library along with other Lynx proprietary calls which (unfortu-
+     nately) overlap with calls in libc. To reduce confusion you should mod-
+     ify liblynx as follows:
+
+            # mv /lib/liblynx.a /lib/liblynx.a.ORG
+            # mkdir /tmp/xx; cd /tmp/xx
+            # ar xv /lib/liblynx.a.ORG
+            # ar rv /lib/liblynx.a *smem*
+            # ranlib /lib/liblynx.a
+
+4.3  make World
+
+If you have the MTRR device driver installed, add a line
+
+         #define HasMTRRSupport YES
+
+to the config/cf/host.def file.
+
+You may then issue a
+
+          make World
+
+to compile XFree86. After a few hours (and hopefully a successful build of
+the XFree86 system) you can install the software using
+
+          make install
+
+You must be logged in as super-user (root) when you invoke `make install'.
+
+On LynxOS x86 2.5.0 you may encounter problems with make in deeply nested
+subdirectories (eg core dumps, hangups). In this case update to GNU make ver-
+sion 3.75 or higher.
+
+4.4  Installing XFree86 manual pages
+
+LynxOS uses cat-able manual pages, and because a doc preparation system is
+definitely not a vital component of a real-time operating system you must
+first install groff-1.09 (or newer).
+
+XFree86 manual pages may be installed using
+
+          make install.man
+
+The index and whatis database for the XFree86 manual pages will be created
+automatically. If you already have a whatis database or index file in the
+destination directories you should perform a sort/uniq operation to remove
+duplicate entries:
+
+          for i in 1 3 5
+          do
+            rm -f /tmp/tmpfile
+            sort /usr/X11R6/man/cat$i/LIST$i | uniq > /tmp/tmpfile
+            mv /tmp/tmpfile /usr/X11R6/man/cat$i/LIST$i
+          done
+          sort /usr/X11R6/man/whatis | uniq > /tmp/tmpfile
+          mv /tmp/tmpfile /usr/X11R6/man/whatis
+
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/LynxOS.sgml,v 3.20 2000/06/17 00:27:32 dawes Exp $
+
+
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.LynxOS,v 3.35 2003/02/24 04:03:21 dawes Exp $

@@ -1,0 +1,33 @@
+XCOMM $XFree86: xc/programs/xedit/lisp/modules/Imakefile,v 1.13 2003/01/16 06:25:49 paulo Exp $
+
+#include "../lisp.cf"
+#include "../lisp.rules"
+
+INCLUDES	= -I..  -I../mp -I$(XINCLUDESRC) -I-
+
+#if BuildSharedLispModules
+LispModuleTarget(x11, $(XLIB) $(LOCAL_LIBRARIES),)
+LispModuleTarget(xt, $(XTOOLLIB) $(XLIB) $(LOCAL_LIBRARIES),)
+LispModuleTarget(xaw, $(XAWLIB) $(XMULIB) $(XTOOLLIB) $(XLIB) $(LOCAL_LIBRARIES),)
+
+InstallMultipleFlags(x11.so,$(LISPDIR),$(INSTINCFLAGS))
+InstallMultipleFlags(xt.so,$(LISPDIR),$(INSTINCFLAGS))
+InstallMultipleFlags(xaw.so,$(LISPDIR),$(INSTINCFLAGS))
+#endif
+
+InstallMultipleFlags(lisp.lsp,$(LISPDIR),$(INSTINCFLAGS))
+InstallMultipleFlags(xedit.lsp,$(LISPDIR),$(INSTINCFLAGS))
+InstallMultipleFlags(syntax.lsp,$(LISPDIR),$(INSTINCFLAGS))
+InstallMultipleFlags(indent.lsp,$(LISPDIR),$(INSTINCFLAGS))
+InstallMultipleFlags(progmodes/c.lsp,$(LISPDIR)/progmodes,$(INSTINCFLAGS))
+InstallMultipleFlags(progmodes/html.lsp,$(LISPDIR)/progmodes,$(INSTINCFLAGS))
+InstallMultipleFlags(progmodes/imake.lsp,$(LISPDIR)/progmodes,$(INSTINCFLAGS))
+InstallMultipleFlags(progmodes/lisp.lsp,$(LISPDIR)/progmodes,$(INSTINCFLAGS))
+InstallMultipleFlags(progmodes/make.lsp,$(LISPDIR)/progmodes,$(INSTINCFLAGS))
+InstallMultipleFlags(progmodes/man.lsp,$(LISPDIR)/progmodes,$(INSTINCFLAGS))
+InstallMultipleFlags(progmodes/rpm.lsp,$(LISPDIR)/progmodes,$(INSTINCFLAGS))
+InstallMultipleFlags(progmodes/sgml.lsp,$(LISPDIR)/progmodes,$(INSTINCFLAGS))
+InstallMultipleFlags(progmodes/sh.lsp,$(LISPDIR)/progmodes,$(INSTINCFLAGS))
+InstallMultipleFlags(progmodes/xconf.lsp,$(LISPDIR)/progmodes,$(INSTINCFLAGS))
+InstallMultipleFlags(progmodes/xlog.lsp,$(LISPDIR)/progmodes,$(INSTINCFLAGS))
+InstallMultipleFlags(progmodes/xrdb.lsp,$(LISPDIR)/progmodes,$(INSTINCFLAGS))

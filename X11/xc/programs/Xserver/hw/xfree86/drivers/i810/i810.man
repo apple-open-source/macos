@@ -1,0 +1,74 @@
+.\" $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i810/i810.man,v 1.3 2003/02/17 19:19:02 dawes Exp $ 
+.\" shorthand for double quote that works everywhere.
+.ds q \N'34'
+.TH I810 __drivermansuffix__ __vendorversion__
+.SH NAME
+i810 \- Intel 8xx integrated graphics chipsets
+.SH SYNOPSIS
+.nf
+.B "Section \*qDevice\*q"
+.BI "  Identifier \*q"  devname \*q
+.B  "  Driver \*qi810\*q"
+\ \ ...
+.B EndSection
+.fi
+.SH DESCRIPTION
+.B i810
+is an XFree86 driver for Intel integrated graphics chipsets.
+The driver supports depths 8, 15, 16 and 24.  All visual types are
+supported in depth 8, other depths only support TrueColor.  The driver
+supports hardware accelerated 3D via the Direct Rendering Infrastructure (DRI),
+but only in depth 16 for the i810/i815 and depths 16 and 24 for later chipsets.
+.SH SUPPORTED HARDWARE
+.B i810
+supports the i810, i810-DC100, i810e, i815, 830M, 845G, 852GM, 855GM,
+and 865G chipsets.
+
+.SH CONFIGURATION DETAILS
+Please refer to XF86Config(__filemansuffix__) for general configuration
+details.  This section only covers configuration details specific to this
+driver.
+.PP
+The Intel 8xx family of integrated graphics chipsets has a unified memory
+architecture and uses system memory for video ram.  By default 8 Megabytes
+of system memory are used for graphics.  For the 830M and later, the
+default is 8 Megabytes when DRI is not enabled and 32 Megabytes with
+DRI is enabled.  This amount may be changed with the
+.B VideoRam
+entry in the config file
+.B "Device"
+section.  It may be set to any reasonable value up to 64MB for older
+chipsets or 128MB for newer chipets.  Note that increasing this value
+will reduce the amount of system memory available for other applications.
+.PP
+The following driver
+.B Options
+are supported
+.TP
+.BI "Option \*qNoAccel\*q \*q" boolean \*q
+Disable or enable acceleration.  Default: acceleration is enabled.
+.TP
+.BI "Option \*qSWCursor\*q \*q" boolean \*q
+Disable or enable software cursor.  Default: software cursor is disable
+and a hardware cursor is used.
+.TP
+.BI "Option \*qColorKey\*q \*q" integer \*q
+This sets the default pixel value for the YUV video overlay key.
+Default: undefined.
+.TP
+.BI "Option \*qCacheLines\*q \*q" integer \*q
+This allows the user to change the amount of graphics memory used for
+2D acceleration and video.  Decreasing this amount leaves more for 3D
+textures.  Increasing it can improve 2D performance at the expense of
+3D performance.
+Default: 256 to 768 depending on the resolution and depth.
+
+
+
+.SH "SEE ALSO"
+XFree86(1), XF86Config(__filemansuffix__), xf86config(1), Xserver(1), X(__miscmansuffix__)
+.SH AUTHORS
+Authors include: Keith Whitwell, and also Jonathan Bian, Matthew J Sottek, 
+Jeff Hartmann, Mark Vojkovich, Alan Hourihane, H. J. Lu.  830M and 845G
+support reworked for XFree86 4.3 by David Dawes and Keith Whitwell.
+852GM, 855GM, and 865G support added by David Dawes and Keith Whitwell.

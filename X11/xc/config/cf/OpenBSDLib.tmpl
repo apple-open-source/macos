@@ -1,0 +1,156 @@
+XCOMM platform:	$OpenBSD: OpenBSDLib.tmpl,v 1.2 2002/12/04 03:49:30 todd Exp $
+XCOMM platform: $XFree86: xc/config/cf/OpenBSDLib.tmpl,v 1.1 2002/12/16 22:48:27 herrb Exp $
+XCOMM
+/* Shared Library Revisions. Crank major on API Changes */
+
+#if OverrideShlibRevs
+
+/*
+ * Don't build libXaw.6 - the major numbering scheme on OpenBSD
+ * makes it useless
+ */
+#ifndef BuildXaw6
+#  define BuildXaw6	NO
+#endif 
+
+#if OSMajorVersion > 3 || ( OSMajorVersion == 3 && OSMinorVersion > 1)
+# ifndef SharedX11Rev
+#  define SharedX11Rev 7.0
+# endif
+# ifndef SharedXThrStubRev
+#  define SharedXThrStubRev 7.0
+# endif
+# ifndef SharedXextRev
+#  define SharedXextRev 7.0
+# endif
+# ifndef SharedXssRev
+#  define SharedXssRev 2.0
+# endif
+# ifndef SharedXf86miscRev
+#  define SharedXf86miscRev 2.0
+# endif
+# ifndef SharedXxf86vmRev
+#  define SharedXxf86vmRev 2.0
+# endif
+# ifndef SharedXxf86dgaRev
+#  define SharedXxf86dgaRev 2.0
+# endif
+# ifndef SharedXxf86rushRev
+#  define SharedXxf86rushRev 2.0
+# endif
+# ifndef SharedXvRev
+#  define SharedXvRev 2.0
+# endif
+# ifndef SharedXvMCRev
+#  define SharedXvMCRev 2.0
+# endif
+# ifndef SharedXineramaRev
+#  define SharedXineramaRev 2.0
+# endif
+# ifndef SharedDpsRev
+#  define SharedDpsRev 2.0
+# endif
+# ifndef SharedDpsTkRev
+#  define SharedDpsTkRev 2.0
+# endif
+# ifndef SharedPSResRev
+#  define SharedPSResRev 2.0
+# endif
+# ifndef SharedGluRev
+#  define SharedGluRev 2.0
+# endif
+# ifndef SharedGlxRev
+#  define SharedGlxRev 2.0
+# endif
+# ifndef SharedGLwRev
+#  define SharedGLwRev 2.0
+# endif
+# ifndef SharedXrenderRev
+#  define SharedXrenderRev 2.0
+# endif
+# ifndef SharedXrandrRev
+#  define SharedXrandrRev 2.0
+# endif
+# ifndef SharedXfontcacheRev
+#  define SharedXfontcacheRev 2.0
+# endif
+# ifndef SharedXauRev
+#  define SharedXauRev 7.0
+# endif
+# ifndef SharedXdmcpRev
+#  define SharedXdmcpRev 7.0
+# endif
+# ifndef SharedXmuRev
+#  define SharedXmuRev 7.0
+# endif
+# ifndef SharedXmuuRev
+#  define SharedXmuuRev 2.0
+# endif
+# ifndef SharedOldXRev
+#  define SharedOldXRev 7.0
+# endif
+# ifndef SharedXpRev
+#  define SharedXpRev 7.0
+# endif
+# ifndef SharedXtRev
+#  define SharedXtRev 7.0
+# endif
+# ifndef SharedXaRev
+#  define SharedXaRev 2.0
+# endif
+# ifndef SharedXawRev
+#  define SharedXawRev 8.0
+# endif
+# ifndef SharedXiRev
+#  define SharedXiRev 7.0
+# endif
+# ifndef SharedXtstRev
+#  define SharedXtstRev 7.0
+# endif
+# ifndef SharedPexRev
+#  define SharedPexRev 7.0
+# endif
+# ifndef SharedXieRev
+#  define SharedXieRev 7.0
+# endif
+# ifndef SharedPhigsRev
+#  define SharedPhigsRev 7.0
+# endif
+# ifndef SharedICERev
+#  define SharedICERev 7.0
+# endif
+# ifndef SharedSMRev
+#  define SharedSMRev 7.0
+# endif
+# ifndef SharedXkeyRev
+#  define SharedXkeyRev 7.0
+# endif
+# ifndef SharedFSRev
+#  define SharedFSRev 7.0
+# endif
+# ifndef SharedFontRev
+#  define SharedFontRev 2.0
+# endif
+# ifndef SharedFontEncRev
+#  define SharedFontEncRev 2.0
+# endif
+# ifndef SharedXpmRev
+#  define SharedXpmRev 5.0
+# endif
+# ifndef SharedFreetype2Rev
+#  define SharedFreetype2Rev 9.0
+# endif
+# ifndef SharedXftRev
+#  define SharedXftRev 2.0
+# endif
+# ifndef SharedXTrapRev
+#  define SharedXTrapRev 7.0
+# endif
+# ifndef SharedPSResRev
+#  define SharedPSResRev 2.0
+# endif
+#endif /* OSMajorVersion .. */
+
+#endif /* OverrideShlibRevs */
+
+#include <bsdLib.tmpl>

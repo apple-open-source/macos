@@ -1,0 +1,94 @@
+.TH XvQueryEncodings 3X __vendorversion__
+.\" $XFree86: xc/doc/man/Xv/XvQueryEncodings.man,v 1.6 2001/01/27 18:20:36 dawes Exp $
+.SH Name
+XvQueryEncodings \- return list of encodings for an adaptor
+.\"
+.SH Syntax
+.B #include <X11/extensions/Xvlib.h>
+.sp 1l
+\fBXvQueryEncodings(\fIdpy, port, p_num_encodings, pp_encoding_info)\fR
+.sp 1l
+\fBregister Display \fI*dpy\fR;
+.br
+\fBXvPortID \fIport\fR;
+.br
+\fBunsigned long \fI*p_num_encodings\fR;
+.br
+\fBXvEncodingInfo \fI**pp_encoding_info\fR;
+.\"
+.SH Arguments
+.IP \fI*dpy\fR 15
+Specifies the display screen on which the
+Xv Server is to accept requests from Xv clients.  If the
+display option is not specified, Xv uses the display screen
+specified by your DISPLAY environment variable.  The display
+option has the format hostname:number.  Using two colons
+(::) instead of one (:) indicates that DECnet is to be used
+for transport.
+.IP \fIport\fR 15
+Specifies the port whose adaptor is to be queried for its
+list of encodings.
+.IP \fIp_num_encodings\fR 15
+A pointer to where the number of encodings supported
+by the adaptor is written.
+.IP \fIpp_encoding_info\fR 15
+A pointer to where the list of returned
+encoding information is returned.
+XvEncodingInfo has the following structure:
+.EX
+
+    typedef struct {
+      XvEncodingID encoding_id;
+      char *name;
+      unsigned long width;
+      unsigned long height;
+      XvRational rate;
+      unsigned long num_encodings;
+    } XvEncodingInfo;
+
+.EE
+.IP \fIencoding_id\fR 15
+Specifies the encoding-id of the encoding.  The encoding-id is used to
+identify an encoding when a port's encoding attribute is changed.
+.IP \fIname\fR 15
+A pointer to a formatted string that identifies the encoding.  The string
+has the format "\fItiming-signaltype\fR".  For example "ntsc-composite".
+.IP \fIwidth,height\fR 15
+The width and height, in pixels, of the decoded video image.
+.IP \fIrate\fR 15
+The field rate of the decoded video.
+.PP
+The XvRational structure is used to specify a fractional number.
+It has the following structure:
+.EX
+
+    typedef struct {
+      int numerator;
+      int denominator;
+    } XvRational;
+
+.EE
+The \fInumerator\fP and \fIdenominator\fP fields specify the 
+appropriate parts of a fractional number.
+.\"
+.SH Description
+XvQueryEncodings(3X) returns encoding information about an adaptor.  Each
+encoding is described by the XvEncodingInfo structure described above.  The 
+encodings are identified by an encoding-id, which can be used to set or get
+the encoding attribute of a port.
+.SH Returned Values
+.IP [Success] 8
+Returned if XvQueryEncodings(3X) completed successfully.
+.IP [XvBadExtension] 8
+Returned if the Xv extension is unavailable.
+.IP [XvBadAlloc] 8
+Returned if XvQueryEncodings(3X) failed to allocate memory to process
+the request.
+.SH Diagnostics
+.IP [XvBadPort] 8
+Generated if the requested port does not exist.
+.\"
+.SH See Also
+.\"
+XvFreeEncodingInfo(3X)
+.br

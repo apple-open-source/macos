@@ -1,0 +1,38 @@
+XCOMM platform:  $Xorg: apollo.cf,v 1.3 2000/08/17 19:41:46 cpqbld Exp $
+
+/*
+ * Minimally tested, and only in the bsd4.3 environment.  X_NOT_POSIX is not
+ * in Xosdefs.h, because we suspect someone might want to try building with
+ * POSIX support in the sysv environment (the OS doc seems to imply that
+ * POSIX is supported in sysv).
+ */
+
+#ifndef OSName
+#define OSName            Domain/OS SR10.3
+#endif
+XCOMM operating system:  OSName
+#ifndef OSMajorVersion
+#define OSMajorVersion    10
+#endif
+#ifndef OSMinorVersion
+#define OSMinorVersion    3
+#endif
+
+#ifndef CCompilerMajorVersion
+#define CCompilerMajorVersion 6
+#endif
+#ifndef CCompilerMinorVersion
+#define CCompilerMinorVersion 8
+#endif
+
+#define StandardDefines -DX_NOT_POSIX
+#define BuildServer	NO
+#define HasNdbm		YES
+#define ConnectionFlags	-DTCPCONN
+
+#define	InstallManPageLong(file,destdir,dest)				@@\
+install.man:: file.man							@@\
+	MakeDir($(DESTDIR)destdir)					@@\
+	$(NROFF) $(MANMACROS) file.man > file.mantxt				@@\
+	$(INSTALL) -c $(INSTMANFLAGS) file.mantxt $(DESTDIR)destdir/dest.$(MANSUFFIX) @@\
+	$(RM) file.mantxt

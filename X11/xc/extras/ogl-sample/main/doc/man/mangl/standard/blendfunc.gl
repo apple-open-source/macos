@@ -1,0 +1,264 @@
+_C_ License Applicability. Except to the extent portions of this file are
+_C_ made subject to an alternative license as permitted in the SGI Free
+_C_ Software License B, Version 1.1 (the "License"), the contents of this
+_C_ file are subject only to the provisions of the License. You may not use
+_C_ this file except in compliance with the License. You may obtain a copy
+_C_ of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+_C_ Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+_C_ 
+_C_ http://oss.sgi.com/projects/FreeB
+_C_ 
+_C_ Note that, as provided in the License, the Software is distributed on an
+_C_ "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+_C_ DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+_C_ CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+_C_ PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+_C_ 
+_C_ Original Code. The Original Code is: OpenGL Sample Implementation,
+_C_ Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+_C_ Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+_C_ Copyright in any portions created by third parties is as indicated
+_C_ elsewhere herein. All Rights Reserved.
+_C_ 
+_C_ Additional Notice Provisions: The application programming interfaces
+_C_ established by SGI in conjunction with the Original Code are The
+_C_ OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+_C_ April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+_C_ 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+_C_ Window System(R) (Version 1.3), released October 19, 1998. This software
+_C_ was created using the OpenGL(R) version 1.2.1 Sample Implementation
+_C_ published by SGI, but has not been independently verified as being
+_C_ compliant with the OpenGL(R) version 1.2.1 Specification.
+_C_
+_C_ The first character in this file must be an '_'!
+_C_ Anything on a line after _C_ is ignored
+_define(_filters,tbl|eqn)_C_
+_C_      eqn is automatically replaced with neqn for nroff
+_header(BlendFunc, specify pixel arithmetic)
+_names(BlendFunc)
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+_phead(_param1)
+Specifies how the red, green, blue,
+and alpha source blending factors are computed.
+The following symbolic constants are accepted:
+_const(ZERO),
+_const(ONE),
+_const(DST_COLOR),
+_const(ONE_MINUS_DST_COLOR),
+_const(SRC_ALPHA),
+_const(ONE_MINUS_SRC_ALPHA),
+_const(DST_ALPHA),
+_const(ONE_MINUS_DST_ALPHA), and
+_const(SRC_ALPHA_SATURATE).
+The initial value is _const(ONE).
+.TE
+
+Additionally, if the _arbstring(imaging) extension is supported, the
+following constants are accepted:
+_const(CONSTANT_COLOR),
+_const(ONE_MINUS_CONSTANT_COLOR),
+_const(CONSTANT_ALPHA),
+_const(ONE_MINUS_CONSTANT_ALPHA).
+_phead(_param2)
+Specifies how the red, green, blue,
+and alpha destination blending factors are computed.
+Eight symbolic constants are accepted:
+_const(ZERO),
+_const(ONE),
+_const(SRC_COLOR),
+_const(ONE_MINUS_SRC_COLOR),
+_const(SRC_ALPHA),
+_const(ONE_MINUS_SRC_ALPHA),
+_const(DST_ALPHA), and
+_const(ONE_MINUS_DST_ALPHA).
+The initial value is _const(ZERO).
+.TE
+
+Additionally, if the _arbstring(imaging) extension is supported, the
+following constants are accepted:
+_const(CONSTANT_COLOR),
+_const(ONE_MINUS_CONSTANT_COLOR),
+_const(CONSTANT_ALPHA),
+_const(ONE_MINUS_CONSTANT_ALPHA).
+.SH DESCRIPTION
+In RGBA mode, pixels can be drawn using a function that blends
+the incoming (source) RGBA values with the RGBA values
+that are already in the frame buffer (the destination values).
+Blending is initially disabled.
+Use _cmnd(Enable) and _cmnd(Disable) with argument _const(BLEND)
+to enable and disable blending.
+.P
+_cmnd defines the operation of blending when it is enabled.
+_param1 specifies which of nine methods is used to scale the
+source color components.
+_param2 specifies which of eight methods is used to scale the
+destination color components.
+The eleven possible methods are described in the following table.
+Each method defines four scale factors,
+one each for red, green, blue, and alpha.
+.P
+In the table and in subsequent equations, source and destination
+color components are referred to as
+$(R sub s , G sub s , B sub s , A sub s )$ and
+$(R sub d , G sub d , B sub d , A sub d )$.
+The color specified by _cmnd(BlendColor) is referred to as
+$(R sub c , G sub c , B sub c , A sub c )$.
+They are understood to have integer values between 0 and
+$(k sub R , k sub G , k sub B , k sub A )$,
+where
+.P
+.RS
+.ce
+$k sub c ~=~ 2 sup m sub c - 1$ 
+.RE
+.P
+and
+$(m sub R , m sub G , m sub B , m sub A )$
+is the number of red,
+green,
+blue,
+and alpha bitplanes.
+.P
+Source and destination scale factors are referred to as
+$(s sub R , s sub G , s sub B , s sub A )$ and
+$(d sub R , d sub G , d sub B , d sub A )$.
+The scale factors described in the table,
+denoted $(f sub R , f sub G , f sub B , f sub A )$,
+represent either source or destination factors.
+All scale factors have range [0,\ 1].
+.P
+.TS
+center;
+lb cb
+l c .
+_
+Parameter	$(f sub R , ~~ f sub G , ~~ f sub B , ~~ f sub A )$ 
+_
+_const(ZERO)	$(0, ~0, ~0, ~0 )$
+_const(ONE)	$(1, ~1, ~1, ~1 )$
+_const(SRC_COLOR)	$(R sub s / k sub R , ~G sub s / k sub G , ~B sub s / k sub B , ~A sub s / k sub A )$
+_const(ONE_MINUS_SRC_COLOR)	$(1, ~1, ~1, ~1 ) ~-~ (R sub s / k sub R , ~G sub s / k sub G , ~B sub s / k sub B , ~A sub s / k sub A )$
+_const(DST_COLOR)	$(R sub d / k sub R , ~G sub d / k sub G , ~B sub d / k sub B , ~A sub d / k sub A )$
+_const(ONE_MINUS_DST_COLOR)	$(1, ~1, ~1, ~1 ) ~-~ (R sub d / k sub R , ~G sub d / k sub G , ~B sub d / k sub B , ~A sub d / k sub A )$
+_const(SRC_ALPHA)	$(A sub s / k sub A , ~A sub s / k sub A , ~A sub s / k sub A , ~A sub s / k sub A )$
+_const(ONE_MINUS_SRC_ALPHA)	$(1, ~1, ~1, ~1 ) ~-~ (A sub s / k sub A , ~A sub s / k sub A , ~A sub s / k sub A , ~A sub s / k sub A )$
+_const(DST_ALPHA)	$(A sub d / k sub A , ~A sub d / k sub A , ~A sub d / k sub A , ~A sub d / k sub A )$
+_const(ONE_MINUS_DST_ALPHA)	$(1, ~1, ~1, ~1 ) ~-~ (A sub d / k sub A , ~A sub d / k sub A , ~A sub d / k sub A , ~A sub d / k sub A )$
+_const(SRC_ALPHA_SATURATE)	$(i, ~i, ~i, ~1 )$
+_const(CONSTANT_COLOR)	$(R sub c, G sub c, B sub c, A sub c)$
+_const(ONE_MINUS_CONSTANT_COLOR)	$(1, ~1, ~1, ~1 ) ~-~ (R sub c, G sub c, B sub c, A sub c)$
+_const(CONSTANT_ALPHA)	$(A sub c, A sub c, A sub c, A sub c)$
+_const(ONE_MINUS_CONSTANT_ALPHA)	$(1, ~1, ~1, ~1 ) ~-~ (A sub c, A sub c, A sub c, A sub c)$
+_
+.TE
+.sp
+In the table,
+.P
+.RS
+.nf
+.IP
+$i ~=~  min (A sub s , ~k sub A ~-~ A sub d ) ~/~ k sub A$
+.fi
+.RE
+.P
+To determine the blended RGBA values of a pixel when drawing in RGBA mode,
+the system uses the following equations:
+.P
+.RS
+.nf
+.IP
+$R sub d ~=~ mark   min ( k sub R, ~R sub s~s sub R~+~R sub d~d sub R )$
+$G sub d ~=~ lineup min ( k sub G, ~G sub s~s sub G~+~G sub d~d sub G )$
+$B sub d ~=~ lineup min ( k sub B, ~B sub s~s sub B~+~B sub d~d sub B )$
+$A sub d ~=~ lineup min ( k sub A, ~A sub s~s sub A~+~A sub d~d sub A )$
+.fi
+.RE
+.P
+Despite the apparent precision of the above equations,
+blending arithmetic is not exactly specified,
+because blending operates with imprecise integer color values.
+However,
+a blend factor that should be equal to 1
+is guaranteed not to modify its multiplicand,
+and a blend factor equal to 0 reduces its multiplicand to 0.
+For example,
+when _param1 is _const(SRC_ALPHA),
+_param2 is _const(ONE_MINUS_SRC_ALPHA),
+and $A sub s$ is equal to $k sub A$,
+the equations reduce to simple replacement:
+.P
+.RS
+.nf
+.IP
+$R sub d ~=~ mark   R sub s$
+$G sub d ~=~ lineup G sub s$
+$B sub d ~=~ lineup B sub s$
+$A sub d ~=~ lineup A sub s$
+.fi
+.RE
+.P
+.SH EXAMPLES
+.P
+Transparency is best implemented using blend function
+(_const(SRC_ALPHA), _const(ONE_MINUS_SRC_ALPHA))
+with primitives sorted from farthest to nearest.
+Note that this transparency calculation does not require
+the presence of alpha bitplanes in the frame buffer.
+.P
+Blend function
+(_const(SRC_ALPHA), _const(ONE_MINUS_SRC_ALPHA))
+is also useful for rendering antialiased points and lines
+in arbitrary order.
+.P
+Polygon antialiasing is optimized using blend function
+.br
+(_const(SRC_ALPHA_SATURATE), _const(ONE))
+with polygons sorted from nearest to farthest.
+(See the _cmnd(Enable), _cmnd(Disable) reference page and the 
+_const(POLYGON_SMOOTH) argument for information on polygon antialiasing.)
+Destination alpha bitplanes,
+which must be present for this blend function to operate correctly,
+store the accumulated coverage.
+.SH NOTES
+Incoming (source) alpha is correctly thought of as a material opacity,
+ranging from 1.0 ($K sub A$), representing complete opacity,
+to 0.0 (0), representing complete 
+transparency.
+.P
+When more than one color buffer is enabled for drawing,
+the GL performs blending separately for each enabled buffer,
+using the contents of that buffer for destination color.
+(See _cmnd(DrawBuffer).)
+.P
+Blending affects only RGBA rendering.
+It is ignored by color index renderers.
+.P
+_const(CONSTANT_COLOR), _const(ONE_MINUS_CONSTANT_COLOR),
+_const(CONSTANT_ALPHA), _const(ONE_MINUS_CONSTANT_ALPHA) are only
+available if the _arbstring(imaging) is supported by your implementation.
+.SH ERRORS
+_const(INVALID_ENUM) is generated if either _param1 or _param2 is not an
+accepted value.
+.P
+_const(INVALID_OPERATION) is generated if _cmnd
+is executed between the execution of _cmnd(Begin)
+and the corresponding execution of _cmnd(End).
+.SH ASSOCIATED GETS
+_cmnd(Get) with argument _const(BLEND_SRC)
+.br
+_cmnd(Get) with argument _const(BLEND_DST)
+.br
+_cmnd(IsEnabled) with argument _const(BLEND)
+.br
+.SH SEE ALSO
+_cmnd(AlphaFunc),
+_cmnd(BlendColor),
+_cmnd(BlendEquation),
+_cmnd(Clear),
+_cmnd(DrawBuffer),
+_cmnd(Enable),
+_cmnd(LogicOp),
+_cmnd(StencilFunc)

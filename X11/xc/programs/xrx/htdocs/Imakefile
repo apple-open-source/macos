@@ -1,0 +1,29 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:57 cpqbld Exp $
+
+#ifndef HtmlDir
+#define HtmlDir /files/web/xfiles/consortium/plug-in
+#endif
+#ifndef WebServer
+#define WebServer www.x.org
+#endif
+
+      HTMLDIR = HtmlDir
+    WEBSERVER = WebServer
+
+#define RxTarget(name)							@@\
+all:: name.rx								@@\
+									@@\
+name.rx: name								@@\
+	sed -e s/WEBSERVER/$(WEBSERVER)/g name >$@			@@\
+									@@\
+InstallNonExecFile(name.rx,$(HTMLDIR))					@@\
+InstallNonExecFile(name.html,$(HTMLDIR))
+
+RxTarget(bitmap)
+RxTarget(dtcm)
+RxTarget(excel)
+RxTarget(xclock)
+RxTarget(xload)
+
+clean::
+	$(RM) *.rx

@@ -1,0 +1,41 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:47:34 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/programs/Xserver/XIE/mixie/control/Imakefile,v 3.6 2001/01/17 22:13:00 dawes Exp $
+
+XCOMM build device dependent machine independent control objects
+
+#define IHaveModules
+#include <Server.tmpl>
+
+       SRCS = 	analyze.c \
+		domain.c \
+		floman.c \
+		sched.c \
+		strip.c 
+
+       OBJS = 	analyze.o \
+		domain.o \
+		floman.o \
+		sched.o \
+		strip.o 
+
+#if BuildDIS
+    DEFINES = -DXIE_DIS
+#endif
+
+   INCLUDES = -I../include -I../../include -I$(SERVERSRC)/include -I$(XINCLUDESRC) -I$(XINCLUDESRC)/extensions
+   LINTLIBS = ../../dixie/export/llib-lexp.ln ../../dixie/import/llib-limp.ln \
+              ../../dixie/process/llib-lproc.ln ../../dixie/request/llib-lreq.ln \
+              ../control/llib-lctrl.ln ../export/llib-lmexp.ln ../fax/llib-lfax.ln \
+              ../import/llib-lmimp.ln ../jpeg/llib-ljpeg.ln ../process/llib-lmproc.ln
+
+ModuleObjectRule()
+
+SubdirLibraryRule($(OBJS))
+LintLibraryTarget(ctrl,$(SRCS))
+NormalLintTarget($(SRCS))
+
+DependTarget()

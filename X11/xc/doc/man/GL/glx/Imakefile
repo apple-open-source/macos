@@ -1,0 +1,77 @@
+XCOMM The contents of this file are subject to the GLX Public License Version 1.0
+XCOMM (the "License"). You may not use this file except in compliance with the
+XCOMM License. You may obtain a copy of the License at Silicon Graphics, Inc.,
+XCOMM attn: Legal Services, 2011 N. Shoreline Blvd., Mountain View, CA 94043
+XCOMM or at http://www.sgi.com/software/opensource/glx/license.html.
+XCOMM
+XCOMM Software distributed under the License is distributed on an "AS IS"
+XCOMM basis. ALL WARRANTIES ARE DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY
+XCOMM IMPLIED WARRANTIES OF MERCHANTABILITY, OF FITNESS FOR A PARTICULAR
+XCOMM PURPOSE OR OF NON- INFRINGEMENT. See the License for the specific
+XCOMM language governing rights and limitations under the License.
+XCOMM
+XCOMM The Original Software is GLX version 1.2 source code, released February,
+XCOMM 1999. The developer of the Original Software is Silicon Graphics, Inc.
+XCOMM Those portions of the Subject Software created by Silicon Graphics, Inc.
+XCOMM are Copyright (c) 1991-9 Silicon Graphics, Inc. All Rights Reserved.
+XCOMM
+XCOMM $XFree86: xc/doc/man/GL/glx/Imakefile,v 1.4 2000/03/21 19:57:01 dawes Exp $
+
+MANDIR = $(LIBMANDIR)
+MANSUFFIX = $(LIBMANSUFFIX)
+MSUFF = man
+
+InstallManPage(glXChooseVisual,$(MANDIR))
+InstallManPage(glXCopyContext,$(MANDIR))
+InstallManPage(glXCreateContext,$(MANDIR))
+InstallManPage(glXCreateGLXPixmap,$(MANDIR))
+InstallManPage(glXDestroyContext,$(MANDIR))
+InstallManPage(glXDestroyGLXPixmap,$(MANDIR))
+InstallManPage(glXFreeContextEXT,$(MANDIR))
+InstallManPage(glXGetClientString,$(MANDIR))
+InstallManPage(glXGetConfig,$(MANDIR))
+InstallManPage(glXGetContextIDEXT,$(MANDIR))
+InstallManPage(glXGetCurrentContext,$(MANDIR))
+InstallManPage(glXGetCurrentDisplay,$(MANDIR))
+InstallManPage(glXGetCurrentDrawable,$(MANDIR))
+InstallManPage(glXImportContextEXT,$(MANDIR))
+InstallManPage(glXIntro,$(MANDIR))
+InstallManPage(glXIsDirect,$(MANDIR))
+InstallManPage(glXMakeCurrent,$(MANDIR))
+InstallManPage(glXQueryContextInfoEXT,$(MANDIR))
+InstallManPage(glXQueryExtension,$(MANDIR))
+InstallManPage(glXQueryExtensionsString,$(MANDIR))
+InstallManPage(glXQueryServerString,$(MANDIR))
+InstallManPage(glXQueryVersion,$(MANDIR))
+InstallManPage(glXSwapBuffers,$(MANDIR))
+InstallManPage(glXUseXFont,$(MANDIR))
+InstallManPage(glXWaitGL,$(MANDIR))
+InstallManPage(glXWaitX,$(MANDIR))
+
+LinkFile(glXChooseVisual.$(MSUFF), xchoosevisual.3gl)
+LinkFile(glXCopyContext.$(MSUFF), xcopycontext.3gl)
+LinkFile(glXCreateContext.$(MSUFF), xcreatecontext.3gl)
+LinkFile(glXCreateGLXPixmap.$(MSUFF), xcreateglxpixmap.3gl)
+LinkFile(glXDestroyContext.$(MSUFF), xdestroycontext.3gl)
+LinkFile(glXDestroyGLXPixmap.$(MSUFF), xdestroyglxpixmap.3gl)
+LinkFile(glXFreeContextEXT.$(MSUFF), xfreecontextext.3gl)
+LinkFile(glXGetClientString.$(MSUFF), xgetclientstring.3gl)
+LinkFile(glXGetConfig.$(MSUFF), xgetconfig.3gl)
+LinkFile(glXGetContextIDEXT.$(MSUFF), xgetcontextidext.3gl)
+LinkFile(glXGetCurrentContext.$(MSUFF), xgetcurrentcontext.3gl)
+LinkFile(glXGetCurrentDisplay.$(MSUFF), xgetcurrentdisplay.3gl)
+LinkFile(glXGetCurrentDrawable.$(MSUFF), xgetcurrentdrawable.3gl)
+LinkFile(glXImportContextEXT.$(MSUFF), ximportcontextext.3gl)
+LinkFile(glXIntro.$(MSUFF), xintro.3gl)
+LinkFile(glXIsDirect.$(MSUFF), xisdirect.3gl)
+LinkFile(glXMakeCurrent.$(MSUFF), xmakecurrent.3gl)
+LinkFile(glXQueryContextInfoEXT.$(MSUFF), xquerycontextinfoext.3gl)
+LinkFile(glXQueryExtension.$(MSUFF), xqueryextension.3gl)
+LinkFile(glXQueryExtensionsString.$(MSUFF), xqueryextensionsstring.3gl)
+LinkFile(glXQueryServerString.$(MSUFF), xqueryserverstring.3gl)
+LinkFile(glXQueryVersion.$(MSUFF), xqueryversion.3gl)
+LinkFile(glXSwapBuffers.$(MSUFF), xswapbuffers.3gl)
+LinkFile(glXUseXFont.$(MSUFF), xusexfont.3gl)
+LinkFile(glXWaitGL.$(MSUFF), xwaitgl.3gl)
+LinkFile(glXWaitX.$(MSUFF), xwaitx.3gl)
+

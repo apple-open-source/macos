@@ -1,0 +1,15 @@
+XCOMM $XFree86: xc/doc/hardcopy/Imakefile,v 1.1 2000/12/14 18:23:09 dawes Exp $
+
+#if defined(HardcopyDocDirs)
+
+#define IHaveSubdirs
+#define PassCDebugFlags
+
+SUBDIRS = HardcopyDocDirs
+
+all::
+
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))
+
+#endif

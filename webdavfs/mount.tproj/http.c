@@ -2332,13 +2332,6 @@ retry:
 	else
 	{
 		/* don't know the length */
-		
-		if (!fs->fs_outputfile)
-		{
-			myreturn = ENOENT;
-			goto out;
-		}
-
 		if (chunked)
 		{
 			status = http_read_body_chunked(fs->fs_socketptr, xml_addr, &total_length);

@@ -1,0 +1,5 @@
+XCOMM $XFree86: xc/doc/hardcopy/XPRINT/Imakefile,v 1.1 2000/12/14 18:23:11 dawes Exp $
+
+InstallHardcopyDoc(xp_library,xp_library.PS.gz)
+InstallHardcopyDoc(xp_proto,xp_proto.PS.gz)
+

@@ -1,0 +1,23 @@
+XCOMM $XFree86: xc/doc/hardcopy/XIE/XIEProto/Imakefile,v 1.1 2000/12/14 18:23:11 dawes Exp $
+
+InstallHardcopyDoc(XIEProto,XIEProto.txt)
+InstallHardcopyDoc(apa_xie,apa_xie.PS.gz)
+InstallHardcopyDoc(apb_xie,apb_xie.PS.gz)
+InstallHardcopyDoc(apc_xie,apc_xie.PS.gz)
+InstallHardcopyDoc(ch1_xie,ch1_xie.PS.gz)
+InstallHardcopyDoc(ch2_xie,ch2_xie.PS.gz)
+InstallHardcopyDoc(ch3_xie,ch3_xie.PS.gz)
+InstallHardcopyDoc(ch4_xie,ch4_xie.PS.gz)
+InstallHardcopyDoc(ch5_xie,ch5_xie.PS.gz)
+InstallHardcopyDoc(ch6_xie,ch6_xie.PS.gz)
+InstallHardcopyDoc(ch7_xie,ch7_xie.PS.gz)
+InstallHardcopyDoc(ch8_xie,ch8_xie.PS.gz)
+InstallHardcopyDoc(ch9_xie,ch9_xie.PS.gz)
+InstallHardcopyDoc(cmatch_xie,cmatch_xie.PS.gz cmatch_xie.txt)
+InstallHardcopyDoc(frnt_xie,frnt_xie.PS.gz)
+InstallHardcopyDoc(overview_xie,overview_xie.PS.gz overview_xie.txt)
+
+LinkFile(overview_xie.PS.gz,overview.PS.gz)
+LinkFile(overview_xie.txt,overview.txt)
+LinkFile(cmatch_xie.PS.gz,cmatch.PS.gz)
+LinkFile(cmatch_xie.txt,cmatch.txt)

@@ -1,0 +1,19 @@
+
+README
+======
+
+To compile this X distribution you need the X11LibApple binary package
+installed on the root volume. This can be found in the subdirectory on
+one of the Mac OS X installation CDs. Note that for X11 1.0 the
+X11LibApple package from Mac OS X 10.3 is required.
+
+(To check if this package is already installed, look for files
+/usr/include/Xplugin.h and /usr/lib/libXplugin*.dylib)
+
+After installing the X11LibApple package, cd into the "xc" directory
+and type:
+
+	$ make World			# build everything
+	$ sudo make install		# install everything but manpages
+	$ sudo make install.man		# install manpages
+

@@ -1,0 +1,51 @@
+XCOMM $XFree86: xc/doc/man/misc/Imakefile,v 1.4 2003/02/25 21:16:08 dawes Exp $
+
+/*
+ * This Imakefile is intended to make it possible to install man pages
+ * for architectures other than the one the build is done on.  So far,
+ * it is only set up for builds on XFree86/ix86 platforms, which means that
+ * it only includes those man pages not normally installed there:
+ *
+ * XFree86 Linux/mips:	newport
+ * XFree86 Linux/sparc:	sunbw2, suncg14, suncg3, suncg6, sunffb, sunleo,
+ *			suntcx
+ * XFree86 Linux/ix86:	v4l, glide
+ * XFree86 Linux:       ur98
+ * XFree86 Darwin:      XDarwin, dumpkeymap
+ * XFree86 Kdrive:	Xkdrive, Xvesa, Xfbdev
+ */
+
+InstallGenManPage(newport,$(DRIVERMANDIR),$(DRIVERMANSUFFIX))
+InstallGenManPage(sunbw2,$(DRIVERMANDIR),$(DRIVERMANSUFFIX))
+InstallGenManPage(suncg14,$(DRIVERMANDIR),$(DRIVERMANSUFFIX))
+InstallGenManPage(suncg3,$(DRIVERMANDIR),$(DRIVERMANSUFFIX))
+InstallGenManPage(suncg6,$(DRIVERMANDIR),$(DRIVERMANSUFFIX))
+InstallGenManPage(sunffb,$(DRIVERMANDIR),$(DRIVERMANSUFFIX))
+InstallGenManPage(sunleo,$(DRIVERMANDIR),$(DRIVERMANSUFFIX))
+InstallGenManPage(suntcx,$(DRIVERMANDIR),$(DRIVERMANSUFFIX))
+InstallGenManPage(v4l,$(DRIVERMANDIR),$(DRIVERMANSUFFIX))
+InstallGenManPage(glide,$(DRIVERMANDIR),$(DRIVERMANSUFFIX))
+InstallGenManPage(ur98,$(DRIVERMANDIR),$(DRIVERMANSUFFIX))
+InstallGenManPage(XDarwin,$(MANDIR),$(MANSUFFIX))
+InstallGenManPage(dumpkeymap,$(MANDIR),$(MANSUFFIX))
+InstallGenManPage(Xkdrive,$(MANDIR),$(MANSUFFIX))
+InstallGenManPage(Xvesa,$(MANDIR),$(MANSUFFIX))
+InstallGenManPage(Xfbdev,$(MANDIR),$(MANSUFFIX))
+
+LinkSourceFile(newport.man,$(XF86DRIVERSRC)/newport)
+LinkSourceFile(sunbw2.man,$(XF86DRIVERSRC)/sunbw2)
+LinkSourceFile(suncg14.man,$(XF86DRIVERSRC)/suncg14)
+LinkSourceFile(suncg3.man,$(XF86DRIVERSRC)/suncg3)
+LinkSourceFile(suncg6.man,$(XF86DRIVERSRC)/suncg6)
+LinkSourceFile(sunffb.man,$(XF86DRIVERSRC)/sunffb)
+LinkSourceFile(sunleo.man,$(XF86DRIVERSRC)/sunleo)
+LinkSourceFile(suntcx.man,$(XF86DRIVERSRC)/suntcx)
+LinkSourceFile(v4l.man,$(XF86DRIVERSRC)/v4l)
+LinkSourceFile(glide.man,$(XF86DRIVERSRC)/glide)
+LinkSourceFile(ur98.man,$(XF86SRC)/input/ur98)
+LinkSourceFile(XDarwin.man,$(SERVERSRC)/hw/darwin)
+LinkSourceFile(dumpkeymap.man,$(SERVERSRC)/hw/darwin/utils)
+LinkSourceFile(Xkdrive.man,$(SERVERSRC)/hw/kdrive)
+LinkSourceFile(Xvesa.man,$(SERVERSRC)/hw/kdrive/vesa)
+LinkSourceFile(Xfbdev.man,$(SERVERSRC)/hw/kdrive/fbdev)
+

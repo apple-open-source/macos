@@ -1,0 +1,1370 @@
+.\"##
+.\" $Xorg: server.irm,v 1.3 2000/08/17 19:42:15 cpqbld Exp $
+.\"##
+.\"## 
+$XMCOPY
+.\"## Copyright (c) 1990, 1991 by Sun Microsystems, Inc. 
+.\"## 
+.\"##                         All Rights Reserved
+.\"## 
+.\"## Permission to use, copy, modify, and distribute this software and its 
+.\"## documentation for any purpose and without fee is hereby granted, 
+.\"## provided that the above copyright notice appear in all copies and that
+.\"## both that copyright notice and this permission notice appear in 
+.\"## supporting documentation, and that the name of Sun Microsystems,
+.\"## not be used in advertising or publicity 
+.\"## pertaining to distribution of the software without specific, written 
+.\"## prior permission.  
+.\"## 
+.\"## SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\"## INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\"## EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\"## CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\"## USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\"## OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\"## PERFORMANCE OF THIS SOFTWARE.
+.PL FULL
+.H C "The PEX-SI Server Side"
+.IX "server extension" "" "" "" PAGE MAJOR
+.H 2 "Server Side Overview"
+.IX "Model Extension"
+.IX "PEX-ME"
+.LP
+The server-side support in \s-1PEX-SI\s+1 is a Model Extension (\s-1PEX-ME\s+1)
+to the \s-1X\s+1 sample server.  \s-1PEX-ME\s+1 provides additional code
+that is linked with the \s-1X11\s+1 sample server and processes \s-1PEX\s+1 protocol
+requests.
+\s-1PEX-ME\s+1 follows the guidelines for implementing an extension
+to the \s-1X\s+1 sample server as described in the \fIDefinition of the
+Porting Layer for the X v11 Sample Server\fR (1 March 1988).
+.LP 
+.IX "X11R4"
+The \s-1PEX\s+1 protocol defines two subsets of \s-1PEX\s+1 that
+provide different mechanisms for generating 3D graphics.
+These subsets are defined in Appendix A of the \fIPEX Protocol Specification\fR.
+The ``\s-1PHIGS\s+1 workstation subset'' of \s-1PEX\s+1 provides the
+resources needed to support a \s-1PHIGS\s+1 workstation, server-side structures,
+picking, and incremental spatial searching.
+This subset also includes a mechanism for traversing and rendering structure
+elements within the server.
+The ``immediate mode rendering subset'' provides the resources and
+rendering capabilities needed to support the immediate display
+of output commands.
+.LP 
+The \s-1PEX\s+1 protocol also specifies that the structure elements defined for
+the \s-1PHIGS\s+1 workstation subset are identical to the output commands
+defined for the immediate mode rendering subset.
+In fact, structure elements can be thought of as stored output commands.
+A consequence of this specification is that structure elements can be rendered
+in the same way as output commands.
+.LP 
+\s-1PEX-ME\s+1 is designed to take advantage of the \s-1PEX\s+1 subset
+definitions;  it provides a mechanism for implementing both of the \s-1PEX\s+1
+subsets in a server, and at the same time maximizes the amount of code
+that can be shared between the subsets.
+Following the architecture of the \s-1X\s+1 sample server model,
+\s-1PEX-ME\s+1 is divided into three functional areas:\ \ 
+device-independent \s-1PEX\s+1 (di\s-1PEX\s+1), device-dependent \s-1PEX\s+1
+(dd\s-1PEX\s+1), and operating system-dependent \s-1PEX\s+1 (os\s-1PEX\s+1).
+The goals and interactions of these three parts are described in this chapter.
+Details on the implementation of \s-1PEX-ME\s+1 are given in the
+\fI\s-1PEX-SI\s+1 Porting Guide\fR.
+.H 3 "Goals and Constraints"
+.LP
+The following are the design goals of \s-1PEX-ME\s+1:
+.BP
+Provide an easy mechanism for building servers that support
+both \s-1PEX\s+1 subsets.
+.BP
+Use the same lookup table, name set, and font resource implementations
+for both \s-1PEX\s+1 subsets.
+.BP
+.IX "rendering pipeline"
+Use the same rendering pipeline for both \s-1PEX\s+1 subsets.
+.BP
+.IX "porting"
+Provide an easy mechanism for porting the rendering pipeline.
+.BP
+Separate \s-1X\s+1 resource management from the resource implementations.
+.BP
+Separate resource implementations from rendering.
+.BP
+Provide an easy mechanism for porting resource implementations.
+.BP
+Provide a well-defined interface between di\s-1PEX\s+1 and dd\s-1PEX\s+1.
+.BP
+Provide an extension that can be linked to the \s-1X\s+1 sample server and
+run with minimal effort.
+.LP
+One constraint was defined to achieve the goal of ease of porting to existing
+\s-1X11R4\s+1 servers:
+.BP
+\s-1PEX-ME\s+1 must use the \s-1X11R4\s+1 ddx interface as its rendering foundation.
+.LP
+.H 2 "diPEX"
+.IX "diPEX" "" "" "" PAGE MAJOR
+.IX "device independence"
+.LP
+di\s-1PEX\s+1 provides the device-independent functionality of \s-1PEX-ME\s+1.
+The anticipation that support of the \s-1PEX\s+1 protocol will be ported
+to native high-end graphics engines has lead to the design of a
+di\s-1PEX\s+1 layer that is as thin as possible.
+It performs the following functions:
+.BP
+Performs byte-swapping and floating-point conversions for requests and replies.
+.BP
+Provides all \s-1X\s+1 resource identifier to resource data de-referencing.
+.BP
+Implements search context, pipeline context, and renderer resources.
+.BP
+.IX "errors" "diPEX"
+Isolates device-independent errors and generates error messages as
+necessary.
+.BP
+Sends replies and error messages to the client.
+.LP  
+.IX "data flow" "diPEX"
+di\s-1PEX\s+1 receives \s-1PEX\s+1 packets, unpacks them,
+and translates them into the correct (server-native) byte-ordered
+form and floating-point format.
+di\s-1PEX\s+1 checks for errors and if none are found, dispatches the
+translated requests to the appropriate dd\s-1PEX\s+1 module.
+In addition, di\s-1PEX\s+1 handles replies to the client
+and performs resource management functions.
+.H 2 "osPEX" ospex
+.IX "operating system dependence"
+.IX "osPEX" "" "" "" PAGE MAJOR
+.LP
+os\s-1PEX\s+1 provides the \s-1PEX-ME\s+1 functionality that is heavily dependent on
+the target operating system.
+os\s-1PEX\s+1 performs the following operating system-dependent functions:
+.BP
+Locates a \s-1PEX\s+1 font file in a specified directory.
+.BP
+Loads a \s-1PEX\s+1 font from a \s-1PEX\s+1 font file.
+.LP
+Only 4.2 \s-1BSD\s+1 implementations of these functions are provided in \s-1PEX-ME\s+1.
+.H 2 "ddPEX" ddpex
+.IX "device dependence"
+.IX "ddPEX" "" "" "" PAGE MAJOR
+.LP
+dd\s-1PEX\s+1 provides the non-\s-1OS\s+1-related porting layers of \s-1PEX-ME\s+1.
+dd\s-1PEX\s+1 is designed to provide portability to a wide range of graphics hardware, 
+from simple frame buffers, to display-list devices, to advanced graphics engines.
+To achieve this, dd\s-1PEX\s+1 performs the following functions:
+.BP
+Renders individual structure elements and output commands.
+.BP
+Controls the internal storage format of server-side structures.
+.BP
+Edits the contents of server-side structures.
+.BP
+Traverses the structures for rendering, picking, and spatial search.
+.BP
+Performs hit-tests for picking and spatial search traversals.
+.BP
+Maintains workstation and renderer state information.
+.BP
+Maintains lookup tables and name sets.
+.BP
+Loads \s-1PEX\s+1 font definitions.
+.LP
+The support for these dd\s-1PEX\s+1 functions is divided into five modules.
+Each module is designed to be as functionally independent of the
+other modules as possible.
+The modules are divided such that one module implements
+only those resources that support the \s-1PHIGS\s+1
+workstation subset; a second module implements those resources
+that are shared by both \s-1PEX\s+1 subsets; a third module provides
+rendering control for both subsets; and two modules form
+the rendering pipeline for both subsets. 
+.IX "rendering pipeline"
+.LP
+The five modules of dd\s-1PEX\s+1 are the following:
+.BP
+PHIGS Workstation Module
+.IX "Level 4" "" "" "" PRINT "See \s-1PHIGS\s+1 Workstation Module"
+.BP
+Shared Resources Module
+.BP
+Rendering Control Module
+.IX "Level 3" "" "" "" PRINT "See Rendering Control Module"
+.BP
+Transformation Module
+.IX "Level 2" "" "" "" PRINT "See Transformation Module"
+.BP
+3D Rendering Module
+.IX "Level 1" "" "" "" PRINT "See 3D Rendering Module"
+.LP
+.IX "X11R4"
+.IX "ddx"
+The \s-1X11R4\s+1 ddx serves as the bottom rendering layer for \s-1PEX-ME\s+1.
+.IX "Level 0" "" "" "" PRINT "See ddx"
+.IX "foundation layer"
+.LP
+.IX "data flow" "ddPEX" "" "" PAGE START
+.IX "PHIGS Workstation Module"
+The first two modules implement \s-1PEX\s+1 resources.
+The \s-1PHIGS\s+1 Workstation Module implements the \s-1PHIGS\s+1 workstation,
+structure, and pick measure resources.
+It calls into the Transformation Module to reformat structure elements into the
+device-dependent format used during rendering.
+The \s-1PHIGS\s+1 Workstation Module also provides a structure traverser that
+traverses structure elements.
+This structure  traverser calls into the Rendering Control and Transformation Modules
+to realize the draw, pick, and incremental spatial search operations on
+the structure elements.
+.IX "Shared Resources Module"
+.LP
+The Shared Resources Module implements the lookup table, name set, and
+\s-1PEX\s+1 font resources.
+These resources are used in both \s-1PEX\s+1 subsets.
+Most of the procedures in the \s-1PHIGS\s+1 Workstation Module and the
+Shared Resources Module are called by di\s-1PEX\s+1.
+.LP
+The resources supported in the \s-1PHIGS\s+1 Workstation and Shared Resources
+Modules are implemented as independently as possible, so that the support
+for a specific type of resource can be modified or replaced with minimal
+effect on the other resources.
+The \s-1PHIGS\s+1 Workstation and Shared Resources Modules are
+discussed in further detail in Sections
+.XR @NumberOf(wks) and
+.XR @NumberOf(shared).
+.LP
+.IX "Rendering Control Module"
+.IX "rendering pipeline"
+The Rendering Control Module provides control of the rendering pipeline.
+This includes initializing the device-dependent rendering state,
+tracking the rendering state, and processing output commands for
+immediate mode rendering.
+The Rendering Control Module initializes the rendering pipeline for the drawing,
+picking, or search operations.
+Most of the procedures in the Rendering Control Module are called by di\s-1PEX\s+1.
+Further details on the Rendering Control Module are given in Section
+.XR @NumberOf(immed_render).
+.LP
+.IX "Transformation Module"
+.IX "3D Rendering Module"
+The Transformation and 3D Rendering Modules are dedicated to
+supporting the rendering pipeline in \s-1PEX-ME\s+1.
+These modules are not exposed to di\s-1PEX\s+1.
+The Transformation Module reformats output commands and
+structure elements to an internal device-dependent rendering format.
+It updates the device-dependent rendering state according to the
+attribute-setting commands it receives.
+The Transformation Module also supports geometric transformations, and the
+lighting and clipping of the reformatted primitives.
+It passes the transformed primitives to the completely
+subordinate 3D Rendering Module, and performs hit-testing for picking and spatial search.
+Further details on the Transformation Module are described in Section
+.XR @NumberOf(transformation).
+.LP
+The 3D Rendering Module takes the transformed primitives from the
+Transformation Module and prepares the data for rendering by ddx.
+Further details on the 3D Rendering Module are given in Section
+.XR @NumberOf(three_d).
+.LP 
+Figure 
+.XR @NumberOf(ddpex_arch) 
+shows the architecture of dd\s-1PEX\s+1 and how it fits into the
+overall \s-1PEX-ME\s+1 architecture.
+All client requests are received by dix, which examines and dispatches
+them appropriately.  \s-1PEX\s+1 requests are passed to di\s-1PEX\s+1.
+.LP 
+di\s-1PEX\s+1 unpacks the requests, and dispatches them to the appropriate
+dd\s-1PEX\s+1 modules.
+di\s-1PEX\s+1 calls into the \s-1PHIGS\s+1 Workstation and Shared Resources Modules
+to dispatch requests that are part of the \s-1PHIGS\s+1 workstation subset
+of \s-1PEX\s+1.
+The \s-1PHIGS\s+1 Workstation Module subsequently calls into the Transformation
+Module to reformat and render output commands.
+.LP 
+di\s-1PEX\s+1 calls into the Shared Resources and Rendering
+Control Modules when dispatching requests that are part of the
+immediate mode rendering subset of \s-1PEX\s+1.
+The Rendering Control Module subsequently calls into the Transformation Module
+to reformat and render output commands.
+.sp 2
+.KS
+.FN "Server Architecture" ddpex_arch
+.sp 2
+.PS
+arrowht = .06i
+arrowwid = .06i
+##-------------Server Architecture-------------##
+
+Server_outer_box:
+	box ht 4.25i wid 5i 
+	"\fB\s-1PEX-ME\s+1\fR" at Server_outer_box.n above 
+
+Dix:
+	box invis ht 1i wid 1i with .nw at Server_outer_box.nw "dix"
+
+Ddx:
+	box invis ht 4.25i wid 1i with .sw at Server_outer_box.sw "ddx"
+
+Dipex:
+	box invis ht 1i wid 4i with .ne at Server_outer_box.ne "di\s-1PEX\s+1"
+
+Hardware:
+	box ht .5i wid 5i with .nw at Ddx.sw "Device"
+
+Ddpex:
+	box invis ht .25i wid .5i with .se at Hardware.ne "dd\s-1PEX\s+1"
+
+Ospex:
+	box ht .75i wid .625i with .nw at Dix.se "os\s-1PEX\s+1"
+
+Osx:
+	box ht .325i wid .325i with .ne at Ospex.nw "osx"
+
+line from Dix.ne to Ddx.se
+line from Dix.sw to Dipex.se
+
+Position_1:
+	box invis ht .25i wid 4i with .n at Dipex.s
+
+Phigs_WS:
+	box ht .5i wid 2i with .n at Position_1.s "\s-1PHIGS\s+1 Workstation"
+
+Position_2:
+	box invis ht .25i wid 2i with .n at Phigs_WS.s
+
+Shared:
+	box ht .5i wid 1.25i with .n at Position_2.sw "Shared Resources"
+
+Immed_Mode:
+	box ht .5i wid 1.25i with .n at Position_2.se 
+	"Rendering" "Control" at Immed_Mode.c
+
+Position_3:
+	box invis ht .25i wid 2i with .nw at Shared.s
+
+Transform:
+	box ht .5i wid 2i with .n at Position_3.s "Transformation"
+
+Position_4:
+	box invis ht .25i wid 2i with .n at Transform.s
+
+Three_D:
+	box ht .5i wid 2i with .n at Position_4.s "3D Rendering"
+
+##----------Arrows----------##
+Ospex_shared:
+	box invis wid .375i ht .25i with .nw at Ospex.s
+	line <-> from Ospex_shared.n to Ospex_shared.s
+Dix_dipex:
+	box invis wid .5i ht .25i with .c at Dix.e
+	line <-> from Dix_dipex.w to Dix_dipex.e 
+ThreeD_ddx:
+	box invis wid 1.25i ht .25i with .e at Three_D.w
+	line <- from ThreeD_ddx.w to ThreeD_ddx.e 
+Dix_ddx:
+	box invis wid .25i ht .5i with .c at Dix.s
+	line <-> from Dix_ddx.s to Dix_ddx.n
+Dipex_p_s_i:  [
+	Posit_1: box invis wid 2.5i ht .25i with .s at Dipex.s
+	Posit_2: box invis wid 2.5 ht .25i with .n at Phigs_WS.s
+	line <-> from Posit_1.nw to Posit_2.sw
+	line <-> from Posit_1.ne to Posit_2.se
+	line <-> from Posit_1.n to Phigs_WS.n
+] with .s at Position_2.s
+
+Position_5: box invis wid 1.5i ht 1i with .n at Phigs_WS.s
+Phigs_s_i_trans:  [
+	Posit_3: box invis wid 1.5 ht 1i 
+	Posit_4: box invis wid 1.5i ht .5i with .c at Posit_3.c
+	line -> from Posit_3.nw to Posit_4.nw   # PWKS to Shared
+	line -> from Posit_3.ne to Posit_4.ne	# PWKS to Immed Rend
+#	line -> from Posit_4.sw to Posit_3.sw	# Shared to Trans
+	line -> from Posit_4.se to Posit_3.se	# Immed Rend to Trans
+] with .c at Position_5.c
+
+Phigs_trans:
+	line -> from Phigs_WS.s to Transform.n
+Shared_Immed:
+	line <- from Shared.e to Immed_Mode.w
+Trans_Three:
+	line -> from Transform.s to Three_D.n
+To_HW:  [
+	Posit_5: box invis ht .4i wid 2.5i 
+	line -> from Posit_5.nw to Posit_5.sw
+#	line -> dashed from Posit_5.ne to Posit_5.se 
+] with .ne at Three_D.s
+
+Dix_client:
+	box invis wid .5i ht .25i with .c at Dix.w 
+	"Client" rjust at Dix_client.w
+	line <-> from Dix_client.e to Dix_client.w
+.PE
+.KE
+.IX "data flow" ddPEX" "" "" PAGE END
+.H 3 "Communication Between diPEX and ddPEX" di_dd_Com
+.IX "communication" "diPEX/ddPEX"
+.LP
+di\s-1PEX\s+1 and dd\s-1PEX\s+1 communicate through a stable, well-defined interface.
+The interface defines the dd\s-1PEX\s+1 procedures called by di\s-1PEX\s+1.
+It is expected to be useful to any \s-1PEX-ME\s+1 implementation and is not
+intended to be changed.
+A general description of the di\s-1PEX\s+1/dd\s-1PEX\s+1 interface is given in the
+remaining sections of this chapter.
+The C binding and the \s-1PEX-SI\s+1 implementation details are given in the
+\fIPEX-SI Porting Guide\fR.
+.LP
+The interfaces to the Transformation and 3D Rendering Modules are 
+dd\s-1PEX\s+1-internal interfaces.
+These interfaces can be modified to support alternate data formats.
+.LP
+Because some of the replies generated by dd\s-1PEX\s+1 are variable in length,
+di\s-1PEX\s+1 cannot know how much space is needed for the
+reply data and thus cannot allocate the space specifically.
+To handle this, di\s-1PEX\s+1 passes a buffer pointer to dd\s-1PEX\s+1.
+di\s-1PEX\s+1 also passes the size of the buffer and 
+the offset into the buffer where dd\s-1PEX\s+1 should put the data.
+dd\s-1PEX\s+1 places the data into the buffer at the specified offset and returns 
+the buffer and an active data count.
+dd\s-1PEX\s+1 is always responsible for properly formatting the data returned
+to di\s-1PEX\s+1 to conform to the encoding requirements of the \s-1PEX\s+1 protocol.
+.IX "PEX packets"
+With this scheme, di\s-1PEX\s+1 can pass dd\s-1PEX\s+1 the buffer that is used 
+for the reply packet, and dd\s-1PEX\s+1 can then fill in the reply data
+in the format expected by the client.
+This reduces the amount of data copied by di\s-1PEX\s+1 when creating the reply packet.
+.LP
+A utility procedure is provided in di\s-1PEX\s+1 for reallocating an existing
+buffer at a new size.
+dd\s-1PEX\s+1 can use this procedure if the buffer is not large enough to hold
+the data to be returned.
+.H 2 "PEX-ME Resource Support" resources
+.IX "resources" "" "" "" PAGE START
+.LP
+\s-1PEX-ME\s+1 fully supports the nine resource types defined for the
+\s-1PEX\s+1 Protocol.  They are:
+.IP "\fB\s-1PHIGS\s+1 Workstation\fR" 20
+A large, complex resource that embodies much of \s-1PHIGS\s+1 policy.
+.IP "\fBSearch Context\fR" 20
+A resource used in performing searching operations on structure networks.
+.IP "\fBPick Measure\fR" 20
+A resource used in conjunction with a \s-1PHIGS\s+1 workstation
+resource to perform graphical selection of primitives.
+.IP "\fBLookup Table\fR" 20
+Tables of values (of various categories).
+.IP "\fBName Set\fR" 20
+Filters used for picking, highlighting, and visibility when rendering.
+.IP "\fBStructure\fR" 20
+Repositories of output commands, structures may be linked hierarchically
+into structure networks.
+.IP "\fBRenderer\fR" 20
+The basic drawing mechanism.
+.IP "\fBPipeline Context\fR" 20
+A table of initial rendering attributes for a renderer.
+.IP "\fB\s-1PEX\s+1 Font\fR" 20
+Stroke fonts and bitmap fonts.
+.LP
+Some of this resource support is implemented in di\s-1PEX\s+1.
+Table
+.XR @NumberOf(resource_mgrs) 
+shows which modules utilize which resources, and how.
+.KS
+.TN "Resource Types and Their Utilization" resource_mgrs
+.TS
+center box tab(@);
+cfBI | cfBI cfBI cfBI cfBI
+cfBI | cfBI cfBI cfBI cfBI
+l | c c c c.
+@@PHIGS@Shared@Rendering
+Resource@diPEX@Workstation@Resources@Control
+=
+Search Context@M@A@
+_
+Pipeline Context@M@@@E
+_
+Renderer@M@@@A
+=
+\s-1PHIGS\s+1 Workstation@@M@@@
+_
+Structure@@M@@@
+_
+Pick Measure@@M@@@
+=
+\s-1PEX\s+1 Font@@@M@@
+_
+Lookup Table@@@M@@
+_
+Name Set@@@M@@
+.TE
+.IP "Legend:" 8
+The table shows which modules affect or utilize which resources.
+The letters M, A, and E indicate that the module:
+.br
+.ta .5iR +.25i
+.nf
+	M	Manages or owns the resource.
+	A	Can alter the data in the resource.
+	E	Is exposed to the resource, but cannot manage or alter it.
+.fi
+.KE
+.H 3 "diPEX Resource Management" dipex_res_mgmt
+.IX "X resource identifier"
+.LP
+di\s-1PEX\s+1 handles all \s-1PEX\s+1 resource \s-1ID\s+1 to data de-referencing.
+All calls to the core \s-1X\s+1 server routine \fIAddResource\fR are done in di\s-1PEX\s+1.
+Also, all \s-1PEX\s+1 resource \s-1ID\s+1s in a \s-1PEX\s+1 request are de-referenced
+by di\s-1PEX\s+1 (via the core \s-1X\s+1 server routine \fILookupIDByType\fR) before
+di\s-1PEX\s+1 calls dd\s-1PEX\s+1 to handle the request.
+.LP
+The \s-1PEX\s+1 resource support is divided into two groups based on which portion of 
+\s-1PEX-ME\s+1 manages (or ``owns'') the internals of the resource, di\s-1PEX\s+1
+or dd\s-1PEX\s+1.
+The resources that di\s-1PEX\s+1 implements are called ``visible resources.''
+The resources that dd\s-1PEX\s+1 implements are called ``semi-opaque resources.''
+.KS
+.LP
+The visible resources are:
+.IX "resources" "visible"
+.IX "visible resources"
+.RS
+.BP
+Renderers
+.BP
+Pipeline Contexts
+.BP
+Search Contexts
+.RE
+.KE
+.LP
+di\s-1PEX\s+1 contains support for the creation, freeing, copying,
+modification, and inquiry of these resources.
+dd\s-1PEX\s+1 uses these resources for other operations associated with them,
+and may modify the contents of renderers and search contexts.
+.LP
+.KS
+The semi-opaque resources are the following:
+.IX "resources" "semi-opaque"
+.IX "semi-opaque resources"
+.RS
+.BP
+\s-1PHIGS\s+1 Workstations
+.BP
+Structures
+.BP
+Pick Measures
+.BP
+Lookup Tables
+.BP
+Name Sets
+.BP
+\s-1PEX\s+1 Fonts
+.RE
+.KE
+.LP
+The semi-opaque resources have a portion that is visible to di\s-1PEX\s+1,
+but the bulk of their data is not utilized or managed by di\s-1PEX\s+1.
+The visible part of semi-opaque resources contains the \s-1PEX\s+1 resource
+\s-1ID\s+1 and possibly some other cached information, in order to simplify
+the interface between di\s-1PEX\s+1 and dd\s-1PEX\s+1.  For example, the visible
+part of a lookup table also includes the type of the lookup table.
+.H 3 "Other diPEX Resources" other
+.LP
+di\s-1PEX\s+1 also manages two internal resource types, \fIContext\fR and \fIWksDrawable\fR.
+These resources are used for di\s-1PEX\s+1 internal bookkeeping and are not
+exposed through the protocol or to dd\s-1PEX\s+1.
+.LP
+The Context resource is associated with an individual client.
+An instance of this resource is used to keep pointers to the swapping and floating point
+conversion tables and routines that will be used to process requests from the client.
+An instance of a Context resource is created when the first \s-1PEX\s+1 request
+is received from each \s-1PEX\s+1 client.
+The resource is freed when di\s-1PEX\s+1 receives notification of client shutdown.
+.LP
+The WksDrawable resource is used to detect deletion of a drawable resource that has
+been associated with a \s-1PHIGS\s+1 workstation resource.
+This is important because if a drawable is deleted before its
+associated \s-1PHIGS\s+1 workstation resource, via either direct client program control
+or during client cleanup in the server, the server needs to prevent any implicit
+redrawing of the workstation's image onto the defunct drawable.
+dd\s-1PEX\s+1 is notified of any relevant drawable destructions.
+.H 3 "Resource Dependencies" resource_depend
+.IX "subordinate resources"
+.LP
+\s-1PEX\s+1 resources often depend on the existence of other,
+``subordinate'' \s-1PEX\s+1 resources.
+For instance, a \s-1PHIGS\s+1 workstation resource contains references to 
+the lookup table and name set resources.
+A lookup table resource that is referenced by a 
+\s-1PHIGS\s+1 workstation resource cannot be deleted until the workstation resource
+no longer needs the lookup table.
+These semantics are defined in the \fI\s-1PEX\s+1 Protocol Specification\fR
+description for the \fIPEXFreeLookupTable\fR request 
+and the other requests for freeing resources.
+.LP
+.IX "cross-referencing resources"
+.IX "resources" "cross-referencing"
+Resource dependencies such as these must be tracked by 
+di\s-1PEX\s+1 and dd\s-1PEX\s+1.
+The tracking of the resource dependencies is achieved by maintaining resource 
+cross-references within each resource.
+The cross-references may be in the form of a full list or a simple reference count.
+Utility procedures that assist with the maintenance of the cross-references are
+defined for each resource type.
+These procedures add or remove a resource from the cross-reference list or count.
+.LP
+Resource dependencies in \s-1PEX-SI\s+1 are shown in Figure 
+.XR @NumberOf(resources_fig).
+The arrow from resource type A to resource type B (A\(->B) indicates that 
+resource type A depends on resource type B.
+.sp 2
+.KS
+.FN "PEX Resource Dependencies" resources_fig
+.sp
+.PS 
+#
+#----------- PEX Resource Dependencies -----------#
+#
+arrowwid = .06i
+arrowht = .06i
+#  STRUCTURE -- Outer Dashed Boxes and Legend  -- Made invisible now
+dashwid = .05i
+moveht = .125i
+down
+Box_1:
+	box invis ht 1i wid 6i
+move
+Box_2:
+	box invis same
+move
+Box_3:
+	box invis same
+move left .75i
+move down .25i
+Legend:
+	box invis ht .375i wid 4i
+#	"\s-1WKS\s+1 = \s-1PHIGS\s+1 Workstation" at Legend.nw ljust
+#	"\s-1STR\s+1 = Structure" at Legend.w ljust
+#	"\s-1SC\s+1 = Search Context" at Legend.sw ljust
+#	"\s-1PICK\s+1 = Pick Measure" at Legend.n ljust
+#	"\s-1FONT\s+1 = Font" at Legend.c ljust
+#	"\s-1LUT\s+1 = Lookup Table" at Legend.s ljust
+#	"\s-1NS\s+1 = Name Set" at Legend.ne ljust
+#	"\s-1REND\s+1 = Renderer" at Legend.e ljust
+#	"\s-1PC\s+1 = Pipeline Context" at Legend.se ljust
+#
+# RESOURCE DEPENDENCIES -- Block Diagram
+#
+Block_box:
+	box invis ht 2.5i wid 5.25i with .c at Box_2.c
+Block_Diagram: [
+	boxht = .5i; boxwid = .75i; movewid = .375i
+	right
+	Dummy: box invis ""  # This is a kluge to get "PHIGS" to print in WKS
+	#
+	# LEFT TO RIGHT Zig-Zag with single line arrows
+	#
+	WKS: box ht .5i wid .77i "\s-1PHIGS\s+1" "Workstation"
+	arrow ->
+#	Arrow_box:
+# 		box invis ht .125i wid .375i with .w at WKS.e
+# 		arrow -> from Arrow_box.nw to Arrow_box.ne
+#		arrow <- from Arrow_box.sw to Arrow_box.se
+
+	STR: box "Structure" 
+	arrow <-
+	SC: box "Search" "Context"
+	move
+	Pick: box "Pick" "Measure"
+	move down 1i; move left 5.5i; right
+	Font: box "\s-1PEX\s+1 Font"
+	arrow <-
+	LUT: box "Lookup" "Table"
+	move
+	NS: box "Name Set"
+	move down 1i; move left .75i; right
+	REN: box "Renderer"
+	arrow -> 
+	PC: box "Pipeline" "Context"
+	arrow from REN.n to NS.s
+	#
+	# ARROWS - 2 and 3 line arrows
+	#
+	Pick_WKS:
+		box invis ht .2i wid 3.65i with .se at Pick.n
+		line from Pick.n to Pick_WKS.ne to Pick_WKS.nw
+		arrow from Pick_WKS.nw to Pick_WKS.sw
+	Pick_STR:
+		box invis ht .10i wid 2.125i with .sw at STR.n
+		line from Pick_STR.nw to Pick_STR.ne to Pick_STR.se
+		arrow from Pick_STR.nw to STR.n
+	STR_STR:
+		box invis ht .15i wid .375i with .n at STR.s
+		line from STR_STR.ne to STR_STR.se to STR_STR.sw
+		arrow from STR_STR.sw to STR_STR.nw
+	WKS_NS:
+		box invis ht .5i wid 1.125i with .se at NS.n
+		line from WKS_NS.nw to WKS_NS.w to WKS_NS.e
+		arrow from WKS_NS.e to WKS_NS.se
+	SC_NS:
+		box invis ht .75i wid 1.5i with .ne at SC.s
+		line from SC.s to SC_NS.se
+		arrow from SC_NS.se to NS.e
+	Pick_NS:
+		box invis ht .9i wid 2i with .ne at Pick.s
+		line from Pick.s to Pick_NS.se
+		arrow from Pick_NS.se to Pick_NS.sw
+	WKS_LUT:
+		box invis ht .5i wid .375i with .sw at LUT.nw
+		arrow from WKS_LUT.n to WKS_LUT.s
+	REN_LUT:
+		box invis ht .75i wid .75i with .se at REN.w
+		line from REN.w to REN_LUT.sw
+		arrow from REN_LUT.sw to LUT.s
+] with .c at Block_box.c
+.PE
+.KE
+.IX "resources" "" "" "" PAGE END
+.LP
+As an example, consider a colour lookup table resource named \s-1C-LUT\s+1.
+This resource has two cross-reference lists, one for \s-1PHIGS\s+1 workstations
+and one for renderers.
+Now, consider that a \s-1PHIGS\s+1 workstation resource named \s-1WKS-1\s+1 is created
+and the \fIPEXCreatePhigsWks\fR request specifies that the colour lookup table
+for this resource is \s-1C-LUT\s+1.
+The dd\s-1PEX\s+1 procedure that creates the workstation resources calls
+the lookup table cross-reference utility to add \s-1WKS-1\s+1 to the
+\s-1PHIGS\s+1 workstation cross-reference list of \s-1C-LUT\s+1.
+If a \fIPEXFreeLookupTable\fR request freeing \s-1C-LUT\s+1 is then received,
+dd\s-1PEX\s+1 checks the \s-1PHIGS\s+1 workstation and renderer cross-reference lists
+in \s-1C-LUT\s+1 to see if both lists are empty.
+\s-1C-LUT\s+1 is immediately destroyed if the lists are empty.
+In this example, dd\s-1PEX\s+1 sees that there is a workstation resource
+\s-1WKS-1\s+1 using \s-1C-LUT\s+1.
+Therefore, \s-1C-LUT\s+1 is not immediately destroyed, but a flag is set
+in \s-1C-LUT\s+1 indicating that it can be destroyed as soon as both of
+its cross-reference lists are empty.
+.LP 
+When a \fIPEXFreePhigsWKS\fR request freeing \s-1WKS-1\s+1 is received,
+dd\s-1PEX\s+1 calls the lookup table cross-reference utility again to
+remove \s-1WKS-1\s+1 from the \s-1PHIGS\s+1 workstation list in \s-1C-LUT\s+1.
+The utility then checks for the flag that indicates if \s-1C-LUT\s+1 has been freed.
+In this example, it finds the flag is set, and it finds that both
+cross-reference lists of \s-1C-LUT\s+1 are empty.
+So, the utility destroys \s-1C-LUT\s+1.
+.LP 
+.IX "subordinate resources"
+In summary, a cross-reference \fIlist\fR is only needed when a subordinate resource needs to
+notify its parent resource that a change has been made to the subordinate resource.
+.\"For example, a workstation resource needs to
+.\"be notified when a change is made to a bundle lookup table so that
+.\"the workstation can update the display if necessary.
+The subordinate resource maintains a cross-reference \fIcount\fR when no
+notification is needed.
+Further details on resource cross-references are given in the descriptions of each resource.
+.H 2 "The PHIGS Workstation Module"wks
+.IX "ddPEX porting layers" "1" "" "PHIGS Workstation Module" PAGE MAJOR
+.IX "modules" "" "" "" PRINT "See \fIdd\s-1PEX\s+1 porting layers\fR"
+.IX "PHIGS Workstation Module" "" "" "" PAGE MAJOR 
+.LP
+The \s-1PHIGS\s+1 Workstation Module implements the 
+\s-1PHIGS\s+1 workstation, pick measure, and structure resources.
+It also implements a structure traverser that passes structure elements
+to the Transformation Module for rendering, picking, or spatial search.
+.H 3 "PHIGS Workstation Resources" pwks
+.IX "resources" "PHIGS workstation resources" "" "" PAGE MAJOR
+.IX "PHIGS workstation resources" "" "" "" PAGE MAJOR
+.IX "display dynamics, workstation"
+.IX "workstation display dynamics"
+.LP
+A \s-1PHIGS\s+1 workstation resource contains information on the state of the 
+workstation's display, on the rendering state used during structure 
+traversal, and on the supported pick devices.
+It updates the workstation display according to the current update mode
+and dynamics of the workstation.
+.LP
+Updating the display may require an implicit traversal of the structures
+posted to the workstation, as described by \s-1PHIGS\s+1 and \s-1PHIGS PLUS\s+1.
+The rendering state information in the workstation resource is used by the 
+rendering pipeline, which processes the structure elements traversed
+when the display is updated.  
+.IX "rendering pipeline"
+.LP
+\s-1PEX-ME\s+1 uses the same rendering pipeline to update the workstation
+display that it uses for the immediate mode rendering of output commands in a renderer resource.
+This rendering pipeline is designed to maintain its rendering state
+in a renderer resource.
+Thus, the \s-1PHIGS\s+1 workstation resource provides a renderer resource
+to the rendering pipeline in \s-1PEX-SI\s+1.
+(For more information on the rendering pipeline, see Section
+.XR @NumberOf(immed_render)
+on the Rendering Control Module, and Section
+.XR @NumberOf(transformation)
+on the Transformation Module.)
+.LP
+Other implementations may use a different rendering pipeline,
+a hardware pipeline for example, to update the display.
+The \fI\s-1PEX-SI\s+1 Porting Guide\fR explains how the workstation resource can
+be modified to support a different rendering pipeline.
+.LP
+dd\s-1PEX\s+1 defines the procedures that support the \s-1PHIGS\s+1 workstation resources.
+It defines a set of procedures that support the \s-1PEX\s+1 requests specified
+in the \fI\s-1PEX\s+1 Protocol Specification\fR.
+dd\s-1PEX\s+1 also defines utility procedures for updating the display and for
+updating the resource cross-references in the workstation resources.
+A general description of these procedures is given below.
+The procedures that support the requests for pick devices are described
+in Section 
+.XR @NumberOf(pick) on pick measure resources. 
+.LP
+The dd\s-1PEX\s+1 procedures that support the \s-1PEX\s+1 requests for
+\s-1PHIGS\s+1 workstation resources map one-to-one with the requests
+specified in the \fIPEX Protocol Specification\fR.
+di\s-1PEX\s+1 dispatches the requests to these procedures. 
+.IX "cross-reference update procedure" "PHIGS workstation resources"
+The cross-reference update procedure adds and removes resources from
+the cross-references associated with workstation resources, as
+explained in Section
+.XR @NumberOf(resource_depend).
+.LP
+The only resources that depend on workstation resources are pick measure resources.
+A workstation resource keeps a reference count of the number of pick measure
+resources that are using it.
+.IX "pick measure resources"
+.IX "resources" "pick measure resources"
+The update procedure is called by dd\s-1PEX\s+1 to increment or decrement the count
+when a pick measure resource is created or destroyed.
+This procedure is not called by di\s-1PEX\s+1.
+.LP
+The dynamics utility procedures handle the display dynamics of workstation resources.
+These utilities are called by dd\s-1PEX\s+1 when changes are made to the
+structure, name set, lookup table, and \s-1PHIGS\s+1 workstation resources. 
+.IX "structure resources, STR"
+.IX "lookup table resources"
+.IX "resources" "structure resources"
+.IX "resources" "lookup table resources"
+.IX "name set resources"
+.IX "resources" "name set resources"
+The utilities determine how to update the workstation's display based on the
+workstation's dynamics and update mode.
+These utilities are not called by di\s-1PEX\s+1.
+.H 3 "Structure Resources" structures
+.IX "structure resources" "" "" "" PAGE MAJOR
+.IX "resources" "structure resources" "" "" PAGE MAJOR
+.LP
+.IX "PHIGS workstation resources" 
+.IX "search context resources" 
+.IX "pick measure resources" 
+.IX "resources" "PHIGS workstation resources" 
+.IX "resources" "search context resources" 
+.IX "resources" "pick measure resources" 
+.IX "procedure tables"
+.IX "Transformation Module"
+.IX "structure elements"
+.LP
+Structure resources contain information on the structures that exist
+in the server-side \s-1CSS\s+1.  The structure resources contain state
+information on these structures and on all of the elements in the structures.
+.LP
+dd\s-1PEX\s+1 contains a set of procedures that support the \s-1PEX\s+1 protocol
+requests defined for structure resources.
+It also has procedures that support the interaction of structure resources with
+other resources.
+\s-1PEX\s+1 requests are handled by a set of procedures that map one-to-one with the
+protocol requests specified in the \fIPEX Protocol Specification\fR, with the
+exception of the \fIPEXDestroyStructures\fR request.
+For this request, the dd\s-1PEX\s+1 procedure destroys only one structure at a time.
+di\s-1PEX\s+1 calls this procedure for each structure specified in the 
+\fIPEXDestroyStructures\fR request.
+.LP 
+Structure resources are part of a structure network.
+The network hierarchy is defined by the existence of
+\fIExecuteStructure\fR elements in the structures.
+Structures maintain a cross-reference list of their
+parent and offspring structures in this structure network.
+This aids in maintaining the structure network and
+handling some of the protocol requests for structures.
+.LP 
+Structure resources are subordinate to \s-1PHIGS\s+1 workstation,
+search context, and pick measure resources.
+A cross-reference update procedure is provided for structure resources to
+maintain the cross-references of those resources that are using the structures.
+This utility procedure adds resources to and removes resources from the cross-reference
+lists and counts.
+It is called by both di\s-1PEX\s+1 and dd\s-1PEX\s+1.
+.LP
+Structures are subordinate to the workstation resources on which they are posted.
+A structure resource maintains a cross-reference list of these
+workstation resources and notifies the workstation resource when the
+structure has changed, so that the Workstation can update the display.
+A structure resource maintains two cross-reference lists.
+One list contains the workstation resources that the structure is directly posted to.
+The other list contains the workstation resources that have an ancestor or
+descendent of the structure posted to them.
+.LP 
+A structure resource keeps a reference count of the search context
+and pick measure resources that specify the structure in their start paths.
+A procedure is also provided that verifies that a path is valid
+within a given structure network.
+This procedure is called by both di\s-1PEX\s+1 and dd\s-1PEX\s+1.
+.LP
+In addition to the di\s-1PEX\s+1/dd\s-1PEX\s+1 interface just described,
+an internal interface handles operations on structure elements.
+This interface provides a mechanism that allows the storage format
+of structure elements to be defined by the implementation.
+The interface defines six operations on structure elements:\ \ 
+create, destroy, copy, replace, inquire, and execute.
+There is a procedure to support each operation for every structure element type.
+The procedures are accessed through six procedure tables, each of which contains
+an entry for every table type, plus one additional entry to handle out-of-range elements.
+.LP
+The \fIcreateCSSElement\fR operation creates a new structure element
+from a given \s-1PEX\s+1 element.  This operation massages the data
+into the device-dependent format and returns a pointer to the new
+element.  All data must be copied from the \s-1PEX\s+1
+request packet element to the structure elements because the request
+buffer is volatile.
+.LP
+The \fIdestroyCSSElement\fR operation destroys the structure elements
+created by the \fIcreate\fR or \fIcopy\fR procedures.
+.LP
+The \fIcopyCSSElement\fR operation creates a new element by copying the
+data from the given element to the new element.
+.LP
+The \fIreplaceCSSElement\fR operation replaces the given element with a new element.
+This operation is used only when an element is stored in replace mode 
+and the element type being replaced is identical to the element being stored.
+.LP
+The \fIinquireCSSElement\fR operation converts the given element data to
+\s-1PEX\s+1 Protocol format.
+.LP
+.IX "ExecuteOC" "" "\fIExecuteOC\fP"
+The \fIexecuteCSSElement\fR operation performs the action required for the
+given element during structure traversal.
+This could be rendering, picking, or spatial search.
+In \s-1PEX-ME\s+1, this operation is the Transformation Module's
+\fIExecuteOC\fR operation (see Section
+.XR @NumberOf(transformation)).
+.LP
+The structure storage format used in \s-1PEX-ME\s+1 is defined by the device-dependent
+format used in the Transformation Module.
+It is the same format that is used for rendering immediate mode output commands.
+The procedures in the \s-1CSS\s+1 tables can call directly
+into the corresponding Transformation Module procedures.
+For more information on the Transformation Module, see Section 
+.XR @NumberOf(transformation).
+.IX "Transformation Module"
+.H 3 "Search Context Resources" sc
+.IX "search context resources" "" "" "" PAGE MAJOR
+.IX "resources" "search context resources" "" "" PAGE MAJOR
+.IX "spatial search"
+.LP
+Search context resources are defined and controlled by di\s-1PEX\s+1.
+di\s-1PEX\s+1 handles all of the actions necessary to support the
+create, free, get, and change operations on Search contexts.
+dd\s-1PEX\s+1 has one procedure defined to handle the \fIPEXSearchNetwork\fR request.
+This dd\s-1PEX\s+1 procedure controls structure traversal for the spatial search.
+It turns on spatial search, traverses the structure network, and turns off
+spatial search.
+Turning on spatial search causes the rendering
+procedures in the \fIexecuteCSSElement\fR table to be replaced with
+procedures that do spatial search intersection, or hit testing.
+This procedure also sets the traverser to test for a hit after every
+graphics primitive is traversered.
+When a hit occurs, the traverser sets the search path in the search context resource
+and stops traversing.
+.H 3 "Pick Measure Resources" pick
+.IX "pick measure resources" "" "" "" PAGE MAJOR
+.IX "resources" "pick measure resources" "" "" PAGE MAJOR
+.LP
+Pick devices are supported as part of the dd\s-1PEX PHIGS\s+1 workstation resources.
+They provide device-dependent initialization values for pick measure resources.
+dd\s-1PEX\s+1 has procedures to handle the \fIPEXGetPickDevice\fR and
+\fIPEXChangePickDevice\fR requests.
+The procedures are called by di\s-1PEX\s+1 when it dispatches these requests.
+.IX "PHIGS workstation resources"
+.IX "resources" "PHIGS workstation resources"
+.LP
+Pick measure resources are fully implemented in dd\s-1PEX\s+1.
+There is one dd\s-1PEX\s+1 procedure to handle each pick measure protocol request.
+di\s-1PEX\s+1 calls the procedures when it dispatches the requests.
+.LP
+The dd\s-1PEX\s+1 procedure that handles the \fIPEXUpdatePickMeasure\fR request
+initiates structure traversal for the pick.
+It calls procedures in the Rendering Control Module to set up the
+graphics pipeline for picking before traversal, and to reset the
+pipeline when the traversal is finished.
+During traversal, the pipeline procedures for picking are called and
+the traverser checks for a hit and sets the pick path in the
+pick measure resource.
+.LP
+Hit testing is based on a ``Pick First'' algorithm.
+.H 2 "The Shared Resources Module" shared
+.IX "ddPEX porting layers" "3" "" "Shared Resources Module" PAGE MAJOR
+.IX "Shared Resources Module" "" "" "" PAGE MAJOR
+.IX "PHIGS Workstation Module"
+.IX "Rendering Control Module"
+.LP
+The dd\s-1PEX\s+1 Shared Resources Module supports the lookup table, name set,
+and \s-1PEX\s+1 font resources.
+These resources are common to both the \s-1PHIGS\s+1 workstation subset and the 
+immediate mode rendering subset, and are used in all \s-1PEX\s+1 server configurations
+(\s-1PHIGS\s+1 workstation rendering, immediate mode rendering, or a combination of both).
+.LP
+The procedures for these functions map one-to-one with the \s-1PEX\s+1 requests 
+for the lookup table, name set, and \s-1PEX\s+1 font resources.
+The procedures provide the functionality specified in the
+\fI\s-1PEX\s+1 Protocol Specification\fR.
+The C binding and implementation details for these procedures are given in the 
+\fI\s-1PEX-SI\s+1 Porting Guide\fR.
+The Shared Resource Module interface is exposed to di\s-1PEX\s+1.
+.H 3 "Lookup Table Resources" lut
+.IX "resources" "lookup table resources" "" "" PAGE MAJOR
+.IX "lookup table resources" "" "" "" PAGE MAJOR
+.IX "cross-reference update procedure" "lookup table resources"
+.LP
+There are 12 types of lookup tables defined in the \fIPEX Protocol Specification\fR.
+Each type of lookup table contains information that is used during rendering.
+\s-1PEX-ME\s+1 defines one dd\s-1PEX\s+1 procedure for each lookup table request,
+regardless of the table type.
+All of these procedures are called by di\s-1PEX\s+1.
+.LP
+Lookup tables have cross-reference lists of the \s-1PHIGS\s+1 workstation and
+renderer resources that use the tables.
+.IX "PHIGS workstation resources"
+.IX "renderer resources"
+.IX "resources" "PHIGS workstation resources"
+.IX "resources" "renderer resources"
+There is a utility procedure called by di\s-1PEX\s+1 and dd\s-1PEX\s+1 to
+update the lists.
+A utility procedure also checks that a lookup table can be
+used with a given drawable, based on the example drawable given when
+the lookup table was created.
+.IX "drawables"
+The procedure is called by di\s-1PEX\s+1 and dd\s-1PEX\s+1 when a
+lookup table is first referenced by a workstation or renderer
+resource,  It checks to see if the table is compatible with the workstation's or
+renderer's drawable.
+.LP
+Each time a lookup table is changed, each workstation and renderer in
+the cross-reference lists is notified of the change through a
+call-back procedure defined for this purpose.
+The workstation call-back procedure updates the workstation state and the
+picture as needed.
+(For more information on the \s-1PHIGS\s+1 Workstation Module, see Section 
+.XR @NumberOf(wks).)
+The renderer call-back procedure sets the change flag in the renderer
+that is used when the renderer is validated.
+(For more information on the Rendering Control Module, see Section 
+.XR @NumberOf(immed_render).)
+.H 3 "Name Set Resources" ns
+.IX "resources" "name set resources" "" "" PAGE MAJOR
+.IX "name set resources" "" "" "" PAGE MAJOR
+.LP
+Name set resources contain the lists that are used for highlighting,
+visibility, detectability filters, and the current name set.
+There is one procedure in dd\s-1PEX\s+1 for each \s-1PEX\s+1 name set request.
+These procedures are called by di\s-1PEX\s+1.
+.LP
+Name sets have a cross-reference list of workstation and renderer
+resources.
+.IX "cross-reference update procedure" "name set resources"
+.IX "PHIGS workstation resources"
+.IX "renderer resources"
+.IX "resources" "PHIGS workstation resources"
+.IX "resources" "renderer resources"
+When a change is made to a name set, each workstation and
+renderer in the cross-reference lists is notified of the change
+through a call-back procedure.
+The workstation call-back procedure updates the workstation state and the
+picture as needed.
+(For more information on the \s-1PHIGS\s+1 Workstation Module, see Section 
+.XR @NumberOf(wks).)
+The renderer call-back procedure sets the change flag in the renderer
+that is used when the renderer is validated.
+(For more information on the Rendering Control Module, 
+see Section 
+.XR @NumberOf(immed_render).)
+.H 3 "PEX Font Resources"
+.IX "resources" "PEX font resources" "" "" PAGE MAJOR
+.IX "PEX font resources" "" "" "" PAGE MAJOR
+.IX "font resources" "" "" "" PAGE MAJOR
+.LP
+The \s-1PEX\s+1 font resources contain the server native description of a \s-1PEX\s+1 font.
+ddPEX procedures for font resources are found in the Shared Resources
+Module of dd\s-1PEX\s+1 and in os\s-1PEX\s+1.
+These procedures support each of the \s-1PEX\s+1 font requests.
+.LP
+.IX "cross-reference update procedure" "PEX font resources"
+Font resources have a cross-reference count of the lookup tables that reference the fonts.
+There is a utility procedure for updating the count
+that is called by the dd\s-1PEX\s+1 lookup table code.
+.IX "lookup table resources"
+.IX "resources" "lookup table resources"
+.H 2 "The Rendering Control Module" immed_render
+.IX "Rendering Control Module" "" "" "" PAGE MAJOR
+.IX "ddPEX porting layers" "2" "" "Rendering Control Module" PAGE MAJOR
+.LP
+.IX "immediate mode rendering"
+The Rendering Control Module controls the beginning of the graphics
+pipeline for the \s-1PHIGS\s+1 workstation and the immediate mode subsets of PEX.
+This module maintains the device-dependent data in the renderer resources.
+It controls initializing, changing, saving, and restoring the device
+data during immediate mode rendering, workstation traversals, and
+during rendering, picking, and searching traversals.
+Each of the procedures defined for this are described in this section.
+.H 3 "Pipeline Context Resources" pipeline
+.IX "pipeline context resources" "" "" "" PAGE MAJOR
+.IX "resources" "pipeline context resources" "" "" PAGE MAJOR
+.LP
+A pipeline context resource is used to specify the initial attribute state when
+rendering begins.
+As stated in the \fI\s-1PEX\s+1 Protocol Specification\fR, the attributes in a
+pipeline context resource are copied to the renderer resource at that time.
+No dd\s-1PEX\s+1 procedures are associated with pipeline context resource requests.
+.H 3 "Renderer Resources" renderer
+.IX "renderer resources" "" "" "" PAGE MAJOR
+.IX "resources" "renderer resources" "" "" PAGE MAJOR
+.LP
+.IX "device dependence"
+.IX "device independence"
+The renderer resource contains device-independent and device-dependent information.
+.LP
+.IX "ExecuteOC" "" "\fIExecuteOC\fP"
+.IX "ddContext" "" "\fIddContext\fP"
+.IX "procedure tables"
+dd\s-1PEX\s+1 manages the device-dependent information.
+This includes a procedure table for the rendering procedures, called the \fIExecuteOC\fR
+table, and a device-dependent rendering state structure, called the \fIddContext\fR.
+The \fIExecuteOC\fR table is part of the Transformation Module interface and is described
+in Section
+.XR @NumberOf(transformation).
+.IX "Transformation Module"
+The \fIddContext\fR is designed to be what its name implies \(em 
+a structure that can be replaced or modified 
+to interface with the software and hardware dependencies used
+in a particular \s-1PEX\s+1 server implementation.
+\fIddContext\fR is dependent on the specific devices used to render
+\s-1PEX\s+1 primitives.
+\fIddContext\fR contains state information, caches, and so on, in a form suitable to 
+the native implementation.
+The attributes from the pipeline context resource and the device-independent part of 
+the renderer resource are used to update the \fIddContext\fR.
+.KS
+.LP
+The Rendering Control Module contains procedures to
+create and destroy the \fIddContext\fR.
+It also has procedures to support each of the following \s-1PEX\s+1 requests:\ \ 
+.BP
+\fIPEXGetRendererDynamics\fR
+.BP
+\fIPEXRenderOutputCommands\fR
+.BP
+\fIPEXBeginRendering\fR
+.BP
+\fIPEXEndRendering\fR
+.BP
+\fIPEXBeginStructure\fR
+.BP
+\fIPEXEndStructure\fR
+.KE
+.LP
+These procedures have the required functionality for their matching \s-1PEX\s+1 requests.
+All of these procedures are called by di\s-1PEX\s+1 and by dd\s-1PEX\s+1.
+.LP
+The \fIBeginRendering\fR and \fIEndRendering\fR procedures establish the graphics
+pipeline as a rendering pipeline.
+The graphics pipeline produces graphical output to the drawable.
+.IX "drawables"
+In addition to these procedures, this module contains procedures for controlling
+the graphics pipeline for picking and for incremental spatial searches.
+Procedures for \fIBeginPicking\fR, \fIEndPicking\fR, \fIBeginSearching\fR, and
+\fIEndSearching\fR control those pipelines
+just as \fIBeginRendering\fR and \fIEndRendering\fR do for the rendering
+pipeline.
+These control procedures load the \fIExecuteOC\fR table in the renderer
+with the correct procedures for picking or searching.
+In addition, there is a procedure for returning the status of the pick hit tests
+done in the lower level modules and an equivalent procedure for returning the
+status of the search hit tests.
+.LP
+The Rendering Control Module also has a utility procedure for
+validating the renderer.
+This procedure updates the \fIddContext\fR with the current rendering attributes
+from the renderer and the pipeline context, lookup table, and name set resources
+it references.
+.IX "name set resources"
+.IX "resources" "name set resources"
+.IX "lookup table resources"
+.IX "resources" "lookup table resources"
+.IX "pipeline context resources"
+.IX "resources" "pipeline context resources"
+The validate procedure is called by the rendering control
+procedures for \fIBeginRendering\fR, \fIBeginPicking\fR, \fIBeginSearching\fR,
+and \fIRenderOutputCommand\fRs.
+It looks at a set of bit masks, which are in the renderer, to see which
+resources have been changed since the last time the renderer was validated.
+The procedure then updates the \fIddContext\fR to reflect the changes according
+to the dynamics of the renderer.
+The bit masks are set by the call-back procedure, which notifies a renderer
+whenever one of its subordinate resources is changed.
+.H 2 "The Transformation Module" transformation
+.IX "ddPEX porting layers" "4" "" "Transformation Module" PAGE MAJOR
+.IX "Transformation Module" "" "" "" PAGE MAJOR
+.LP
+The Transformation Module performs the following major functions:
+.BP
+.IX "Central Structure Store, CSS"
+Provides the device-dependent \s-1CSS\s+1 operations that create,
+destroy, copy, replace, and inquire structure elements
+for storage in device-dependent format.
+.BP
+.IX "immediate mode rendering"
+Reformats output commands into device-dependent data formats
+for immediate mode rendering.
+.BP
+Processes device-dependent output commands (provided as
+structure elements or immediate mode output commands) for rendering.
+.LP
+.IX "structure elements"
+The Transformation Module defines the procedures for transforming
+structure elements and output commands into a device-dependent format.
+It also defines other operations for manipulating structure
+elements and provides the first steps in processing the data through
+the graphics pipeline.
+It provides a different set of procedures, if needed, for rendering,
+picking, or searching operations.
+.IX "graphics pipeline"
+.LP
+.IX "output commands, OC"
+Because structure elements are simply stored output commands, and
+structure elements are received by dd\s-1PEX\s+1 in the same
+\s-1PEX\s+1 protocol formats as output commands, structure elements
+and output commands are handled by dd\s-1PEX\s+1 in the same way.
+Therefore, all references to output commands (\s-1OC\s+1s) in the rest of this document
+apply to both structure elements and to immediate mode output commands.
+.LP
+Six operations are defined in this module for manipulating \s-1OC\s+1s:\ \  
+create, destroy, copy, replace, inquire, and render.
+.IX "server-side CSS"
+All of these operations are used for server-side \s-1CSS\s+1,
+as described in section 
+.XR @NumberOf(structures).
+Only the parse, destroy, and execute operations are used for immediate mode
+output commands.
+.IP "\fBparse\fR" 10
+The parse operation reformats the \s-1PEX\s+1 output command to the 
+device-dependent \s-1OC\s+1 format.
+This operation also allocates the storage needed for storing the
+device-dependent \s-1OC\s+1 in the internal \s-1CSS\s+1.
+.IP "\fBdestroy\fR" 10
+The destroy operation frees the storage allocated by the create operation.
+.IP "\fBcopy\fR" 10
+The copy operation allocates storage for a new
+device-dependent \s-1OC\s+1 and copies the data from a
+given device-dependent \s-1OC\s+1 to the new one.
+.IP "\fBreplace\fR" 10
+The replace operation copies the data from a \s-1PEX OC\s+1 to a given
+device-dependent \s-1OC\s+1, thus replacing the contents of the
+device-dependent \s-1OC\s+1.
+.IP "\fBinquire\fR" 10
+The inquire operation returns the original \s-1PEX\s+1 OC
+from a given device-dependent \s-1OC\s+1.
+.KS
+.IP "\fBexecute\fR" 10
+.IX "rendering pipeline"
+The execute operation starts the \s-1OC\s+1 down the rendering pipeline.
+For \s-1OC\s+1s that set a rendering attribute, this operation updates
+the \fIddContext\fR of the renderer.
+For output primitives, the execute operation performs geometric transformations, and
+clipping, and applies lighting attributes to the primitives.
+The primitives are then passed onto the 3D Rendering Module where
+the rest of the rendering pipeline is implemented.
+.KE
+.LP
+Each of these operations is implemented separately for each output command type.
+.IX "procedure tables"
+The procedures are accessed through six procedure tables:\ \ 
+\fIParseOC\fR, \fIDestroyOC\fR, \fICopyOC\fR, \fIReplaceOC\fR, \fIInquireOC\fR, and
+\fIExecuteOC\fR.
+Each procedure table contains an entry point for each output command type.
+\s-1PEX-SI\s+1 uses procedure tables to provide flexibility
+for \s-1PEX-ME\s+1 implementers.
+The default procedure tables supplied in \s-1PEX-ME\s+1 can
+easily be modified to include implementation-specific procedures.
+Or the default procedures can be replaced for a subset of the output
+commands or all of the output commands.
+A single procedure can also be used for more than one output command.
+.LP
+.IX "ParseOC" "" "\fIParseOC\fP"
+.IX "CopyOC" "" "\fICopyOC\fP"
+.IX "InquireOC" "" "\fIInquireOC\fP"
+.IX "ReplaceOC" "" "\fIReplaceOC\fP"
+.IX "DestroyOC" "" "\fIDestroyOC\fP"
+The \fIParseOC\fR table provides the procedures for creating the 
+device-dependent output command from the \s-1PEX\s+1 output command.
+The \fIDestroyOC\fR table provides the procedures for destroying the
+storage associated with output commands.
+The \fICopyOC\fR, \fIReplaceOC\fR, and \fIInquireOC\fR tables provide
+the procedures for copying, replacing, and inquiring the output commands,
+respectively.
+A table is defined in dd\s-1PEX\s+1 for each of these five operations. 
+.LP
+The \fIExecuteOC\fR table provides the procedures for rendering the
+output commands.
+.IX "ExecuteOC" "" "\fIExecuteOC\fP"
+One \fIExecuteOC\fR table is associated with each renderer resource
+(see Section
+.XR @NumberOf(renderer)).
+.IX "renderer resources"
+.IX "resources" "renderer resources"
+This allows for different rendering procedures to be used depending
+on the current rendering state.
+For instance, separate procedures could be provided for rendering hollow fill
+areas and filled fill areas.
+To do this, the procedures must be associated with the renderer resource
+that contains the rendering state.
+\s-1PEX-ME\s+1 uses the \fIExecuteOC\fR table to load different procedures
+for drawing, picking, and incremental spatial searches of primitives.
+.H 2 "The 3D Rendering Module" three_d
+.IX "3D Rendering Module" "" "" "" PAGE MAJOR
+.IX "ddPEX porting layers" "5" "" "3D Rendering Module" PAGE MAJOR
+The 3D Rendering Module is the rendering layer for dd\s-1PEX\s+1.
+The data received by this layer are either 3D or 2D
+device coordinates with model/view, transformation/clipping, lighting,
+and/or depth-cueing already applied.
+.IX "device coordinates"
+.IX "ddx"
+Conceptually, this layer resembles an extended ddx.  In the case where
+the data has been resolved to 2D coordinates with no other per-vertex
+data, the input data can be passed directly to ddx.  However, when
+interpolation is required for 3D vertices with per-vertex colour
+information, and so on, significant data manipulation is necessary.
+.LP
+Alternatively, when the graphics pipeline is set up for picking or
+searching, the 3D Rendering Module does the hit test for these
+functions.  It does not call ddx to do this.
+.LP
+This module could be replaced completely if an application requires
+the data to be passed to implementation-specific software or hardware
+instead of ddx.
+.H 2 "Miscellaneous ddPEX Functions and Errors"miscellaneous
+.IX "ddPEX porting layers" "miscellaneous functions"
+.LP
+Four functions are defined to handle miscellaneous operations needed in all
+\s-1PEX\s+1 implementations: 
+.BP
+.IX "enumerated types"
+Two functions support the \fIPEXGetEnumeratedTypeInfo\fR and 
+\fIPEXGetImpDepConstants\fR requests.
+They return the implementation information for enumerated types and 
+implementation-dependent constants.
+.IX "implementation-dependent constants"
+.BP
+A third function initializes dd\s-1PEX\s+1 whenever the server is started or reset.
+.IX "initializing ddPEX"
+.BP
+The fourth function is called when the server shuts down.
+It cleans up after dd\s-1PEX\s+1.
+.H 3 "Errors in ddPEX"
+.IX "errors" "ddPEX"
+dd\s-1PEX\s+1 returns an error code to di\s-1PEX\s+1 for each
+dd\s-1PEX\s+1 procedure performed.
+The error returned is the \s-1X\s+1- or \s-1PEX\s+1-defined error number
+specified in the \s-1PEX\s+1 protocol for the particular condition.

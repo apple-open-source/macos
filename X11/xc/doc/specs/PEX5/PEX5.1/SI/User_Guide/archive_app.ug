@@ -1,0 +1,454 @@
+.\"##
+.\" $Xorg: archive_app.ug,v 1.3 2000/08/17 19:42:18 cpqbld Exp $
+.\"##
+.\"## 
+$XMCOPY
+.\"## Copyright (c) 1990, 1991 by Sun Microsystems, Inc. 
+.\"## 
+.\"##                         All Rights Reserved
+.\"## 
+.\"## Permission to use, copy, modify, and distribute this software and its 
+.\"## documentation for any purpose and without fee is hereby granted, 
+.\"## provided that the above copyright notice appear in all copies and that
+.\"## both that copyright notice and this permission notice appear in 
+.\"## supporting documentation, and that the name of Sun Microsystems,
+.\"## not be used in advertising or publicity 
+.\"## pertaining to distribution of the software without specific, written 
+.\"## prior permission.  
+.\"## 
+.\"## SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\"## INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\"## EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\"## CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\"## USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\"## OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\"## PERFORMANCE OF THIS SOFTWARE.
+.H A "PEX Archive Files" 
+.IX "Archival" "PEX formats"
+The \fI\s-1PHIGS\s+1 Functional Description, Part 2\fR defines a standard
+\s-1PHIGS\s+1 archive file.  This archive file provides ``a file format suitable
+for the storage and retrieval of \s-1PHIGS\s+1 structure and structure network
+definitions.''
+For complete concepts, descriptions, intents and limitations of the standard,
+see Part 2 of the \fI\s-1PHIGS\s+1 Functional Description,
+\s-1ISO DP\s+19592-2:1987(\s-1E\s+1)\fR.
+.H 2 "File Format"
+.LP
+The archive file format used by \s-2PEX-SI\s+2 is used for the storage and 
+subsequent retrieval of \s-2PHIGS\s+2 and \s-2PHIGS PLUS\s+2 structure elements.
+The file format conforms to the required archive file specification in 
+\s-2PHIGS\s+2 as to form and functionality of a generic set of archive element types.
+However, since the \s-2PEX\s+2 archive file format is not a registered \s-2PHIGS\s+2 
+format, it is classified as a private encoding.
+This encoding may be submitted for \s-2ANSI\s+2 registration in the future.
+.LP 
+The following guidelines were used in the design of the format: 
+.BP
+Define structure elements using the \s-2PEX\s+2 protocol encoding.
+.BP
+Conform to the \s-2PHIGS\s+2 archive file specification.
+.BP
+Allow all \s-2PEX\s+2 binary representations to be supported.
+.BP
+Allow efficient support of systems that provide random file access.
+.LP 
+The \s-2PEX\s+2 protocol already encodes \s-2PHIGS\s+2 and 
+\s-2PHIGS PLUS\s+2 structure elements for use in a byte stream representation.
+The \s-2PEX\s+2 archive format also uses this encoding for all structure elements.
+.H 2 "Multiple Binary Representations"
+.IX "Archival" "multiple binary representation"
+.LP 
+The \s-2PHIGS\s+2 archive interface supports any of the binary 
+representations that the \s-2PEX\s+2 protocol can support.
+By reformatting the binary values, implementations can read
+and write files that are not written in the host computer's native format.
+However, it is not intended that archives of
+different binary representations be allowed within one archive file.
+.H 2 "Random Access"
+.IX "Archival" "random access"
+.LP
+The archive file format fully allows random access.
+It also allows sequential access, if necessary.
+.LP
+.H 2 "File Definition"
+.IX "Archival" "file definition"
+.LP
+The \s-2PEX\s+2 archive file format defines the following eight
+archive file elements:
+.BP
+Structure Elements
+.BP
+Begin Archive File Element
+.BP
+Archive File Descriptor Element
+.BP
+Begin Structure Element
+.BP
+End Structure Element
+.BP
+End Archive File Element
+.BP
+Archive Free Space Element
+.BP
+Archive File Index Element
+.LP
+A \s-2PEX\s+2 archive file consists of an ordered set of elements from
+the above list.  The ordering is described later in this chapter in the
+section \fIConceptual States\fP.  The elements are defined below.
+.H 2 "Archive File Elements"
+.IX "Archival" "file elements"
+.H 3 "Structure Elements"
+.LP
+The \s-2PEX\s+2 archive format encodes Structure Elements
+exactly as defined by the \s-2PEX\s+2 protocol.
+These elements all begin with a two-byte opcode followed by a two-byte length.
+Their definition can be found in the \fIPEX Protocol Encoding Document\fR.
+.H 3 "Begin Archive File Element"
+.LP
+The Begin Archive File Element is encoded as shown in Table
+.XR @NumberOf(ar_file_elem).
+.KS
+.TN "Begin Archive File Element" ar_file_elem
+.TS
+center box tab (@) ;
+cB s s s
+cfBI | cfBI | cfBI | cfBI
+l | c | l | l.
+Begin Archive File Element
+_
+Type@# Bytes@Description@Value
+=
+CARD16@2@Archive Element Opcode@0x1010
+CARD8@1@Length of Name (\f2n\f1)@0-255
+CARD8@1@Pad@0x0
+CARD8@\f2n\f1@Name of Archive@ASCII Characters
+CARD8@pad(\f2n\f1)@Pads to multiple of 4 bytes@0x0
+.TE
+.KE
+A \s-2PEX\s+2 archive file must start with a Begin Archive File Element.
+The first two bytes of this element are the element opcode.
+This opcode value never has to be byte-swapped. \s-2PHIGS\s+2
+requires this element to have parameters for a name that can identify the archive.
+Since the binary format of the archive
+has not been determined when the Begin Archive File Element
+is encountered, the length of the name is encoded in one byte to eliminate
+the need for byte-swapping when the byte ordering has not been defined.
+It also limits the length of the archive file name to 255 characters.
+Zero length indicates that no archive file name is specified.
+.H 3 "Archive File Descriptor Element"
+.LP
+The Archive File Descriptor Element describes the functional 
+capabilities required to process the archive file.
+A \s-2PEX\s+2 archive file contains one Archive File Descriptor Element 
+immediately following the Begin Archive File Element.
+The format of this element is shown in Table
+.XR @NumberOf(ar_desc_elem).
+.KS
+.TN "Archive File Descriptor Element" ar_desc_elem
+.TS 
+center box tab (@) ; 
+cB s s s 
+cfBI | cfBI | cfBI | cfBI 
+l | c | l | l.
+Archive File Descriptor Element 
+_
+Type@# Bytes@Description@Value 
+=
+CARD16@2@Archive File Descriptor Opcode@0x1111 
+CARD8@1@PEX Binary Format Byte@0x0,0x1,0x2,0x3
+CARD8@1@Pad@0x0
+INT32@4@Archive Version@Integer 
+CARD16@2@Text Length (\f2n\f1)@Integer 
+CARD8@2@Pad@0x0/0x0
+CARD8@\f2n\f1@Character Description@ASCII Characters 
+CARD8@pad(\f2n\f1)@Pads to multiple of 4 bytes@0x0 
+.TE 
+.KE
+.LP 
+The first two bytes are the opcode of the element type.
+This opcode does not have to be byte-swapped.
+The next byte describes the binary format of the archive file.
+.LP 
+Bit 0 (the least significant bit) of the binary format byte 
+indicates the byte ordering for \fIall subsequent numerical\fR
+values in the archive file.  If this bit is zero, values are 
+represented with the least significant byte first.
+If the bit is one, values in the archive file are represented with the most 
+significant byte first.
+.LP 
+Bit 1 of the binary format byte indicates the floating-point 
+format for all floating-point values in the archive file.
+A value of zero for this bit indicates floating-point values 
+are stored in IEEE-754-32 format.  A value of one indicates 
+floating-point values are stored in \s-2DEC\s+2 F-Floating format.
+Bits 2-7 of this byte are zero.
+.LP
+.ce
+\f(BINote\fP
+.IP
+.I
+Until the binary format byte is read, no format conversion is performed.
+If the host computer's binary format differs from this specified format,
+all numerical values in the remainder of the archive must be converted.
+.R
+.LP
+The next four bytes of the Archive File Descriptor Element give 
+an integer version number of the \s-1PHIGS\s+1 archive file version
+(see \s-1PHIGS\s+1 for a description of the appropriate values for the
+\s-1PHIGS\s+1 version).
+The next four bytes of the Archive File Descriptor Element that give
+Archives that adhere to this document will have a version number of 1.
+The version number is encoded as an integer to match the 
+\s-2PHIGS\s+2 clear-text archive encoding.
+.LP 
+The final part of the Archive File Descriptor Element is a counted list 
+of character data that describes the archive file.
+This list contains a two-byte length field followed by the character data.
+The length may be zero, indicating that no character description exists.
+.H 3 "Begin Structure Element"
+.LP 
+The format of the Begin Structure Element is shown in the Table
+.XR @NumberOf(struct_elem).
+.KS
+.TN "Begin Structure Element" struct_elem
+.TS 
+center box tab (@) ; 
+cB s s s 
+cfBI | cfBI | cfBI | cfBI 
+l | c | l | l.
+Begin Structure Element 
+_
+Type@# Bytes@Description@Value 
+=
+CARD16@2@Begin Structure Opcode@0x1212 
+CARD8@2@Pad@0x0/0x0
+INT32@4@Structure Identifier@Integer 
+CARD32@4@Number of Elements@Integer 
+CARD32@4@Length of Structure Element Data@Integer 
+.TE 
+.KE
+.LP
+The opcode is followed by the structure identifier and number of structure elements.
+The last field specifies the number of bytes of Structure Element data that 
+follows the Begin Structure Element.
+This length does not include the End Structure Element at the 
+end of the structure definition.
+The specified number of Structure Elements 
+(encoded using the PEX protocol) follow this element.
+.H 3 "End Structure Element"
+.LP 
+The End Structure Element consists of only its opcode (0x1313) 
+and a two-byte pad.
+.H 3 "End Archive File Element"
+.LP 
+The End Archive File Element consists of only its opcode (0x1414) 
+and a two-byte pad.
+.H 3 "Archive Free Space Element"
+.LP 
+The format of an Archive Free Space Element is shown in Table
+.XR @NumberOf(ar_free_spc_elem).
+.KS
+.TN "Archive Free Space Element" ar_free_spc_elem
+.TS 
+center box tab (@) ; 
+cB s s s 
+cfBI | cfBI | cfBI | cfBI 
+l | c | l | l.
+Archive Free Space Element 
+_
+Type@# Bytes@Description@Value 
+=
+CARD16@2@Free Space Opcode@0x1515 
+CARD8@2@Pad@0x0/0x0
+CARD32@4@Length (\f2n\f1)@Integer multiple of 4
+CARD8@\f2n\f1@Unused@Undefined 
+.TE 
+.KE
+.LP
+The element consists of its opcode (0x1515) followed by a length field.
+The length specifies the number of bytes (following the length field 
+itself) that remain in the Free Space Element.
+The rest of the block is undefined and contains information that is not examined.
+.H 3 "Archive File Index Element"
+.LP
+The Archive File Index Element maintains a list of contiguous blocks in the file.
+Each defined list entry of an Archive File Index Element 
+describes the file position (the number of bytes from the beginning 
+of the file) and size (number of bytes) of one block.
+A block consists of an Archive Free Space Element or a structure definition.
+For an Archive Free Space Element, the list entry specifies the position of 
+the Archive Free Space Element.
+The size is the total number of bytes the element uses.
+In the case of a structure definition, the list 
+entry gives the position of a Begin Structure Element.
+The specified size is the total number of bytes used by the Begin Structure
+Element and all subsequent Structure Elements up to and 
+including the End Structure Element.
+.LP 
+A \s-2PEX\s+2 archive contains a singly-linked list of Archive File Index Elements.
+The first element of the list immediately follows the Archive File Descriptor Element.
+The list completely specifies the structures and 
+Archive Free Space Elements that exist in the archive.
+.LP 
+The contents of an Archive File Index Element are shown in Table
+.XR @NumberOf(ar_file_ix_elem).
+.KS
+.ad l
+.TN "Archive File Index Element" ar_file_ix_elem
+.TS
+expand box tab (@) ; 
+cB s s s s 
+cfBI | cfBI | cfBIw(2.0i) | cfBI cfBI 
+l | c | lw(2.0i) | l l 
+l | c | lw(2.0i) | l l 
+l | c | lw(2.0i) | l l 
+l | c | lw(2.0i) | l l 
+l | c | lw(2.0i) | l l 
+l | c | lw(2.0i) | l l 
+l | c | lw(2.0i) | l | l.
+Archive File Index Element 
+_
+Type@# Bytes@Description@Value 
+=
+CARD16@2@Archive File Index Opcode@0x1616 
+CARD8@2@Pad@0x0/0x0 
+CARD16@2@Number of entries used@Integer 
+CARD16@2@Number of entries in list@Integer 
+CARD32@4@T{
+Position
+'in +1m
+of next Archive File Index Element 
+.in
+.in
+T}@Integer 
+CARD32@4@T{
+Length
+'in +1m
+ (Number of bytes remaining) 
+.in
+T}@Integer 
+_
+CARD8@1@T{
+Block 
+'in +1m
+Type (Beginning of entry 1) 
+.in
+T}@0x1=Struct, 0x2=Free 
+CARD8@3@Pad@0x0/0x0/0x0
+CARD32@4@Block Size@Integer 
+CARD32@4@T{
+Block 
+'in +1m
+Position (Number of bytes from beginning of file) 
+.in
+T}@Integer@\u\f3Entry 1\f1\d 
+INT32@4@Structure Identifier@Undefined if Free Space 
+CARD32@4@T{
+Number 
+'in +1m
+of Elements (End of entry 1) 
+.in
+T}@Undefined if Free Space 
+_
+CARD8@1@T{
+Block 
+'in +1m
+Type (Beginning of entry 2) 
+.in
+T}@0x1=Struct, 0x2=Free 
+CARD8@3@Pad@Undefined 
+CARD32@4@Block Size@Integer 
+CARD32@4@T{
+Block 
+'in +1m
+Position (Number of bytes from beginning of file) 
+.in
+T}@Integer@\u\f3Entry 2\f1\d 
+INT32@4@Structure Identifier@Undefined if Free Space 
+CARD32@4@T{
+Number 
+'in +1m
+of Elements (End of entry 2) 
+.in
+T}@Undefined if Free Space 
+_
+.T& 
+cB s s s s.
+\(bu   
+\(bu   
+\(bu   
+.TE
+.ad b
+.KE
+.LP
+The first two bytes of an Archive File Index Element specify 
+the element opcode.  The next field gives the number of blocks defined by this element.
+The following field gives the number of blocks that this element has space to define.
+(Some entries in the list may be unused.) 
+The fourth field specifies the file offset in bytes from 
+the beginning of the file to the next Archive File Index Element.
+This field is zero if there are no more Archive File Index Elements in the archive.
+Archive File Index Elements are maintained in a 
+singly-linked list using this field.  The fifth field is a length that
+specifies the number of bytes remaining in the element definition.
+.LP 
+Each list entry in an Archive File Index Element consists 
+of the following elements:
+.BP
+A block type indicating whether this entry defines a 
+Structure Element or an Archive Free Space Element.
+.BP
+The size of the block.
+.BP
+The position of the block.
+.BP
+The structure identifier.
+.BP
+The number of elements in the structure.
+.LP
+The last two values are undefined if the entry describes an Archive 
+Free Space Element.
+.H 3 "Conceptual States" 
+.IX "Archival" "conceptual states"
+.LP 
+A set of required relationships between Archive File Elements 
+determines if an archive file is syntactically correct.
+The sequence of elements can be thought of as representing 
+changes of state in a virtual system.
+The valid sequences of Archive File Elements can then be documented by means of a 
+state transition table.
+.LP 
+Table
+.XR @NumberOf(ar_state_trans) is a state transition table for the \s-2PEX\s+2 
+archive file format.
+It lists Archive File Element/state combinations.
+Processing an element causes a transition from the starting state 
+to the resulting state.
+This table is a more restrictive form of a similar table provided in Chapter 2 of the 
+\fIProgrammer's Hierarchical Interactive Graphics System\fP (\s-2PHIGS\s+2).
+.KS
+.TN "Archive State Transition Table" ar_state_trans
+.TS 
+center box tab (@) ; 
+cB s s 
+cfBI | cfBI | cfBI 
+l | l | l.
+Archive File Elements and States 
+_
+Element@Starting State@Resulting State 
+=
+Begin Archive File@Initial0@Initial1 
+Archive File Descriptor@Initial1@Initial2 
+Archive File Index@Initial2@Structure Closed 
+Archive File Index@Structure Closed@Structure Closed 
+Begin Structure@Structure Closed@Structure Open 
+Structure Element@Structure Open@Structure Open 
+End Structure@Structure Open@Structure Closed 
+Archive Free Space@Structure Closed@Structure Closed 
+End Archive File@Structure Closed@Final 
+.TE 
+.KE
+.LP
+Any other element/state combinations are illegal and can be 
+considered to cause transition to an error state.
+.LP

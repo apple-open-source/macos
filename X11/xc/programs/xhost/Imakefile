@@ -1,0 +1,22 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:24 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/programs/xhost/Imakefile,v 1.5 2001/03/30 02:15:24 keithp Exp $
+
+#if HasSecureRPC
+RPC_DEFINES = -DSECURE_RPC
+#else
+RPC_DEFINES = 
+#endif
+KRB5_DEFINES = Krb5Defines
+KRB5_INCLUDE = Krb5Includes
+       INCLUDES = $(KRB5_INCLUDE)
+        DEPLIBS = $(DEPXMUULIB) $(DEPXLIB)
+LOCAL_LIBRARIES = $(XMUULIB) $(XLIB)
+           SRCS = xhost.c 
+           OBJS = xhost.o 
+        DEFINES = $(CONNECTION_FLAGS) $(SIGNAL_DEFINES) $(RPC_DEFINES) $(KRB5_DEFINES)
+
+ComplexProgramTarget(xhost)

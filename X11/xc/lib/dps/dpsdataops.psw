@@ -1,0 +1,258 @@
+/*
+ * dpsdataops.psw
+ *
+ * (c) Copyright 1988-1994 Adobe Systems Incorporated.
+ * All rights reserved.
+ * 
+ * Permission to use, copy, modify, distribute, and sublicense this software
+ * and its documentation for any purpose and without fee is hereby granted,
+ * provided that the above copyright notices appear in all copies and that
+ * both those copyright notices and this permission notice appear in
+ * supporting documentation and that the name of Adobe Systems Incorporated
+ * not be used in advertising or publicity pertaining to distribution of the
+ * software without specific, written prior permission.  No trademark license
+ * to use the Adobe trademarks is hereby granted.  If the Adobe trademark
+ * "Display PostScript"(tm) is used to describe this software, its
+ * functionality or for any other purpose, such use shall be limited to a
+ * statement that this software works in conjunction with the Display
+ * PostScript system.  Proper trademark attribution to reflect Adobe's
+ * ownership of the trademark shall be given whenever any such reference to
+ * the Display PostScript system is made.
+ * 
+ * ADOBE MAKES NO REPRESENTATIONS ABOUT THE SUITABILITY OF THE SOFTWARE FOR
+ * ANY PURPOSE.  IT IS PROVIDED "AS IS" WITHOUT EXPRESS OR IMPLIED WARRANTY.
+ * ADOBE DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL
+ * IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NON- INFRINGEMENT OF THIRD PARTY RIGHTS.  IN NO EVENT SHALL ADOBE BE LIABLE
+ * TO YOU OR ANY OTHER PARTY FOR ANY SPECIAL, INDIRECT, OR CONSEQUENTIAL
+ * DAMAGES OR ANY DAMAGES WHATSOEVER WHETHER IN AN ACTION OF CONTRACT,
+ * NEGLIGENCE, STRICT LIABILITY OR ANY OTHER ACTION ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.  ADOBE WILL NOT
+ * PROVIDE ANY TRAINING OR OTHER SUPPORT FOR THE SOFTWARE.
+ * 
+ * Adobe, PostScript, and Display PostScript are trademarks of Adobe Systems
+ * Incorporated which may be registered in certain jurisdictions
+ * 
+ * Author:  Adobe Systems Incorporated
+ */
+
+defineps DPSaload(DPSContext ctxt)
+	aload 
+endps
+
+defineps DPSanchorsearch(DPSContext ctxt| boolean *truth)
+	anchorsearch truth
+endps
+
+defineps DPSarray(DPSContext ctxt; int len)
+	len array 
+endps
+
+defineps DPSastore(DPSContext ctxt)
+	astore 
+endps
+
+defineps DPSbegin(DPSContext ctxt)
+	begin 
+endps
+
+defineps DPSclear(DPSContext ctxt)
+	clear 
+endps
+
+defineps DPScleartomark(DPSContext ctxt)
+	cleartomark 
+endps
+
+defineps DPScopy(DPSContext ctxt; int n)
+	n copy
+endps
+
+defineps DPScount(DPSContext ctxt | int *n)
+	count n 
+endps
+
+defineps DPScounttomark(DPSContext ctxt | int *n)
+	counttomark n 
+endps
+
+defineps DPScvi(DPSContext ctxt)
+	cvi 
+endps
+
+defineps DPScvlit(DPSContext ctxt)
+	cvlit 
+endps
+
+defineps DPScvn(DPSContext ctxt)
+	cvn 
+endps
+
+defineps DPScvr(DPSContext ctxt)
+	cvr 
+endps
+
+defineps DPScvrs(DPSContext ctxt)
+	cvrs 
+endps
+
+defineps DPScvs(DPSContext ctxt)
+	cvs 
+endps
+
+defineps DPScvx(DPSContext ctxt)
+	cvx 
+endps
+
+defineps DPSdef(DPSContext ctxt)
+	def 
+endps
+
+defineps DPSdict(DPSContext ctxt; int len)
+	len dict 
+endps
+
+defineps DPSdictstack(DPSContext ctxt)
+	dictstack 
+endps
+
+defineps DPSdup(DPSContext ctxt)
+	dup 
+endps
+
+defineps DPSend(DPSContext ctxt)
+	end 
+endps
+
+defineps DPSexch(DPSContext ctxt)
+	exch 
+endps
+
+defineps DPSexecstack(DPSContext ctxt)
+	execstack 
+endps
+
+defineps DPSexecuteonly(DPSContext ctxt)
+	executeonly 
+endps
+
+defineps DPSget(DPSContext ctxt)
+	get 
+endps
+
+defineps DPSgetinterval(DPSContext ctxt)
+	getinterval 
+endps
+
+defineps DPSindex(DPSContext ctxt; int i)
+	i index 
+endps
+
+defineps DPSknown(DPSContext ctxt | boolean *b)
+	known b 
+endps
+
+defineps DPSlength(DPSContext ctxt | int *len)
+	length len 
+endps
+
+defineps DPSload(DPSContext ctxt)
+	load 
+endps
+
+defineps DPSmark(DPSContext ctxt)
+	mark 
+endps
+
+defineps DPSmatrix(DPSContext ctxt)
+	matrix 
+endps
+
+defineps DPSmaxlength(DPSContext ctxt | int *len)
+	maxlength len 
+endps
+
+defineps DPSnoaccess(DPSContext ctxt)
+	noaccess 
+endps
+
+defineps DPSnull(DPSContext ctxt)
+	null 
+endps
+
+defineps DPSpackedarray(DPSContext ctxt)
+	packedarray 
+endps
+
+defineps DPSpop(DPSContext ctxt)
+	pop 
+endps
+
+defineps DPSput(DPSContext ctxt)
+	put 
+endps
+
+defineps DPSputinterval(DPSContext ctxt)
+	putinterval 
+endps
+
+defineps DPSrcheck(DPSContext ctxt | boolean *b)
+	rcheck b 
+endps
+
+defineps DPSreadonly(DPSContext ctxt)
+	readonly 
+endps
+
+defineps DPSroll(DPSContext ctxt; int n, j)
+	n j roll 
+endps
+
+defineps DPSscheck(DPSContext ctxt | boolean *b)
+	scheck b 
+endps
+
+defineps DPSsearch(DPSContext ctxt| boolean *b)
+	search b
+endps
+
+defineps DPSshareddict(DPSContext ctxt)
+	shareddict 
+endps
+
+defineps DPSstatusdict(DPSContext ctxt)
+	statusdict 
+endps
+
+defineps DPSstore(DPSContext ctxt)
+	store 
+endps
+
+defineps DPSstring(DPSContext ctxt; int len)
+	len string 
+endps
+
+defineps DPSstringwidth(DPSContext ctxt; char *s | float *xp, *yp)
+	(s) stringwidth yp xp 
+endps
+
+defineps DPSsystemdict(DPSContext ctxt)
+	systemdict 
+endps
+
+defineps DPSuserdict(DPSContext ctxt)
+	userdict 
+endps
+
+defineps DPSwcheck(DPSContext ctxt | boolean *b)
+	wcheck b 
+endps
+
+defineps DPSwhere(DPSContext ctxt| boolean *b)
+	where b
+endps
+
+defineps DPSxcheck(DPSContext ctxt | boolean *b)
+	xcheck b 
+endps
+

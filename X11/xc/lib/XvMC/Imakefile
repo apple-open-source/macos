@@ -1,0 +1,38 @@
+XCOMM $XFree86: xc/lib/XvMC/Imakefile,v 1.5 2002/10/16 00:37:33 dawes Exp $
+
+#define DoNormalLib NormalLibXvMC
+#define DoSharedLib SharedLibXvMC
+#define DoDebugLib DebugLibXvMC
+#define DoProfileLib ProfileLibXvMC
+#define LibName XvMC
+#define SoRev SOXVMCREV
+#define LibHeaders NO
+
+#include <Threads.tmpl>
+
+#ifdef SharedXvMCReqs
+REQUIREDLIBS = SharedXvMCReqs
+#endif
+
+#if Malloc0ReturnsNull
+ALLOC_DEFINES = -DMALLOC_0_RETURNS_NULL
+#endif
+
+      DEFINES = $(ALLOC_DEFINES)
+         SRCS = XvMC.c
+         OBJS = XvMC.o
+     LINTLIBS = $(LINTXLIB)
+
+#include <Library.tmpl>
+
+#define PassCDebugFlags
+
+#if defined(LinuxArchitecture)
+#define IHaveSubdirs
+SUBDIRS = hw/i810
+
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))
+#endif
+
+DependTarget()

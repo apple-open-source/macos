@@ -1,0 +1,27 @@
+XCOMM $XFree86: xc/programs/Xserver/XTrap/Imakefile,v 1.2 2002/09/17 01:15:08 dawes Exp $
+
+#if DoLoadableServer
+#define IHaveSubdirs
+#endif
+
+#include <Server.tmpl>
+
+#if DoLoadableServer
+       SUBDIRS = module
+#endif
+         SRCS = xtrapddmi.c xtrapdi.c xtrapdiswp.c xtrapditbl.c
+         OBJS = xtrapddmi.o xtrapdi.o xtrapdiswp.o xtrapditbl.o
+     INCLUDES = -I../include -I$(EXTINCSRC) -I$(XINCLUDESRC) -I$(SERVERSRC)/Xext
+
+NormalLibraryTarget(xtrap,$(OBJS))
+LintLibraryTarget(xtrap,$(SRCS))
+NormalLintTarget($(SRCS))
+
+NormalLibraryObjectRule()
+
+#if DoLoadableServer
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))
+#endif
+
+DependTarget()

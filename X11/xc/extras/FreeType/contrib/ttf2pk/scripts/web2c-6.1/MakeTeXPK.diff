@@ -1,0 +1,75 @@
+--- MakeTeXPK.orig	Sun Aug 16 08:05:07 1998
++++ MakeTeXPK	Tue Aug 18 07:53:57 1998
+@@ -1,5 +1,5 @@
+ #!/bin/sh
+-# original MakeTeXPK -- make a new PK font, because one wasn't found.
++# MakeTeXPK -- make a new PK font, because one wasn't found.
+ # Version of 12dec94.
+ # 
+ # (If you change or delete the word `original' on the previous line,
+@@ -142,11 +142,52 @@
+ test -d $TEMPDIR || mkdir $TEMPDIR 
+ cd $TEMPDIR || exit 1
+ 
++unset cmd
++
++# test for TTF fonts
++if test -z "$cmd"; then
++  ttf2pk -q $NAME $DPI
++  errstatus=$?
++
++  if test $errstatus -ne 2; then
++    if test $errstatus -ne 0; then
++      echo "ttf2pk failed" >&2
++      exit 1
++    fi
++    test -z "$6" && DESTDIR="$DESTROOT/ttf2pk"	# preferred mode for TDS
++						# would be `modeless'
++    echo "Successful call to ttf2pk" >&2
++    cmd=ttf2pk
++  fi
++fi
++
++# test for HBF fonts
++if test -z "$cmd"; then
++  hbf2gf -q -p $NAME $DPI
++  errstatus=$?
++
++  if test $errstatus -ne 2; then
++    if test $errstatus -ne 0; then
++      echo "hbf2gf failed" >&2
++      exit 1
++    fi
++    test -z "$6" && DESTDIR="$DESTROOT/hbf2gf"	# preferred mode for TDS
++						# would be `modeless'
++    echo "Successful call to hbf2gf" >&2
++    cmd=hbf2gf
++
++    gftopk ./$GFNAME $PKNAME || exit 1
++  fi
++fi
++
+ # grep for the font in $PSMAPFILE, if some ps-to-pk is claimed to be supported.
+ # We have to figure out the name of the base font -- $NAME is probably
+ # something like pplr, but it's rpplr or pplr0 or pplr8r that's in psfonts.map.
+-pattern="^r?$NAME"'(0|8r)?([ 	]|$)' 
+-test -n "$ps_to_pk" && egrep "$pattern" $PSMAPFILE >psline
++if test -z "$cmd"; then
++  pattern="^r?$NAME"'(0|8r)?([ 	]|$)'
++  test -n "$ps_to_pk" && egrep "$pattern" $PSMAPFILE > psline
++fi
++
+ if test -s psline; then
+   # This is a PostScript font.
+   MODE=$ps_to_pk
+@@ -173,8 +214,9 @@
+   export DVIPSHEADERS
+   echo "$0: Running $cmd" >&2
+   $cmd >&2 || { echo "$0: $ps_to_pk failed." >&2; exit 1; }
++fi
+ 
+-else
++if test -z "$cmd"; then
+   # Try Metafont.
+   MFINPUTS="$MFINPUTS:$SAVEPWD"
+   export MFINPUTS

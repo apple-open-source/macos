@@ -36,18 +36,15 @@
  *
  *	@(#)pathnames.h 8.1 (Berkeley) 6/5/93
  *
- * $Id: pathnames.h,v 1.2 2002/01/02 23:47:26 lutherj Exp $
+ * $Id: pathnames.h,v 1.2.250.1 2003/11/01 00:00:18 lutherj Exp $
  */
 
 #include <paths.h>
 
 #define _PATH_TMPWEBDAV	 "/tmp/webdavXXXXXX"	/* Scratch socket name */
 #define _PATH_TMPWEBDAVDIR "/tmp/webdavcache"	/* Directory for local file cache */
+#define _WEBDAVCACHEFILE "webdav.XXXXXX"		/* template for cache files */
 #define _WEBDAVPREFIX "http://"					/* begininng of all uri's */
-#define _WEBDAVTMPEXT ".XXXXXX"					/* differentiator for webdav meta data files */
-#define GENERIC_SEED_PREFIX "tempfile"			/* used in name_tempfile() when
-													no other meta data file name 
-													is provided */
 
 #define HTTP_PORT 80
 

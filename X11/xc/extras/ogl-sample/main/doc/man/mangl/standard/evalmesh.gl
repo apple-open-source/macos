@@ -1,0 +1,189 @@
+_C_ License Applicability. Except to the extent portions of this file are
+_C_ made subject to an alternative license as permitted in the SGI Free
+_C_ Software License B, Version 1.1 (the "License"), the contents of this
+_C_ file are subject only to the provisions of the License. You may not use
+_C_ this file except in compliance with the License. You may obtain a copy
+_C_ of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+_C_ Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+_C_ 
+_C_ http://oss.sgi.com/projects/FreeB
+_C_ 
+_C_ Note that, as provided in the License, the Software is distributed on an
+_C_ "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+_C_ DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+_C_ CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+_C_ PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+_C_ 
+_C_ Original Code. The Original Code is: OpenGL Sample Implementation,
+_C_ Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+_C_ Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+_C_ Copyright in any portions created by third parties is as indicated
+_C_ elsewhere herein. All Rights Reserved.
+_C_ 
+_C_ Additional Notice Provisions: The application programming interfaces
+_C_ established by SGI in conjunction with the Original Code are The
+_C_ OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+_C_ April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+_C_ 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+_C_ Window System(R) (Version 1.3), released October 19, 1998. This software
+_C_ was created using the OpenGL(R) version 1.2.1 Sample Implementation
+_C_ published by SGI, but has not been independently verified as being
+_C_ compliant with the OpenGL(R) version 1.2.1 Specification.
+_C_
+_C_ The first character in this file must be an '_'!
+_C_ Anything on a line after _C_ is ignored
+_define(_filters,eqn)_C_
+_C_      eqn is automatically replaced with neqn for nroff
+_header(EvalMesh, compute a one- or two-dimensional grid of points or lines)
+_names(EvalMesh1)
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+_phead(_param1)
+In _cmnd(EvalMesh1), specifies whether to compute a one-dimensional mesh of points or lines.
+Symbolic constants
+_const(POINT) and
+_const(LINE) are accepted.
+_phead(_param2 _param3)
+Specify the first and last integer values for grid domain variable $i$.
+_names(EvalMesh2)
+.SH PARAMETERS
+_phead(_param1)
+In _cmnd(EvalMesh2), specifies whether to compute a two-dimensional mesh of points, lines,
+or polygons.
+Symbolic constants
+_const(POINT),
+_const(LINE), and
+_const(FILL) are accepted.
+_phead(_param2 _param3)
+Specify the first and last integer values for grid domain variable $i$.
+_phead(_param4 _param5)
+Specify the first and last integer values for grid domain variable $j$.
+.SH DESCRIPTION
+_cmnd(MapGrid) and _cmnd are used in tandem to efficiently
+generate and evaluate a series of evenly-spaced map domain values.
+_cmnd steps through the integer domain of a one- or two-dimensional grid,
+whose range is the domain of the evaluation maps specified by
+_cmnd(Map1) and _cmnd(Map2).
+_param1(1) determines whether the resulting vertices are connected as
+points,
+lines,
+or filled polygons.
+.P
+In the one-dimensional case,
+_cmnd(EvalMesh1),
+the mesh is generated as if the following code fragment were executed:
+.nf
+.IP
+\f7
+glBegin( \f2type\f7 );
+for ( i = _param2; i <= _param3; i += 1 )
+   glEvalCoord1( i$^cdot^DELTA u ~+~ u sub 1$ );
+glEnd();
+\fP
+.RE
+.fi
+where
+.sp
+.in
+$ DELTA u ~=~ (u sub 2 ~-~ u sub 1 ) ^/^ n$
+.sp
+.in 0
+.P
+and $n$, $u sub 1$, and $u sub 2$ are the arguments to the most recent
+_cmnd(MapGrid1) command.
+\f2type\fP is _const(POINTS) if _param1(1) is _const(POINT),
+or _const(LINES) if _param1(1) is _const(LINE).
+.P
+The one absolute numeric requirement is that if $i ~=~ n$, then the
+value computed from $ i^cdot^DELTA u ~+~ u sub 1$ is exactly $u sub 2$.
+.P
+In the two-dimensional case, _cmnd(EvalMesh2), let 
+.nf
+.IP
+$ DELTA u ~=~ mark ( u sub 2 ~-~ u sub 1 ) ^/^ n$
+.sp
+$ DELTA v ~=~ lineup ( v sub 2 ~-~ v sub 1 ) ^/^ m$,
+.fi
+.RE
+.P
+where $n$, $u sub 1$, $u sub 2$, $m$, $v sub 1$, and $v sub 2$ are the
+arguments to the most recent _cmnd(MapGrid2) command.  Then, if
+_param1(2) is _const(FILL), the _cmnd(EvalMesh2) command is equivalent
+to:
+.nf
+.IP
+\f7
+for ( j = _param4; j < _param5; j += 1 ) {
+   glBegin( GL_QUAD_STRIP );
+   for ( i = _param2; i <= _param3; i += 1 ) {
+      glEvalCoord2( i$^cdot^DELTA u ~+~ u sub 1$, j$^cdot^DELTA v ~+~ v sub 1$ );
+      glEvalCoord2( i$^cdot^DELTA u ~+~ u sub 1$, (j+1)$^cdot^DELTA v ~+~ v sub 1$ );
+   }
+   glEnd();
+}
+\fP
+.RE
+.fi
+.P
+If _param1 is _const(LINE), then a call to _cmnd(EvalMesh2) is equivalent to:
+.nf
+.IP
+\f7
+for ( j = _param4; j <= _param5; j += 1 ) {
+   glBegin( GL_LINE_STRIP );
+   for ( i = _param2; i <= _param3; i += 1 )
+      glEvalCoord2( i$^cdot^DELTA u ~+~ u sub 1$, j$^cdot^DELTA v ~+~ v sub 1$ );
+   glEnd();
+}
+.sp
+for ( i = _param2;  i <= _param3; i += 1 ) {
+   glBegin( GL_LINE_STRIP );
+   for ( j = _param4; j <= _param4; j += 1 )
+      glEvalCoord2( i$^cdot^DELTA u ~+~ u sub 1$, j$^cdot^DELTA v ~+~ v sub 1 $ );
+   glEnd();
+}
+\fP
+.RE
+.fi
+.P
+And finally, if _param1 is _const(POINT), then a call to
+_cmnd(EvalMesh2) is equivalent to:
+.nf
+.IP
+\f7
+glBegin( GL_POINTS );
+for ( j = _param4; j <= _param5; j += 1 )
+   for ( i = _param2; i <= _param3; i += 1 )
+      glEvalCoord2( i$^cdot^DELTA u ~+~ u sub 1$, j$^cdot^DELTA v ~+~ v sub 1$ );
+glEnd();
+\fP
+.RE
+.fi
+.P
+In all three cases, the only absolute numeric requirements are that if $i~=~n$,
+then the value computed from $i^cdot^DELTA u ~+~ u sub 1$ is exactly $u
+sub 2$, and if $j~=~m$, then the value computed from
+$j ^cdot^ DELTA v ~+~ v sub 1$ is exactly $v sub 2$.
+.SH ERRORS
+_const(INVALID_ENUM) is generated if _param1 is not an accepted value.
+.P
+_const(INVALID_OPERATION) is generated if _cmnd
+is executed between the execution of _cmnd(Begin)
+and the corresponding execution of _cmnd(End).
+.SH ASSOCIATED GETS
+_cmnd(Get) with argument _const(MAP1_GRID_DOMAIN)
+.br
+_cmnd(Get) with argument _const(MAP2_GRID_DOMAIN)
+.br
+_cmnd(Get) with argument _const(MAP1_GRID_SEGMENTS)
+.br
+_cmnd(Get) with argument _const(MAP2_GRID_SEGMENTS)
+.SH SEE ALSO
+_cmnd(Begin),
+_cmnd(EvalCoord),
+_cmnd(EvalPoint),
+_cmnd(Map1),
+_cmnd(Map2),
+_cmnd(MapGrid)

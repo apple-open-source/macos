@@ -1,0 +1,107 @@
+XCOMM $XFree86: xc/extras/X-TrueType/Imakefile,v 1.4 2001/03/06 18:54:38 dawes Exp $
+
+/*
+ * X-TrueType Server
+ */
+
+#define	IHaveSubdirs
+
+#include <Server.tmpl>
+
+XTT_CCONV_DEFAULT_SUBDIRS = ISO8859.1
+XTT_CCONV_DEFAULT_DONES = DONE ISO8859.1/DONE 
+#if XTrueTypeUseOptEncodings
+  XTT_USE_OPT_ENC_DEFINES = -DOPT_ENCODINGS
+  XTT_CCONV_OPT_SUBDIRS = \
+    BIG5 BIG5HKSCS GB2312 GBK JISX0201 JISX0208 JISX0212 KSC5601 KSCJOHAB \
+    ISO8859.2 ISO8859.3 ISO8859.4 ISO8859.5 ISO8859.6 \
+    ISO8859.7 ISO8859.8 ISO8859.9 ISO8859.10 ISO8859.11 \
+    ISO8859.14 ISO8859.15 KOI8 VISCII TCVN ARMSCII8 \
+    ARABIC MULEENCODING DOSENCODING GEORGIAN
+  XTT_CCONV_OPT_DONES = \
+    BIG5/DONE BIG5HKSCS/DONE GB2312/DONE GBK/DONE JISX0201/DONE JISX0208/DONE \
+    JISX0212/DONE KSC5601/DONE KSCJOHAB/DONE \
+    ISO8859.1/DONE ISO8859.2/DONE ISO8859.3/DONE ISO8859.4/DONE \
+    ISO8859.5/DONE ISO8859.6/DONE ISO8859.7/DONE ISO8859.8/DONE \
+    ISO8859.9/DONE ISO8859.10/DONE ISO8859.11/DONE ISO8859.14/DONE \
+    ISO8859.15/DONE KOI8/DONE VISCII/DONE TCVN/DONE ARMSCII8/DONE \
+    ARABIC/DONE MULEENCODING/DONE DOSENCODING/DONE GEORGIAN/DONE
+#endif
+
+XTT_SRCS = xttprop.c xttfuncs.c xttcconv.c xttcap.c xttmisc.c xttblit.c
+XTT_OBJS = xttprop.o xttfuncs.o xttcconv.o xttcap.o xttmisc.o xttblit.o
+#if XTrueTypeDebugXTT
+  XTT_DUMP_DEFINES = -DDUMP
+  XTT_DEBUG_SRCS = xttdump.c
+  XTT_DEBUG_OBJS = xttdump.o
+#endif
+
+#if XTrueTypeCConvModule
+  XTT_CCONV_MODULE_DIR = XTrueTypeCConvModuleDir
+  XTT_CCONV_MODULE_SUBDIR = XTrueTypeCConvModuleSubDir
+  XTT_CCONV_MODULE_DEFINES = \
+    -DCCONV_MODULE \
+	-DCCONV_MODULE_DIR=\"$(XTT_CCONV_MODULE_DIR)\" \
+	-DCCONV_MODULE_SUBDIR=\"$(XTT_CCONV_MODULE_SUBDIR)\"
+#endif
+
+XTT_CCONV_HEADERS = xttcap.h xttcconv.h xttcconvP.h xttcommon.h
+
+#if XTrueTypeInstallCConvHeaders
+  XTT_CCONVINSTDIR = XTrueTypeCConvIncDir
+InstallMultipleFlags($(XTT_CCONV_HEADERS),$(XTT_CCONVINSTDIR),$(INSTINCFLAGS))
+#endif
+
+#ifdef UseInstalled
+  XTT_CONFIG_SRCDIR = $(TOP)/config/cf
+  XTT_CONFIG_FILES = \
+    $(XTT_CONFIG_SRCDIR)/xtt.tmpl $(XTT_CONFIG_SRCDIR)/xttMod.tmpl \
+    $(XTT_CONFIG_SRCDIR)/xttsite.def $(XTT_CONFIG_SRCDIR)/Imake.rules \
+    $(XTT_CONFIG_SRCDIR)/Imake.tmpl $(XTT_CONFIG_SRCDIR)/X11.tmpl \
+    $(XTT_CONFIG_SRCDIR)/bsdLib.rules $(XTT_CONFIG_SRCDIR)/ibmLib.rules \
+    $(XTT_CONFIG_SRCDIR)/linux.cf
+# if XTrueTypeInstallConfigFiles
+InstallMultipleDestFlags(install,$(XTT_CONFIG_FILES),$(CONFIGDIR),$(INSTDATFLAGS))
+# endif
+#endif
+
+FREETYPEINCLUDES = FreeTypeIncDir
+
+
+all::
+
+#define DoNormalLib NormalLibFont
+#define DoSharedLib SharedLibFont
+#define DoDebugLib DebugLibFont
+#define DoProfileLib ProfileLibFont
+#include <Library.tmpl>
+
+
+SRCS = $(XTT_SRCS) $(XTT_DEBUG_SRCS) $(FREETYPE_SRCS)
+OBJS = $(XTT_OBJS) $(XTT_DEBUG_OBJS) $(FREETYPE_OBJS)
+SUBDIRS = $(XTT_CCONV_DEFAULT_SUBDIRS) $(XTT_CCONV_OPT_SUBDIRS)
+DONES = DONE $(XTT_DEFAULT_CCONV_DONES) $(XTT_CCONV_OPT_DONES)
+
+INCLUDES = -I$(XTOP)/include/fonts -I$(XTOP)/lib/font/include \
+	   -I$(XTOP)/lib/font/fontcache \
+           -I$(XTOP)/programs/Xserver/include -I$(FREETYPEINCLUDES)
+DEFINES = $(XTT_USE_OPT_ENC_DEFINES) $(XTT_LAZY_DEFINES) $(XTT_DUMP_DEFINES) \
+          $(XTT_CCONV_MODULE_DEFINES)
+
+#if HasParallelMake
+MakeMutex($(SUBDIRS) $(DONES))
+#endif
+
+#if HasGnuMake || HasBsdMake
+$(DONES): $(SUBDIRS)
+#endif
+all:: $(SUBDIRS)
+
+
+LibraryObjectRule()
+
+SubdirLibraryRule($(OBJS))
+NormalLintTarget($(SRCS))
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))
+DependTarget()

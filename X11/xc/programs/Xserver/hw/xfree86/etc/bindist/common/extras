@@ -1,0 +1,5 @@
+lib/X11/doc/BugReport
+lib/X11/doc/RELNOTES
+lib/X11/doc/README
+lib/X11/doc/Install
+lib/X11/etc/Xinstall.sh

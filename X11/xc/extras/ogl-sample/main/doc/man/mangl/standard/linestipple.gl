@@ -1,0 +1,100 @@
+_C_ License Applicability. Except to the extent portions of this file are
+_C_ made subject to an alternative license as permitted in the SGI Free
+_C_ Software License B, Version 1.1 (the "License"), the contents of this
+_C_ file are subject only to the provisions of the License. You may not use
+_C_ this file except in compliance with the License. You may obtain a copy
+_C_ of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+_C_ Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+_C_ 
+_C_ http://oss.sgi.com/projects/FreeB
+_C_ 
+_C_ Note that, as provided in the License, the Software is distributed on an
+_C_ "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+_C_ DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+_C_ CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+_C_ PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+_C_ 
+_C_ Original Code. The Original Code is: OpenGL Sample Implementation,
+_C_ Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+_C_ Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+_C_ Copyright in any portions created by third parties is as indicated
+_C_ elsewhere herein. All Rights Reserved.
+_C_ 
+_C_ Additional Notice Provisions: The application programming interfaces
+_C_ established by SGI in conjunction with the Original Code are The
+_C_ OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+_C_ April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+_C_ 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+_C_ Window System(R) (Version 1.3), released October 19, 1998. This software
+_C_ was created using the OpenGL(R) version 1.2.1 Sample Implementation
+_C_ published by SGI, but has not been independently verified as being
+_C_ compliant with the OpenGL(R) version 1.2.1 Specification.
+_C_
+_C_ The first character in this file must be an '_'!
+_C_ Anything on a line after _C_ is ignored
+_define(_filters,eqn)_C_
+_C_      eqn is automatically replaced with neqn for nroff
+_header(LineStipple,specify the line stipple pattern)
+_names(LineStipple)
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+_phead(_param1)
+Specifies a multiplier for each bit in the line stipple pattern.
+If _param1 is 3,
+for example,
+each bit in the pattern is used three times
+before the next bit in the pattern is used.
+_param1 is clamped to the range [1, 256] and defaults to 1.
+_phead(_param2)
+Specifies a 16-bit integer whose bit pattern determines
+which fragments of a line will be drawn when the line is rasterized.
+Bit zero is used first; the default pattern is all 1's.
+.SH DESCRIPTION
+Line stippling masks out certain fragments produced by rasterization;
+those fragments will not be drawn.
+The masking is achieved by using three parameters:
+the 16-bit line stipple pattern _param2,
+the repeat count _param1,
+and an integer stipple counter $s$. 
+.P
+Counter $s$ is reset to 0 whenever _cmnd(Begin) is called,
+and before each line segment of a _cmnd(Begin)(_const(LINES))/_cmnd(End)
+sequence is generated.
+It is incremented after each fragment of a unit width aliased line segment is generated,
+or after each $i$ fragments of an $i$ width line segment are generated.
+The $i$ fragments associated with count $s$ are masked out if
+.sp
+.ce
+_param2 bit $(s ~/~ _eqnparam1) ~roman mod~ 16$ 
+.sp
+is 0, otherwise these fragments are sent to the frame buffer.
+Bit zero of _param2 is the least significant bit.
+.P
+Antialiased lines are treated as a sequence of $1 times width$ rectangles
+for purposes of stippling.
+Whether rectagle $s$ is rasterized or not depends on the fragment rule
+described for aliased lines,
+counting rectangles rather than groups of fragments.
+.P
+To enable and disable line stippling, call _cmnd(Enable) and _cmnd(Disable)
+with argument _const(LINE_STIPPLE).
+When enabled,
+the line stipple pattern is applied as described above.
+When disabled,
+it is as if the pattern were all 1's.
+Initially, line stippling is disabled.
+.SH ERRORS
+_const(INVALID_OPERATION) is generated if _cmnd
+is executed between the execution of _cmnd(Begin)
+and the corresponding execution of _cmnd(End).
+.SH ASSOCIATED GETS
+_cmnd(Get) with argument _const(LINE_STIPPLE_PATTERN)
+.br
+_cmnd(Get) with argument _const(LINE_STIPPLE_REPEAT)
+.br
+_cmnd(IsEnabled) with argument _const(LINE_STIPPLE)
+.SH SEE ALSO
+_cmnd(LineWidth),
+_cmnd(PolygonStipple)

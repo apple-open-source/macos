@@ -1,0 +1,62 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/drivers/apm/Imakefile,v 1.24 2003/02/17 17:06:41 dawes Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+
+#if BuildXF86RushExt
+RUSH_SRC = apm_rush.c
+RUSH_OBJ = apm_rush.o
+DEFINES = -DXF86RUSH_EXT
+#endif
+
+SRCS = apm_accel.c apm_cursor.c apm_dga.c apm_driver.c apm_i2c.c $(RUSH_SRC)
+                   
+OBJS = apm_accel.o apm_cursor.o apm_dga.o apm_driver.o apm_i2c.o $(RUSH_OBJ)
+
+#if defined(XF86DriverSDK)
+INCLUDES = -I. -I../../include
+#else
+INCLUDES = -I. -I$(XF86COMSRC) -I$(XF86OSSRC) \
+           -I$(SERVERSRC)/mfb  -I$(SERVERSRC)/mi \
+           -I$(SERVERSRC)/fb  -I$(XF86SRC)/xaa \
+           -I$(XF86SRC)/xf1bpp -I$(XF86SRC)/xf4bpp \
+           -I$(XF86SRC)/vgahw  -I$(XF86SRC)/ramdac \
+	   -I$(XF86SRC)/rac -I$(XF86SRC)/int10 \
+	   -I$(XF86SRC)/shadowfb \
+	   -I$(XF86SRC)/i2c -I$(XF86SRC)/ddc \
+           -I$(SERVERSRC)/Xext -I$(EXTINCSRC) -I$(SERVERSRC)/render \
+           -I$(SERVERSRC)/include -I$(XINCLUDESRC) \
+	   -I$(XF86SRC)/vbe -I$(FONTINCSRC)
+#endif
+
+#if MakeHasPosixVariableSubstitutions
+SubdirLibraryRule($(OBJS))
+#endif
+
+ModuleObjectRule()
+
+ObjectModuleTarget(apm,$(OBJS))
+
+InstallObjectModule(apm,$(MODULEDIR),drivers)
+
+#if !defined(XF86DriverSDK)
+InstallModuleManPage(apm)
+#endif
+
+DependTarget()
+
+InstallDriverSDKNonExecFile(Imakefile,$(DRIVERSDKDIR)/drivers/apm)
+InstallDriverSDKNonExecFile(apm.h,$(DRIVERSDKDIR)/drivers/apm)
+InstallDriverSDKNonExecFile(apm_regs.h,$(DRIVERSDKDIR)/drivers/apm)
+InstallDriverSDKNonExecFile(apm_accel.c,$(DRIVERSDKDIR)/drivers/apm)
+InstallDriverSDKNonExecFile(apm_cursor.c,$(DRIVERSDKDIR)/drivers/apm)
+InstallDriverSDKNonExecFile(apm_dga.c,$(DRIVERSDKDIR)/drivers/apm)
+InstallDriverSDKNonExecFile(apm_driver.c,$(DRIVERSDKDIR)/drivers/apm)
+InstallDriverSDKNonExecFile(apm_i2c.c,$(DRIVERSDKDIR)/drivers/apm)
+InstallDriverSDKNonExecFile(apm_funcs.c,$(DRIVERSDKDIR)/drivers/apm)
+InstallDriverSDKNonExecFile(apm_video.c,$(DRIVERSDKDIR)/drivers/apm)
+#if BuildXF86RushExt
+InstallDriverSDKNonExecFile(apm_rush.c,$(DRIVERSDKDIR)/drivers/apm)
+#endif
+
+InstallDriverSDKObjectModule(apm,$(DRIVERSDKMODULEDIR),drivers)

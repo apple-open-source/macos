@@ -1,0 +1,32 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:48:11 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/programs/Xserver/Xprint/raster/Imakefile,v 1.7 2002/11/11 17:55:02 alanh Exp $
+
+#include <Server.tmpl>
+
+SRCS1 =	Raster.c RasterAttVal.c
+OBJS1 = Raster.o RasterAttVal.o
+
+SRCS = $(SRCS1)
+
+OBJS = $(OBJS1)
+
+   INCLUDES = -I. -I$(XINCLUDESRC) -I.. -I$(LIBSRC) \
+	      -I../../cfb -I../../mfb -I../../mi \
+	      -I../../include -I$(TOP)/include -I$(FONTINCSRC)
+
+   LINTLIBS = ../../dix/llib-ldix.ln ../../os/llib-los.ln \
+	      ../../mfb/llib-lmfb.ln ../../mi/llib-lmi.ln \
+	      ../../cfb/llib-lcfb.ln
+
+   DEFINES  = -D_XP_PRINT_SERVER_ -UXFree86LOADER
+
+NormalLibraryObjectRule()
+
+NormalLibraryTarget(raster,$(OBJS))
+NormalLintTarget($(SRCS1) $(SRCS2))
+
+DependTarget()

@@ -1,0 +1,240 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:42:50 cpqbld Exp $
+
+
+
+XCOMM $XFree86: xc/doc/specs/programs/Imakefile,v 1.17 2003/02/18 03:01:42 dawes Exp $
+
+/* does not include manual pages under util (not X programs)
+   or any of the library function manual pages under doc/man */
+
+XFREE86_MANUALS = \
+  $(TOP)/programs/Xserver/hw/xfree86/XFree86.man \
+  $(TOP)/programs/Xserver/hw/xfree86/XF86Config.man \
+  $(TOP)/programs/Xserver/hw/xfree86/xf86config/xf86config.man \
+  $(TOP)/programs/Xserver/hw/xfree86/xf86cfg/xf86cfg.man \
+  $(TOP)/programs/Xserver/hw/xfree86/reconfig/reconfig.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/apm/apm.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/ati/ati.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/ati/r128.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/ati/radeon.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/chips/chips.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/cirrus/cirrus.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/cyrix/cyrix.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/fbdev/fbdev.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/glide/glide.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/glint/glint.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/i128/i128.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/i740/i740.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/i810/i810.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/imstt/imstt.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/mga/mga.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/neomagic/neomagic.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/newport/newport.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/nsc/nsc.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/nv/nv.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/rendition/rendition.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/s3virge/s3virge.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/savage/savage.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/siliconmotion/siliconmotion.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/sis/sis.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/sunbw2/sunbw2.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/suncg14/suncg14.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/suncg3/suncg3.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/suncg6/suncg6.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/sunffb/sunffb.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/sunleo/sunleo.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/suntcx/suntcx.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/tdfx/tdfx.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/trident/trident.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/tseng/tseng.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/v4l/v4l.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/vesa/vesa.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/vga/vga.man \
+  $(TOP)/programs/Xserver/hw/xfree86/drivers/vmware/vmware.man \
+  $(TOP)/programs/Xserver/hw/xfree86/etc/gtf.man \
+  $(TOP)/programs/Xserver/hw/xfree86/etc/kbd_mode.man \
+  $(TOP)/programs/Xserver/hw/xfree86/etc/pcitweak.man \
+  $(TOP)/programs/Xserver/hw/xfree86/etc/scanpci.man \
+  $(TOP)/programs/Xserver/hw/xfree86/fbdevhw/fbdevhw.man \
+  $(TOP)/programs/Xserver/hw/xfree86/input/acecad/acecad.man \
+  $(TOP)/programs/Xserver/hw/xfree86/input/calcomp/calcomp.man \
+  $(TOP)/programs/Xserver/hw/xfree86/input/citron/citron.man \
+  $(TOP)/programs/Xserver/hw/xfree86/input/dmc/dmc.man \
+  $(TOP)/programs/Xserver/hw/xfree86/input/dynapro/dynapro.man \
+  $(TOP)/programs/Xserver/hw/xfree86/input/elographics/elographics.man \
+  $(TOP)/programs/Xserver/hw/xfree86/input/fpit/fpit.man \
+  $(TOP)/programs/Xserver/hw/xfree86/input/jamstudio/js_x.man \
+  $(TOP)/programs/Xserver/hw/xfree86/input/keyboard/kbd.man \
+  $(TOP)/programs/Xserver/hw/xfree86/input/keyboard/keyboard.man \
+  $(TOP)/programs/Xserver/hw/xfree86/input/magictouch/magictouch.man \
+  $(TOP)/programs/Xserver/hw/xfree86/input/microtouch/microtouch.man \
+  $(TOP)/programs/Xserver/hw/xfree86/input/mouse/mouse.man \
+  $(TOP)/programs/Xserver/hw/xfree86/input/mutouch/mutouch.man \
+  $(TOP)/programs/Xserver/hw/xfree86/input/palmax/palmax.man \
+  $(TOP)/programs/Xserver/hw/xfree86/input/penmount/penmount.man \
+  $(TOP)/programs/Xserver/hw/xfree86/input/tek4957/tek4957.man \
+  $(TOP)/programs/Xserver/hw/xfree86/input/ur98/ur98.man \
+  $(TOP)/programs/Xserver/hw/xfree86/input/void/void.man \
+  $(TOP)/programs/Xserver/hw/xfree86/input/wacom/wacom.man \
+  $(TOP)/programs/Xserver/hw/darwin/XDarwin.man \
+  $(TOP)/programs/Xserver/hw/darwin/utils/dumpkeymap.man \
+  $(TOP)/programs/Xserver/hw/kdrive/Xkdrive.man \
+  $(TOP)/programs/Xserver/hw/kdrive/vesa/Xvesa.man \
+  $(TOP)/programs/Xserver/hw/kdrive/fbdev/Xfbdev.man \
+  $(TOP)/programs/Xserver/hw/xfree86/doc/man/XF86DGA.man \
+  $(TOP)/programs/Xserver/hw/xfree86/doc/man/XF86Misc.man \
+  $(TOP)/programs/Xserver/hw/xfree86/doc/man/XF86VM.man
+
+
+MANUALS = \
+  $(TOP)/doc/man/general/X.man \
+  $(TOP)/doc/man/general/Standards.man \
+  $(TOP)/doc/man/general/Consortium.man \
+  $(TOP)/doc/man/general/security.man \
+  $(TOP)/programs/appres/appres.man \
+  $(TOP)/programs/bdftopcf/bdftopcf.man \
+  $(TOP)/fonts/util/bdftruncate.man \
+  $(TOP)/programs/beforelight/b4light.man \
+  $(TOP)/programs/bitmap/bitmap.man \
+  $(TOP)/config/util/ccmakedep.man \
+  $(TOP)/config/util/cleanlinks.man \
+  $(TOP)/programs/Xserver/hw/sun/constype.man \
+  $(TOP)/programs/cxpm/cxpm.man \
+  $(TOP)/programs/xf86dga/dga.man \
+  $(TOP)/programs/dpsexec/dpsexec.man \
+  $(TOP)/programs/dpsinfo/dpsinfo.man \
+  $(TOP)/programs/editres/editres.man \
+  $(TOP)/lib/fontconfig/fc-cache/fc-cache.man \
+  $(TOP)/lib/fontconfig/fc-lang/fc-lang.man \
+  $(TOP)/lib/fontconfig/fc-list/fc-list.man \
+  $(TOP)/lib/fontconfig/src/fontconfig.man \
+  $(TOP)/programs/fslsfonts/fslsfonts.man \
+  $(TOP)/programs/fstobdf/fstobdf.man \
+  $(TOP)/config/util/gccmakedep.man \
+  $(TOP)/programs/glxgears/glxgears.man \
+  $(TOP)/programs/glxinfo/glxinfo.man \
+  $(TOP)/programs/iceauth/iceauth.man \
+  $(TOP)/programs/ico/ico.man \
+  $(TOP)/config/imake/imake.man \
+  $(TOP)/programs/Xserver/hw/sun/kbd_mode.man \
+  $(TOP)/programs/lbxproxy/lbxproxy.man \
+  $(TOP)/programs/xrx/plugin/libxrx.man \
+  $(TOP)/programs/listres/listres.man \
+  $(TOP)/config/util/lndir.man \
+  $(TOP)/programs/luit/luit.man \
+  $(TOP)/config/util/makeg.man \
+  $(TOP)/programs/makepsres/makepsres.man \
+  $(TOP)/config/util/makestrs.man \
+  $(TOP)/config/util/mergelib.man \
+  $(TOP)/config/makedepend/mkdepend.man \
+  $(TOP)/programs/mkcfm/mkcfm.man \
+  $(TOP)/config/util/mkdirhier.man \
+  $(TOP)/programs/mkfontdir/mkfontdir.man \
+  $(TOP)/programs/mkfontscale/mkfontscale.man \
+  $(TOP)/config/util/mkhtmlindex.man \
+  $(TOP)/programs/oclock/oclock.man \
+  $(TOP)/programs/proxymngr/proxymngr.man \
+  $(TOP)/config/pswrap/pswrap.man \
+  $(TOP)/programs/xterm/resize.man \
+  $(TOP)/config/util/revpath.man \
+  $(TOP)/config/util/rman.man \
+  $(TOP)/programs/rstart/rstart.man \
+  $(TOP)/programs/rstart/rstartd.man \
+  $(TOP)/programs/xdm/sessreg.man \
+  $(TOP)/programs/setxkbmap/setxkbmap.man \
+  $(TOP)/programs/showfont/showfont.man \
+  $(TOP)/programs/rgb/showrgb.man \
+  $(TOP)/programs/smproxy/smproxy.man \
+  $(TOP)/programs/xinit/startx.man \
+  $(TOP)/programs/sxpm/sxpm.man \
+  $(TOP)/programs/xrx/testplugin/testplugin.man \
+  $(TOP)/programs/texteroids/texteroids.man \
+  $(TOP)/programs/twm/twm.man \
+  $(TOP)/fonts/util/ucs2any.man \
+  $(TOP)/programs/viewres/viewres.man \
+  $(TOP)/programs/x11perf/x11perf.man \
+  $(TOP)/programs/x11perf/x11pcomp.man \
+  $(TOP)/programs/xauth/xauth.man \
+  $(TOP)/programs/xbiff/xbiff.man \
+  $(TOP)/programs/xcalc/xcalc.man \
+  $(TOP)/programs/xclipboard/xclipboard.man \
+  $(TOP)/programs/xclock/xclock.man \
+  $(TOP)/programs/xcmsdb/xcmsdb.man \
+  $(TOP)/programs/xconsole/xconsole.man \
+  $(TOP)/programs/xcursorgen/xcursorgen.man \
+  $(TOP)/programs/xclipboard/xcutsel.man \
+  $(TOP)/programs/xditview/xditview.man \
+  $(TOP)/programs/xdm/xdm.man \
+  $(TOP)/programs/xdpyinfo/xdpyinfo.man \
+  $(TOP)/programs/xedit/xedit.man \
+  $(TOP)/programs/xev/xev.man \
+  $(TOP)/programs/xeyes/xeyes.man \
+  $(XFREE86_MANUALS) \
+  $(TOP)/programs/xfd/xfd.man \
+  $(TOP)/programs/xfindproxy/xfindproxy.man \
+  $(TOP)/programs/xfontsel/xfontsel.man \
+  $(TOP)/programs/xfs/xfs.man \
+  $(TOP)/programs/xfsinfo/xfsinfo.man \
+  $(TOP)/programs/xfwp/xfwp.man \
+  $(TOP)/programs/xgamma/xgamma.man \
+  $(TOP)/programs/xgc/xgc.man \
+  $(TOP)/programs/xhost/xhost.man \
+  $(TOP)/programs/xieperf/xieperf.man \
+  $(TOP)/programs/xinit/xinit.man \
+  $(TOP)/programs/xkbcomp/xkbcomp.man \
+  $(TOP)/programs/xkbevd/xkbevd.man \
+  $(TOP)/programs/xkbprint/xkbprint.man \
+  $(TOP)/programs/xkill/xkill.man \
+  $(TOP)/programs/xload/xload.man \
+  $(TOP)/programs/xlogo/xlogo.man \
+  $(TOP)/programs/xlsatoms/xlsatoms.man \
+  $(TOP)/programs/xlsclients/xlscli.man \
+  $(TOP)/programs/xlsfonts/xlsfonts.man \
+  $(TOP)/programs/xmag/xmag.man \
+  $(TOP)/programs/xman/xman.man \
+  $(TOP)/programs/xmessage/xmessage.man \
+  $(TOP)/programs/xmh/xmh.man \
+  $(TOP)/config/util/xmkmf.man \
+  $(TOP)/programs/xmodmap/xmodmap.man \
+  $(TOP)/programs/Xserver/hw/xnest/Xnest.man \
+  $(TOP)/programs/scripts/xon.man \
+  $(TOP)/programs/xprop/xprop.man \
+  $(TOP)/programs/xrandr/xrandr.man \
+  $(TOP)/programs/xrdb/xrdb.man \
+  $(TOP)/programs/xrefresh/xrefresh.man \
+  $(TOP)/programs/xrx/helper/xrx.man \
+  $(TOP)/programs/Xserver/Xserver.man \
+  $(TOP)/programs/xset/xset.man \
+  $(TOP)/programs/xsetmode/xsetmode.man \
+  $(TOP)/programs/xsetpointer/xsetpnt.man \
+  $(TOP)/programs/xsetroot/xsetroot.man \
+  $(TOP)/programs/xsm/xsm.man \
+  $(TOP)/programs/xstdcmap/xstdcmap.man \
+  $(TOP)/programs/Xserver/hw/sun/Xsun.man \
+  $(TOP)/programs/xterm/xterm.man \
+  $(TOP)/programs/xtrap/xtrap.man \
+  $(TOP)/programs/xvidtune/xvidtune.man \
+  $(TOP)/programs/xvinfo/xvinfo.man \
+  $(TOP)/programs/Xserver/hw/vfb/Xvfb.man \
+  $(TOP)/programs/xwd/xwd.man \
+  $(TOP)/programs/xwininfo/xwininfo.man \
+  $(TOP)/programs/xwud/xwud.man
+
+AllTarget(man.PS)
+
+XCOMM Sun's -man macros use the D and C registers
+MANUALFLAGS = -rD1 -rC1
+
+man.$(MANSRCSUFFIX): $(MANUALS)
+	RemoveFile($@)
+	cat $(MANUALS) > $@
+
+EXTRAMANDEFS = -D__logdir__=$(LOGDIRECTORY) -D__xinitdir__=$(XINITDIR)
+
+CppManTarget(man,$(EXTRAMANDEFS))
+
+man.PS: man.$(MANNEWSUFFIX)
+	$(TROFF) $(MANMACROS) $(MANUALFLAGS) man.$(MANNEWSUFFIX) > $@
+
+clean::
+	$(RM) man.PS man.$(MANSRCSUFFIX) man.$(MANNEWSUFFIX)

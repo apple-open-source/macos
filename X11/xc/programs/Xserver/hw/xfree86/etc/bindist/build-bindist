@@ -1,0 +1,151 @@
+#!/bin/sh
+#
+# $XFree86: xc/programs/Xserver/hw/xfree86/etc/bindist/build-bindist,v 1.6 2003/02/08 23:11:49 dawes Exp $
+#
+
+Usage()
+{
+  echo `basename $0` [-l] [-t type] [prefix] from-dir to-dir
+  exit 1
+}
+
+args=
+createlist=NO
+type=list
+
+while [ $# != 0 ]; do
+  case $1 in
+  -l)
+    createlist=YES
+    shift
+    ;;
+  -t)
+    shift
+    type=$1
+    shift
+    ;;
+  *)
+    args="$args $1"
+    shift
+    ;;
+  esac
+done
+
+if [ X"$args" != X ]; then
+  set - $args
+fi
+
+case $# in
+3)
+    PRE=$1
+    shift
+    ;;
+2)
+    PRE=X
+    ;;
+*)
+    Usage
+    ;;
+esac
+    
+FROMDIR=$1
+TODIR=$2
+
+if [ ! -d $FROMDIR ]; then
+  echo No such dir $FROMDIR
+  exit 2
+fi
+
+if [ ! -d $TODIR ]; then
+  echo No such dir $TODIR
+  exit 2
+fi
+
+cd $TODIR
+SUBDIRS="`find . -type d ! -name bindist -print`"
+
+DIRFILE=dir
+BINDIR=bindist
+EXTRASFILE=extras
+TAR="gnu-tar"
+TAROPTS="-c -v -z"
+TARLOPTS="-t -v -z -i"
+CKSUM=md5
+SUMFILE=SUMS.md5
+LISTFILE=FILES
+
+GenList()
+{
+  (cd $TODIR/$BINDIR
+    rm -f $SUMFILE $LISTFILE
+    for i in *.tgz; do
+      echo $i
+      $CKSUM $i >> $SUMFILE
+      echo $i >> $LISTFILE
+      echo "------------" >> $LISTFILE
+      $TAR $TARLOPTS -f $i >> $LISTFILE
+      echo "" >> $LISTFILE
+    done
+    if [ -f $TODIR/$EXTRASFILE ]; then
+      for i in `cat $TODIR/$EXTRASFILE`; do
+	$CKSUM `basename $i` >> $SUMFILE
+      done
+    fi
+  )
+}
+
+if [ ! -d $TODIR/$BINDIR ]; then
+  mkdir $TODIR/$BINDIR
+fi
+
+if [ $createlist = YES ]; then
+  GenList
+  exit 0;
+fi
+
+# Make sure all directories in $FROMDIR have permissions 755
+find $FROMDIR -type d | xargs chmod 755
+
+for d in $SUBDIRS; do
+  if [ ! -d $TODIR/$d ]; then
+    echo No such dir $TODIR/$d
+    exit 2
+  fi
+  (cd $TODIR/$d;
+    if [ ! -f $DIRFILE ]; then
+      echo No file $DIRFILE in $TODIR/$d
+#      exit 3
+    else
+      DEFPREFIX=`cat $DIRFILE`
+      for i in *-$type; do
+        name=`basename $i -$type`
+        tarball=$PRE$name.tgz
+        echo creating $tarball
+        lfile="`cat $TODIR/$d/$i`"
+        if [ -f $name-excl ]; then
+          xfile="-X $TODIR/$d/$name-excl"
+        else
+          xfile=""
+        fi
+	if [ -f $name-dir ]; then
+	  PREFIX=`cat $name-dir`
+	else
+	  PREFIX=$DEFPREFIX
+	fi
+        (cd $FROMDIR/$PREFIX
+          $TAR $TAROPTS -f $TODIR/$BINDIR/$tarball $xfile $lfile
+        )
+      done
+    fi
+    if [ -f $EXTRASFILE ]; then
+      for i in `cat $EXTRASFILE`; do
+	rm -f $TODIR/$BINDIR/`basename $i`
+        cp $FROMDIR/$PREFIX/$i $TODIR/$BINDIR
+      done
+    fi
+  )
+done
+
+# GenList
+
+exit 0

@@ -1,0 +1,19 @@
+XCOMM $XFree86: xc/programs/luit/Imakefile,v 1.2 2002/10/17 01:06:09 dawes Exp $
+
+#ifndef LocaleAliasFile
+#define LocaleAliasFile \
+          $(XLOCALEDIR)/locale.alias
+#endif
+
+LOCAL_LIBRARIES = $(XFONTENCLIB)
+DEPLIBS = $(DEPXFONTENCLIB)
+
+SYS_LIBRARIES = MathLibrary GzipLibrary
+
+SRCS = luit.c iso2022.c charset.c parser.c sys.c other.c
+
+OBJS = luit.o iso2022.o charset.o parser.o sys.o other.o
+
+DEFINES = -DLOCALE_ALIAS_FILE=\"LocaleAliasFile\"
+
+ComplexProgramTarget(luit)

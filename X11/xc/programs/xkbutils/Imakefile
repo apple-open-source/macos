@@ -1,0 +1,34 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:51 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/programs/xkbutils/Imakefile,v 3.2 2001/01/17 23:46:12 dawes Exp $
+
+     VLED_SRCS = xkbvleds.c LED.c utils.c
+     VLED_OBJS = xkbvleds.o LED.o utils.o
+    WATCH_SRCS = xkbwatch.c LED.c utils.c
+    WATCH_OBJS = xkbwatch.o LED.o utils.o
+     BELL_SRCS = xkbbell.c
+     BELL_OBJS = xkbbell.o
+      PROGRAMS = ProgramTargetName(xkbvleds) ProgramTargetName(xkbwatch) ProgramTargetName(xkbbell)
+       DEPLIBS = $(DEPXKBFILELIB) XawClientDepLibs
+       LOCLIBS = $(XKBFILELIB) XawClientLibs
+       DEFINES = -DXKB
+
+EXTRA_INCLUDES = -I$(EXTINCSRC)
+
+#ifdef SGIArchitecture
+EXTRA_LIBRARIES = -lmalloc
+#endif
+
+AllTarget($(PROGRAMS))
+
+NormalProgramTarget(xkbvleds,$(VLED_OBJS),$(DEPLIBS),$(LOCLIBS),$(SYSLIBS))
+InstallProgram(xkbvleds,$(BINDIR))
+
+NormalProgramTarget(xkbwatch,$(WATCH_OBJS),$(DEPLIBS),$(LOCLIBS),$(SYSLIBS))
+InstallProgram(xkbwatch,$(BINDIR))
+
+NormalProgramTarget(xkbbell,$(BELL_OBJS),$(DEPLIBS),$(LOCLIBS),$(SYSLIBS))
+InstallProgram(xkbbell,$(BINDIR))

@@ -1,0 +1,7 @@
+XCOMM $XFree86: xc/doc/hardcopy/XKB/Imakefile,v 1.1 2000/12/14 18:23:11 dawes Exp $
+
+InstallHardcopyDoc(XKBlib,XKBlib.PS.gz)
+InstallHardcopyDoc(XKBproto,XKBproto.PS.gz)
+
+LinkFile(XKBlib.PS.gz,XKBlib.ps.gz)
+LinkFile(XKBproto.PS.gz,XKBproto.ps.gz)

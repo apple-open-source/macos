@@ -1,0 +1,48 @@
+
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/os-support/pmax/Imakefile,v 1.12 2002/10/17 02:22:48 dawes Exp $
+
+#include <Server.tmpl>
+
+MOUSESRC = pmax_mouse.c
+MOUSEOBJ = pmax_mouse.o
+
+SRCS =  pmax_devs.c pmax_init.c pmax_map.c pmax_pci.c pmax_ppc.c \
+	bios_V4mmap.c VTsw_usl.c sysv_kbd.c std_kbdEv.c \
+	posix_tty.c $(MOUSESRC) xqueue.c ioperm_noop.c \
+	libc_wrapper.c stdResource.c stdPci.o sigiostubs.c pm_noop.c \
+        kmod_noop.c agp_noop.c
+
+OBJS =  pmax_devs.o pmax_init.o pmax_map.o pmax_pci.o pmax_ppc.o \
+	bios_V4mmap.o VTsw_usl.o sysv_kbd.o std_kbdEv.o \
+	posix_tty.o $(MOUSESRC) xqueue.o ioperm_noop.o \
+	libc_wrapper.o stdResource.o stdPci.o sigiostubs.o pm_noop.o \
+        kmod_noop.o agp_noop.o
+
+
+INCLUDES = -I$(XF86COMSRC) -I$(XF86OSSRC) -I$(XF86OSSRC)/bus -I. \
+           -I$(SERVERSRC)/include -I$(XINCLUDESRC) -I$(EXTINCSRC) -I../sysv
+
+RESDEFINES = -DUSESTDRES
+
+DEFINES = $(RESDEFINES)
+
+SubdirLibraryRule($(OBJS))
+NormalLibraryObjectRule()
+
+LinkSourceFile(VTsw_usl.c,../shared)
+LinkSourceFile(ioperm_noop.c,../shared)
+LinkSourceFile(sysv_kbd.c,../shared)
+LinkSourceFile(std_kbdEv.c,../shared)
+LinkSourceFile(posix_tty.c,../shared)
+LinkSourceFile(libc_wrapper.c,../shared)
+LinkSourceFile(stdResource.c,../shared)
+LinkSourceFile(stdPci.c,../shared)
+LinkSourceFile(sigiostubs.c,../shared)
+LinkSourceFile(pm_noop.c,../shared)
+LinkSourceFile(kmod_noop.c,../shared)
+LinkSourceFile(agp_noop.c,../shared)
+
+LinkSourceFile(bios_V4mmap.c,../sysv)
+LinkSourceFile(xqueue.c,../sysv)
+
+DependTarget()

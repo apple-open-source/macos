@@ -1,0 +1,215 @@
+_C_ License Applicability. Except to the extent portions of this file are
+_C_ made subject to an alternative license as permitted in the SGI Free
+_C_ Software License B, Version 1.1 (the "License"), the contents of this
+_C_ file are subject only to the provisions of the License. You may not use
+_C_ this file except in compliance with the License. You may obtain a copy
+_C_ of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+_C_ Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+_C_ 
+_C_ http://oss.sgi.com/projects/FreeB
+_C_ 
+_C_ Note that, as provided in the License, the Software is distributed on an
+_C_ "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+_C_ DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+_C_ CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+_C_ PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+_C_ 
+_C_ Original Code. The Original Code is: OpenGL Sample Implementation,
+_C_ Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+_C_ Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+_C_ Copyright in any portions created by third parties is as indicated
+_C_ elsewhere herein. All Rights Reserved.
+_C_ 
+_C_ Additional Notice Provisions: The application programming interfaces
+_C_ established by SGI in conjunction with the Original Code are The
+_C_ OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+_C_ April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+_C_ 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+_C_ Window System(R) (Version 1.3), released October 19, 1998. This software
+_C_ was created using the OpenGL(R) version 1.2.1 Sample Implementation
+_C_ published by SGI, but has not been independently verified as being
+_C_ compliant with the OpenGL(R) version 1.2.1 Specification.
+_C_
+_C_ $Date$ $Revision$
+_C_ The first character in this file must be an '_'!
+_C_ Anything on a line after _C_ is ignored
+_define(_filters,eqn)_C_
+_C_      eqn is automatically replaced with neqn for nroff
+_header(NurbsProperty, set a NURBS property)
+_names(NurbsProperty)
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+_phead(_param1)
+Specifies the NURBS object (created with _cmnd(NewNurbsRenderer)).
+_phead(_param2)
+Specifies the property to be set. Valid values are
+_gluconst(SAMPLING_TOLERANCE),
+_gluconst(DISPLAY_MODE), 
+_gluconst(CULLING),
+_gluconst(AUTO_LOAD_MATRIX),
+_gluconst(PARAMETRIC_TOLERANCE),
+_gluconst(SAMPLING_METHOD),
+_gluconst(U_STEP),
+_gluconst(V_STEP), or
+_gluconst(NURBS_MODE).
+_phead(_param3)
+Specifies the value of the indicated property.
+It may be a numeric value, or one of 
+_gluconst(OUTLINE_POLYGON),
+_gluconst(FILL),
+_gluconst(OUTLINE_PATCH),
+_const(TRUE),
+_const(FALSE),
+_gluconst(PATH_LENGTH),
+_gluconst(PARAMETRIC_ERROR),
+_gluconst(DOMAIN_DISTANCE),
+_gluconst(NURBS_RENDERER), or
+_gluconst(NURBS_TESSELLATOR).
+.SH DESCRIPTION
+_cmnd is used to control properties stored in a NURBS object. These
+properties affect the way that a NURBS curve is rendered. The accepted 
+values for _param2 are as follows:
+.TP 15
+_gluconst(NURBS_MODE)
+_param3 should be set to be either _gluconst(NURBS_RENDERER) or
+_gluconst(NURBS_TESSELLATOR). When set to _gluconst(NURBS_RENDERER), NURBS objects
+are tessellated into OpenGL primitives and sent to the pipeline for
+rendering. When set to _gluconst(NURBS_TESSELLATOR), NURBS objects are
+tessellated into OpenGL primitives but the vertices, normals, colors, and/or textures are 
+retrieved back through a callback interface (see _cmnd(NurbsCallback)). This allows the user to cache the
+tessellated results for further processing.
+The initial value is _gluconst(NURBS_RENDERER).
+.TP
+_gluconst(SAMPLING_METHOD) 
+Specifies how a NURBS surface should be
+tessellated.
+_param3 may be one of _gluconst(PATH_LENGTH),
+_gluconst(PARAMETRIC_ERROR),  _gluconst(DOMAIN_DISTANCE),
+_gluconst(OBJECT_PATH_LENGTH), or
+_gluconst(OBJECT_PARAMETRIC_ERROR).
+When set to _gluconst(PATH_LENGTH), the surface is rendered so that
+the maximum length, in 
+pixels, of the edges of the tessellation polygons is no greater than
+what is specified by _gluconst(SAMPLING_TOLERANCE). 
+.IP
+_gluconst(PARAMETRIC_ERROR) specifies that the surface is rendered in such a 
+way that the value specified by _gluconst(PARAMETRIC_TOLERANCE) describes the 
+maximum distance, in pixels, between the tessellation polygons and the
+surfaces they approximate. 
+.IP
+_gluconst(DOMAIN_DISTANCE) allows users to specify, in parametric coordinates,
+how many sample points per unit length are taken in \f2u\fP, \f2v\fP
+direction.
+.IP
+_gluconst(OBJECT_PATH_LENGTH)  is similar to _gluconst(PATH_LENGTH)
+except that it is view independent, that is, the surface is rendered so that the maximum length, in object space, of edges of the tessellation polygons is no greater than what is specified by _gluconst(SAMPLING_TOLERANCE).
+.IP   
+_gluconst(OBJECT_PARAMETRIC_ERROR) is similar to  _gluconst(PARAMETRIC_ERROR) except that it is view independent, that is, the surface is rendered in such a way that the value specified by _gluconst(PARAMETRIC_TOLERANCE) describes the maximum distance, in object space, between the tessellation polygons and the surfaces they approximate.
+.IP
+The initial value of _gluconst(SAMPLING_METHOD) is _gluconst(PATH_LENGTH).
+.TP
+_gluconst(SAMPLING_TOLERANCE)
+Specifies the maximum length, in pixels or in object space length unit,
+to use when the sampling method is set to _gluconst(PATH_LENGTH) or
+_gluconst(OBJECT_PATH_LENGTH).
+The NURBS code is conservative when rendering a curve
+or surface, so the actual length can be somewhat shorter. The initial
+value is 50.0 pixels. 
+.TP
+_gluconst(PARAMETRIC_TOLERANCE)
+Specifies the maximum distance, in pixels or in object space length unit,
+to use when the sampling method is _gluconst(PARAMETRIC_ERROR) or
+_gluconst(OBJECT_PARAMETRIC_ERROR).
+The initial value is 0.5.
+.TP
+_gluconst(U_STEP)
+Specifies the number of sample points per unit length taken
+along the \f2u\fP axis in parametric coordinates. It is needed when
+_gluconst(SAMPLING_METHOD) is set to _gluconst(DOMAIN_DISTANCE).
+The initial value is 100.
+.TP
+_gluconst(V_STEP)
+Specifies the number of sample points per unit length taken
+along the \f2v\fP axis in parametric coordinate. It is needed when
+_gluconst(SAMPLING_METHOD) is set to _gluconst(DOMAIN_DISTANCE). The initial 
+value is 100.
+.TP
+_gluconst(DISPLAY_MODE)
+_param3 can be set to
+_gluconst(OUTLINE_POLYGON), _gluconst(FILL), or 
+_gluconst(OUTLINE_PATCH).
+When _gluconst(NURBS_MODE) is set to be _gluconst(NURBS_RENDERER),
+_param3 defines how a NURBS surface should be rendered.
+When _param3 is set to _gluconst(FILL), the surface is rendered as a
+set of polygons. When _param3 is set to
+_gluconst(OUTLINE_POLYGON), the NURBS library draws only the outlines
+of the polygons created by tessellation. When _param3 is set to
+_gluconst(OUTLINE_PATCH) just the outlines of patches and trim 
+curves defined by the user are drawn.
+.IP
+When _gluconst(NURBS_MODE) is set to be _gluconst(NURBS_TESSELLATOR),
+_param3 defines how a NURBS surface should be tessellated.
+When _gluconst(DISPLAY_MODE) is set to _gluconst(FILL) or
+_gluconst(OUTLINE_POLYGON), 
+the NURBS surface is tessellated into OpenGL triangle primitives which can be
+retrieved back  through callback functions. If _gluconst(DISPLAY_MODE) is set to 
+_gluconst(OUTLINE_PATCH), only the outlines of the patches and trim curves are generated as a sequence of line strips which can be retrieved back through callback functions.
+.IP
+The initial value is _gluconst(FILL).
+.TP
+_gluconst(CULLING)
+_param3 is a boolean value that, when set to _const(TRUE), indicates that 
+a NURBS curve should be discarded prior to tessellation if its control points
+lie outside the current viewport. The initial value is _const(FALSE).
+.TP
+_gluconst(AUTO_LOAD_MATRIX)
+_param3 is a boolean value. When set to _const(TRUE), the NURBS code 
+downloads the projection matrix, the modelview matrix, and the 
+viewport from the GL server to compute sampling and 
+culling
+matrices for each NURBS curve that is rendered. Sampling and culling matrices
+are required to determine the tessellation of a NURBS surface into line segments
+or polygons and to cull a NURBS surface if it lies outside the viewport.
+.IP
+If this mode is set to _const(FALSE), then the program needs
+to provide a projection matrix, a modelview matrix, and a viewport
+for the NURBS renderer to use to construct sampling and culling matrices.
+This can be done with the _cmnd(LoadSamplingMatrices) function.
+This mode is initially set to _const(TRUE).
+Changing it from _const(TRUE) to _const(FALSE) does not affect
+the sampling and culling matrices until 
+_cmnd(LoadSamplingMatrices)
+is called.
+.SH NOTES
+If _gluconst(AUTO_LOAD_MATRIX) is true, sampling and culling may be
+executed incorrectly if NURBS routines are compiled into a display list.
+.P
+A _param2 of 
+_gluconst(PARAMETRIC_TOLERANCE),
+_gluconst(SAMPLING_METHOD),
+_gluconst(U_STEP), or
+_gluconst(V_STEP),
+or a _param3 of 
+_gluconst(PATH_LENGTH),
+_gluconst(PARAMETRIC_ERROR), 
+_gluconst(DOMAIN_DISTANCE) 
+are only available if the GLU version is 1.1 or greater. They are not
+valid parameters in GLU 1.0. 
+.P
+_cmnd(GetString) can
+be used to determine the GLU version. 
+.P
+_gluconst(NURBS_MODE) is only availble if the GLU version is 1.3 or
+greater.
+.P
+The _gluconst(OBJECT_PATH_LENGTH) and _gluconst(OBJECT_PARAMETRIC_ERROR) 
+values for the _gluconst(SAMPLING_METHOD) property are only available if 
+the GLU version is 1.3 or greater.
+.SH SEE ALSO
+_cmnd(GetNurbsProperty),
+_cmnd(LoadSamplingMatrices),
+_cmnd(NewNurbsRenderer),
+_cmnd(GetString),
+_cmnd(NurbsCallback)

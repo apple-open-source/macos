@@ -1,0 +1,28 @@
+XCOMM $XFree86: xc/programs/Xserver/GL/aqua/Imakefile,v 1.2 2003/01/29 01:11:02 torrey Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+
+
+LinkSourceFile(compsize.c,$(LIBSRC)/GL/glx)
+
+         SRCS = aquaGlx.c compsize.c
+         OBJS = aquaGlx.o compsize.o
+
+     INCLUDES = -I. -I$(INCLUDESRC) -I$(XINCLUDESRC) -I$(EXTINCSRC) \
+                -I$(LIBSRC)/GL/glx -I$(LIBSRC)/GL/include -I$(SERVERSRC)/fb \
+                -I$(SERVERSRC)/mi -I$(SERVERSRC)/include -I$(FONTINCSRC) \
+                -I$(SERVERSRC)/render -I$(SERVERSRC)/GL/include \
+                -I$(SERVERSRC)/GL/glx -I$(SERVERSRC)/hw/darwin/quartz
+
+      DEFINES = $(GLX_DEFINES)
+
+#if DoLoadableServer
+ModuleObjectRule()
+SubdirLibraryRule($(OBJS))
+#else
+NormalLibraryTarget(AquaGLcore,$(OBJS))
+NormalLibraryObjectRule()
+#endif
+
+DependTarget()

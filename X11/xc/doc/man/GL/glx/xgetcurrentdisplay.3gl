@@ -1,0 +1,33 @@
+'\"! eqn | mmdoc
+'\"macro stdmacro
+.ds Vn Version 1.2
+.ds Dt 6 March 1997
+.ds Re Release 1.2.0
+.ds Dp Feb 16 02:56
+.ds Dm  Feb 10 17:2
+.ds Xs 59497 2 xgetcurrentdisplay.gl
+.TH GLXGETCURRENTDISPLAY
+.SH NAME
+glXGetCurrentDisplay
+\- get display for current context
+
+.SH C SPECIFICATION
+Display * \f3glXGetCurrentDisplay\fP( void )
+.nf
+.fi
+
+.EQ
+delim $$
+.EN
+.SH DESCRIPTION
+\f3glXGetCurrentDisplay\fP returns the display for the current context. If no 
+context is current, NULL is returned. 
+.P
+\f3glXGetCurrentDisplay\fP returns client-side information. It does not make a round trip 
+to the server, and therefore does not flush any pending events.
+.SH NOTES
+\f3glXGetCurrentDisplay\fP is only supported if the GLX version is 1.2 or greater.
+.SH SEE ALSO
+\f3glXQueryVersion\fP,
+\f3glXQueryExtensionsString\fP
+

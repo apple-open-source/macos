@@ -1,0 +1,48 @@
+
+// based on a keyboard map from an 'xkb/symbols/pl2' file
+//
+// $XFree86: xc/programs/xkbcomp/symbols/pc/pl2,v 1.3 2002/12/20 20:18:34 paulo Exp $
+
+partial default alphanumeric_keys
+xkb_symbols "basic" {
+
+    // Describes the differences between a very simple en_US
+    // keyboard and a very simple QWERTZ Polish keybaord
+
+    include "pc/latin(type3)"
+
+    name[Group1]="Polish";
+
+    key <AE01>	{ [         1,     exclam,   asciitilde,   exclamdown ]	};
+    key <AE02>	{ [         2,   quotedbl,   dead_caron,    oneeighth ]	};
+    key <AE03>	{ [         3, numbersign, dead_circumflex,  sterling ]	};
+    key <AE04>	{ [         4,     dollar,   dead_breve,       dollar ]	};
+    key <AE05>	{ [         5,    percent,       degree, threeeighths ]	};
+    key <AE06>	{ [         6,  ampersand,  dead_ogonek,  fiveeighths ]	};
+    key <AE07>	{ [         7,      slash,   dead_grave, seveneighths ]	};
+    key <AE08>	{ [         8,  parenleft, dead_abovedot,   trademark ]	};
+    key <AE09>	{ [         9, parenright,   dead_acute,    plusminus ]	};
+    key <AE10>	{ [         0,      equal, dead_doubleacute,   degree ]	};
+    key <AE11>	{ [      plus,   question, dead_diaeresis, questiondown ] };
+    key <AE12>	{ [apostrophe,   asterisk, dead_cedilla,  dead_ogonek ]	};
+
+    key <AD03>	{ [         e,          E,     EuroSign,         cent ]	};
+    key <AD11>	{ [ zabovedot,     nacute,     division, dead_abovering ] };
+    key <AD12>	{ [    sacute,     cacute,     multiply,  dead_macron ]	};
+
+    key <AC02>	{ [         s,          S,      dstroke,      section ]	};
+    key <AC03>	{ [         d,          D,      Dstroke,          ETH ]	};
+    key <AC08>	{ [         k,          K,          kra,    ampersand ]	};
+    key <AC09>	{ [         l,          L,      lstroke,      Lstroke ]	};
+    key <AC10>	{ [   lstroke,    Lstroke,       dollar, dead_doubleacute ] };
+    key <AC11>	{ [   aogonek,    eogonek,       ssharp,   dead_caron ]	};
+    key <TLDE>	{ [  abovedot, dead_ogonek,     notsign,      notsign ]	};
+
+    key <BKSL>	{ [    oacute,     zacute,   dead_grave,   dead_breve ]	};
+    key <AB03>	{ [         c,          C,         cent,    copyright ]	};
+
+    key <RALT>  { type[Group1]="TWO_LEVEL",
+                  [ ISO_Level3_Shift, Multi_key ]   };
+    modifier_map Mod5   { <RALT> };
+};
+

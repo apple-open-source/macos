@@ -1,0 +1,2 @@
+The XftConfig file is no longer used by Xft.  Please see
+/etc/fonts/fonts.conf to configure client-side fonts.

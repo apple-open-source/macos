@@ -1,0 +1,30 @@
+XCOMM $XFree86: xc/lib/XTrap/Imakefile,v 1.1 2001/11/02 23:29:27 dawes Exp $
+
+#define DoNormalLib NormalLibXTrap
+#define DoSharedLib SharedLibXTrap
+#define DoDebugLib DebugLibXTrap
+#define DoProfileLib ProfileLibXTrap
+#define LibName XTrap
+#define SoRev SOXTRAPREV
+#define LibHeaders NO
+
+#include <Threads.tmpl>
+
+#ifdef SharedXmuReqs
+REQUIREDLIBS = SharedXmuReqs
+#endif
+
+XCOMM wish this weren't necessary, but need xlib and xt internals...
+INCLUDES=-I$(TOP)/include -I$(TOOLKITSRC)
+
+
+      SRCS = XECallBcks.c XEConTxt.c XEDsptch.c XEPrInfo.c \
+	XERqsts.c XEStrMap.c XETrapInit.c XEWrappers.c
+      OBJS = XECallBcks.o XEConTxt.o XEDsptch.o XEPrInfo.o \
+	XERqsts.o XEStrMap.o XETrapInit.o XEWrappers.o
+
+LINTLIBS = $(LINTXLIB)
+
+#include <Library.tmpl>
+
+DependTarget()

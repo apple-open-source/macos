@@ -1,0 +1,74 @@
+#
+# Id: Makefile.in,v 1.4 1998/12/06 18:50:22 mleisher Exp $
+#
+
+#
+# Copyright 1996, 1997, 1998 Computing Research Labs, New Mexico State
+# University
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+# THE COMPUTING RESEARCH LAB OR NEW MEXICO STATE UNIVERSITY BE LIABLE FOR ANY
+# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT
+# OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
+# THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#
+
+RM = @RM@
+MKINSTALLDIRS = ../../mkinstalldirs
+
+CC = @CC@
+CFLAGS = @XX_CFLAGS@ @CFLAGS@
+
+SRCS = remap.c ttf2bdf.c
+OBJS = remap.o ttf2bdf.o
+
+#
+# Point these at the FreeType source directories.
+#
+INCS = @CPPFLAGS@
+LIBS = @LIBS@
+
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+bindir = @bindir@
+mandir = @mandir@
+
+all: ttf2bdf
+
+ttf2bdf: $(OBJS)
+	$(PURIFY) $(CC) $(STATIC) $(CFLAGS) -o ttf2bdf $(OBJS) $(LIBS)
+
+clean:
+	$(RM) -f *.o *BAK *CKP *~ a.out core
+
+realclean: clean
+	$(RM) -f ttf2bdf
+
+distclean: clean
+	$(RM) -f ttf2bdf config.* Makefile
+
+.c.o:
+	$(CC) $(CFLAGS) $(INCS) -c $< -o $@
+
+install: ttf2bdf
+	@$(MKINSTALLDIRS) $(bindir) $(mandir)/man1
+	@cp ttf2bdf $(bindir)/ttf2bdf
+	@cp ttf2bdf.man $(mandir)/man1/ttf2bdf.1
+
+uninstall:
+	@$(RM) -f $(bindir)/ttf2bdf
+	@$(RM) -f $(mandir)/man1/ttf2bdf.1
+
+# end of Makefile

@@ -1,0 +1,3587 @@
+\&
+.sp 1
+.ce 3
+\s+1\fBChapter 16\fP\s-1
+
+\s+1\fBPEXlib Utilities\fP\s-1
+.sp 2
+.nr H1 16
+.nr H2 0
+.nr H3 0
+.nr H4 0
+.nr H5 0
+.na
+.LP
+.XS
+Chapter 16: PEXlib Utilities
+.XE
+.LP
+This chapter gives the PEXlib utility functions.  These functions can be used
+to create transformation matrices for modeling and viewing, and to apply
+those matrices to points and vectors.  Utilities are also provided to compute
+the geometric normals of multi-faceted output primitives.
+.LP
+There are four groups of functions:
+.ID
+.IP \s-2\(bu\s+2 2
+Modeling Transformation Utilities
+.IP \s-2\(bu\s+2 2
+Viewing Transformation Utilities
+.IP \s-2\(bu\s+2 2
+Miscellaneous Transformation Utilities
+.IP \s-2\(bu\s+2 2
+Utilities for Computing Geometric Normals
+.DE
+.NH 2
+Modeling Transformation Utilities
+.XS
+\*(SN Modeling Transformation Utilities
+.XE
+.IN "utilities" "modeling transformation"
+.LP
+Each function in this group computes a transformation matrix that
+performs a common modeling operation, such as a rotation or
+translation, or composes two transforms.  Included in this set are
+the following functions:
+.ID
+.PN PEXRotate 
+.PN PEXRotate2D 
+.PN PEXRotateGeneral
+.PN PEXScale
+.PN PEXScale2D
+.PN PEXTranslate
+.PN PEXTranslate2D
+.PN PEXMatrixMult
+.PN PEXMatrixMult2D
+.PN PEXBuildTransform
+.PN PEXBuildTransform2D
+.DE
+.NH 3
+Common Data Structures
+.XS
+\*(SN Common Data Structures
+.XE
+.LP
+Below are the data structures used that are common to more than one function
+described in this section.
+.RS
+.Co
+/* coordinates */
+.ID
+typedef struct {
+    float               x;
+    float               y;
+    float               z;
+} PEXCoord;
+.sp
+typedef struct {
+    float               x;
+    float               y;
+} PEXCoord2D;
+.DE
+/* vectors */
+.ID
+typedef struct {
+    float               x;
+    float               y;
+    float               z;
+} PEXVector;
+.sp
+typedef struct {
+    float               x;
+    float               y;
+} PEXVector2D;
+.DE
+/* matrices */
+.ID
+typedef float           PEXMatrix[4][4];
+typedef float           PEXMatrix3x3[3][3];
+.DE
+.ft P
+.RE
+.bp
+.XS
+Function Descriptions
+.XE
+.SH
+PEXRotate
+.XS
+	PEXRotate
+.XE
+.IN "PEXRotate" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+int PEXRotate\^(\^int \fIaxis\fP, double \fIangle\fP, PEXMatrix \fImatrix_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIaxis\fP 1i
+one of
+.PN PEXXAxis ,
+.PN PEXYAxis ,
+.PN PEXZAxis
+.IP \fIangle\fP 1i
+angle of the rotation in radians
+.IP \fImatrix_return\fP 1i
+matrix into which rotation matrix is stored
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if successful; otherwise, one of the following:
+.ID
+\fBPEXBadAxis\fP - invalid axis value specified
+.DE
+.RE
+.SH
+Description
+.RS
+.LP
+This function creates a rotation matrix about the specified axis.
+.LP
+The resulting matrix rotates by the angle specified in radians
+about the origin.
+.LP
+The function returns unsuccessfully if axis is not one defined.
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXRotate2D ,
+.PN PEXRotateGeneral
+.RE
+.bp
+.SH
+PEXRotate2D
+.XS
+	PEXRotate2D
+.XE
+.IN "PEXRotate2D" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXRotate2D\^(\^double \fIangle\fP, PEXMatrix3x3 \fImatrix_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIangle\fP 1i
+angle of the rotation in radians
+.IP \fImatrix_return\fP 1i
+matrix into which rotation matrix is stored
+.RE
+.SH
+Returns
+.RS
+.LP
+None.
+.RE
+.SH
+Description
+.RS
+.LP
+The resulting matrix rotates by the angle specified in radians
+about the origin.
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXRotate ,
+.PN PEXRotateGeneral
+.RE
+.bp
+.SH
+PEXRotateGeneral
+.XS
+	PEXRotateGeneral
+.XE
+.IN "PEXRotateGeneral" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+int PEXRotateGeneral\^(\^PEXCoord *\fIpoint1\fP, PEXCoord *\fIpoint2\fP, double \fIangle\fP, PEXMatrix \fImatrix_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIpoint1\fP 1i
+endpoint of line segment defining rotation axis
+.IP \fIpoint2\fP 1i
+endpoint of line segment defining rotation axis
+.IP \fIangle\fP 1i
+angle of the rotation in radians
+.IP \fImatrix_return\fP 1i
+matrix into which rotation matrix is stored
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if successful; otherwise, one of the following:
+.ID
+\fBPEXBadAxis\fP - the endpoints are coincident
+.DE
+.RE
+.SH
+Description
+.RS
+.LP
+This routine formats a matrix for a right-handed rotation about an
+arbitrary axis.  The rotation axis is defined by the line segment
+joining the two points.  The angle is in radians and is measured
+counter-clockwise when looking from the first point to second point along the
+specified axis.
+.LP
+Returns unsuccessfully if the points are coincident.
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.RE
+.bp
+.SH
+PEXScale
+.XS
+	PEXScale
+.XE
+.IN "PEXScale" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXScale\^(\^PEXVector *\fIscale_vector\fP, PEXMatrix \fImatrix_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIscale_vector\fP 1i
+vector containing the X, Y and Z scale factors
+.IP \fImatrix_return\fP 1i
+matrix into which rotation matrix is stored
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+Creates a scale matrix given the scale vector. 
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXScale2D
+.RE
+.bp
+.SH
+PEXScale2D
+.XS
+	PEXScale2D
+.XE
+.IN "PEXScale2D" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXScale2D\^(\^PEXVector2D *\fIscale_vector\fP, PEXMatrix3x3 \fImatrix_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIscale_vector\fP 1i
+vector containing the X and Y scale factors
+.IP \fImatrix_return\fP 1i
+matrix into which rotation matrix is stored
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+Creates a 3X3 scale matrix given the scale vector. 
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXScale
+.RE
+.bp
+.SH
+PEXTranslate
+.XS
+	PEXTranslate
+.XE
+.IN "PEXTranslate" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXTranslate\^(\^PEXVector *\fItrans_vector\fP, PEXMatrix \fImatrix_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fItrans_vector\fP 1i
+vector containing the X, Y and Z translation factors
+.IP \fImatrix_return\fP 1i
+matrix into which rotation matrix is stored
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+Creates a translation matrix that translates objects
+by the given translation vector. 
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXTranslate2D
+.RE
+.bp
+.SH
+PEXTranslate2D
+.XS
+	PEXTranslate2D
+.XE
+.IN "PEXTranslate2D" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXTranslate2D\^(\^PEXVector2D *\fItrans_vector\fP, PEXMatrix3x3 \fImatrix_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fItrans_vector\fP 1i
+vector containing the X and Y translation factors
+.IP \fImatrix_return\fP 1i
+matrix into which rotation matrix is stored
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+Creates a 3X3 translation matrix that translates objects
+by the given translation vector. 
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXTranslate
+.RE
+.bp
+.SH
+PEXMatrixMult
+.XS
+	PEXMatrixMult
+.XE
+.IN "PEXMatrixMult" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXMatrixMult\^(\^PEXMatrix \fImatrix1\fP, PEXMatrix \fImatrix2\fP, PEXMatrix \fImatrix_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fImatrix1\fP 1i
+first matrix to be multiplied
+.IP \fImatrix2\fP 1i
+second matrix to be multiplied
+.IP \fImatrix_return\fP 1i
+matrix into which result is stored
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+Performs a matrix multiplication:  matrix = matrix1 X matrix2
+.LP
+If the return matrix is the same as one of the input matrices, the function will
+overwrite the input values with the multiplied values.
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXMatrixMult2D
+.RE
+.bp
+.SH
+PEXMatrixMult2D
+.XS
+	PEXMatrixMult2D
+.XE
+.IN "PEXMatrixMult2D" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXMatrixMult2D\^(\^PEXMatrix3x3 \fImatrix1\fP, PEXMatrix3x3 \fImatrix2\fP, PEXMatrix3x3 \fImatrix_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fImatrix1\fP 1i
+first matrix to be multiplied
+.IP \fImatrix2\fP 1i
+second matrix to be multiplied
+.IP \fImatrix_return\fP 1i
+matrix into which result is stored
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+Performs a 3X3 matrix multiplication:  matrix = matrix1 X matrix2.
+.LP
+If the return matrix is the same as one of the input matrices, the function will
+overwrite the input values with the multiplied values.
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXMatrixMult
+.RE
+.bp
+.SH
+PEXBuildTransform
+.XS
+	PEXBuildTransform
+.XE
+.IN "PEXBuildTransform" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXBuildTransform\^(\^PEXCoord *\fIfixed_point\fP, PEXVector *\fItrans_vector\fP, double \fIangle_x\fP, double \fIangle_y\fP, double \fIangle_z\fP, PEXVector *\fIscale_vector\fP, PEXMatrix \fImatrix_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIfixed_point\fP 1i
+origin for scaling and rotation
+.IP \fItrans_vector\fP 1i
+translation vector
+.IP \fIangle_x\fP 1i
+angle of rotation about X axis, in radians
+.IP \fIangle_y\fP 1i
+angle of rotation about Y axis, in radians
+.IP \fIangle_z\fP 1i
+angle of rotation about Z axis, in radians
+.IP \fIscale_vector\fP 1i
+vector of scale factors for X, Y and Z
+.IP \fImatrix_return\fP 1i
+matrix into which result is stored
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function builds a transformation matrix that scales by the values
+in the scale vector about the fixed point, rotates about the X, Y and Z 
+axes using the fixed point as the center of rotation and then 
+translates according to translation vector, in that order.
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXBuildTransform2D
+.RE
+.bp
+.SH
+PEXBuildTransform2D
+.XS
+	PEXBuildTransform2D
+.XE
+.IN "PEXBuildTransform2D" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXBuildTransform2D\^(\^PEXCoord2D *\fIfixed_point\fP, PEXVector2D *\fItrans_vector\fP, double \fIangle_z\fP, PEXVector2D *\fIscale_vector\fP, PEXMatrix3x3 \fImatrix_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIfixed_point\fP 1i
+origin for scaling and rotation
+.IP \fItrans_vector\fP 1i
+translation vector
+.IP \fIangle_z\fP 1i
+angle of rotation about Z axis, in radians
+.IP \fIscale_vector\fP 1i
+vector of scale factors for X and Y axes
+.IP \fImatrix_return\fP 1i
+matrix in which result is stored
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function builds a 3X3 transformation matrix that scales
+by the values in the scale vector about the fixed point, rotates
+about Z axis using the fixed point as the center
+of rotation and then translates according to translation vector,
+in that order.
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXBuildTransform
+.RE
+.bp
+.NH 2
+Viewing Transformation Utilities
+.XS
+\*(SN Viewing Transformation Utilities
+.XE
+.IN "utilities" "viewing transformation"
+.LP
+These functions compute viewing transforms for the PHIGS
+viewing model and a more simple viewing model.  The
+functions using the PHIGS viewing model are:
+.ID
+.PN PEXViewOrientationMatrix
+.PN PEXViewOrientationMatrix2D
+.PN PEXViewMappingMatrix
+.PN PEXViewMappingMatrix2D
+.DE
+.LP
+Those for the simple viewing model are:		
+.ID
+.PN PEXLookAtViewMatrix
+.PN PEXPolarViewMatrix
+.PN PEXOrthoProjMatrix
+.PN PEXPerspProjMatrix
+.DE
+The matrices returned by these functions can be passed to
+PEXlib as viewing transforms.		
+.NH 3
+Common Data Structures
+.XS
+\*(SN Common Data Structures
+.XE
+.LP
+Below are the data structures used that are common to more than one function
+described in this section.
+.RS
+.Co
+/* coordinates */
+.ID
+typedef struct {
+    float               x;
+    float               y;
+    float               z;
+} PEXCoord;
+.sp
+typedef struct {
+    float               x;
+    float               y;
+} PEXCoord2D;
+.DE
+/* vectors */
+.ID
+typedef struct {
+    float               x;
+    float               y;
+    float               z;
+} PEXVector;
+.sp
+typedef struct {
+    float               x;
+    float               y;
+} PEXVector2D;
+.DE
+/* matrices */
+.ID
+typedef float           PEXMatrix[4][4];
+typedef float           PEXMatrix3x3[3][3];
+.DE
+.ft P
+.RE
+.bp
+.XS
+Function Descriptions
+.XE
+.SH
+PEXViewOrientationMatrix
+.XS
+	PEXViewOrientationMatrix
+.XE
+.IN "PEXViewOrientationMatrix" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+int PEXViewOrientationMatrix\^(\^PEXCoord *\fIvrp\fP, PEXVector *\fIvpn\fP, PEXVector *\fIvup\fP, PEXMatrix \fImatrix_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIvrp\fP 1i
+view reference point
+.IP \fIvpn\fP 1i
+view plane normal
+.IP \fIvup\fP 1i
+view up vector
+.IP \fImatrix_return\fP 1i
+matrix into which result is stored
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if successful; otherwise, one of the following:
+.ID
+\fBPEXBadVector\fP - either vpn or vup is zero length
+\fBPEXBadVectors\fP - vup is parallel to vpn
+.DE
+.RE
+.SH
+Description
+.RS
+.LP
+This function creates a view orientation matrix that
+transforms world coordinates (WC) to view reference
+coordinates (VRC).  This matrix is used in conjunction with a view
+mapping matrix as the viewing matrices for a designated view.
+.LP
+The view reference point (VRP) defines the point in world
+coordinate space that is to be used as the origin of the
+view reference coordinate system.
+.LP
+The view plane normal (VPN) is a 3D vector defined in world
+coordinates relative to the view reference point.  This
+gives the direction of the positive Z axis of VRC.
+.LP
+The view up vector (VUP) is a 3D vector defined in
+world coordinates relative to the view reference point.
+The projection of this vector onto the plane through
+the view reference point and perpendicular to the
+view plane normal defines the Y axis of VRC.
+.LP
+The X axis of VRC is defined such that the VRC system
+forms a right-handed coordinate system.
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXViewOrientationMatrix2D ,
+.PN PEXViewMappingMatrix ,
+.PN PEXViewMappingMatrix2D
+.RE
+.bp
+.SH
+PEXViewOrientationMatrix2D
+.XS
+	PEXViewOrientationMatrix2D
+.XE
+.IN "PEXViewOrientationMatrix2D" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+int PEXViewOrientationMatrix2D\^(\^PEXCoord2D *\fIvrp\fP, PEXVector2D *\fIvup\fP, PEXMatrix3x3 \fImatrix_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIvrp\fP 1i
+view reference point
+.IP \fIvup\fP 1i
+view up vector
+.IP \fImatrix_return\fP 1i
+matrix in which result is stored
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if successful; otherwise, one of the following:
+.ID
+\fBPEXBadVector\fP - vup is zero length.
+.DE
+.RE
+.SH
+Description
+.RS
+.LP
+This function creates a view orientation matrix that
+transforms world coordinates (WC) to view reference
+coordinates (VRC).  This matrix is used in conjunction with a view
+mapping matrix as the viewing matrices for a designated view.
+.LP
+The view reference point (VRP) defines the point in world
+coordinate space that is to be used as the origin of the
+view reference coordinate system.  The point is in
+the WC z=0 plane.
+.LP
+The view plane normal (VPN) is in the direction of the positive
+Z axis of WC.
+.LP
+The view up vector (VUP) is a 2D vector in the WC z=0 plane.
+It determines the positive Y axis of VRC.  It's defined in
+world coordinates relative to the view reference point.
+.LP
+The X axis of VRC is defined such that the VRC system
+forms a right-handed coordinate system.
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXViewOrientationMatrix ,
+.PN PEXViewMappingMatrix ,
+.PN PEXViewMappingMatrix2D
+.RE
+.bp
+.SH
+PEXViewMappingMatrix
+.XS
+	PEXViewMappingMatrix
+.XE
+.IN "PEXViewMappingMatrix" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+int PEXViewMappingMatrix\^(\^PEXCoord2D *\fIframe\fP, PEXNPCSubVolume *\fIviewport\fP, int \fIperspective\fP, PEXCoord *\fIprp\fP, double \fIview_plane\fP, double \fIback_plane\fP, double \fIfront_plane\fP, PEXMatrix \fImatrix_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIframe\fP 1i
+array of 2 2D VRC locations which mark a rectangle in the view plane
+.IP \fIviewport\fP 1i
+NPC viewport into which the frame gets mapped
+.IP \fIperspective\fP 1i
+flag to indicate whether a perspective view is desired, a value of
+.PN True
+requests that perspective be applied
+.IP \fIprp\fP 1i
+projection reference point
+.IP \fIview_plane\fP 1i
+VRC position of view plane w.r.t. the VRP
+.IP \fIback_plane\fP 1i
+VRC position of the back plane w.r.t. the VRP
+.IP \fIfront_plane\fP 1i
+VRC position of the front plane w.r.t. the VRP
+.IP \fImatrix_return\fP 1i
+matrix into which result is stored
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if successful; otherwise, one of the following:
+.ID
+\fBPEXBadLimits\fP
+\fBPEXBadViewport\fP
+\fBPEXBadPlanes\fP
+\fBPEXBadPRP\fP
+.DE
+.RE
+.SH
+Description
+.RS
+.LP
+This function creates a view mapping matrix that transforms
+a volume specified in view reference coordinates (VRC) to a
+volume in normalized projection coordinates (NPC).  This
+matrix is used in conjunction with a view orientation matrix
+as the viewing matrices for a designated view.
+.LP
+The axes of VRC form a right-handed coordinate system.
+The z axis is along the VPN (view plane normal, see
+.PN PEXViewOrientation ),
+The Y axis is fixed by VUP, and
+the X axis is determined so that the three axes form a right-
+handed coordinate system.
+.LP
+The front plane, back plane, and view plane all define
+planes in VRC parallel to the VRC x-y plane. The location of
+front_plane and back_plane along the z axis of VRC defines
+the front and back of the volume of VRC that will be mapped
+to the specified NPC viewport.  The view plane locates the
+view frame or "window" on the VRC z axis. The two points in
+frame determine the size of the view window by specifying
+lower left (frame[0]) and upper right (frame[1]) x and y VRC
+points of the window on the view plane. These values taken
+together establish the volume of VRC space that is mapped
+into the NPC viewport.
+.LP
+The type of projection may be parallel or perspective.  The
+projection reference point (PRP) orients the projectors
+defining the surfaces of the view volume.  If perspective
+indicator is
+.PN False ,
+then the projection type is parallel and
+the projectors are all parallel to the vector joining the
+projection reference point and the center of the view window
+(located on the view plane).  If perspective is
+.PN True ,
+then
+the projectors all converge at the projection reference
+point.  Thus, the view volume is a parallelpiped for
+parallel views, and a truncated pyramid for perspective views.
+.LP
+When specifying NPC, the X, Y and Z limits must be as follows:
+.ID
+xmin < xmax ,  ymin < ymax ,  zmin <= zmax
+.DE
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef struct {
+    PEXCoord            min;
+    PEXCoord            max;
+} PEXNPCSubVolume;
+.sp
+See also the \fICommon Data Structures\f section.
+.ft P
+.DE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXViewMappingMatrix2D ,
+.PN PEXViewOrientationMatrix ,
+.PN PEXViewOrientationMatrix2D
+.RE
+.bp
+.SH
+PEXViewMappingMatrix2D
+.XS
+	PEXViewMappingMatrix2D
+.XE
+.IN "PEXViewMappingMatrix2D" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+int PEXViewMappingMatrix2D\^(\^PEXCoord2D *\fIframe\fP, PEXCoord2D *\fIviewport\fP, PEXMatrix3x3 \fImatrix_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIframe\fP 1i
+array of 2 2D VRC locations which mark a rectangle to be mapped into the NPC subvolume.
+.IP \fIviewport\fP 1i
+array of 2 2D NPC coordinates with z = 0 specifying lower left and upper right of the "viewport".
+.IP \fImatrix_return\fP 1i
+matrix in which result is stored
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if successful; otherwise, one of the following:
+.ID
+\fBPEXBadLimits\fP
+\fBPEXBadViewport\fP
+.DE
+.RE
+.SH
+Description
+.RS
+.LP
+This function is a 2D shorthand version of
+.PN PEXViewMappingMatrix
+with the following parameters assumed:
+.ID
+front plane distance = 1
+back plane distance = 0
+view plane distance = 0
+viewport z range = [0,1]
+projection type = parallel
+x-y coordinates of projection reference point = center of view window,
+    z coordinate = 1.0.
+.DE
+.LP
+When specifying NPC, the X, Y and Z limits must be as follows:
+.ID
+xmin < xmax ,  ymin < ymax , zmin <= zmax
+.DE
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXViewMappingMatrix ,
+.PN PEXViewOrientationMatrix ,
+.PN PEXViewOrientationMatrix2D
+.RE
+.bp
+.SH
+PEXLookAtViewMatrix
+.XS
+	PEXLookAtViewMatrix
+.XE
+.IN "PEXLookAtViewMatrix" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+int PEXLookAtViewMatrix\^(\^PEXCoord *\fIfrom\fP, PEXCoord *\fIto\fP, PEXVector *\fIup\fP, PEXMatrix \fImatrix_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIfrom\fP 1i
+Viewing position, in world coordinates.
+.IP \fIto\fP 1i
+Look at position, in world coordinates.
+.IP \fIup\fP 1i
+Vector representing the "up" direction, in world coordinates.
+.IP \fImatrix_return\fP 1i
+matrix in which result is stored
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if successful; otherwise, one of the following:
+.ID
+\fBPEXBadVectors\fP - the from and to arguments are equal, or the line between
+them is parallel with the up vector
+\fBPEXBadVector\fP - up is zero length
+.DE
+.RE
+.SH
+Description
+.RS
+.LP
+This function creates a view orientation transform that defines the viewing
+direction and orientation.  It is a slightly more intuitive interface to
+.PN PEXViewOrientationMatrix .
+.LP
+The "from" position defines the viewpoint, and the "to" position
+specifies the point being viewed.  These two parameters together define the
+view reference point (the VRC origin) and the view plane normal of
+.PN PEXViewOrientationMatrix .
+The view reference point is the "to" point; the view plane normal is the vector
+from "to" to "from".
+.LP
+The view up vector is a 3D vector defined in world coordinates relative to the
+"to" point.  The projection of this vector onto the plane through the "to"
+point and perpendicular to the view plane normal defines the Y axis of VRC.
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXPolarViewMatrix ,
+.PN PEXViewOrientationMatrix ,
+.PN PEXViewMappingMatrix
+.RE
+.bp
+.SH
+PEXPolarViewMatrix
+.XS
+	PEXPolarViewMatrix
+.XE
+.IN "PEXPolarViewMatrix" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+int PEXPolarViewMatrix\^(\^PEXCoord *\fIfrom\fP, double \fIdistance\fP, double \fIazimuth\fP, double \fIaltitude\fP, double \fItwist\fP, PEXMatrix \fImatrix_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIfrom\fP 1i
+The viewing position.
+.IP \fIdistance\fP 1i
+The distance between the `from' position and the position being viewed.
+.IP \fIazimuth\fP 1i
+The angle in the x,z plane from the +z axis to the line of sight, in radians.  Positive values are counter-clockwise when viewed from the positive `y' axis.
+.IP \fIaltitude\fP 1i
+The angular inclination of the line of sight from the `x',`z' plane.  The `altitude' argument is the angle in radians.  Positive values are towards the positive `y' axis.
+.IP \fItwist\fP 1i
+The up direction of the view, given as an angle, in radians, about the line of
+sight.  Positive values of twist are in the counter-clockwise direction.
+.IP \fImatrix_return\fP 1i
+matrix in which result is stored
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if successful; otherwise, one of the following:
+.ID
+\fBPEXBadDistance\fP
+.DE
+.RE
+.SH
+Description
+.RS
+.LP
+This routine formats a polar view orientation matrix.  This routine is
+similar to
+.PN PEXLookAtViewMatrix ,
+except that the viewing parameters
+are specified in spherical coordinates.
+The "from" position defines one end of the view plane normal; the position
+indicated by "distance", "azimuth", and "altitude" define the base of the
+view plane normal, and the origin of VRC.
+.LP
+The view is defined with respect to the `from' position (the
+viewing position) and the distance between it and the position being
+viewed.  The azimuth angle specifies the direction of the line of
+sight going toward the position being viewed.
+Positive values of azimuth are counter-clockwise when viewed from the
+positive y axis.
+.LP
+The azimuth and altitude angles apply to the coordinate system
+with `from' at the origin and the line of sight emanating from it.  The
+azimuth specifies the angle between the line of sight and
+the +z axis, and the altitude defines the angle between
+it and the x,z plane.
+.LP
+When applied, the transformation places the viewing position at the
+origin, aligns the viewpoint with the +z axis, applies any
+twist to the coordinates, and then places the viewed point at the
+origin.
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXLookAtViewMatrix ,
+.PN PEXViewOrientationMatrix ,
+.PN PEXViewMappingMatrix
+.RE
+.bp
+.SH
+PEXOrthoProjMatrix
+.XS
+	PEXOrthoProjMatrix
+.XE
+.IN "PEXOrthoProjMatrix" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+int PEXOrthoProjMatrix\^(\^double \fIheight\fP, double \fIaspect\fP, double \fInear\fP, double \fIfar\fP, PEXMatrix \fImatrix_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIheight\fP 1i
+The height of the orthographic viewing box.
+.IP \fIaspect\fP 1i
+The aspect ratio (width/height) of the orthographic viewing box.
+.IP \fInear\fP 1i
+The distance, in view reference coordinates, from the VRC origin to the front clipping plane.
+.IP \fIfar\fP 1i
+The distance, in view reference coordinates, from the VRC origin to the back clipping plane.
+.IP \fImatrix_return\fP 1i
+matrix in which result is stored
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if successful; otherwise, one of the following:
+.ID
+\fBPEXBadLimits\fP - the viewing box depth, width, or height is zero.
+.DE
+.RE
+.SH
+Description
+.RS
+.LP
+This routine formats a view mapping matrix.
+.LP
+A projection matrix defines a visible region of the coordinate space.
+An orthographic projection defines the visible region as a box
+specified by its height, width (the height multiplied by the aspect), and
+its near and far boundaries.
+.LP
+The reference point for the projection is the origin of VRC; the near and
+far clipping planes are defined with respect to it.  The height is
+defined in view reference coordinates.  Clipping at the
+planes is controlled by the clipping flags in the selected view table
+entry.
+.RE
+.SH
+Errors
+.SH
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXLookAtViewMatrix ,
+.PN PEXViewOrientationMatrix ,
+.PN PEXViewMappingMatrix ,
+.br
+.PN PEXPerspProjMatrix
+.RE
+.bp
+.SH
+PEXPerspProjMatrix
+.XS
+	PEXPerspProjMatrix
+.XE
+.IN "PEXPerspProjMatrix" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+int PEXPerspProjMatrix\^(\^double \fIfovy\fP, double \fIdistance\fP, double \fIaspect\fP, double \fInear\fP, double \fIfar\fP, PEXMatrix \fImatrix_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIfovy\fP 1i
+Field of view (in radians) in the horizontal direction.
+.IP \fIdistance\fP 1i
+The distance to the eye-point.
+.IP \fIaspect\fP 1i
+The aspect ratio (width/height) of the perspective viewing frustum.
+.IP \fInear\fP 1i
+The distance to the near clipping plane.
+.IP \fIfar\fP 1i
+The distance to the far clipping plane.
+.IP \fImatrix_return\fP 1i
+matrix in which result is stored
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if successful; otherwise, one of the following:
+.ID
+\fBPEXBadLimits\fP - near <= far, fovy = 0, aspect = 0, or distance <= near
+.DE
+.RE
+.SH
+Description
+.RS
+.LP
+This routine formats a view mapping matrix.
+.LP
+A projection matrix defines the visible region of the coordinate
+space.
+A perspective projection defines the visible region as a truncated
+pyramid or frustum.  The amount of perspective in the projection is
+specified by the field of view argument, `fovy'.
+The perspective increases as the angle increases to
+a value of pi radians.
+.LP
+The distance between the eye-point and the origin
+is specified by the distance.  If the application
+program calls
+.PN PEXLookAtViewMatrix
+to calculate the view
+orientation matrix, the distance is typically the distance between
+the `from' and `to' points specified to that routine.
+If the application program calls
+.PN PEXPolarViewMatrix
+to calculate the
+view orientation matrix, the distance is typically the same
+distance specified to that routine.
+.LP
+The height of the frustum at the near clipping
+plane is determined by `fovy' and the distance to the near plane.
+The width of the frustum is determined from the aspect ratio.
+.LP
+The reference point for the projection is the origin of VRC; the near and far
+clipping planes are defined with respect to it.  Clipping at the
+planes is controlled by the clip flags in the selected view table
+entry.
+.LP
+It is useful to think of
+.PN PEXPerspProjMatrix
+as defining a
+camera.  The object being viewed is defined near the
+origin.  The lens is defined by `fovy';
+a larger value of `fovy' defines
+a wide angle lens.  For those who wish to keep the height at the
+near plane constant and automatically back up the camera to frame the
+subject, the relationship between the field of view, the eye distance, which is the
+distance between the eye-point and the near plane, and the height,
+which is the height at the near plane, is:
+.ID
+tan (fovy/2) = ( (height/2) / eye_distance)
+.DE
+.LP
+For example, if a unit cube is being viewed, a "look at" view with
+the `to' point at the center of the cube or a "polar"
+view with the viewed point
+at the center of the cube, places the cube
+at the origin.  A matrix created by
+.PN PEXPerspProjMatrix
+with
+aspect = 1, near = 0.5, and far = -0.5 makes the
+entire cube visible, with the field of view and distance controlling the amount
+of perspective applied.
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXLookAtViewMatrix ,
+.PN PEXViewOrientationMatrix ,
+.PN PEXViewMappingMatrix ,
+.br
+.PN PEXOrthoProjMatrix
+.RE
+.bp
+.NH 2
+Miscellaneous Transformation Utilities
+.XS
+\*(SN Miscellaneous Transformation Utilities
+.XE
+.IN "utilities" "miscellaneous transformation"
+.LP
+This set of functions computes various useful transforms
+and applies transforms to points and vectors.  Included
+in this set are:
+.ID
+.PN PEXTransformPoints
+.PN PEXTransformPoints2D
+.PN PEXTransformPoints4D
+.PN PEXTransformPoints2DH
+.PN PEXTransformVectors
+.PN PEXTransformVectors2D
+.PN PEXNormalizeVectors
+.PN PEXNormalizeVectors2D
+.PN PEXInvertMatrix
+.PN PEXInvertMatrix2D
+.PN PEXIdentityMatrix
+.PN PEXIdentityMatrix2D
+.PN PEXNPCToXCTransform
+.PN PEXNPCToXCTransform2D
+.PN PEXXCToNPCTransform
+.PN PEXXCToNPCTransform2D
+.PN PEXMapXCToNPC
+.PN PEXMapXCToNPC2D
+.DE
+.PN PEXMapXCToNPC
+or
+.PN PEXMapXCToNPC2D
+can be used to find the PEX view
+containing a drawable coordinate (XC) point.
+.PN PEXNPCToXCTransform
+and
+.PN PEXNPCToXCTransform2D
+computes the matrix representing
+the transformation from the NPC subvolume through the DC
+viewport and on to drawable coordinates.
+.PN PEXXCToNPCTransform
+and
+.PN PEXXCToNPCTransform2D
+computes the inverse of this transformation.  These
+functions can be used to transform points from NPC to XC and
+back, using the same transformation used by a PEX renderer or
+a PHIGS workstation resource.
+.LP
+As an example of using these functions, a list of modeling
+coordinate points could be transformed to drawable
+coordinates by the following sequence:
+.ID
+.IP \s-2\(bu\s+2 2
+Concatenate the local and global modeling transforms
+.IP "" 4
+\fBPEXMatrixMult\fP( C = G x L )
+.IP \s-2\(bu\s+2 2
+Concatenate the viewing transforms
+.IP "" 4
+\fBPEXMatrixMult\fP( V = M x O )
+.IP \s-2\(bu\s+2 2
+Concatenate the composite modeling and viewing transforms
+.IP "" 4
+\fBPEXMatrixMult\fP( A = V x C )
+.IP \s-2\(bu\s+2 2
+Compute the NPC to XC transform
+.IP "" 4
+\fBPEXNPCToXCTransform\fP( = W )
+.IP \s-2\(bu\s+2 2
+Concatenate that with the matrix from step c
+.IP "" 4
+\fBPEXMatrixMult\fP( T = W x A )
+.IP \s-2\(bu\s+2 2
+Apply the composite transform
+.IP "" 4
+\fBPEXTransformPoints\fP( P' = T x P )
+.DE
+.LP
+By performing this operation in several steps, the
+application can precompute the matrices and apply them to
+several sets of points, at the same time skipping any steps
+that are unimportant.
+.NH 3
+Common Data Structures
+.XS
+\*(SN Common Data Structures
+.XE
+.LP
+Below are the data structures used that are common to more than one function
+described in this section.
+.RS
+.Co
+/* coordinates */
+.ID
+typedef struct {
+    float               x;
+    float               y;
+    float               z;
+} PEXCoord;
+.sp
+typedef struct {
+    float               x;
+    float               y;
+} PEXCoord2D;
+.sp
+typedef struct {
+    float               x;
+    float               y;
+    float               z;
+    float               w;
+} PEXCoord4D;
+.DE
+/* vectors */
+.ID
+typedef struct {
+    float               x;
+    float               y;
+    float               z;
+} PEXVector;
+.sp
+typedef struct {
+    float               x;
+    float               y;
+} PEXVector2D;
+.DE
+/* matrices */
+.ID
+typedef float           PEXMatrix[4][4];
+typedef float           PEXMatrix3x3[3][3];
+.DE
+/* device coordinates, viewports and views */
+.ID
+typedef struct {
+    PEXCoord            min;
+    PEXCoord            max;
+} PEXNPCSubVolume;
+.sp
+typedef struct {
+    short               x;
+    short               y;
+    float               z;
+} PEXDeviceCoord;
+.sp
+typedef struct {
+    short               x;
+    short               y;
+} PEXDeviceCoord2D;
+.sp
+typedef struct { 
+    unsigned short      clip_flags;
+    unsigned short      reserved;
+    PEXNPCSubVolume     clip_limits;
+    PEXMatrix           orientation;
+    PEXMatrix           mapping;
+} PEXViewEntry;
+.DE
+.ft P
+.RE
+.bp
+.XS
+Function Descriptions
+.XE
+.SH
+PEXTransformPoints
+.XS
+	PEXTransformPoints
+.XE
+.IN "PEXTransformPoints" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+int PEXTransformPoints\^(\^PEXMatrix \fItransform\fP, int \fIcount\fP, PEXCoord *\fIpoints\fP, PEXCoord *\fIpoints_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fItransform\fP 1i
+The transformation matrix to apply to the points
+.IP \fIcount\fP 1i
+The number of points to transform
+.IP \fIpoints\fP 1i
+A pointer to an array of 3D points to transform
+.IP \fIpoints_return\fP 1i
+A pointer to an array in which to store the transformed points
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if successful; otherwise, one of the following:
+.ID
+\fBPEXBadHomoCoord\fP - one or more of the transformed points has a homogeneous coordinate of 0.
+.DE
+.RE
+.SH
+Description
+.RS
+.LP
+This function applies the specified homogeneous
+transformation matrix to the list of points.  In applying
+the transformation, the points are first converted to
+homogeneous points by assigning them a homogeneous
+coordinate of 1.  The transformation is then applied:
+.ID
+P' = TxP
+.DE
+Where P is the point, treated as a column vector, and T is the
+transformation matrix.  The points are then mapped to 3D by
+dividing their first three coordinates by the computed
+homogeneous coordinate. 
+.LP
+If the function returns unsuccessfully, all points other than those with a
+homogeneous coordinate of 0 will be transformed and returned.
+.LP
+If the return array is the same as the input array, the function will
+overwrite the input values with the transformed values.
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXTransformPoints2D ,
+.PN PEXTransformPoints4D ,
+.PN PEXTransformPoints2DH
+.RE
+.bp
+.SH
+PEXTransformPoints2D
+.XS
+	PEXTransformPoints2D
+.XE
+.IN "PEXTransformPoints2D" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+int PEXTransformPoints2D\^(\^PEXMatrix3x3 \fItransform\fP, int \fIcount\fP, PEXCoord2D *\fIpoints\fP, PEXCoord2D *\fIpoints_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fItransform\fP 1i
+The transformation matrix to apply to the points
+.IP \fIcount\fP 1i
+The number of points to transform
+.IP \fIpoints\fP 1i
+A pointer to an array of 2D points to transform
+.IP \fIpoints_return\fP 1i
+A pointer to an array in which to store the transformed points
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if successful; otherwise, one of the following:
+.ID
+\fBPEXBadHomoCoord\fP - one or more of the transformed points has a homogeneous coordinate of 0.
+.DE
+.RE
+.SH
+Description
+.RS
+.LP
+This function applies the specified homogeneous
+transformation matrix to the list of points.  In applying
+the transformation, the points are first converted to
+homogeneous points by assigning them a homogeneous
+coordinate of 1.  The transformation is then applied:
+.ID
+P' = TxP
+.DE
+Where P is the point, treated as a column vector, and T is the
+transformation matrix.  The points are then mapped to 2D by
+dividing their first three coordinates by the computed
+homogeneous coordinate. 
+.LP
+If the function returns unsuccessfully, all points other than those with a
+homogeneous coordinate of 0 will be transformed and returned.
+.LP
+If the return array is the same as the input array, the function will
+overwrite the input values with the transformed values.
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXTransformPoints ,
+.PN PEXTransformPoints4D ,
+.PN PEXTransformPoints2DH
+.RE
+.bp
+.SH
+PEXTransformPoints4D
+.XS
+	PEXTransformPoints4D
+.XE
+.IN "PEXTransformPoints4D" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXTransformPoints4D\^(\^PEXMatrix \fItransform\fP, int \fIcount\fP, PEXCoord4D *\fIpoints\fP, PEXCoord4D *\fIpoints_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fItransform\fP 1i
+The transformation matrix to apply to the points
+.IP \fIcount\fP 1i
+The number of points to transform
+.IP \fIpoints\fP 1i
+A pointer to an array of 4D points to transform
+.IP \fIpoints_return\fP 1i
+A pointer to an array in which to store the transformed points
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function applies the specified homogeneous transformation
+matrix to the list of 3D homogeneous points (P = x, y, z, w).
+The transformation is applied:
+.ID
+P' = TxP
+.DE
+Where P is the point, treated as a column vector, and T is the
+transformation matrix.  The function returns P' = (x', y', z', w').
+.LP
+If the return array is the same as the input array, the function will
+overwrite the input values with the transformed values.
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.PN PEXTransformPoints ,
+.PN PEXTransformPoints2D ,
+.PN PEXTransformPoints2DH
+.RE
+.bp
+.SH
+PEXTransformPoints2DH
+.XS
+	PEXTransformPoints2DH
+.XE
+.IN "PEXTransformPoints2DH" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXTransformPoints2DH\^(\^PEXMatrix3x3 \fItransform\fP, int \fIcount\fP, PEXCoord *\fIpoints\fP, PEXCoord *\fIpoints_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fItransform\fP 1i
+The transformation matrix to apply to the points
+.IP \fIcount\fP 1i
+The number of points to transform
+.IP \fIpoints\fP 1i
+A pointer to an array of 2D homogeneous points to transform
+.IP \fIpoints_return\fP 1i
+A pointer to an array in which to store the transformed points
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function applies the specified homogeneous transformation
+matrix to the list of 2D homogeneous points (P = x, y, w). The
+transformation is applied:
+.ID
+P' = TxP
+.DE
+Where P is the point, treated as a column vector, and T is the
+transformation matrix.  The function returns P' = (x', y', w').
+.LP
+If the return array is the same as the input array, the function will
+overwrite the input values with the transformed values.
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.PN PEXTransformPoints ,
+.PN PEXTransformPoints2D ,
+.PN PEXTransformPoints4D
+.RE
+.bp
+.SH
+PEXTransformVectors
+.XS
+	PEXTransformVectors
+.XE
+.IN "PEXTransformVectors" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXTransformVectors\^(\^PEXMatrix \fItransform\fP, int \fIcount\fP, PEXVector *\fIvectors\fP, PEXVector *\fIvectors_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fItransform\fP 1i
+The transformation matrix to apply to the vectors
+.IP \fIcount\fP 1i
+The number of vectors to transform
+.IP \fIvectors\fP 1i
+A pointer to the array of 3D vectors to transform
+.IP \fIvectors_return\fP 1i
+A pointer to an array in which to store the transformed vectors
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function applies the upper 3x3 submatrix of the
+specified transformation matrix to the list of 3D vectors.
+The transformation is applied:
+.ID
+V' = T'xV
+.DE
+Where V is the vector, treated as a column vector, and T' is
+the upper 3x3 sub-matrix of "transform."
+.LP
+If the return array is the same as the input array, the function will
+overwrite the input values with the transformed values.
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXTransformVectors2D ,
+.PN PEXNormalizeVectors
+.RE
+.bp
+.SH
+PEXTransformVectors2D
+.XS
+	PEXTransformVectors2D
+.XE
+.IN "PEXTransformVectors2D" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXTransformVectors2D\^(\^PEXMatrix3x3 \fItransform\fP, int \fIcount\fP, PEXVector2D *\fIvectors\fP, PEXVector2D *\fIvectors_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fItransform\fP 1i
+The transformation matrix to apply to the vectors
+.IP \fIcount\fP 1i
+The number of vectors to transform
+.IP \fIvectors\fP 1i
+A pointer to the array of 2D vectors to transform
+.IP \fIvectors_return\fP 1i
+A pointer to an array in which to store the transformed vectors
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function applies the upper 2x2 submatrix of the
+specified transformation matrix to the list of 2D vectors.
+The transformation is applied:
+.ID
+V' = T'xV
+.DE
+Where V is the vector, treated as a column vector, and T' is
+the upper 2x2 sub-matrix of "transform."
+.LP
+If the return array is the same as the input array, the function will
+overwrite the input values with the transformed values.
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXTransformVectors ,
+.PN PEXNormalizeVectors2D
+.RE
+.bp
+.SH
+PEXNormalizeVectors
+.XS
+	PEXNormalizeVectors
+.XE
+.IN "PEXNormalizeVectors" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+int PEXNormalizeVectors\^(\^int \fIcount\fP, PEXVector *\fIvectors\fP, PEXVector *\fIvectors_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIcount\fP 1i
+The number of vectors to normalize
+.IP \fIvectors\fP 1i
+A pointer to the array of vectors to normalize
+.IP \fIvectors_return\fP 1i
+A pointer to an array in which to store the normalized vectors
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if successful; otherwise, one of the following:
+.ID
+\fBPEXBadVector\fP - One of the vectors has zero magnitude.
+.DE
+.RE
+.SH
+Description
+.RS
+.LP
+This function normalizes each vector in the specified list of
+3D vectors. An error is returned if any vector in the list has
+a magnitude of zero. All non-zero vectors in the list are still
+normalized, however.
+.LP
+If the return array is the same as the input array, the function will
+overwrite the input values with the normalized values.
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXTransformVectors ,
+.PN PEXNormalizeVectors2D
+.RE
+.bp
+.SH
+PEXNormalizeVectors2D
+.XS
+	PEXNormalizeVectors2D
+.XE
+.IN "PEXNormalizeVectors2D" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+int PEXNormalizeVectors2D\^(\^int \fIcount\fP, PEXVector2D *\fIvectors\fP, PEXVector2D *\fIvectors_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIcount\fP 1i
+The number of vectors to normalize
+.IP \fIvectors\fP 1i
+A pointer to the array of vectors to normalize
+.IP \fIvectors_return\fP 1i
+A pointer to an array in which to store the normalized vectors
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if successful; otherwise, one of the following:
+.ID
+\fBPEXBadVector\fP - One of the vectors has zero magnitude.
+.DE
+.RE
+.SH
+Description
+.RS
+.LP
+This function normalizes each vector in the specified list of
+2D vectors. An error is returned if any vector in the list has
+a magnitude of zero. All non-zero vectors in the list are still
+normalized, however.
+.LP
+If the return array is the same as the input array, the function will
+overwrite the input values with the normalized values.
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXTransformVectors2D ,
+.PN PEXNormalizeVectors
+.RE
+.bp
+.SH
+PEXNPCToXCTransform
+.XS
+	PEXNPCToXCTransform
+.XE
+.IN "PEXNPCToXCTransform" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+int PEXNPCToXCTransform\^(\^PEXNPCSubVolume *\fInpc_sub_volume\fP, PEXDeviceCoord *\fIviewport\fP, unsigned int \fIwindow_height\fP, PEXMatrix \fItransform_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fInpc_sub_volume\fP 1i
+A pointer to an NPC subvolume, typically that of a renderer resource
+.IP \fIviewport\fP 1i
+An array of two device coordinate points defining a viewport, typically that
+of a renderer resource.  The first point in the array is the lower-left corner
+of the viewport; the second point is the upper-right.
+.IP \fIwindow_height\fP 1i
+The height of the drawable
+.IP \fItransform_return\fP 1i
+The returned transformation
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if successful; otherwise, one of the following:
+.ID
+\fBPEXBadViewport\fP - (xmin >= xmax, or ymin >= ymax, or zmin > zmax)
+\fBPEXBadSubVolume\fP - (xmin >= xmax, or ymin >= ymax, or zmin > zmax)
+.DE
+.RE
+.SH
+Description
+.RS
+.LP
+This function computes the transformation matrix to map an
+NPC point to a drawable coordinate (XC), using the specified
+NPC subvolume, DC viewport, and drawable height.  The returned
+transformation matrix first applies the subvolume-to-viewport
+transformation, then transforms the x and y coordinates of
+the resulting points to drawable coordinates, leaving the z
+coordinate in DC.
+.LP
+When specifying NPC and DC, the X, Y and Z limits must be as follows:
+.ID
+xmin < xmax ,  ymin < ymax ,  zmin <= zmax
+.DE
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXNPCToXCTransform2D
+.RE
+.bp
+.SH
+PEXNPCToXCTransform2D
+.XS
+	PEXNPCToXCTransform2D
+.XE
+.IN "PEXNPCToXCTransform2D" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+int PEXNPCToXCTransform2D\^(\^PEXNPCSubVolume *\fInpc_sub_volume\fP, PEXDeviceCoord2D *\fIviewport\fP, unsigned int \fIwindow_height\fP, PEXMatrix3x3 \fItransform_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fInpc_sub_volume\fP 1i
+A pointer to an NPC subvolume, typically that of a renderer resource
+.IP \fIviewport\fP 1i
+An array of two device coordinate points defining a viewport, typically that
+of a renderer resource.  The first point in the array is the lower-left corner
+of the viewport; the second point is the upper-right.
+.IP \fIwindow_height\fP 1i
+The height of the drawable
+.IP \fItransform_return\fP 1i
+The returned transformation
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if successful; otherwise, one of the following:
+.ID
+\fBPEXBadViewport\fP - (xmin >= xmax, or ymin >= ymax, or zmin > zmax)
+\fBPEXBadSubVolume\fP - (xmin >= xmax, or ymin >= ymax, or zmin > zmax)
+.DE
+.RE
+.SH
+Description
+.RS
+.LP
+This function computes the 2D transformation matrix to map a
+2D NPC point to a 2D drawable coordinate (XC), using the
+specified NPC subvolume, DC viewport, and drawable height.
+The returned transformation matrix first applies the
+subvolume-to-viewport transformation, then transform the
+resulting points to drawable coordinates.
+.LP
+When specifying NPC and DC, the X, Y and Z limits must be as follows:
+.ID
+xmin < xmax ,  ymin < ymax ,  zmin <= zmax
+.DE
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXNPCToXCTransform
+.RE
+.bp
+.SH
+PEXXCToNPCTransform
+.XS
+	PEXXCToNPCTransform
+.XE
+.IN "PEXXCToNPCTransform" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+int PEXXCToNPCTransform\^(\^PEXNPCSubVolume *\fInpc_sub_volume\fP, PEXDeviceCoord *\fIviewport\fP, unsigned int \fIwindow_height\fP, PEXMatrix \fItransform_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fInpc_sub_volume\fP 1i
+A pointer to an NPC subvolume, typically that of a renderer resource
+.IP \fIviewport\fP 1i
+An array of two device coordinate points defining a viewport, typically that
+of a renderer resource.  The first point in the array is the lower-left corner
+of the viewport; the second point is the upper-right.
+.IP \fIwindow_height\fP 1i
+The height of the drawable
+.IP \fItransform_return\fP 1i
+The returned transformation
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if successful; otherwise, one of the following:
+.ID
+\fBPEXBadViewport\fP - (xmin >= xmax, or ymin >= ymax, or zmin > zmax)
+\fBPEXBadSubVolume\fP - (xmin >= xmax, or ymin >= ymax, or zmin > zmax)
+.DE
+.RE
+.SH
+Description
+.RS
+.LP
+This function computes a transformation matrix to map a
+drawable point (XC) to NPC coordinates, using the specified
+NPC subvolume, DC viewport, and drawable height.  The returned
+transformation matrix first transforms the x and y coordinates
+of points to device coordinates (DC), leaving the z coordinate
+unmodified.  It then applies the viewport-to-subvolume
+transformation to all coordinates of the resulting points,
+producing 3D NPC points.
+.LP
+When specifying NPC and DC, the X, Y and Z limits must be as follows:
+.ID
+xmin < xmax ,  ymin < ymax ,  zmin <= zmax
+.DE
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXXCToNPCTransform2D
+.RE
+.bp
+.SH
+PEXXCToNPCTransform2D
+.XS
+	PEXXCToNPCTransform2D
+.XE
+.IN "PEXXCToNPCTransform2D" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+int PEXXCToNPCTransform2D\^(\^PEXNPCSubVolume *\fInpc_sub_volume\fP, PEXDeviceCoord2D *\fIviewport\fP, unsigned int \fIwindow_height\fP, PEXMatrix3x3 \fItransform_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fInpc_sub_volume\fP 1i
+A pointer to an NPC subvolume, typically that of a renderer resource
+.IP \fIviewport\fP 1i
+An array of two device coordinate points defining a viewport, typically that
+of a renderer resource.  The first point in the array is the lower-left corner
+of the viewport; the second point is the upper-right.
+.IP \fIwindow_height\fP 1i
+The height of the drawable
+.IP \fItransform_return\fP 1i
+The returned transformation
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if successful; otherwise, one of the following:
+.ID
+\fBPEXBadViewport\fP - (xmin >= xmax, or ymin >= ymax, or zmin > zmax)
+\fBPEXBadSubVolume\fP - (xmin >= xmax, or ymin >= ymax, or zmin > zmax)
+.DE
+.RE
+.SH
+Description
+.RS
+.LP
+This function computes the 2D transformation matrix to map a
+drawable point (XC) to NPC coordinates, using the specified
+NPC subvolume, DC viewport, and drawable height.  The returned
+transformation matrix first transforms the x and y coordinates
+of drawable points to device coordinates (DC), then applies
+the 2D components of the viewport-to-subvolume transformation,
+producing 2D NPC points.
+.LP
+When specifying NPC and DC, the X, Y and Z limits must be as follows:
+.ID
+xmin < xmax ,  ymin < ymax ,  zmin <= zmax
+.DE
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXXCToNPCTransform
+.RE
+.bp
+.SH
+PEXMapXCToNPC
+.XS
+	PEXMapXCToNPC
+.XE
+.IN "PEXMapXCToNPC" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+int PEXMapXCToNPC\^(\^int \fIpoint_count\fP, PEXDeviceCoord2D *\fIpoints\fP, unsigned int \fIwindow_height\fP, double \fIz_dc\fP, PEXDeviceCoord *\fIviewport\fP, PEXNPCSubVolume *\fInpc_sub_volume\fP, int \fIview_count\fP, PEXViewEntry *\fIviews\fP, int *\fIview_return\fP, int *\fIcount_return\fP\^, PEXCoord *\fIpoints_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIpoint_count\fP 1i
+The number of points to transform
+.IP \fIpoints\fP 1i
+A pointer to an array of points to transform.  The X and Y coordinates of these points are in drawable coordinates (XC).  The Z coordinate is in device coordinates (DC).
+.IP \fIwindow_height\fP 1i
+The height of the drawable
+.IP \fIz_dc\fP 1i
+The z DC coordinate to assign the drawable points when converting them to DC.
+.IP \fIviewport\fP 1i
+An array of two device coordinate points defining a viewport, typically that
+of a renderer resource.  The first point in the array is the lower-left corner
+of the viewport; the second point is the upper-right.
+.IP \fInpc_sub_volume\fP 1i
+A pointer to an NPC subvolume, typically that of a renderer resource
+.IP \fIview_count\fP 1i
+The number of views to search
+.IP \fIviews\fP 1i
+The view entries to search for inclusion of the transformed points
+.IP \fIview_return\fP 1i
+Returns the view found to contain the most points
+.IP \fIcount_return\fP 1i
+Returns the number of points contained in the returned view, or the number of
+points transformed if no views are specified.
+.IP \fIpoints_return\fP 1i
+Returns a pointer to an array in which to store the transformed points.
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if successful; otherwise, one of the following:
+.ID
+\fBPEXBadViewport\fP
+\fBPEXBadSubVolume\fP
+.DE
+.RE
+.SH
+Description
+.RS
+.LP
+This function maps a list of drawable coordinates (XC) to
+NPC, and searches a specified list of view entries to
+determine the view containing the computed NPC points.
+.LP
+The XC points are first transformed to DC, using the
+specified window height and assigning them the specified z DC value.
+They are then transformed to NPC by the
+viewport-to-subvolume transform implied by the specified viewport and
+NPC subvolume.  The specified list of views is then searched,
+in order from 0 to the number of views minus 1, and the index of the first
+view containing all the NPC points is returned.  If no view
+contains all the points, then the lowest-index view containing
+the most points is returned.  In this case, only the points
+within the view are returned in "points_ret."
+.LP
+When determining the containing view, only the clipping limits
+of the view are considered, with no consideration given to the
+clipping flags or the viewing transforms.
+.LP
+If no views are specified, the XC points
+are simply transformed to NPC points and returned.  The
+value of the returned view is undefined in this case.
+.LP
+The viewport-to-subvolume transformation maps to NPC the largest
+region of the specified viewport that has the same aspect ratio as
+the NPC subvolume and is anchored at the back lower-left of the
+viewport (the corner of the viewport with the minimum X, Y and
+Z coordinates).  Points that lie outside this region of the
+viewport are not transformed.
+.LP
+When specifying NPC and DC, the X, Y and Z limits must be as follows:
+.ID
+xmin < xmax ,  ymin < ymax ,  zmin <= zmax
+.DE
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXMapXCToNPC2D ,
+.PN PEXNPCToXCTransform
+.PN PEXXCToNPCTransform
+.RE
+.bp
+.SH
+PEXMapXCToNPC2D
+.XS
+	PEXMapXCToNPC2D
+.XE
+.IN "PEXMapXCToNPC2D" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+int PEXMapXCToNPC2D\^(\^int \fIpoint_count\fP, PEXDeviceCoord2D *\fIpoints\fP, unsigned int \fIwindow_height\fP, PEXDeviceCoord2D *\fIviewport\fP, PEXNPCSubVolume *\fInpc_sub_volume\fP, int \fIview_count\fP, PEXViewEntry *\fIviews\fP, int *\fIview_return\fP, int *\fIcount_return\fP\^, PEXCoord2D *\fIpoints_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIpoint_count\fP 1i
+The number of points to transform
+.IP \fIpoints\fP 1i
+A pointer to an array of drawable-coordinate (XC) points to transform.
+.IP \fIwindow_height\fP 1i
+The height of the drawable
+.IP \fIviewport\fP 1i
+An array of two device coordinate points defining a viewport, typically that
+of a renderer resource.  The first point in the array is the lower-left corner
+of the viewport; the second point is the upper-right.
+.IP \fInpc_sub_volume\fP 1i
+A pointer to an NPC subvolume, typically that of a renderer resource
+.IP \fIview_count\fP 1i
+The number of views to search
+.IP \fIviews\fP 1i
+The view entries to search for inclusion of the transformed points
+.IP \fIview_return\fP 1i
+The view found to contain the most points
+.IP \fIcount_return\fP 1i
+Returns the number of points contained in the returned view, or the number of
+points transformed if no views are specified.
+.IP \fIpoints_return\fP 1i
+A pointer to an array in which to store the transformed points.
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if successful; otherwise, one of the following:
+.ID
+\fBPEXBadViewport\fP
+\fBPEXBadSubVolume\fP
+.DE
+.RE
+.SH
+Description
+.RS
+.LP
+This function maps a list of drawable coordinates (XC) to
+NPC, and searches a specified list of view entries to
+determine the view containing the computed NPC points.
+.LP
+The XC points are first transformed to 2D DC, using the
+specified window height, then transformed to 2D NPC by the
+viewport-to-subvolume transform implied by the specified viewport and
+NPC subvolume.  The specified list of views is then searched,
+in order from 0 to the number of views minus 1, and the index of the first
+view containing all the NPC points is returned.  If no view
+contains all the points, then the lowest-index view containing
+the most points is returned.  In this case, only the points
+within the view are returned.
+.LP
+When determining the containing view, only the x-y clipping
+limits of the view are considered, with no consideration given
+to the front and back clipping limits, the clipping flags, or
+the viewing transforms.
+.LP
+If no views are specified, the XC points
+are simply transformed to NPC points and returned.  The
+value of the returned view is undefined in this case.
+.LP
+The viewport-to-subvolume transformation maps to NPC the largest
+region of the specified viewport that has the same aspect ratio as
+the NPC subvolume and is anchored at the back lower-left of the
+viewport (the corner of the viewport with the minimum X, Y and
+Z coordinates).  Points that lie outside this region of the
+viewport are not transformed.
+.LP
+When specifying NPC and DC, the X, Y and Z limits must be as follows:
+.ID
+xmin < xmax ,  ymin < ymax ,  zmin <= zmax
+.DE
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXMapXCToNPC ,
+.PN PEXNPCToXCTransform2D
+.PN PEXXCToNPCTransform2D
+.RE
+.bp
+.SH
+PEXInvertMatrix
+.XS
+	PEXInvertMatrix
+.XE
+.IN "PEXInvertMatrix" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+int PEXInvertMatrix\^(\^PEXMatrix \fItransform\fP, PEXMatrix \fItransform_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fItransform\fP 1i
+The transformation matrix to invert
+.IP \fItransform_return\fP 1i
+The inverse transformation
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if successful; non-zero if unsuccessful.
+.RE
+.SH
+Description
+.RS
+.LP
+This function computes the inverse of a transformation matrix.
+.LP
+An unsuccessful status is returned if the matrix is non-invertible.
+.LP
+The two arguments may be the same variable, in which case the inversion is
+performed in-place, overwriting the original transform.
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXInvertMatrix2D
+.RE
+.bp
+.SH
+PEXInvertMatrix2D
+.XS
+	PEXInvertMatrix2D
+.XE
+.IN "PEXInvertMatrix2D" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+int PEXInvertMatrix2D\^(\^PEXMatrix3x3 \fItransform\fP, PEXMatrix3x3 \fItransform_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fItransform\fP 1i
+The transformation matrix to invert
+.IP \fItransform_return\fP 1i
+The inverse transformation
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if successful; non-zero if unsuccessful.
+.RE
+.SH
+Description
+.RS
+.LP
+This function computes the inverse of a 2D transformation
+matrix.
+.LP
+An unsuccessful status is returned if the matrix is non-invertible.
+.LP
+The two arguments may be the same variable, in which case the inversion is
+performed in-place, overwriting the original transform.
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXInvertMatrix
+.RE
+.bp
+.SH
+PEXIdentityMatrix
+.XS
+	PEXIdentityMatrix
+.XE
+.IN "PEXIdentityMatrix" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXIdentityMatrix\^(\^PEXMatrix \fItransform_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fItransform_return\fP 1i
+The returned identity matrix
+.RE
+.SH
+Description
+.RS
+.LP
+This function returns an identity matrix.
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.RE
+.bp
+.SH
+PEXIdentityMatrix2D
+.XS
+	PEXIdentityMatrix2D
+.XE
+.IN "PEXIdentityMatrix2D
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXIdentityMatrix2D\^(\^PEXMatrix3x3 \fItransform_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fItransform_return\fP 1i
+The returned identity matrix
+.RE
+.SH
+Description
+.RS
+.LP
+This function returns a 2D identity matrix.
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.RE
+.bp
+.NH 2
+Utilities for Computing Geometric Normals
+.XS
+\*(SN Utilities for Computing Geometric Normals
+.XE
+.IN "utilities" "computing geometric normals"
+.LP
+These utilities compute the geometric normal vectors of the
+complex PEX output primitives.  Their input parameters are
+identical to the parameters of the corresponding output command
+function.  The facet-data return parameter is filled in with
+the computed geometric normal of each facet.
+.ID
+.PN PEXGeoNormFillArea
+.PN PEXGeoNormFillAreaSet
+.PN PEXGeoNormQuadrilateralMesh
+.PN PEXGeoNormSetOfFillAreaSets
+.PN PEXGeoNormTriangleStrip
+.DE
+.NH 3
+Common Data Structures
+.XS
+\*(SN Common Data Structures
+.XE
+.LP
+Below are the data structures used that are common to more than one function
+described in this section.
+.RS
+.Co
+/* coordinates */
+.ID
+typedef struct {
+    float               x;
+    float               y;
+    float               z;
+} PEXCoord;
+.sp
+typedef struct {
+    float               x;
+    float               y;
+} PEXCoord2D;
+.sp
+typedef struct {
+    unsigned long       count;                  /* number of points */
+    PEXCoord            *points;
+} PEXListOfCoord;       /* Pointer to an array of 3D points */
+.sp
+typedef struct {
+    unsigned long       count;                  /* number of points */
+    PEXCoord2D          *points;
+} PEXListOfCoord2D;     /* Pointer to an array of 2D points */
+.DE
+/* vectors */
+.ID
+typedef struct {
+    float               x;
+    float               y;
+    float               z;
+} PEXVector;
+.DE
+/* facet data */
+.ID
+typedef union {
+    PEXColorIndexed     index;
+    PEXColorRGB         rgb;
+    PEXColorHSV         hsv;
+    PEXColorHLS         hls;
+    PEXColorCIE         cie;
+    PEXColorRGB8        rgb8;
+    PEXColorRGB16       rgb16;
+    PEXVector           normal;
+    PEXColorIndexedNormal index_normal;
+    PEXColorRGBNormal   rgb_normal;
+    PEXColorHSVNormal   hsv_normal;
+    PEXColorHLSNormal   hls_normal;
+    PEXColorCIENormal   cie_normal;
+    PEXColorRGB8Normal  rgb8_normal;
+    PEXColorRGB16Normal rgb16_normal;
+} PEXFacetData;
+.sp
+typedef union {
+    PEXColorIndexed     *index;
+    PEXColorRGB         *rgb;
+    PEXColorHSV         *hsv;
+    PEXColorHLS         *hls;
+    PEXColorCIE         *cie;
+    PEXColorRGB8        *rgb8;
+    PEXColorRGB16       *rgb16;
+    PEXVector           *normal;
+    PEXColorIndexedNormal *index_normal;
+    PEXColorRGBNormal   *rgb_normal;
+    PEXColorCIENormal   *cie_normal;
+    PEXColorHSVNormal   *hsv_normal;
+    PEXColorHLSNormal   *hls_normal;
+    PEXColorRGB8Normal  *rgb8_normal;
+    PEXColorRGB16Normal *rgb16_normal;
+} PEXArrayOfFacetData;
+.sp
+typedef struct {
+    PEXTableIndex       index;
+    unsigned short      reserved;
+} PEXColorIndexed;
+.sp
+typedef struct {
+    float               red;
+    float               green;
+    float               blue;
+} PEXColorRGB;
+.sp
+typedef struct {
+    float               hue;
+    float               saturation;
+    float               value;
+} PEXColorHSV;
+.sp
+typedef struct {
+    float               hue;
+    float               lightness;
+    float               saturation;
+} PEXColorHLS;
+.sp
+typedef struct {
+    float               x;
+    float               y;
+    float               z;
+} PEXColorCIE;
+.sp
+typedef struct {
+    unsigned char       red;
+    unsigned char       green;
+    unsigned char       blue;
+    unsigned char       reserved;
+} PEXColorRGB8;
+.sp
+typedef struct {
+    unsigned short      red;
+    unsigned short      green;
+    unsigned short      blue;
+    unsigned short      reserved;
+} PEXColorRGB16;
+.sp
+typedef struct {
+    PEXColorIndexed     index;
+    PEXVector           normal;
+} PEXColorIndexedNormal;
+.sp
+typedef struct {
+    PEXColorRGB         rgb;
+    PEXVector           normal;
+} PEXColorRGBNormal;
+.sp
+typedef struct {
+    PEXColorCIE         cie;
+    PEXVector           normal;
+} PEXColorCIENormal;
+.sp
+typedef struct {
+    PEXColorHSV         hsv;
+    PEXVector           normal;
+} PEXColorHSVNormal;
+.sp
+typedef struct {
+    PEXColorHLS         hls;
+    PEXVector           normal;
+} PEXColorHLSNormal;
+.sp
+typedef struct {
+    PEXColorRGB8        rgb8;
+    PEXVector           normal;
+} PEXColorRGB8Normal;
+.sp
+typedef struct {
+    PEXColorRGB16       rgb16;
+    PEXVector           normal;
+} PEXColorRGB16Normal;
+.DE
+/* vertex data */
+.ID
+typedef struct {
+    unsigned long       count;                  /* number of vertices */
+    PEXArrayOfVertex    vertices;               /* pointer to vertices */
+} PEXListOfVertex;
+.sp
+typedef union {
+    PEXCoord                    *no_data;
+    PEXVertexIndexed            *index;
+    PEXVertexRGB                *rgb;
+    PEXVertexHSV                *hsv;
+    PEXVertexHLS                *hls;
+    PEXVertexCIE                *cie;
+    PEXVertexRGB8               *rgb8;
+    PEXVertexRGB16              *rgb16;
+    PEXVertexNormal             *normal;
+    PEXVertexEdge               *edge;
+    PEXVertexIndexedNormal      *index_normal;
+    PEXVertexRGBNormal          *rgb_normal;
+    PEXVertexHSVNormal          *hsv_normal;
+    PEXVertexHLSNormal          *hls_normal;
+    PEXVertexCIENormal          *cie_normal;
+    PEXVertexRGB8Normal         *rgb8_normal;
+    PEXVertexRGB16Normal        *rgb16_normal;
+    PEXVertexIndexedEdge        *index_edge;
+    PEXVertexRGBEdge            *rgb_edge;
+    PEXVertexHSVEdge            *hsv_edge;
+    PEXVertexHLSEdge            *hls_edge;
+    PEXVertexCIEEdge            *cie_edge;
+    PEXVertexRGB8Edge           *rgb8_edge;
+    PEXVertexRGB16Edge          *rgb16_edge;
+    PEXVertexNormalEdge         *normal_edge;
+    PEXVertexIndexedNormalEdge  *index_normal_edge;
+    PEXVertexRGBNormalEdge      *rgb_normal_edge;
+    PEXVertexHSVNormalEdge      *hsv_normal_edge;
+    PEXVertexHLSNormalEdge      *hls_normal_edge;
+    PEXVertexCIENormalEdge      *cie_normal_edge;
+    PEXVertexRGB8NormalEdge     *rgb8_normal_edge;
+    PEXVertexRGB16NormalEdge    *rgb16_normal_edge;
+} PEXArrayOfVertex;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXColorIndexed     index;
+} PEXVertexIndexed;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXColorRGB         rgb;
+} PEXVertexRGB;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXColorHSV         hsv;
+} PEXVertexHSV;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXColorHLS         hls;
+} PEXVertexHLS;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXColorCIE         cie;
+} PEXVertexCIE;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXColorRGB8        rgb8;
+} PEXVertexRGB8;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXColorRGB16       rgb16;
+} PEXVertexRGB16;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXVector           normal;
+} PEXVertexNormal;
+.sp
+typedef struct {
+    PEXCoord            point;
+    unsigned int        edge;
+} PEXVertexEdge;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXColorIndexed     index;
+    PEXVector           normal;
+} PEXVertexIndexedNormal;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXColorRGB         rgb;
+    PEXVector           normal;
+} PEXVertexRGBNormal;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXColorHSV         hsv;
+    PEXVector           normal;
+} PEXVertexHSVNormal;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXColorHLS         hls;
+    PEXVector           normal;
+} PEXVertexHLSNormal;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXColorCIE         cie;
+    PEXVector           normal;
+} PEXVertexCIENormal;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXColorRGB8        rgb8;
+    PEXVector           normal;
+} PEXVertexRGB8Normal;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXColorRGB16       rgb16;
+    PEXVector           normal;
+} PEXVertexRGB16Normal;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXColorIndexed     index;
+    unsigned int        edge;
+} PEXVertexIndexedEdge;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXColorRGB         rgb;
+    unsigned int        edge;
+} PEXVertexRGBEdge;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXColorHSV         hsv;
+    unsigned int        edge;
+} PEXVertexHSVEdge;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXColorHLS         hls;
+    unsigned int        edge;
+} PEXVertexHLSEdge;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXColorCIE         cie;
+    unsigned int        edge;
+} PEXVertexCIEEdge;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXColorRGB8        rgb8;
+    unsigned int        edge;
+} PEXVertexRGB8Edge;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXColorRGB16       rgb16;
+    unsigned int        edge;
+} PEXVertexRGB16Edge;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXVector           normal;
+    unsigned int        edge;
+} PEXVertexNormalEdge;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXColorIndexed     index;
+    PEXVector           normal;
+    unsigned int        edge;
+} PEXVertexIndexedNormalEdge;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXColorRGB         rgb;
+    PEXVector           normal;
+    unsigned int        edge;
+} PEXVertexRGBNormalEdge;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXColorHSV         hsv;
+    PEXVector           normal;
+    unsigned int        edge;
+} PEXVertexHSVNormalEdge;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXColorHLS         hls;
+    PEXVector           normal;
+    unsigned int        edge;
+} PEXVertexHLSNormalEdge;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXColorCIE         cie;
+    PEXVector           normal;
+    unsigned int        edge;
+} PEXVertexCIENormalEdge;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXColorRGB8        rgb8;
+    PEXVector           normal;
+    unsigned int        edge;
+} PEXVertexRGB8NormalEdge;
+.sp
+typedef struct {
+    PEXCoord            point;
+    PEXColorRGB16       rgb16;
+    PEXVector           normal;
+    unsigned int        edge;
+} PEXVertexRGB16NormalEdge;
+.ft P
+.DE
+.RE
+.bp
+.XS
+Function Descriptions
+.XE
+.SH
+PEXGeoNormFillArea
+.XS
+	PEXGeoNormFillArea
+.XE
+.IN "PEXGeoNormFillArea" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+int PEXGeoNormFillArea\^(\^unsigned int \fIfacet_attributes\fP, unsigned int \fIvertex_attributes\fP, int \fIcolor_type\fP, PEXFacetData *\fIfacet_data\fP, unsigned int \fIcount\fP, PEXArrayOfVertex \fIvertices\fP)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIfacet_attributes\fP 1i
+A mask indicating the facet attributes provided.  It should contain the bit
+.PN PEXGANormal .
+.IP \fIvertex_attributes\fP 1i
+A mask indicating the vertex attributes provided.
+.IP \fIcolor_type\fP 1i
+The type of color data provided.
+.IP \fIfacet_data\fP 1i
+A pointer to facet data.  This function adds the geometric normal to this data.
+.IP \fIcount\fP 1i
+The number of vertices.
+.IP \fIvertices\fP 1i
+An array of vertices defining the fill area.
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if successful; otherwise, one of the following:
+.ID
+.fi
+\fBPEXBadPrimitive\fP - A normal cannot be computed because the fill area is degenerate or because all vertices are colinear.
+.DE
+.RE
+.SH
+Description
+.RS
+.LP
+This function computes the geometric normal of a fill area
+and stores it in the specified facet data.
+.LP
+The normal is computed by finding the first three non-colinear
+points in the specified vertices, forming two vectors from those points,
+one from the first point to the second point and one from the
+first point to the third point, and computing the cross product
+of those two vectors.  The geometric normal is the normalized
+cross product.
+.LP
+The three points, A, B, and C are selected as follows.  Point A is the first
+point in the list of vertices.  Point B is the next point in the
+list that is not coincident with A.  Point C is the next point in the
+list that is not colinear with A and B.  If it is not possible to find three
+such points, the functions returns unsuccessfully.
+.LP
+If the facet attributes does not contain the bit
+.PN PEXGANormal ,
+the geometric normal is not computed.  However, the function still returns
+successfully.
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.RE
+.bp
+.SH
+PEXGeoNormFillAreaSet
+.XS
+	PEXGeoNormFillAreaSet
+.XE
+.IN "PEXGeoNormFillAreaSet" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+int PEXGeoNormFillAreaSet\^(\^unsigned int \fIfacet_attributes\fP, unsigned int \fIvertex_attributes\fP, int \fIcolor_type\fP, unsigned int \fIcount\fP, PEXFacetData *\fIfacet_data\fP, PEXListOfVertex *\fIvertex_lists\fP)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIfacet_attributes\fP 1i
+A mask indicating the facet attributes provided.  It should contain the bit
+.PN PEXGANormal .
+.IP \fIvertex_attributes\fP 1i
+A mask indicating the vertex attributes provided.
+.IP \fIcolor_type\fP 1i
+The type of color data provided.
+.IP \fIcount\fP 1i
+The number of fill areas in the set.
+.IP \fIfacet_data\fP 1i
+An array of facet data.  This function adds the geometric normal to this data.
+.IP \fIvertex_lists\fP 1i
+A pointer to the list of vertex arrays defining each contour of the fill area set.
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if successful; otherwise, one of the following:
+.ID
+.fi
+\fBPEXBadPrimitive\fI - A normal cannot be computed because all fill areas in the set are degenerate or because the vertices of all the fill areas are colinear.
+.DE
+.RE
+.SH
+Description
+.RS
+.LP
+This function computes the geometric normal of a fill area
+set and stores it in the specified facet data.
+.LP
+The normal is computed by finding the first three non-colinear
+points in a fill area of the set, beginning with the first
+fill area and searching until three such points are found in
+a single fill area.  Two vectors are formed from these points:
+one vector from the first point to the second point, and one
+vector from the first point to the third point.  The geometric
+normal returned is the normalized cross product of those two
+vectors.
+.LP
+The three points, A, B, and C are selected as follows.  Point A is the first
+point in the first list of vertices.  Point B is the next point in that same
+list that is not coincident with A.  Point C is the next point in that same
+list that is not colinear with A and B.  If it is not possible to find three
+such points in the first list, then the rest of the lists are searched in
+order to select three appropriate points from a single list.  If it is still
+not possible to find three such points in any list, the functions returns
+unsuccessfully.
+.LP
+If the facet attributes does not contain the bit
+.PN PEXGANormal ,
+the geometric normal is not computed.  However, the function still returns
+successfully.
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.RE
+.bp
+.SH
+PEXGeoNormQuadrilateralMesh
+.XS
+	PEXGeoNormQuadrilateralMesh
+.XE
+.IN "PEXGeoNormQuadrilateralMesh" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+int PEXGeoNormQuadrilateralMesh\^(\^unsigned int \fIfacet_attributes\fP, unsigned int \fIvertex_attributes\fP, int \fIcolor_type\fP, PEXArrayOfFacetData \fIfacet_data\fP, unsigned int \fIcol_count\fP, unsigned int \fIrow_count\fP, PEXArrayOfVertex \fIvertices\fP)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIfacet_attributes\fP 1i
+A mask indicating the facet attributes provided.  It should contain the bit
+.PN PEXGANormal .
+.IP \fIvertex_attributes\fP 1i
+A mask indicating the vertex attributes provided.
+.IP \fIcolor_type\fP 1i
+The type of color data provided.
+.IP \fIfacet_data\fP 1i
+An array of facet data.  This function adds the geometric normals to this data.
+.IP \fIcol_count\fP 1i
+The number of columns in the vertex array.
+.IP \fIrow_count\fP 1i
+The number of rows in the vertex array.
+.IP \fIvertices\fP 1i
+A two-dimensional (row-major) array of vertices defining the quadrilateral mesh.
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if successful; otherwise, one of the following:
+.ID
+.fi
+\fBPEXBadPrimitive\fI - A normal cannot be computed for one or more quadrilaterals in the mesh.
+.DE
+.RE
+.SH
+Description
+.RS
+.LP
+This function computes the geometric normals of a quadrilateral
+mesh and stores them in the specified facet data.
+.LP
+The geometric normal of each quadrilateral is computed by
+forming two vectors from two of its sides, and computing the
+cross product of those two vectors.  The geometric normal is
+the normalized cross product:
+.ID
+Ng = (V1 x V2) / |V1 X V2|
+.DE
+Given the quadrilateral composed of four vertices, Pi,j,
+where i indicates the row of the point and j its column,
+the first vector, V1, is from Pi,j to Pi+1,j+1.  The
+second vector, V2, is from Pi+1,j to Pi,j+1.
+.LP
+If the facet attributes does not contain the bit
+.PN PEXGANormal ,
+the geometric normal is not computed.  However, the function still returns
+successfully.
+.LP
+A geometric normal is computed for all quadrilaterals where
+it is possible to compute one, even if a normal cannot be
+computed for some other quadrilaterals.  An error is returned
+if a normal cannot be computed for one or more of the
+quadrilaterals in the mesh.
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.RE
+.bp
+.SH
+PEXGeoNormSetOfFillAreaSets
+.XS
+	PEXGeoNormSetOfFillAreaSets
+.XE
+.IN "PEXGeoNormSetOfFillAreaSets
+.SH
+Synopsis
+.RS
+.FD 0
+int PEXGeoNormSetOfFillAreaSets\^(\^unsigned int \fIfacet_attributes\fP, unsigned int \fIvertex_attributes\fP, int \fIcolor_type\fP, unsigned int \fIset_count\fP, PEXArrayOfFacetData \fIfacet_data\fP, unsigned int \fIvertex_count\fP, PEXArrayOfVertex \fIvertices\fP, unsigned int \fIindex_count\fP, PEXConnectivityData *\fIconnectivity\fP)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIfacet_attributes\fP 1i
+A mask indicating the facet attributes provided.  It should contain the bit
+.PN PEXGANormal .
+.IP \fIvertex_attributes\fP 1i
+A mask indicating the vertex attributes provided.
+.IP \fIcolor_type\fP 1i
+The type of color data provided.
+.IP \fIset_count\fP 1i
+The number of fill area sets.
+.IP \fIfacet_data\fP 1i
+An array of facet data.  This function adds the geometric normals to this data.
+.IP \fIvertex_count\fP 1i
+The number of vertices.
+.IP \fIvertices\fP 1i
+An array of vertices.
+.IP \fIindex_count\fP 1i
+The number of vertex connectivity indices.
+.IP \fIconnectivity\fP 1i
+A pointer to the list of contour connectivity data.
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if successful; otherwise, one of the following:
+.ID
+.fi
+\fBPEXBadPrimitive\fP - A normal cannot be computed for a fill area set because all its fill areas are degenerate or because all the vertices of all fill areas in the set are colinear.
+.DE
+.RE
+.SH
+Description
+.RS
+.LP
+This function computes the geometric normals of set of fill
+area sets primitive and stores them in the specified facet data.
+.LP
+The normals are computed by finding the first three non-colinear
+points in each fill area set, beginning with the first fill
+area of each set and searching until three such points are found
+in a single fill area.  Two vectors are formed from these
+points: one vector from the first point to the second point, and
+one vector from the first point to the third point.  The
+geometric normal returned is the normalized cross product of
+these two vectors.
+.LP
+The three points for each fill area set are selected as described
+for
+.PN PEXGeoNormFillAreaSet .
+.LP
+If the facet attributes does not contain the bit
+.PN PEXGANormal ,
+the geometric normal is not computed.  However, the function still returns
+successfully.
+.LP
+A geometric normal is computed for all fill area sets where
+it is possible to compute one, even if a normal cannot be
+computed for some other fill area sets.  The function returns unsuccessfully
+if a normal cannot be computed for one or more of the fill area sets.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef struct {
+    unsigned short      count;                  /* number of lists */
+    PEXListOfUShort     *lists;
+} PEXConnectivityData;
+.sp
+typedef struct {
+    unsigned short      count;                  /* number of shorts */
+    unsigned short      *shorts;
+} PEXListOfUShort;
+.sp
+See also the \fICommon Data Structures\f section.
+.ft P
+.DE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.RE
+.bp
+.SH
+PEXGeoNormTriangleStrip
+.XS
+	PEXGeoNormTriangleStrip
+.XE
+.IN "PEXGeoNormTriangleStrip" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+int PEXGeoNormTriangleStrip\^(\^unsigned int \fIfacet_attributes\fP, unsigned int \fIvertex_attributes\fP, int \fIcolor_type\fP, PEXArrayOfFacetData \fIfacet_data\fP, unsigned int \fIcount\fP, PEXArrayOfVertex \fIvertices\fP)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIfacet_attributes\fP 1i
+A mask indicating the facet attributes provided.  It should contain the bit
+.PN PEXGANormal .
+.IP \fIvertex_attributes\fP 1i
+A mask indicating the vertex attributes provided.
+.IP \fIcolor_type\fP 1i
+The type of color data provided.
+.IP \fIfacet_data\fP 1i
+An array of facet data.  This function adds the geometric normals to this data.
+.IP \fIcount\fP 1i
+The number of vertices.
+.IP \fIvertices\fP 1i
+An array of vertices defining the triangle strip.
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if successful; otherwise, one of the following:
+.ID
+.fi
+\fBPEXBadPrimitive\fI - A normal cannot be computed for one or more triangles in the strip.
+.DE
+.RE
+.SH
+Description
+.RS
+.LP
+This function computes the geometric normals of a triangle
+strip and stores them in the specified facet data.
+.LP
+The geometric normal of each triangle is computed by forming
+two vectors from two of its sides, and computing the cross
+product of those two vectors.  The geometric normal is the
+normalized cross product:
+.ID
+Ng = (V1 x V2) / |V1 X V2|
+.DE
+For the first, third, and subsequent odd-numbered triangles,
+the first vector (V1) is from the first point (Pi) of the
+triangle to the second point (Pi+1), and the second vector
+(V2) is from the first point of the triangle to the third point
+(Pi+2).  For the second, fourth, and subsequent even-numbered
+triangles, the first vector is from the first point (Pi) of the
+triangle to the third point (Pi+2), and the second vector is
+from the first point of the triangle to the second point (Pi+1).
+.LP
+If the facet attributes does not contain the bit
+.PN PEXGANormal ,
+the geometric normal is not computed.  However, the function still returns
+successfully.
+.LP
+A geometric normal is computed for all triangles where
+it is possible to compute one, even if a normal cannot be
+computed for some other triangles.  An error is returned
+if a normal cannot be computed for one or more of the
+triangles in the strip.
+.RE
+.SH
+Errors
+.RS
+.LP
+None
+.RE
+.SH
+See Also
+.RS
+.RE
+.bp
+.bp

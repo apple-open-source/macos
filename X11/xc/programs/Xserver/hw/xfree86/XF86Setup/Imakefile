@@ -1,0 +1,170 @@
+XCOMM $XConsortium: Imakefile /main/4 1996/10/24 10:16:33 kaleb $
+
+
+
+
+
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/XF86Setup/Imakefile,v 3.31 1999/09/04 13:04:28 dawes Exp $
+#include <Server.tmpl>
+#define IHaveSubdirs
+
+#if !BuildXKBlib || !BuildXF86MiscLibrary || !BuildXF86VidModeLibrary
+all::
+	@echo This program requires that you build with XKB, XF86Misc, and XF86VidMode
+	@exit 1
+
+depend::
+	@echo This program requires that you build with XKB, XF86Misc, and XF86VidMode
+	@exit 1
+
+includes::
+	@echo This program requires that you build with XKB, XF86Misc, and XF86VidMode
+	@exit 1
+
+#else
+#if !HasSnprintf
+        MISCSRCS = snprintf.c
+        MISCOBJS = snprintf.o
+    MISC_DEFINES = -DNEED_SNPRINTF
+#endif
+            SRCS = main.c tclmisc.c tclvidmode.c tclcards.c tclother.c \
+		   tclkbd.c tclxfconf.c confread.c confwrite.c \
+		   cards.c tclxkbui.c tkother.c tclcurses.c $(MISCSRCS)
+            OBJS = main.o tclmisc.o tclvidmode.o tclcards.o tclother.o \
+		   tclkbd.o tclxfconf.o confread.o confwrite.o \
+		   cards.o tclxkbui.o tkother.o tclcurses.o $(MISCOBJS)
+       TCL_FILES = phase1.tcl phase2.tcl phase3.tcl phase4.tcl phase5.tcl \
+		   setuplib.tcl srvflags.tcl carddata.tcl \
+		   card.tcl done.tcl filelist.tcl keyboard.tcl \
+		   mseproto.tcl ph2notk.tcl kbddata.tcl vidmode.tcl \
+		   mondata.tcl monitor.tcl modeselect.tcl mouse.tcl LICENSE
+    TCLLIB_FILES = tcllib/button.tcl tcllib/combobox.tcl tcllib/misc.tcl \
+		   tcllib/downarrow.xbm tcllib/dialog.tcl tcllib/entry.tcl \
+		   tcllib/focus.tcl tcllib/init.tcl tcllib/listbox.tcl \
+		   tcllib/menu.tcl tcllib/optionMenu.tcl tcllib/palette.tcl \
+		   tcllib/scale.tcl tcllib/scrollbar.tcl tcllib/tclIndex \
+		   tcllib/tearoff.tcl tcllib/text.tcl tcllib/tk.tcl \
+		   tcllib/tkerror.tcl tcllib/uparrow.xbm tcllib/license.terms
+      PICS_FILES = pics/vidcard.xbm pics/vidcard.msk \
+		   pics/XFree86.xbm pics/XFree86.msk
+         SUBDIRS = scripts texts
+
+#if BuildServersOnly && !defined(UseInstalled)
+/* Use installed X libraries and headers */
+ USEINSTALLEDLIB = -L$(USRLIBDIR)
+     USEBUILTLIB = -L$(BUILDLIBDIR)
+ USEINSTALLEDINC = -I$(INCROOT)
+        LDPRELIB = 
+#undef XawClientDepLibs
+#define XawClientDepLibs /**/
+#endif
+
+   MODULEDEFINES = -DDEFAULT_MODULE_PATH=\"$(MODULEDIR)\"
+
+#ifdef DefaultFontPath
+DEFAULTFONTPATH = DefaultFontPath
+SITE_FONT_PATH = -DCOMPILEDDEFAULTFONTPATH=\"$(DEFAULTFONTPATH)\"
+#endif
+
+#ifdef DefaultRGBDatabase
+DEFAULTRGBDATABASE = DefaultRGBDatabase
+SITE_RGB_DB = -DRGB_DB=\"$(DEFAULTRGBDATABASE)\"
+#endif
+
+#if defined(SVR4Architecture) || (defined(LinuxArchitecture) && UseElfFormat)
+/* Some OSs need this, and it should(?) be harmless when not needed */
+/* Not available for Linux x86/a.out and Linux AXP/ECOFF */
+    EXTRASYSLIBS = -ldl
+#endif
+
+#if XF86SetupUsesStaticTk
+       TKLIBRARY = StaticLibrary($(TKLIBDIR),$(TKLIBNAME))
+#endif
+#if XF86SetupUsesStaticTcl
+      TCLLIBRARY = StaticLibrary($(TCLLIBDIR),$(TCLLIBNAME))
+#endif
+
+ TCLTK_LIBRARIES = $(TKLIBRARY) $(TCLLIBRARY)
+
+     XF86CONFLIB = $(XF86SRC)/parser/LibraryTargetName(xf86config)
+
+/*
+ * HasNCurses should be set to YES in the os.cf file if the include file
+ * is called ncurses.h instead of curses.h
+ */
+#if HasNCurses
+# ifdef NCursesLibDir
+CURSESLIB = -L$(NCURSESLIBDIR) NCursesLibName
+# else
+CURSESLIB = NCursesLibName
+# endif
+# ifdef NCursesIncDir
+CURSES_DEFINES = -DCURSES -DNCURSES -I$(NCURSESINCDIR)
+# else
+CURSES_DEFINES = -DCURSES -DNCURSES
+# endif
+#else
+CURSESLIB = -lcurses
+CURSES_DEFINES = -DCURSES
+#endif
+
+ LOCAL_LIBRARIES = $(USEBUILTLIB) $(XKBUILIB) $(XKBFILELIB) \
+		   $(XF86CONFLIB) \
+		   $(TCLTK_LIBRARIES) $(XXF86VMLIB) $(XXF86MISCLIB) \
+		   $(USEINSTALLEDLIB) XawClientLibs $(CURSESLIB) MathLibrary
+         DEPLIBS = XawClientDepLibs $(DEPXXF86VMLIB)
+      CARDDBFILE = $(LIBDIR)/Cards
+     XCONFIGFILE = XF86Config
+
+ XCONFIG_DEFINES = $(EXT_DEFINES) -DXF86SETUP \
+		   '-DPROJECTROOT="$(PROJECTROOT)"' \
+		   '-DSERVER_CONFIG_FILE="$(LIBDIR)/$(XCONFIGFILE)"' \
+		   $(SITE_FONT_PATH) $(SITE_RGB_DB) \
+		   -DNO_WRAPPERS
+
+ XF86SETUPLIBDIR = $(LIBDIR)/XF86Setup
+         DEFINES = -DCARD_DATABASE_FILE='"$(CARDDBFILE)"' \
+		   $(XCONFIG_DEFINES) $(MODULEDEFINES) $(CURSES_DEFINES) \
+		   $(MISC_DEFINES)
+        INCLUDES = -I../os-support -I../common -I../vgahw \
+		   -I$(FONTLIBSRC)/include -I$(SERVERSRC)/mi -I../parser \
+		   -I$(SERVERSRC)/include -I$(XINCLUDESRC) -I$(INCLUDESRC) \
+		   -I$(EXTINCSRC) $(USEINSTALLEDINC) -I$(SERVERSRC)/Xext \
+		   -I$(TCLINCDIR) -I$(TKINCDIR)
+
+    MSEPROTODEFS = $(STD_DEFINES)
+
+#if HasLdRunPath
+       CCENVSETUP = LD_RUN_PATH=$(USRLIBDIR):$(TCLLIBDIR)
+           CCLINK = $(CCENVSETUP) $(CC)
+#endif
+
+AllTarget(ProgramTargetName(XF86Setup))
+
+LinkSourceFile(Cards,../xf86config)
+LinkSourceFile(cards.h,../xf86config)
+LinkSourceFile(cards.c,../xf86config)
+
+#if !HasSnprintf
+LinkSourceFile(snprintf.c,$(LIBSRC)/misc)
+LinkSourceFile(snprintf.h,$(LIBSRC)/misc)
+#endif
+
+LinkSourceFile(mouse.h,../input/mouse)
+
+CppFileTarget(mseproto.tcl, mseproto.cpp, $(MSEPROTODEFS), NullParameter)
+
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))
+
+NormalProgramTarget(XF86Setup,$(OBJS),$(DEPLIBS),$(LOCAL_LIBRARIES) $(SYSTEM_LIBRARIES) $(EXTRASYSLIBS),NullParameter)
+InstallProgram(XF86Setup,$(BINDIR))
+DependTarget()
+
+InstallMultiple($(TCL_FILES),$(XF86SETUPLIBDIR))
+InstallMultiple($(TCLLIB_FILES),$(XF86SETUPLIBDIR)/tcllib)
+InstallMultiple($(PICS_FILES),$(XF86SETUPLIBDIR)/pics)
+InstallManPage(XF86Setup,$(MANDIR))
+
+#endif
+

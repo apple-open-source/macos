@@ -1,0 +1,236 @@
+.\" $Xorg: lbxproxy.man,v 1.4 2001/02/09 02:05:31 xorgcvs Exp $
+.\" Copyright 1996, 1998  The Open Group
+.\" 
+.\" Permission to use, copy, modify, distribute, and sell this software and its
+.\" documentation for any purpose is hereby granted without fee, provided that
+.\" the above copyright notice appear in all copies and that both that
+.\" copyright notice and this permission notice appear in supporting
+.\" documentation.
+.\" 
+.\" The above copyright notice and this permission notice shall be included
+.\" in all copies or substantial portions of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+.\" OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\" IN NO EVENT SHALL THE OPEN GROUP BE LIABLE FOR ANY CLAIM, DAMAGES OR
+.\" OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+.\" ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+.\" OTHER DEALINGS IN THE SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the name of The Open Group shall
+.\" not be used in advertising or otherwise to promote the sale, use or
+.\" other dealings in this Software without prior written authorization
+.\" from The Open Group.
+.\" 
+.\"
+.\" $XFree86: xc/programs/lbxproxy/lbxproxy.man,v 1.8 2001/12/14 20:00:49 dawes Exp $
+.\"
+.TH LBXPROXY 1 __xorgversion__
+.SH NAME
+lbxproxy - Low BandWidth X proxy
+.SH SYNOPSIS
+.B lbxproxy [:<display>] [option]
+.SH DESCRIPTION
+Applications that would like to take advantage of the Low Bandwidth
+extension to X (LBX) must make their connections to an lbxproxy.  These
+applications need to know nothing about LBX, they simply connect to the
+lbxproxy as if were a regular server.  The lbxproxy accepts client
+connections, multiplexes them over a single connection to the X server, and
+performs various optimizations on the X protocol to make it faster over low
+bandwidth and/or high latency connections.
+.PP
+With regard to authentication/authorization, lbxproxy simply passes along
+to the server the credentials presented by the client.  Since X clients will
+connect to lbxproxy, it is important that the user's .Xauthority file contain
+entries with valid keys associated with the network ID of the proxy.  lbxproxy
+does not get involved with how these entries are added to the .Xauthority file.
+The user is responsible for setting it up.
+.PP
+The lbxproxy program has various options, all of which are optional.
+.PP
+If
+.B :<display>
+is specified, the proxy will use the given display port when
+listening for connections.  The display port is an offset from port 6000,
+identical to the way in which regular X display connections are specified.
+If no port is specified on the command line option, lbxproxy will default
+to port 63.  If the port number that the proxy tries to listen on is in
+use, the proxy will attempt to use another port number.  If
+the proxy is not using the Proxy Manager and the default
+port number cannot be used, the port number that is used
+will be written to stderr.
+.PP
+The other command line options that can be specified are:
+.PP
+.TP 8
+.B \-help
+Prints a brief help message about the command line options.
+.TP 8
+.B \-display \fIdpy\fP
+Specifies the address of the X server supporting the LBX extension.
+If this option is not specified, the display is obtained by the
+DISPLAY environment variable.
+.TP 8
+.B \-motion \fIcount\fP
+A limited number of pointer motion events are allowed to be in flight
+between the server and the proxy at any given time.  The maximimum
+number of motion events that can be in flight is set with this option;
+the default is 8.
+.TP 8
+.B \-maxservers \fInumber\fP
+The default behavior of lbxproxy is to manage a single server.
+However, lbxproxy can manage more than one server.  The default
+maximum number of servers is 20.  The number of servers can be 
+overridden by setting the environment variable LBXPROXY_MAXSERVERS 
+to the desired number.  The order of precedence from highest
+to lowest: command line, environment variable, default number.
+.TP 8
+.B \-[terminate|reset]
+The default behavior of lbxproxy is to continue running as usual when
+it's last client exits.  The
+.B \-terminate
+option will cause lbxproxy to
+exit when the last client exits.  The
+.B \-reset
+option will cause
+lbxproxy to reset itself when the last client exits.  Resetting causes
+lbxproxy to clean up it's state and reconnect to the server.
+.TP 8
+.B \-reconnect
+The default behavior of lbxproxy is to exit when its connection to the
+server is broken.  The
+.B \-reconnect
+option will cause lbxproxy to just reset instead (see
+.B \-reset
+above) and attempt to reconnect to the server.
+.TP 8
+.B \-I
+Causes all remaining arguments to be ignored.
+.TP 8
+.B \-nolbx
+Disables all LBX optimizations.
+.TP 8
+.B \-nocomp
+Disables stream compression.
+.TP 8
+.B \-nodelta
+Disables delta request substitutions.
+.TP 8
+.B \-notags
+Disables usage of tags.
+.TP 8
+.B \-nogfx
+Disables reencoding of graphics requests (not including image
+related requests).
+.TP 8
+.B \-noimage
+Disables image compression.
+.TP 8
+.B \-nosquish
+Disables squishing of X events.
+.TP 8
+.B \-nointernsc
+Disables short circuiting of InternAtom requests.
+.TP 8
+.B \-noatomsfile
+Disables reading of the atoms control file.  See the section on
+"Atom Control" for more details.
+.TP 8
+.B \-atomsfile \fIfile\fP
+Overrides the default AtomControl file.  See the section on
+"Atom Control" for more details.
+.TP 8
+.B \-nowinattr
+Disables GetWindowAttributes/GetGeometry grouping into one round trip.
+.TP 8
+.B \-nograbcmap
+Disables colormap grabbing.
+.TP 8
+.B \-norgbfile
+Disables color name to RGB resolution in proxy.
+.TP 8
+.B \-rgbfile \fIpath\fP
+Specifies an alternate RGB database for color name to RGB resolution.
+.TP 8
+.B \-tagcachesize
+Set the size of the proxy's tag cache (in bytes).
+.TP 8
+.B \-zlevel \fIlevel\fP
+Set the Zlib compression level (used for stream compression).
+.br
+default is 6
+.br
+1 = worst compression, fastest
+.br
+9 = best compression, slowest
+.TP 8
+.B \-compstats
+Report stream compression statistics every time the proxy resets
+or receives a SIGHUP signal.
+.TP 8
+.B \-nozeropad
+Don't zero out unused pad bytes in X requests, replies, and events.
+.TP 8
+.B \-cheaterrors
+Allows cheating on X protocol for the sake of improved performance.
+The X protocol guarantees that any replies, events or
+errors generated by a previous request will be sent before those of
+a later request.  This puts substantial restrictions on when lbxproxy
+can short circuit a request.  The -cheaterrors option allows lbxproxy to
+violate X protocol rules with respect to errors.  Use at your own risk.
+.TP 8
+.B \-cheatevents
+The -cheatevents option allows lbxproxy to violate X protocol rules with
+respect to events as well as errors.  Use at your own risk.
+.PP
+.SH ATOM CONTROL
+.PP
+At startup, lbxproxy "pre-interns" a configurable list of
+atoms.  This allows lbxproxy to intern a group of atoms in a single round
+trip and immediately store the results in its cache.
+.PP
+While running, lbxproxy uses heuristics to decide when to delay
+sending window property data to the server.  The heuristics depend
+on the size of the data, the name of the property, and whether a
+window manager is running through the same lbxproxy.
+.PP
+Atom control is specified in the "AtomControl" file, set
+up during installation of lbxproxy, with command line overrides.
+.PP
+The file is a simple text file.  There are three forms of lines:
+comments, length control, and name control.  Lines starting with
+a '!' are treated as comments.  A line of the form
+.sp
+.in +4
+.nf
+z \fIlength\fP
+.fi
+.in -4
+.sp
+specifies the minimum length in bytes before property data will be
+delayed.  A line of the form
+.sp
+.in +4
+.nf
+\fIoptions\fP \fIatomname\fP
+.fi
+.in -4
+.sp
+controls the given atom, where \fIoptions\fP is any combination
+of the following characters: 'i' means the atom should be pre-interned;
+'n' means data for properties with this name should never be delayed;
+and 'w' means data for properties with this name should be delayed only
+if a window manager is also running through the same lbxproxy.
+.PP
+.SH BUGS
+.PP
+When the authorization protocol XDM-AUTHORIZATION-1 is used:
+.PP
+.in +4
+A client must be on the same host as lbxproxy for the client to be
+authorized to connect to the server.
+.PP
+.in +4
+If a client is not on the same host as lbxproxy, the client will
+not be authorized to connect to the server.

@@ -39,10 +39,11 @@ char *program_name = "rfc822";
 
 #define HEADER_END(p)	((p)[0] == '\n' && ((p)[1] != ' ' && (p)[1] != '\t'))
 
-unsigned char *reply_hack(buf, host)
+unsigned char *reply_hack(buf, host, length)
 /* hack message headers so replies will work properly */
 unsigned char *buf;		/* header to be hacked */
 const unsigned char *host;	/* server hostname */
+int *length;
 {
     unsigned char *from, *cp, last_nws = '\0', *parens_from = NULL;
     int parendepth, state, has_bare_name_part, has_host_part;
@@ -76,7 +77,7 @@ const unsigned char *host;	/* server hostname */
     for (cp = buf; *cp; cp++)
 	if (*cp == ',' || isspace(*cp))
 	    addresscount++;
-    buf = (unsigned char *)xrealloc(buf, strlen(buf) + addresscount * strlen(host) + 1);
+    buf = (unsigned char *)xrealloc(buf, strlen(buf) + addresscount * (strlen(host) + 1) + 1);
 #endif /* MAIN */
 
     /*
@@ -176,7 +177,7 @@ const unsigned char *host;	/* server hostname */
 	    case 3:	/* we're in a <>-enclosed address */
 		if (*from == '@' || *from == '!')
 		    has_host_part = TRUE;
-		else if (*from == '>' && from[-1] != '<')
+		else if (*from == '>' && (from > buf && from[-1] != '<'))
 		{
 		    state = 1;
 		    if (!has_host_part)
@@ -198,7 +199,7 @@ const unsigned char *host;	/* server hostname */
 	/*
 	 * If we passed a comma, reset everything.
 	 */
-	if (from[-1] == ',' && !parendepth) {
+	if ((from > buf && from[-1] == ',') && !parendepth) {
 	  has_host_part = has_bare_name_part = FALSE;
 	  parens_from = NULL;
 	}
@@ -208,6 +209,7 @@ const unsigned char *host;	/* server hostname */
     if (outlevel >= O_DEBUG)
 	report_complete(stdout, GT_("Rewritten version is %s\n"), buf);
 #endif /* MAIN */
+    *length = strlen(buf);
     return(buf);
 }
 

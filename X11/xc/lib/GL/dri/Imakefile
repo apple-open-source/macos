@@ -1,0 +1,55 @@
+XCOMM $XFree86: xc/lib/GL/dri/Imakefile,v 1.10 2002/02/22 21:32:51 dawes Exp $
+
+#include <Threads.tmpl>
+
+#define DoNormalLib (NormalLibGlx || SharedLibGlxWithoutPIC)
+#define DoSharedLib (SharedLibGlx && !SharedLibGlxWithoutPIC)
+#define DoExtraLib SharedLibGlx
+#define DoDebugLib DebugLibGlx
+#define DoProfileLib ProfileLibGlx
+
+#if Malloc0ReturnsNull
+ALLOC_DEFINES = -DMALLOC_0_RETURNS_NULL
+#endif
+
+#if !GlxUseSGISI
+     DRI_SRCS = dri_glx.c
+     DRI_OBJS = dri_glx.o
+     DRI_INCS = -I. -I$(GLXLIBSRC)/glx -I$(INCLUDESRC) -I$(INCLUDESRC)/GL \
+		-I$(XINCLUDESRC) -I$(SERVERSRC)/GL/dri \
+		-I$(GLXLIBSRC)/include \
+		-I$(MESASRCDIR)/include -I$(MESASRCDIR)/src
+#endif
+
+#if GlxBuiltInTdfx
+    TDFX_DEFS = -DUSE_TDFX
+#endif
+
+#if GlxUseBuiltInDRIDriver
+     GLX_DEFS = -DBUILT_IN_DRI_DRIVER
+#endif
+
+  PATHDEFINES = -DDEFAULT_DRIVER_DIR=\"$(MODULEDIR)/dri\"
+
+      DEFINES = $(ALLOC_DEFINES) GlxDefines $(TDFX_DEFS) $(GLX_DEFS) $(PATHDEFINES)
+     INCLUDES = -I$(XLIBSRC) -I$(EXTINCSRC) -I$(XF86OSSRC) $(DRI_INCS)
+         SRCS = XF86dri.c dri_util.c $(DRI_SRCS)
+         OBJS = XF86dri.o dri_util.o $(DRI_OBJS)
+
+#include <Library.tmpl>
+
+LibraryObjectRule()
+
+SubdirLibraryRule($(OBJS))
+NormalLintTarget($(SRCS))
+
+#define IHaveSubdirs
+#define PassCDebugFlags
+
+SUBDIRS = drm
+
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))
+
+DependTarget()
+

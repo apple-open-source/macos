@@ -1,0 +1,74 @@
+// $XFree86: xc/programs/xkbcomp/symbols/tel,v 1.1 2002/12/15 00:44:56 dawes Exp $
+
+partial default alphanumeric_keys 
+xkb_symbols "basic" {
+
+    // Inscript layout for Telugu using Unicode 
+    // Author: G Karunakar <karunakar@freedomink.org>
+    // Date:
+    // See layout at http://www.indlinux.org/keymap/telugu.php
+
+    name[Group2]= "Telugu";
+
+    key <TLDE> { [], [  0x01000c4a, 0x01000c12	] };
+    key <AE01> { [], [  0x01000c67, 0x01000c0d	] };
+    key <AE02> { [], [  0x01000c68, 0x01000c45	] };
+    key <AE03> { [], [  0x01000c69, numbersign	] };
+    key <AE04> { [], [  0x01000c6a, dollar 	] };
+    key <AE05> { [], [  0x01000c6b, percent 	] };
+    key <AE06> { [], [  0x01000c6c, asciicircum ] };
+    key <AE07> { [], [  0x01000c6d, ampersand 	] };
+    key <AE08> { [], [  0x01000c6e, asterisk	] };
+    key <AE09> { [], [  0x01000c6f, parenleft   ] };
+    key <AE10> { [], [  0x01000c66, parenright  ] };
+    key <AE11> { [], [  0x01000c03, underscore 	] };
+    key <AE12> { [], [  0x01000c43, 0x01000c0b  ] };
+    key <BKSP> { [], [  BackSpace		] };    
+ 
+    key <AD01> { [], [  0x01000c4c, 0x01000c14	] };
+    key <AD02> { [], [  0x01000c48, 0x01000c10 	] };
+    key <AD03> { [], [  0x01000c3e, 0x01000c06 	] };
+    key <AD04> { [], [  0x01000c40, 0x01000c08	] };
+    key <AD05> { [], [  0x01000c42, 0x01000c0a	] };
+    key <AD06> { [], [  0x01000c2c, 0x01000c2d	] };
+    key <AD07> { [], [  0x01000c39, 0x01000c19	] };
+    key <AD08> { [], [  0x01000c17, 0x01000c18 	] };
+    key <AD09> { [], [  0x01000c26, 0x01000c27	] };
+    key <AD10> { [], [ 	0x01000c1c, 0x01000c1d	] };
+    key <AD11> { [], [  0x01000c21, 0x01000c22	] };
+    key <AD12> { [], [  0x01000c3c, 0x01000c1e	] };
+  
+    key <AC01> { [], [  0x01000c4b, 0x01000c13	] };
+    key <AC02> { [], [  0x01000c47, 0x01000c0f 	] };
+    key <AC03> { [], [  0x01000c4d, 0x01000c05	] };
+    key <AC04> { [], [  0x01000c3f, 0x01000c07  ] };
+    key <AC05> { [], [  0x01000c41, 0x01000c09	] };
+    key <AC06> { [], [  0x01000c2a, 0x01000c2b  ] };
+    key <AC07> { [], [  0x01000c30, 0x01000c31	] };
+    key <AC08> { [], [  0x01000c15, 0x01000c16 	] };
+    key <AC09> { [], [ 	0x01000c24, 0x01000c25	] };
+    key <AC10> { [], [  0x01000c1a, 0x01000c1b 	] };
+    key <AC11> { [], [  0x01000c1f, 0x01000c20  ] };
+ 
+    key <AB01> { [], [ 	0x01000c46, 0x01000c0e 	] };
+    key <AB02> { [], [ 	0x01000c02, 0x01000c01	] };
+    key <AB03> { [], [  0x01000c2e, 0x01000c23	] };
+    key <AB04> { [], [  0x01000c28, 0x01000c29	] };
+    key <AB05> { [], [ 	0x01000c35, 0x01000c34	] };
+    key <AB06> { [], [  0x01000c32, 0x01000c33	] };
+    key <AB07> { [], [ 	0x01000c38, 0x01000c36	] };
+    key <AB08> { [], [  comma     , 0x01000c37	] };
+    key <AB09> { [], [  period    , 0x01000c64	] };
+    key <AB10> { [], [  0x01000c2f, 0x01000040	] };
+    key <BKSL> { [], [  0x01000c49, 0x01000c11	] };
+
+    key <RALT> {        
+        symbols[Group1] = [ Mode_switch , Multi_key ],
+        virtualMods = AltGr
+    };
+        
+    modifier_map Shift  { Shift_L };
+    modifier_map Lock   { Caps_Lock };
+    modifier_map Control{ Control_L };
+    modifier_map Mod3    { Mode_switch };
+};

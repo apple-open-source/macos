@@ -1,0 +1,20 @@
+XCOMM $XConsortium: Imakefile /main/1 1995/11/30 19:00:42 kaleb $
+XCOMM $XFree86: xc/lib/xkbui/Imakefile,v 3.3 1999/03/14 03:21:21 dawes Exp $
+#define DoNormalLib YES
+#define DoSharedLib NO
+#define DoExtraLib NO
+#define DoDebugLib NO
+#define DoProfileLib NO
+#define HasSharedData NO
+#define LibName xkbui
+#define SoRev SOXKBFILEREV
+#define	IncSubdir X11
+#define	IncSubSubdir extensions
+            SRCS = XKBui.c
+            OBJS = XKBui.o
+         HEADERS = XKBui.h
+        INCLUDES = -I. -I$(EXTINCSRC) -I../xkbfile
+
+#include <Library.tmpl>
+
+DependTarget()

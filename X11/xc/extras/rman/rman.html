@@ -1,0 +1,322 @@
+<HTML><HEAD><TITLE>PolyglotMan Manual Page</TITLE></HEAD>
+<BODY>
+<H1>Name</H1>
+
+PolyglotMan, rman - reverse compile man pages from formatted form to a number of source formats
+
+<H1>Synopsis</H1>
+
+rman [<I>options</I>] [<I>file</I>]
+
+<H1>Description</H1>
+
+<P><I>PolyglotMan</I> takes man pages from most of the
+popular flavors of UNIX and transforms them into any of a number of
+text source formats.  PolyglotMan was formerly known as RosettaMan. 
+The name of the binary is still called <tt>rman</tt>, for scripts
+that depend on that name; mnemonically, just think "reverse man".
+Previously <I>PolyglotMan</I> required pages to
+be formatted by nroff prior to its processing.  With version 3.0, it <i>prefers
+[tn]roff source</i> and usually produces results that are better yet.
+And source processing is the only way to translate tables.
+Source format translation is not as mature as formatted, however, so 
+try formatted translation as a backup.
+
+<P>In parsing [tn]roff source, one could implement an arbitrarily
+large subset of [tn]roff, which I did not and will not do, so the
+results can be off.  I did implement a significant subset of those use
+in man pages, however, including tbl (but not eqn), if tests, and
+general macro definitions, so usually the results look great.  If they
+don't, format the page with nroff before sending it to PolyglotMan.  If
+PolyglotMan doesn't recognize a key macro used by a large class of
+pages, however, e-mail me the source and a uuencoded nroff-formatted
+page and I'll see what I can do.  When running PolyglotMan with man
+page source that includes or redirects to other [tn]roff source using
+the .so (source or inclusion) macro, you should be in the parent
+directory of the page, since pages are written with this assumption.
+For example, if you are translating /usr/man/man1/ls.1, first cd into
+/usr/man.
+
+<P><I>PolyglotMan</I> accepts man pages from: SunOS, Sun Solaris, Hewlett-Packard HP-UX, 
+AT&amp;T System V, OSF/1 aka Digital UNIX, DEC Ultrix, SGI IRIX, Linux, 
+FreeBSD, SCO.    Source processing works for: SunOS, Sun Solaris, Hewlett-Packard HP-UX, 
+AT&amp;T System V, OSF/1 aka Digital UNIX, DEC Ultrix.
+It can produce printable ASCII-only (control characters
+stripped), section headers-only,
+Tk, TkMan, [tn]roff (traditional man page source), <!--Ensemble,--> SGML, HTML, MIME, 
+LaTeX, LaTeX2e, RTF, Perl 5 POD.  
+A modular architecture permits easy addition of additional output
+formats.</P>
+
+<P>The latest version of PolyglotMan is always available from 
+<tt>ftp://ftp.cs.berkeley.edu/ucb/people/phelps/tcltk/rman.tar.Z</tt>.
+
+
+<H1>Options</H1>
+
+<P>The following options should not be used with any others and exit PolyglotMan 
+without processing any input.
+
+<DL>
+<DT>-h|--help</DT>
+<DD>Show list of command line options and exit.</DD>
+
+<DT>-v|--version</DT>
+<DD>Show version number and exit.</DD>
+</DL>
+
+
+<P><em>You should specify the filter first, as this sets a number of parameters,
+and then specify other options.</em>
+
+<DL>
+<DT>-f|--filter &lt;ASCII|roff|TkMan|Tk|<!--Ensemble|-->Sections|HTML|SGML|MIME|LaTeX|LaTeX2e|RTF|POD&gt;</DT>
+
+<DD>Set the output filter.  Defaults to ASCII.
+<!--  If you are converting
+from formatted roff source, it is recommended that you prevent hyphenation by using
+groff, making file with the contents ".hpm 20", can reading this in
+before the roff source, e.g., groff -Tascii -man <hpm-file> <roff-source>.
+-->
+</DD>
+
+<DT>-S|--source</DT>
+<DD>PolyglotMan tries to automatically determine whether its input is source or formatted;
+use this option to declare source input.</DD>
+
+<DT>-F|--format|--formatted</DT>
+<DD>PolyglotMan tries to automatically determine whether its input is source or formatted;
+use this option to declare formatted input.</DD>
+
+<DT>-l|--title <I>printf-string</I></DT>
+<DD>In HTML mode this sets the &lt;TITLE&gt; of the man pages, given the same
+parameters as <tt>-r</tt>.</DD>
+
+<DT>-r|--reference|--manref <I>printf-string</I></DT>
+<DD>In HTML and SGML modes this sets the URL form by which to retrieve other man pages.
+The string can use two supplied parameters: the man page name and its section.
+(See the Examples section.)  If the string is null (as if set from a shell
+by "-r ''"), `-' or `off', then man page references will not be HREFs, just set in italics.
+If your printf supports XPG3 positions specifier, this can be quite flexible.</DD>
+
+<DT>-V|--volumes <I>&lt;colon-separated list&gt;</I></DT>
+<DD>Set the list of valid volumes to check against when looking for 
+cross-references to other man pages.  Defaults to <tt>1:2:3:4:5:6:7:8:9:o:l:n:p</tt>
+(volume names can be multicharacter).
+If an non-whitespace string in the page is immediately followed by a left
+parenthesis, then one of the valid volumes, and ends with optional other
+characters and then a right parenthesis--then that string is reported as
+a reference to another manual page.  If this -V string starts with an equals
+sign, then no optional characters are allowed between the match to the list of
+valids and the right parenthesis.  (This option is needed for SCO UNIX.)
+</DD>
+
+</DL>
+
+
+<P>The following options apply only when formatted pages are given as input.
+They do not apply or are always handled correctly with the source.
+
+<DL>
+<DT>-b|--subsections</DT>
+<DD>Try to recognize subsection titles in addition to section titles.
+This can cause problems on some UNIX flavors.</DD>
+
+<DT>-K|--nobreak</DT>
+<DD>Indicate manual pages don't have page breaks, so don't look for footers and headers
+around them.  (Older nroff -man macros always put in page breaks, but lately
+some vendors have realized that printout are made through troff, whereas
+nroff -man is used to format pages for reading on screen, and so have eliminated
+page breaks.)  <I>PolyglotMan</I> usually gets this right even without this flag.</DD>
+
+<DT>-k|--keep</DT>
+<DD>Keep headers and footers, as a canonical report at the end of the page.</DD>
+
+<!-- this done automatically for Tcl/Tk pages; doesn't apply for others
+<DT>-c|--changeleft</DT>
+<DD>Move changebars, such as those found in the Tcl/Tk manual pages,
+to the left.</DD>
+-->
+
+<!-- agressive parsing works so well that this option has been removed
+<DT>-m|--notaggressive</DT>
+<DD><I>Disable</I> aggressive man page parsing.  Aggressive manual,
+which is on by default, page parsing elides headers and footers,
+identifies sections and more.</DD>
+-->
+
+<DT>-n|--name <I>name</I></DT>
+<DD>Set name of man page (used in roff format).
+If the filename is given in the form "<I>name</I>.<I>section</I>", the name
+and section are automatically determined.  If the page is being parsed from
+[tn]roff source and it has a .TH line, this information is extracted from that line.</DD>
+
+<DT>-p|--paragraph</DT>
+<DD>paragraph mode toggle.  The filter determines whether lines should be linebroken
+as they were by nroff, or whether lines should be flowed together into paragraphs.
+Mainly for internal use.</DD>
+
+<DT>-s|section <I>#</I></DT>
+<DD>Set volume (aka section) number of man page (used in roff format).</DD>
+
+<!-- if in source automatic, if in preformatted really doesn't work
+<DT>-T|--tables</DT>
+<DD>Turn on aggressive table parsing.</DD>
+-->
+
+<DT>-t|--tabstops <I>#</I></DT>
+<DD>For those macros sets that use tabs in place of spaces where
+possible in order to reduce the number of characters used, set
+tabstops every <I>#</I> columns.  Defaults to 8.</DD>
+
+
+</DL>
+
+
+<H1>Notes on Filter Types</H1>
+
+<H2>ROFF</H2>
+<P>Some flavors of UNIX ship man page without [tn]roff source, making one's laser printer
+little more than a laser-powered daisy wheel.  This filer tries to intuit
+the original [tn]roff directives, which can then be recompiled by [tn]roff.</P>
+
+<H2>TkMan</H2>
+<P>TkMan, a hypertext man page browser, uses <I>PolyglotMan</I> to show
+man pages without the (usually) useless headers and footers on each
+pages.  It also collects section and (optionally) subsection heads for
+direct access from a pulldown menu.  TkMan and Tcl/Tk, the toolkit in
+which it's written, are available via anonymous ftp from
+<tt>ftp://ftp.smli.com/pub/tcl/</tt></P>
+
+<H2>Tk</H2>
+
+<P>This option outputs the text in a series of Tcl lists consisting of
+text-tags pairs, where tag names roughly correspond to HTML.  This
+output can be inserted into a Tk text widget by doing an <tt>eval
+&lt;textwidget&gt; insert end &lt;text&gt;</tt>.  This format should be relatively
+easily parsible by other programs that want both the text and the
+tags.  Also see ASCII.</P>
+
+<!-- hard to track what Ensemble's input format is
+<H2>Ensemble</H2>
+<P>Ensemble, a multimedia editor of structured documents, is currently
+being developed by the research groups of Professors Michael A. Harrison and
+Susan L. Graham at the University of California, Berkeley.  With proper
+structure and presentation specifications (schemas), the appearance of
+a manual page can be radically transformed by Ensemble.</P>
+-->
+
+<H2>ASCII</H2>
+<P>When printed on a line printer, man pages try to produce special text effects
+by overstriking characters with themselves (to produce bold) and underscores
+(underlining).  Other text processing software, such as text editors, searchers,
+and indexers, must counteract this.  The ASCII filter strips away this formatting.
+Piping nroff output through <tt>col -b</tt> also strips away this formatting,
+but it leaves behind unsightly page headers and footers.  Also see Tk.</P>
+
+<H2>Sections</H2>
+<P>Dumps section and (optionally) subsection titles.  This might be useful for
+another program that processes man pages.</P>
+
+<H2>HTML</H2>
+<P>With a simple extention to an HTTP server for Mosaic or other World Wide Web
+browser, <I>PolyglotMan</I> can produce high quality HTML on the fly.
+Several such extensions and pointers to several others are included in <I>PolyglotMan</I>'s
+<tt>contrib</tt> directory.</P>
+
+<H2>SGML</H2>
+<P>This is appoaching the Docbook DTD, but I'm hoping that someone that someone
+with a real interest in this will polish the tags generated.  Try it to see
+how close the tags are now.</P>
+
+<H2>MIME</H2>
+<P>MIME (Multipurpose Internet Mail Extensions) as defined by RFC 1563,
+good for consumption by MIME-aware e-mailers or as Emacs (>=19.29)
+enriched documents.</P>
+
+<H2>LaTeX and LaTeX2e</H2>
+Why not?
+
+<H2>RTF</H2>
+<P>Use output on Mac or NeXT or whatever.  Maybe take random man pages
+and integrate with NeXT's documentation system better.  Maybe NeXT has
+own man page macros that do this.</P>
+
+<H2>PostScript and FrameMaker</H2>
+<P>To produce PostScript, use <tt>groff</tt> or <tt>psroff</tt>.  To produce FrameMaker MIF,
+use FrameMaker's builtin filter.  In both cases you need <tt>[tn]roff</tt> source,
+so if you only have a formatted version of the manual page, use <I>PolyglotMan</I>'s
+roff filter first.</P>
+
+
+<H1>Examples</H1>
+
+<P>To convert the <I>formatted</I> man page named <tt>ls.1</tt> back into
+[tn]roff source form:</P>
+
+<P>
+    <tt>rman -f roff /usr/local/man/cat1/ls.1 > /usr/local/man/man1/ls.1</tt><BR>
+
+<P>Long man pages are often compressed to conserve space (compression is
+especially effective on formatted man pages as many of the characters
+are spaces).  As it is a long man page, it probably has subsections,
+which we try to separate out (some macro sets don't distinguish
+subsections well enough for <I>PolyglotMan</I> to detect them).  Let's convert
+this to LaTeX format:<BR>
+
+<P>
+    <tt>pcat /usr/catman/a_man/cat1/automount.z | rman -b -n automount -s 1 -f latex > automount.man</tt><BR>
+
+<P>Alternatively,
+
+    <tt>man 1 automount | rman -b -n automount -s 1 -f latex > automount.man</tt><BR>
+
+<P>For HTML/Mosaic users, <I>PolyglotMan</I> can, without modification of the
+source code, produce HTML links that point to other HTML man pages
+either pregenerated or generated on the fly.  First let's assume
+pregenerated HTML versions of man pages stored in <I>/usr/man/html</I>.
+Generate these one-by-one with the following form:<BR>
+
+    <tt>rman -f html -r 'http:/usr/man/html/%s.%s.html' /usr/man/cat1/ls.1 > /usr/man/html/ls.1.html</tt><BR>
+
+<P>If you've extended your HTML client to generate HTML on the fly you should use
+something like:<BR>
+
+    <tt>rman -f html -r 'http:~/bin/man2html?%s:%s' /usr/man/cat1/ls.1</tt><BR>
+
+when generating HTML.</P>
+
+
+<H1>Bugs/Incompatibilities</H1>
+
+<P><I>PolyglotMan</I> is not perfect in all cases, but it usually does a
+good job, and in any case reduces the problem of converting man pages
+to light editing.</P>
+
+<P>Tables in formatted pages, especially H-P's, aren't handled very well.
+Be sure to pass in source for the page to recognize tables.</P>
+
+<P>The man pager <I>woman</I> applies its own idea of formatting for
+man pages, which can confuse <I>PolyglotMan</I>.  Bypass <I>woman</I>
+by passing the formatted manual page text directly into
+<I>PolyglotMan</I>.</P>
+
+<P>The [tn]roff output format uses fB to turn on boldface.  If your macro set
+requires .B, you'll have to a postprocess the <I>PolyglotMan</I> output.</P>
+
+
+<H1>See Also</H1>
+
+<tt>tkman(1)</tt>, <tt>xman(1)</tt>, <tt>man(1)</tt>, <tt>man(7)</tt> or <tt>man(5)</tt> depending on your flavor of UNIX
+
+<H1>Author</H1>
+
+<P>PolyglotMan<BR>
+by Thomas A. Phelps  (<tt>phelps@ACM.org</tt>)<BR>
+developed at the<BR>
+University of California, Berkeley<BR>
+Computer Science Division
+
+<P>Manual page last updated on $Date: 1998/07/13 09:47:28 $
+
+</BODY></HTML>

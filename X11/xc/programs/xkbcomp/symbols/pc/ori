@@ -1,0 +1,66 @@
+// $XFree86: xc/programs/xkbcomp/symbols/pc/ori,v 1.1 2002/12/15 00:44:56 dawes Exp $
+
+partial default alphanumeric_keys 
+xkb_symbols "basic" {
+    // Inscript layout for Oriya  
+    // Author: G Karunakar <karunakar@freedomink.org>
+    // Date: Wed Nov 13 18:16:19 IST 2002
+
+    name[Group1]= "Oriya";
+    
+    key <TLDE> { [  0x01000b4a, 0x01000b12	] };
+    key <AE01> { [  0x01000b67, 0x01000b0d	] };
+    key <AE02> { [  0x01000b68, 0x01000b45	] };
+    key <AE03> { [  0x01000b69			] };
+    key <AE04> { [  0x01000b6a			] };
+    key <AE05> { [  0x01000b6b			] };
+    key <AE06> { [  0x01000b6c			] };
+    key <AE07> { [  0x01000b6d			] };
+    key <AE08> { [  0x01000b6e			] };
+    key <AE09> { [  0x01000b6f			] };
+    key <AE10> { [  0x01000b66			] };
+    key <AE11> { [  0x01000b03			] };
+    key <AE12> { [  0x01000b43, 0x01000b0b	] };
+
+    key <AD01> { [  0x01000b4c, 0x01000b14	] };
+    key <AD02> { [  0x01000b48, 0x01000b10	] };
+    key <AD03> { [  0x01000b3e, 0x01000b06	] };
+    key <AD04> { [  0x01000b40, 0x01000b08	] };
+    key <AD05> { [  0x01000b42, 0x01000b0a	] };
+    key <AD06> { [  0x01000b2c, 0x01000b2d	] };
+    key <AD07> { [  0x01000b39, 0x01000b19	] };
+    key <AD08> { [  0x01000b17, 0x01000b18	] };
+    key <AD09> { [  0x01000b26, 0x01000b27	] };
+    key <AD10> { [  0x01000b1c, 0x01000b1d	] };
+    key <AD11> { [  0x01000b21, 0x01000b22	] };
+    key <AD12> { [  0x01000b3c, 0x01000b1e	] };
+ 
+    key <AC01> { [  0x01000b4b, 0x01000b13	] };
+    key <AC02> { [  0x01000b47, 0x01000b0f	] };
+    key <AC03> { [  0x01000b4d, 0x01000b05	] };
+    key <AC04> { [  0x01000b3f, 0x01000b07	] };
+    key <AC05> { [  0x01000b41, 0x01000b09	] };
+    key <AC06> { [  0x01000b2a, 0x01000b2b	] };
+    key <AC07> { [  0x01000b30, 0x01000b31	] };
+    key <AC08> { [  0x01000b15, 0x01000b16	] };
+    key <AC09> { [  0x01000b24, 0x01000b25	] };
+    key <AC10> { [  0x01000b1a, 0x01000b1b	] };
+    key <AC11> { [  0x01000b1f, 0x01000b20	] };
+ 
+    key <AB01> { [  0x01000b46, 0x01000b0e	] };
+    key <AB02> { [  0x01000b02, 0x01000b01	] };
+    key <AB03> { [  0x01000b2e, 0x01000b23	] };
+    key <AB04> { [  0x01000b28, 0x01000b29	] };
+    key <AB05> { [  0x01000b35, 0x01000b34	] };
+    key <AB06> { [  0x01000b32, 0x01000b33	] };
+    key <AB07> { [  0x01000b38, 0x01000b36	] };
+    key <AB08> { [  comma     , 0x01000b37	] };
+    key <AB09> { [  period    , 0x01000b64	] };
+    key <AB10> { [  0x01000b2f, 0x01000040	] };
+    key <BKSL> { [  0x01000b49, 0x01000b11	] };
+
+    key <RALT> {
+	symbols[Group1] = [ Mode_switch, Multi_key ],
+	virtualMods = AltGr
+    };
+};

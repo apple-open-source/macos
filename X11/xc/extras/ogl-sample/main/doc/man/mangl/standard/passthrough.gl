@@ -1,0 +1,72 @@
+_C_ License Applicability. Except to the extent portions of this file are
+_C_ made subject to an alternative license as permitted in the SGI Free
+_C_ Software License B, Version 1.1 (the "License"), the contents of this
+_C_ file are subject only to the provisions of the License. You may not use
+_C_ this file except in compliance with the License. You may obtain a copy
+_C_ of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+_C_ Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+_C_ 
+_C_ http://oss.sgi.com/projects/FreeB
+_C_ 
+_C_ Note that, as provided in the License, the Software is distributed on an
+_C_ "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+_C_ DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+_C_ CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+_C_ PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+_C_ 
+_C_ Original Code. The Original Code is: OpenGL Sample Implementation,
+_C_ Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+_C_ Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+_C_ Copyright in any portions created by third parties is as indicated
+_C_ elsewhere herein. All Rights Reserved.
+_C_ 
+_C_ Additional Notice Provisions: The application programming interfaces
+_C_ established by SGI in conjunction with the Original Code are The
+_C_ OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+_C_ April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+_C_ 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+_C_ Window System(R) (Version 1.3), released October 19, 1998. This software
+_C_ was created using the OpenGL(R) version 1.2.1 Sample Implementation
+_C_ published by SGI, but has not been independently verified as being
+_C_ compliant with the OpenGL(R) version 1.2.1 Specification.
+_C_
+_C_ The first character in this file must be an '_'!
+_C_ Anything on a line after _C_ is ignored
+_define(_filters,eqn)_C_
+_C_      eqn is automatically replaced with neqn for nroff
+_header(PassThrough,place a marker in the feedback buffer)
+_names(PassThrough)
+.SH PARAMETERS
+_phead(_param1)
+Specifies a marker value to be placed in the feedback buffer
+following a _const(PASS_THROUGH_TOKEN).
+.SH DESCRIPTION
+.P
+Feedback is a GL render mode.
+The mode is selected by calling
+_cmnd(RenderMode) with _const(FEEDBACK).
+When the GL is in feedback mode,
+no pixels are produced by rasterization.
+Instead,
+information about primitives that would have been rasterized
+is fed back to the application using the GL.
+See the _cmnd(FeedbackBuffer) reference page for a description of the
+feedback buffer and the values in it.  
+.P
+_cmnd inserts a user-defined marker in the feedback buffer
+when it is executed in feedback mode.  
+_param1 is returned as if it were a primitive;
+it is indicated with its own unique identifying value:
+_const(PASS_THROUGH_TOKEN).
+The order of _cmnd commands with respect to the specification
+of graphics primitives is maintained.  
+.SH NOTES
+_cmnd is ignored if the GL is not in feedback mode.
+.SH ERRORS
+_const(INVALID_OPERATION) is generated if _cmnd is executed between
+the execution of _cmnd(Begin) and the corresponding execution of _cmnd(End).
+.SH ASSOCIATED GETS
+_cmnd(Get) with argument _const(RENDER_MODE)
+.SH SEE ALSO
+_cmnd(FeedbackBuffer),
+_cmnd(RenderMode)

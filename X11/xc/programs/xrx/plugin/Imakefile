@@ -1,0 +1,180 @@
+XCOMM $Xorg: Imakefile,v 1.4 2001/02/20 15:51:17 pookie Exp $
+
+
+
+
+XCOMM $XFree86: xc/programs/xrx/plugin/Imakefile,v 1.13 2002/11/22 22:56:06 tsi Exp $
+
+#if HasSharedLibraries
+
+XCOMM This isn't an option we must build a shared lib
+#define DoSharedLib YES
+
+#define LibHeaders NO
+#define LibName xrx
+#define SoRev SOXRXREV
+
+SharedLibReferences(xrx,xrx,$(RXSRC),SOXRXREV,6.3)
+
+          RXSRC = ../rx
+    RX_INCLUDES = -I$(RXSRC)
+
+#if HasBSD44Sockets
+ SOCKET_DEFINES = -DBSD44SOCKETS
+#endif
+
+/* Netscape be damned.  Allow fresh (re-)installs to proceed correctly */
+#if UseInstalledX11
+
+#ifdef SGIArchitecture
+#if OSMajorVersion == 5 && OSMinorVersion < 3 || OSMajorVersion == 6 && OSMinorVersion < 2
+     XT_DEFINES = -DXUSE_XTREGISTERWINDOW
+#endif
+/* Even though we want to build the distribution with -n32, Navigator 3.0 
+ * binaries are still built on IRIX 5.2, which means we need to use the 
+ * old style object format. This is a hack because this Imakefile gets
+ * included too late to do this properly, that is to say that the
+ * CCOPTIONS in Imake.tmpl gets the -n32 options that we don't want,
+ * but the CCOPTIONS in Library.tmpl does get set correctly, and over-
+ * rides the value. So it works, but it's not pretty.
+ */
+#undef sgiCCOptions
+#define sgiCCOptions -xansi
+#ifdef Mips64Architecture
+     SHLIBLDFLAGS = -shared
+#endif
+               LD = ld
+#endif
+
+#ifdef SunArchitecture
+VENDOR_INCLUDES = -I/usr/openwin/include
+#if OSMajorVersion < 5 || OSMajorVersion == 5 && OSMinorVersion < 6
+     XT_DEFINES = -DXUSE_XTREGISTERWINDOW
+#endif
+#if !HasGcc
+/* 
+ * Based on Xmd.h 2.6 appears to be no more than R6pl11, so we need this.
+ * Hopefully Sun will fix this in 2.7.
+ */
+#undef DefaultCCOptions
+#define DefaultCCOptions -Xc 
+#endif
+#if OSMajorVersion == 4
+FUNCPROTO_DEFINES = -DXFUNCPROTO_NOT_AVAILABLE
+#endif
+#endif
+
+#ifdef HPArchitecture
+/* Even though HP ships R6 in 10.20, Netscape 3.x is built on HPUX 9 and is 
+ * linked against X11R5 libraries, so we continue to use _XtRegisterWindow 
+ * until such time as Netscape releases a version that is linked with X11R6.
+ */
+     XT_DEFINES = -DXUSE_XTREGISTERWINDOW
+#if OSMajorVersion < 10 || (OSMajorVersion == 10 && OSMinorVersion < 2)
+   TOP_INCLUDES = -I/usr/include -I$(BUILDINCDIR)
+#else
+   TOP_INCLUDES = -I/usr/include/X11R5 -I$(BUILDINCDIR)
+#endif
+#endif
+
+#if defined(AlphaArchitecture) && defined(OSF1Architecture)
+#if OSMajorVersion < 4
+     XT_DEFINES = -DXUSE_XTREGISTERWINDOW
+#endif
+#endif
+
+#ifdef IBMArchitecture
+/* No clue when IBM might ship R6 */
+     XT_DEFINES = -DXUSE_XTREGISTERWINDOW
+#endif
+
+#endif /* UseInstalledX11 */
+
+ PLUGIN_DEFINES = -DXP_UNIX
+PLUGIN_INCLUDES = -I./include
+
+        DEFINES = StrcasecmpDefines -DNETSCAPE_PLUGIN $(PLUGIN_DEFINES) $(XT_DEFINES) $(SOCKET_DEFINES) $(FUNCPROTO_DEFINES)
+       INCLUDES = -I. $(PLUGIN_INCLUDES) $(RX_INCLUDES) $(VENDOR_INCLUDES)
+
+    PARAMS_SRCS = PRead.c PParse.c BuildReq.c
+    PARAMS_OBJS = PRead.o PParse.o BuildReq.o
+
+     XMISC_SRCS = XUrls.c XAuth.c XDpyName.c Prefs.c
+     XMISC_OBJS = XUrls.o XAuth.o XDpyName.o Prefs.o
+
+           SRCS = Main.c SetWin.c PProcess.c NewNDest.c Global.c stubs.c \
+		$(PARAMS_SRCS) $(XMISC_SRCS)
+           OBJS = Main.o SetWin.o PProcess.o NewNDest.o Global.o stubs.o \
+		$(PARAMS_OBJS) $(XMISC_OBJS)
+
+#if UseInstalledX11
+
+XCOMM we need to link in the right libraries so it will work no matter
+XCOMM which libraries Netscape itself is using.
+#if !VendorHasX11R6_3libXext
+X11R6_3_EXTENSIONS = ../libxplugin/libxplugin.a
+#ifdef SunArchitecture
+PLUGIN_LDOPTIONS = -L/usr/openwin/lib
+CCENVSETUP =
+#if OSMajorVersion == 5 && OSMinorVersion > 5
+RXICELIB = $(ICELIB)
+#endif
+#if OSMajorVersion == 4
+    EXTENSIONLIB =
+#endif
+#endif
+#ifdef HPArchitecture
+#if OSMajorVersion < 10 || (OSMajorVersion == 10 && OSMinorVersion < 2)
+       LDPRELIBS = -L/usr/lib/X11
+#else
+       LDPRELIBS = -L/usr/lib/X11R5
+#endif
+#endif
+#ifdef IBMArchitecture
+    XTOOLONLYLIB = -lXm -lXt
+    EXTENSIONLIB = -lXext
+        XONLYLIB = -lX11
+        RXICELIB = $(ICELIB)
+      LDPOSTLIBS =
+       LDPRELIBS =
+#endif
+#ifdef SequentArchitecture
+        RXICELIB = $(ICELIB)
+        XONLYLIB = -lX11 -lsocket
+PLUGIN_LDOPTIONS = $(LDPRELIBS)
+#endif
+#else
+PLUGIN_LDOPTIONS = $(LDPRELIBS)
+#endif
+
+/* Sun and HP don't ship it yet, SGI has it inside libXt. */
+#if defined(AlphaArchitecture) && defined(OSF1Architecture)
+RXICELIB = $(ICELIB)
+#endif
+
+#else  /* UseInstalledX11 */
+PLUGIN_LDOPTIONS = $(LDPRELIBS)
+#endif /* UseInstalledX11 */
+
+    REQUIREDLIBS =  $(X11R6_3_EXTENSIONS) $(PLUGIN_LDOPTIONS) $(RXICELIB) $(XTOOLONLYLIB) $(XLIB)
+
+#include <Library.tmpl>
+
+LinkFile(PRead.c,$(RXSRC)/PRead.c)
+LinkFile(PParse.c,$(RXSRC)/PParse.c)
+LinkFile(BuildReq.c,$(RXSRC)/BuildReq.c)
+LinkFile(XUrls.c,$(RXSRC)/XUrls.c)
+LinkFile(XAuth.c,$(RXSRC)/XAuth.c)
+LinkFile(XDpyName.c,$(RXSRC)/XDpyName.c)
+LinkFile(Prefs.c,$(RXSRC)/Prefs.c)
+
+DependTarget()
+InstallManPage(libxrx,$(MANDIR))
+
+#ifdef IBMArchitecture
+install:: shr.o
+	$(INSTALL) $(INSTALLFLAGS) $(INSTLIBFLAGS) shr.o $(DESTDIR)$(SHLIBDIR)/lib$(LIBNAME).so
+	$(RM) $(DESTDIR)$(SHLIBDIR)/lib$(LIBNAME).a
+#endif
+
+#endif /* HasSharedLibraries */

@@ -1,0 +1,97 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:55:19 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/util/memleak/Imakefile,v 3.5 2001/01/17 23:20:07 dawes Exp $
+
+#define DoNormalLib YES
+#define DoSharedLib NO
+#define DoDebugLib NO
+#define DoProfileLib NO
+#define IncSubdir X11
+#include <Library.tmpl>
+
+#ifdef MipsArchitecture
+#define TopOfStack 0x7fffbbb0
+#define BottomOfData 0x10000000
+#define HasGetReturnAddress 	YES
+GRA_OBJS = getretmips.o mipsstack.o
+GRA_SRCS = getretmips.c
+#endif
+
+#ifdef SparcArchitecture
+#define HasGetReturnAddress	YES
+#define BottomOfData \&environ
+#ifdef SystemV4
+GRA_OBJS = getretspar.o sparcsolstack.o
+#define TopOfStack 0xeffffc70
+#else
+LOCAL_DEFS = -Datexit=on_exit
+GRA_OBJS = getretspar.o sparcstack.o
+#define TopOfStack 0xf7fffbdc
+#endif
+GRA_SRCS = getretspar.c
+#endif
+
+#ifdef i386BsdArchitecture
+#define HasGetReturnAddress	YES
+#define TopOfStack 'GC_get_stack_base()'
+#define BottomOfData \&etext
+GRA_OBJS = getreti386.o stackbottom.o
+GRA_SRCS = getreti386.c stackbottom.c
+#endif
+
+#ifdef LinuxArchitecture
+#ifdef i386Architecture
+#define HasGetReturnAddress	YES
+#define TopOfStack 0xbffff800
+#define BottomOfData \&__data_start
+GRA_OBJS = getreti386.o stackbottom.o
+GRA_SRCS = getreti386.c stackbottom.c
+#endif
+#endif
+
+#ifdef AlphaArchitecture
+#define HasGetReturnAddress	NO
+#define TopOfData \&_end
+#define TopOfStack 0x11ffffff0
+#define BottomOfData \&xf86DriverList
+#endif
+
+#ifndef HasGetReturnAddress
+#define HasGetReturnAddress NO
+#endif
+
+#if HasGetReturnAddress
+ GRA_DEFS = -DHAS_GET_RETURN_ADDRESS
+#endif
+
+#ifdef TopOfData
+ TOD_DEFS = -DTOP_OF_DATA=TopOfData
+#endif
+
+DEFINES = 	-DTOP_OF_STACK=TopOfStack -DBOTTOM_OF_DATA=BottomOfData\
+		$(GRA_DEFS) $(TOD_DEFS) $(LOCAL_DEFS)
+
+CDEBUGFLAGS = DebuggableCDebugFlags
+
+SRCS =	fmalloc.c $(GRA_SRCS)
+
+OBJS =	fmalloc.o $(GRA_OBJS)
+
+LibraryObjectRule()
+
+#if DoNormalLib
+NormalLibraryTarget(memleak,$(OBJS))
+InstallLibrary(memleak,$(USRLIBDIR))
+#endif
+
+InstallNamedProg(find-rtns.sh,find-routines,$(BINDIR))
+
+LintLibraryTarget(memleak,$(SRCS))
+InstallLintLibrary(memleak,$(LINTLIBDIR))
+
+DependTarget()
+
+NormalLintTarget($(SRCS))

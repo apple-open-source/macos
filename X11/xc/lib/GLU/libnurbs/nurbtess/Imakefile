@@ -1,0 +1,150 @@
+XCOMM $XFree86: xc/lib/GLU/libnurbs/nurbtess/Imakefile,v 1.3 2001/01/16 00:39:25 dawes Exp $
+
+XCOMM License Applicability. Except to the extent portions of this file are
+XCOMM made subject to an alternative license as permitted in the SGI Free
+XCOMM Software License B, Version 1.1 (the "License"), the contents of this
+XCOMM file are subject only to the provisions of the License. You may not use
+XCOMM this file except in compliance with the License. You may obtain a copy
+XCOMM of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+XCOMM Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+XCOMM 
+XCOMM http://oss.sgi.com/projects/FreeB
+XCOMM 
+XCOMM Note that, as provided in the License, the Software is distributed on an
+XCOMM "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+XCOMM DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+XCOMM CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+XCOMM PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+XCOMM 
+XCOMM Original Code. The Original Code is: OpenGL Sample Implementation,
+XCOMM Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+XCOMM Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+XCOMM Copyright in any portions created by third parties is as indicated
+XCOMM elsewhere herein. All Rights Reserved.
+XCOMM 
+XCOMM Additional Notice Provisions: The application programming interfaces
+XCOMM established by SGI in conjunction with the Original Code are The
+XCOMM OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+XCOMM April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+XCOMM 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+XCOMM Window System(R) (Version 1.3), released October 19, 1998. This software
+XCOMM was created using the OpenGL(R) version 1.2.1 Sample Implementation
+XCOMM published by SGI, but has not been independently verified as being
+XCOMM compliant with the OpenGL(R) version 1.2.1 Specification.
+XCOMM
+
+#define DoNormalLib NormalLibGlu
+#define DoSharedLib SharedLibGlu
+#define DoDebugLib DebugLibGlu
+#define DoProfileLib ProfileLibGlu
+
+#define CplusplusSource
+
+#include <Library.tmpl>
+
+SRCS = \
+	directedLine.cc \
+	gridWrap.cc \
+	monoChain.cc \
+	monoTriangulation.cc \
+	partitionX.cc \
+	partitionY.cc \
+	polyDBG.cc \
+	polyUtil.cc \
+	primitiveStream.cc \
+	quicksort.cc \
+	rectBlock.cc \
+	sampleComp.cc \
+	sampleCompBot.cc \
+	sampleCompRight.cc \
+	sampleCompTop.cc \
+	sampleMonoPoly.cc \
+	sampledLine.cc \
+	searchTree.cc \
+	monoPolyPart.cc
+
+OBJS = \
+	directedLine.o \
+	gridWrap.o \
+	monoChain.o \
+	monoTriangulation.o \
+	partitionX.o \
+	partitionY.o \
+	polyDBG.o \
+	polyUtil.o \
+	primitiveStream.o \
+	quicksort.o \
+	rectBlock.o \
+	sampleComp.o \
+	sampleCompBot.o \
+	sampleCompRight.o \
+	sampleCompTop.o \
+	sampleMonoPoly.o \
+	sampledLine.o \
+	searchTree.o \
+	monoPolyPart.o
+
+INCLUDES = \
+	-I../internals \
+	-I../../include \
+	-I$(TOP)/include \
+	-I$(TOP)/include/GL
+
+DEFINES = \
+	-DLIBRARYBUILD \
+	-DNDEBUG 
+
+LibraryObjectRule()
+
+SubdirLibraryRule($(OBJS))
+NormalLintTarget($(SRCS))
+
+GLUSRCDIR = $(OGLSAMPLESRCDIR)/main/gfx/lib/glu
+
+LinkSourceFile(directedLine.cc, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(gridWrap.cc, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(monoChain.cc, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(monoTriangulation.cc, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(partitionX.cc, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(partitionY.cc, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(polyDBG.cc, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(polyUtil.cc, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(primitiveStream.cc, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(quicksort.cc, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(rectBlock.cc, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(sampleComp.cc, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(sampleCompBot.cc, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(sampleCompRight.cc, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(sampleCompTop.cc, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(sampleMonoPoly.cc, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(sampledLine.cc, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(searchTree.cc, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(monoPolyPart.cc, $(GLUSRCDIR)/libnurbs/nurbtess)
+
+LinkSourceFile(definitions.h, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(directedLine.h, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(glimports.h, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(gridWrap.h, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(monoChain.h, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(monoPolyPart.h, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(monoTriangulation.h, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(mystdio.h, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(mystdlib.h, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(partitionX.h, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(partitionY.h, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(polyDBG.h, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(polyUtil.h, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(primitiveStream.h, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(quicksort.h, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(rectBlock.h, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(sampleComp.h, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(sampleCompBot.h, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(sampleCompRight.h, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(sampleCompTop.h, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(sampleMonoPoly.h, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(sampledLine.h, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(searchTree.h, $(GLUSRCDIR)/libnurbs/nurbtess)
+LinkSourceFile(zlassert.h, $(GLUSRCDIR)/libnurbs/nurbtess)
+
+DependTarget()
+CleanTarget()

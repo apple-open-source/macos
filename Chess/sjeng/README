@@ -1,0 +1,340 @@
+What is Sjeng ?
+---------------
+
+Sjeng is a chessprogram that plays many variants. 
+
+In addition to that, it can also play normal chess
+quite well and is fully compatible with the standard 
+XBoard/WinBoard protocol (version 1 and 2). Sjeng
+also supports some broken WinBoard implementations,
+such as the one present in the ChessBase/Fritz WinBoard
+adapter.
+
+Technically, Sjeng is a highly advanced alpha-beta searcher, 
+using modern techniques like history and killer moves, 
+transposition tables, SEE move ordering and pruning, and 
+search enhancements like selective extensions, Aspiration 
+Principal Variation Search, Adaptive nullmove pruning, 
+Extended Futility Pruning and Limited Razoring. Sjeng can 
+use an opening book and learns from the games it plays. 
+
+In it's suicide and losers mode, Sjeng use proof-number 
+searches to quickly find forced wins. Sjeng plays at the 
+same level that the best humans are capable of.
+
+On 14th of October 2000, Sjeng won it's first title
+by becoming the World Computer Crazyhouse Chess Champion.
+
+On December 31th 2000, Sjeng became the first computer
+program to reach the #1 spot on the crazyhouse rating list
+on the Free Internet Chess Server. It had been #1 on the
+Internet Chess Club before.
+
+Early 2001 Sjeng became the #1 losers/giveaway player
+on the Internet Chess Club.
+
+
+What variants are supported ?
+-----------------------------
+
+Sjeng currently plays standard chess, crazyhouse, bughouse,
+suicide (aka giveaway or anti-chess) and losers. It can also
+play variants which have the same rules as normal chess, but
+a different starting position.
+
+
+How do I get it to work ?
+-------------------------
+
+ Building it
+ -----------
+
+    GNU/Linux, FreeBSD, other Un*x variants:
+    ----------------------------------------
+ 
+    Building Sjeng should be as simple as:
+
+    ./configure
+    make
+    (su to root if needed)
+    make install
+ 
+    If you notice Sjeng is only reporting time in full second
+    increments, edit config.h and change #define HAVE_FTIME
+    into #undef HAVE_FTIME.
+
+    Windows
+    -------
+
+    I have succesfully compiled Sjeng with Microsoft Visual C++.
+    Other compilers are not tested, but may also work.
+    
+    The easiest way is to locate a Windows port of Sjeng's
+    sources, which you can compile out-of-the-box. If those
+    are not available, follow these instructions:
+    
+    You need to find a Windows port of the GDBM library. 
+    There are several (free) ones available on the internet.
+
+    You will have to create a config.h file which contains
+    
+    #define HAVE_SYS_TIMEB_H
+    #define HAVE_FTIME
+    #define VERSION "11.2"
+
+    You may have to define _WIN32 also, if your compiler
+    doesn't already do so.
+
+    You also need an implementation of the strcasecmp
+    function. An implementation is available in the file 
+    strcasec.c in the DJGPP distribution.
+
+    Alternatively you can use the Cygnus utilities. I have
+    never used them myself so I cannot help you there, but
+    I have had reports from users which successfully built
+    Sjeng with it.
+ 
+ 
+ The opening books
+ -----------------
+
+ Sjeng uses two kind of books: .opn books and binary books
+
+ The .opn books are intended to be created manually, and
+ are ideal for getting Sjeng to play your favorite openings.
+ Some examples are in the books directory. 
+
+ To use a .opn book, just copy it to the same directory
+ where you are running Sjeng from. Sjeng will always look
+ in the .opn book first and will never apply learning to
+ it.
+
+ The binary books are created automatically from PGN databases,
+ by a built-in bookbuilder.
+
+ To use it, just start Sjeng and enter 'book'. To generate
+ a crazyhouse/bughouse book, first type 'variant crazyhouse',
+ then type 'book'. ('losers' and 'suicide' are also supported)
+ Be sure to make the keycache large enough or the book-generation 
+ will be slow and you will end up with very large files. One 
+ byte in the keycache is enough for one position. The keycache
+ is stored in RAM, so do not make it bigger than the actual 
+ amount of RAM you have.
+ 
+ You need about 12 bytes diskspace per position that will be 
+ stored.
+
+ You must use a pure PGN database. PGN derivates like BPGN
+ are not (yet) supported, nor is the psuedo-PGN that some 
+ other programs output. 
+
+ I recommend running your PGN database through the 'Extract' 
+ program by David Barnes first. It has options to strip 
+ variantions, comments and NAG's and to suppress duplicates
+ which will significantly speed up the bookbuilding process,
+ as well as getting rid of any psuedo-SAN.
+
+ A PGN database of some high-quality crazyhouse games is
+ available at 
+ ftp://sjeng.sourceforge.net/pub/sjeng/zhbook.pgn
+
+
+ Getting an interface
+ --------------------
+
+ You can start Sjeng now by typing 'sjeng', but you will probably
+ find the text-based interface unpleasant.
+
+ The recommended interface for playing standard chess with Sjeng 
+ is WinBoard/XBoard, by Tim Mann.
+
+ http://www.tim-mann.org/xboard.html
+
+ You will need to start WinBoard/xboard with the -variant 
+ option to play bughouse, crazyhouse, suicide or losers. If 
+ you need more help with WinBoard/xboard read its documentation. 
+ If you want to let Sjeng play on a chess server, be sure to 
+ read zippy.README
+
+ Zon Juan Jan wrote a Windows interface for crazyhouse-playing
+ programs that can be used with Sjeng. Go to
+ 
+ http://bughouse.net
+
+ and look in the downloads section. The program is called 
+ Zhouse Challenger. It works nicely and I can recommend
+ it a lot! There is an alternate download at:
+
+ http://www.d2d4.de/download/zchall-sfx.exe
+
+ EBoard is a chess interface for POSIX systems (GNU/Linux, FreeBSD, 
+ etc.) based on the GTK+ GUI toolkit. It is available on 
+ http://eboard.sourceforge.net/ and has extensive support for Sjeng.
+
+
+Generating endgame databases
+-------------------------
+
+Sjeng support endgame databases for the suicide
+variant. You can generate them as follows:
+
+1) Make a subdirectory named 'stb' in Sjeng's
+   directory
+2) Start Sjeng form the command line and issue
+   the command 'buildegtb'
+
+This will take an hour or so, depending on the
+speed of your computer.
+
+
+Tuning Sjeng
+------------
+
+A great deal Sjeng's workings can be customized without 
+recompiling it. You should take a look at sjeng.rc and
+adjust the parameters to your likings. Especially the
+first three are imporant because they control how much
+memory Sjeng will use for transposition tables and caches.
+If those are set too big for your RAM, Sjeng will crash.
+
+
+Benchmarking
+------------
+
+As a little test of your computer's speed, you can start
+Sjeng and give the 'speed' command. This will run a little
+benchmark of the most commonly-used functions in Sjeng.
+
+
+Running testsuites
+------------------
+
+Sjeng can automatically run testsuites by use of the 'test'
+command. Input data is expected to be in EPD format with
+either a 'best move' (bm) or 'avoid move' (am) tag. 
+Some testsuites are included in the 'tests' directory of the
+Sjeng distribution.
+
+
+Getting more info
+-----------------
+
+For more info about Sjeng, you can visit the homepage
+
+http://www.sjeng.org/
+
+If you are in need of info about Sjeng's internal 
+workings, send me a mail at
+
+gcp@sjeng.org
+
+
+Reporting bugs
+--------------
+
+If you spot a bug, or Sjeng crashes on you, please
+send email to
+
+gcp@sjeng.org
+
+Please try to provide an accurate description of the 
+problem and, if possible, how to reproduce it. Starting
+XBoard/WinBoard with the -debug option will produce debug
+output (either on screen or in a winboard.debug file) that
+can help a lot in tracking down the problem.
+
+
+Copying/Distribution
+--------------------
+
+Sjeng is Free Software and is licensed under the GNU General
+Public License. For more details see the file COPYING that
+comes with Sjeng. 
+
+If this file is missing, write to the Free Software Foundation,
+Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+Sjeng should have come with source code, or you should have
+been given the possibility to obtain it for a charge no more 
+than the cost of physically performing the source distribution.
+If not, please contact gcp@sjeng.org.
+
+Sjeng includes tablebase accessing code written by Andrew Kadatch
+and Eugene Nalimov. This code is contained in the files tbindex.cpp
+and tbdecode.h and is copyrighted by them, all rights reserved.
+This code does _not_ fall under the GPL. You are hereby given the
+additional right to compile and link Sjeng with this code, as well
+as to distribute the resulting executable and code under the 
+conditions of the GPL, except for the files tbindex.cpp and 
+tbdecode.h, which do not fall under the GPL, but may also be 
+distributed together with Sjeng.
+
+The author regrets having to include this non-free code with
+Sjeng, but no free replacement of the same quality is availble
+yet.
+
+
+What is bughouse ?
+------------------
+
+Bughouse is a form of chess which is played with 2 teams, 
+each consisting of 2 players. Each player plays his opponent
+on a seperate board. If a piece is captured, the capturing 
+player can pass it on to his partner, who can then drop the 
+piece into his game and use it.
+
+If you have never played bughouse before, you are really
+missing out on something. Try it, you'll like it.
+
+for a more complete description of the rules:
+
+http://matador.unige.ch/nabla/Bug/rules.html
+
+
+What is crazyhouse ?
+--------------------
+
+Crazyhouse is similar to bughouse, but is played
+with only 2 players, on 1 board.
+
+
+What is suicide/giveaway/anti-chess ?
+-------------------------------------
+
+Suicide is a form of chess where the goal is to
+lose all your pieces. Your king acts like a normal
+piece and can be captured, and you can promote
+pawns to a king. If you can capture, you must.
+
+Suicide is sometimes referred to as giveaway or anti-chess,
+although there are minor differences between variants.
+
+In suicide, castling is not allowed, but in giveaway
+it is. If a player is stalemated, he loses in giveaway,
+but in suicide he wins if he has less material than his 
+opponent.
+
+
+What is losers ?
+----------------
+
+Losers is similar to suicide with the exception
+that the king may not be captured, you cannot
+promote pawns to kings, and if you are checkmated
+you win.
+
+
+Where can I play bughouse ?
+----------------------------
+
+The most common place to play bughouse is the Free Internet
+Chess Server (FICS). Most important chess servers also offer
+it, like the Internet Chess Club. 
+
+http://www.freechess.org
+http://www.chessclub.com
+
+Or even better, gather a few friends, 2 chessboards, 2 clocks,
+some beer, and have fun beating each other ;)
+
+-- last revised 2001-12-27 -- gcp@sjeng.org --

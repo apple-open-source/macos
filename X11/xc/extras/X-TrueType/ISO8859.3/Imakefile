@@ -1,0 +1,9 @@
+/* code converter: ISO8859.3 */
+
+#define ModuleName ISO8859_3
+SRCS = ISO8859_3toUCS2.c main.c
+OBJS = ISO8859_3toUCS2.o main.o
+
+#include <xttMod.tmpl>
+
+/* end of file */

@@ -1,0 +1,96 @@
+.\" $Xorg: xcmsdb.man,v 1.4 2001/02/09 02:05:39 xorgcvs Exp $
+.\" Copyright 1990, Tektronix Inc.
+.\" Copyright 1993, 1998  The Open Group
+.\" 
+.\" Permission to use, copy, modify, distribute, and sell this software and its
+.\" documentation for any purpose is hereby granted without fee, provided that
+.\" the above copyright notice appear in all copies and that both that
+.\" copyright notice and this permission notice appear in supporting
+.\" documentation.
+.\" 
+.\" The above copyright notice and this permission notice shall be included in
+.\" all copies or substantial portions of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+.\" IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+.\" FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL 
+.\" THE OPEN GROUP BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+.\" WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF 
+.\" OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+.\" SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the name of The Open Group shall not 
+.\" be used in advertising or otherwise to promote the sale, use or other 
+.\" dealing in this Software without prior written authorization from the 
+.\" The Open Group.
+.\"
+.\" $XFree86: xc/programs/xcmsdb/xcmsdb.man,v 1.7 2001/12/14 20:01:18 dawes Exp $
+.\"
+.TH XCMSDB 1 __xorgversion__
+.SH NAME
+xcmsdb \- Device Color Characterization utility for X Color Management System
+.SH SYNOPSIS
+.B xcmsdb
+[ \fB\-query\fP ] [ \fB\-remove\fP ]
+[ \fB\-format\032\fP|\fB16\fP|\fB8\fP ]
+[ \fIfilename\fP ]
+.SH DESCRIPTION
+.I xcmsdb
+is used to load, query, or remove Device Color Characterization data 
+stored in properties on the root window of the screen as specified
+in section 7, Device Color Characterization, of the ICCCM.
+Device Color Characterization data (also called the Device Profile)
+is an integral part of Xlib's X Color Management System (Xcms), necessary
+for proper conversion of color specification between device-independent
+and device-dependent forms.
+Xcms uses 3x3 matrices stored in the XDCCC_LINEAR_RGB_MATRICES property to
+convert color specifications between CIEXYZ and RGB Intensity (XcmsRGBi, also
+referred to as linear RGB).
+Xcms then uses display gamma information stored in the
+XDCCC_LINEAR_RGB_CORRECTION property to convert color specifications between
+RGBi and RGB device (XcmsRGB, also referred to as device RGB).
+.LP
+Note that Xcms allows clients to register \fIfunction sets\fP
+in addition to its
+built-in function set for CRT color monitors.  Additional function sets
+may store their device profile information in other properties in function
+set specific format.
+This utility is unaware of these non-standard properties.
+.LP
+The ASCII readable contents of
+.I filename
+(or the standard input if no input file is given)
+are appropriately transformed for storage in properties, provided the
+.B \-query 
+or 
+.B \-remove 
+options are not specified.
+.SH "OPTIONS"
+.I xcmsdb
+program accepts the following options:
+.TP 8
+.B \-query
+This option attempts to read the XDCCC properties off the screen's root
+window.
+If successful, it transforms the data into a more readable format, then
+sends the data to standard out.  
+.TP 8
+.B \-remove
+This option attempts to remove the XDCCC properties on the screen's root
+window.
+.TP 8
+\fB\-format\032\fP|\fB16\fP|\fB8\fP
+Specifies the property format (32, 16, or 8 bits per entry) for the
+XDCCC_LINEAR_RGB_CORRECTION property.
+Precision of encoded floating point values increases with the increase
+in bits per entry.
+The default is 32 bits per entry.
+.SH "SEE ALSO"
+xprop(1), Xlib documentation
+.SH ENVIRONMENT
+.TP 8
+.B DISPLAY
+to figure out which display and screen to use.
+.SH AUTHOR
+Chuck Adams, Tektronix Inc.
+Al Tabayoyon, SynChromatics Inc. (added multi-visual support)

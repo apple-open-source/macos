@@ -1,0 +1,25 @@
+XCOMM $XFree86: xc/programs/xedit/lisp/re/Imakefile,v 1.2 2002/11/08 08:01:00 paulo Exp $
+
+#define DoNormalLib	YES
+#define DoSharedLib	NO
+#define DoExtraLib	NO
+#define DoDebugLib	NO
+#define DoProfileLib	NO
+#define LibName		re
+#define LibInstall	NO
+#define LibHeaders	NO
+
+LIB		= LibName
+
+SRCS		=\
+		re.c \
+		rec.c \
+		reo.c
+OBJS		=\
+		re.o \
+		rec.o \
+		reo.o
+
+#include <Library.tmpl>
+
+DependTarget()

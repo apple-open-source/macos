@@ -1,0 +1,59 @@
+
+MediaGX Fun
+-----------
+
+This tries to document the "gotcha's" associated with the Cyrix
+hardware and also the SoftVGA (SMM BIOS emulation of video) implementation. 
+
+o	Palette Handling
+
+	In theory 8bit modes can use the VGA colour control. In practice
+	this doesn't work at least on some 5530 based systems with LCD
+	displays.
+
+	Some 5510 based systems need special handling for external LCD
+	RAMDAC. We don't currently do this.
+
+o	Mode Switches
+
+	If you load unsuitable data into the Soft VGA mode switching
+	registers or forgot to set the ModeSwitch disable before you
+	load the registers up mode switches may fail. In a few cases
+	you get bogus illegal instructions reported
+
+o	BIOS Versions
+
+	The VSA1/VSA2 firmware that does all the magic on the Cyrix
+	processors is an SMM mode software block in the BIOS. This means
+	the Cyrix is one system where different BIOSes have different bugs
+	instead of just having to fight the hardware
+
+	The BIOS is just plain unusable in a few systems. Code exists to
+	do some mode switches the hard way without VSA getting involved.
+
+o	Compression Buffer
+
+	To cut down on the memory usage the display scan checks dirty
+	bits on each scan line (per frame in some situations) and if the
+	line is dirty it scans it from the original buffer and writes back
+	a compressed line if it can do so. If it does this it clears the
+	dirty bit. We have to handle dirty bits ourselves and getting it
+	wrong produces interesting visuals.
+
+o	Memory Layout
+
+	When you use VSA to do mode set up it makes certain assumptions 
+	about memory layout. Typically it lays out the frame buffer
+	with the compression buffer at the end. When there is enough
+	space between the lines (the chip only handles 1024/2048 bytes
+	stride) it will hide them in the gaps
+
+
+
+To Do
+-----
+-	Add bare-metal setup option for the BIOS afflicted
+-	Add 5510 external ics5432 RAMDAC support
+-	Restore hardware cursor support
+-	DDC/EDID and friends
+-	RandR would be nice for the tablet pc systems

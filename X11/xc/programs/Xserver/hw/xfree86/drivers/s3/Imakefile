@@ -1,0 +1,60 @@
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/s3/Imakefile,v 1.10 2003/02/17 17:06:43 dawes Exp $ */
+
+#define IHaveModules
+#include <Server.tmpl>
+
+SRCS = s3_driver.c s3_IBMRGB.c s3_Trio64DAC.c s3_accel_newmmio.c \
+       s3_accel_pio.c s3_cursor.c s3_bios.c s3_video.c s3_dga.c \
+       s3_Ti.c
+
+OBJS = s3_driver.o s3_IBMRGB.o s3_Trio64DAC.o s3_accel_newmmio.o \
+       s3_accel_pio.o s3_cursor.o s3_bios.o s3_video.o s3_dga.o \
+       s3_Ti.o
+
+#if defined(XF86DriverSDK)
+INCLUDES = -I. -I../../include
+#else
+INCLUDES = -I. -I$(XF86COMSRC) -I$(XF86OSSRC) \
+           -I$(SERVERSRC)/fb -I$(SERVERSRC)/mi \
+	   -I$(SERVERSRC)/mfb \
+           -I$(XF86SRC)/xaa -I$(SERVERSRC)/cfb \
+           -I$(XF86SRC)/xf1bpp -I$(XF86SRC)/xf4bpp \
+           -I$(XF86SRC)/xf24_32bpp -I$(SERVERSRC)/Xext \
+           -I$(XF86SRC)/vgahw -I$(XF86SRC)/ramdac \
+           -I$(XF86SRC)/rac -I$(XF86SRC)/int10 \
+           -I$(XF86SRC)/fbdevhw -I$(XF86SRC)/ddc \
+           -I$(XF86SRC)/i2c -I$(XF86SRC)/vbe \
+           -I$(SERVERSRC)/include -I$(XINCLUDESRC) -I$(FONTINCSRC) \
+           -I$(EXTINCSRC) -I$(SERVERSRC)/render
+#endif     
+
+#if MakeHasPosixVariableSubstitutions
+SubdirLibraryRule($(OBJS))
+#endif     
+
+NormalAsmObjectRule()
+
+ModuleObjectRule()
+ObjectModuleTarget(s3, $(OBJS))
+
+InstallObjectModule(s3,$(MODULEDIR),drivers)
+
+DependTarget()
+
+ObjectFromSpecialSource(s3_accel_pio, s3_accel, -DS3_GENERIC)
+ObjectFromSpecialSource(s3_accel_newmmio, s3_accel, -DS3_NEWMMIO)
+SpecialCObjectRule(s3_video,$(_NOOP_), -DS3_NEWMMIO)
+           
+InstallDriverSDKNonExecFile(Imakefile,$(DRIVERSDKDIR)/drivers/s3)  
+InstallDriverSDKNonExecFile(s3.h,$(DRIVERSDKDIR)/drivers/s3)
+InstallDriverSDKNonExecFile(s3_reg.h,$(DRIVERSDKDIR)/drivers/s3)
+InstallDriverSDKNonExecFile(s3_driver.c,$(DRIVERSDKDIR)/drivers/s3)
+InstallDriverSDKNonExecFile(s3_accel.c,$(DRIVERSDKDIR)/drivers/s3)
+InstallDriverSDKNonExecFile(s3_cursor.c,$(DRIVERSDKDIR)/drivers/s3)
+InstallDriverSDKNonExecFile(s3_video.c,$(DRIVERSDKDIR)/drivers/s3)
+InstallDriverSDKNonExecFile(s3_dga.c,$(DRIVERSDKDIR)/drivers/s3)
+InstallDriverSDKNonExecFile(s3_bios.c,$(DRIVERSDKDIR)/drivers/s3)
+InstallDriverSDKNonExecFile(s3_Trio64DAC.c,$(DRIVERSDKDIR)/drivers/s3)
+InstallDriverSDKNonExecFile(s3_IBMRGB.c,$(DRIVERSDKDIR)/drivers/s3)
+InstallDriverSDKNonExecFile(s3_Ti.c,$(DRIVERSDKDIR)/drivers/s3)
+

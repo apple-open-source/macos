@@ -1,0 +1,31 @@
+
+// based on a keyboard map from an 'xkb/symbols/gb' file
+//
+// $XFree86: xc/programs/xkbcomp/symbols/pc/gb,v 1.4 2002/12/13 04:18:04 dawes Exp $
+
+partial default alphanumeric_keys
+xkb_symbols "basic" {
+
+    // Describes the differences between a very simple en_US
+    // keyboard and a very simple U.K. keyboard layout defined by
+    // the SVR4 European Language Supplement and sometimes also
+    // known as the IBM 166 layout.
+
+    include "pc/latin"
+
+    name[Group1]="Great Britain";
+
+    key <AE02>	{ [         2,   quotedbl,  twosuperior,    oneeighth ]	};
+    key <AE03>	{ [         3,   sterling, threesuperior,    sterling ]	};
+    key <AE04>	{ [         4,     dollar,     EuroSign,   onequarter ]	};
+
+    key <AC11>	{ [apostrophe,         at, dead_circumflex, dead_caron]	};
+    key <TLDE>	{ [     grave,    notsign,          bar,          bar ]	};
+
+    key <BKSL>	{ [numbersign, asciitilde,   dead_grave,   dead_breve ]	};
+    key <LSGT>	{ [ backslash,        bar,          bar,    brokenbar ]	};
+
+    key <RALT>  { type[Group1]="TWO_LEVEL",
+                  [ ISO_Level3_Shift, Multi_key ]   };
+    modifier_map Mod5   { <RALT> };
+};

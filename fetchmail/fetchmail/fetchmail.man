@@ -44,7 +44,7 @@ delivered locally via your system's MDA (Mail Delivery Agent, usually
 as \fIsmail\fR, \fImmdf\fR, \fIexim\fR, or \fIqmail\fR).  All the
 delivery-control mechanisms (such as \fI.forward\fR files) normally
 available through your system MDA and local delivery agents will
-therefore work.
+therefore work automatically.
 .PP
 If no port 25 listener is available, but your fetchmail configuration
 was told about a reliable local MDA, it will use that MDA for local
@@ -125,7 +125,7 @@ not work with POP2, and may occasionally flake out under POP3.
 .TP
 .B \-s | \-\-silent
 Silent mode.  Suppresses all progress/status messages that are
-normally echoed to standard error during a fetch (but does not
+normally echoed to standard output during a fetch (but does not
 suppress actual error messages).  The --verbose option overrides this.
 .TP
 .B \-v | \-\-verbose
@@ -162,13 +162,13 @@ you have specified a default of \fBkeep\fR in your
 \&\fI.fetchmailrc\fR.  This option is forced on with ETRN and ODMR.
 .TP
 .B \-F | \-\-flush
-POP3/IMAP only.  Delete old (previously retrieved) messages from the mailserver
-before retrieving new messages. This option does not work with ETRN or
-ODMR.
-Warning: if your local MTA hangs and fetchmail is aborted, the next
-time you run fetchmail, it will delete mail that was never delivered to you.
-What you probably want is the default setting: if you don't specify `-k', then
-fetchmail will automatically delete messages after successful delivery.
+POP3/IMAP only.  Delete old (previously retrieved) messages from the
+mailserver before retrieving new messages. This option does not work
+with ETRN or ODMR.  Warning: if your local MTA hangs and fetchmail is
+aborted, the next time you run fetchmail, it will delete mail that was
+never delivered to you.  What you probably want is the default
+setting: if you don't specify `-k', then fetchmail will automatically
+delete messages after successful delivery.
 .SS Protocol and Query Options
 .TP
 .B \-p <proto> | \-\-protocol <proto>
@@ -400,23 +400,27 @@ this option.  For the command-line option, the list values should
 be comma-separated.
 .TP
 .B \-m <command> | \-\-mda <command>
-(Keyword: mda)
-You can force mail to be passed to an MDA directly (rather than
-forwarded to port 25) with the --mda or -m option.  To avoid losing
-mail, use this option only with MDAs like procmail or sendmail that
-return a nonzero status on disk-full and other resource-exhaustion
-errors; the nonzero status tells fetchmail that delivery failed and
-prevents the message from being deleted off the server.  If
-\fIfetchmail\fR is running as root, it sets its userid to that of the
-target user while delivering mail through an MDA.  Some possible MDAs
-are "/usr/sbin/sendmail -i -oem -f %F %T", "/usr/bin/deliver" and
-"/usr/bin/procmail -d %T" (but the latter is usually redundant as it's
-what SMTP listeners normally forward to).  Local delivery addresses
-will be inserted into the MDA command wherever you place a %T; the
-mail message's From address will be inserted where you place an %F.
-Do \fInot\fR use an MDA invocation like "sendmail -i -oem -t" that
-dispatches on the contents of To/Cc/Bcc, it will create mail loops and
-bring the just wrath of many postmasters down upon your head.
+(Keyword: mda) You can force mail to be passed to an MDA directly
+(rather than forwarded to port 25) with the --mda or -m option.  To
+avoid losing mail, use this option only with MDAs like procmail or
+sendmail that return a nonzero status on disk-full and other
+resource-exhaustion errors; the nonzero status tells fetchmail that
+delivery failed and prevents the message from being deleted off the
+server.  If \fIfetchmail\fR is running as root, it sets its userid to
+that of the target user while delivering mail through an MDA.  Some
+possible MDAs are "/usr/sbin/sendmail -i -f %F %T", "/usr/bin/deliver"
+and "/usr/bin/procmail -d %T" (but the latter is usually redundant as
+it's what SMTP listeners normally forward to).  Local delivery
+addresses will be inserted into the MDA command wherever you place a
+%T; the mail message's From address will be inserted where you place
+an %F.  In both cases the addresses are enclosed in single quotes ('),
+after removing any single quotes they may contain, before the MDA
+command is passed to the shell.  Do \fInot\fR use an MDA invocation
+like "sendmail -i -t" that dispatches on the contents of To/Cc/Bcc, it
+will create mail loops and bring the just wrath of many postmasters
+down upon your head.  Also, do \fInot\fR try to combine multidrop
+mode with an MDA such as procmail that can only accept one addressee;
+you will lose.
 .TP 
 .B \-\-lmtp
 (Keyword: lmtp)
@@ -437,17 +441,18 @@ MAILBOXES below apply.
 .SS Resource Limit Control Options
 .TP
 .B \-l <maxbytes> | \-\-limit <maxbytes>
-(Keyword: limit)
-Takes a maximum octet size argument.  Messages larger than this size
-will not be fetched and will be left on the server (in foreground
-sessions, the progress messages will note that they are "oversized").
-If the fetch protocol permits (in particular, under IMAP or POP3
-without the fetchall option) the message will not be marked seen An
-explicit --limit of 0 overrides any limits set in your run control
-file. This option is intended for those needing to strictly control
-fetch time due to expensive and variable phone rates.  In daemon mode,
-oversize notifications are mailed to the calling user (see the
---warnings option).  This option does not work with ETRN or ODMR.
+(Keyword: limit) Takes a maximum octet size argument.  Messages larger
+than this size will not be fetched and will be left on the server (in
+foreground sessions, the progress messages will note that they are
+"oversized").  If the fetch protocol permits (in particular, under
+IMAP or POP3 without the fetchall option) the message will not be
+marked seen An explicit --limit of 0 overrides any limits set in your
+run control file. This option is intended for those needing to
+strictly control fetch time due to expensive and variable phone rates.
+Combined with --flush, it can be used to delete oversized messages
+waiting on a server.  In daemon mode, oversize notifications are
+mailed to the calling user (see the --warnings option).  This option
+does not work with ETRN or ODMR.
 .TP
 .B \-w <interval> | \-\-warnings <interval>
 (Keyword: warnings)
@@ -481,6 +486,29 @@ Limit the number of messages accepted from a given server in a single
 poll.  By default there is no limit. An explicit --fetchlimit of 0
 overrides any limits set in your run control file.
 This option does not work with ETRN or ODMR.
+.TP
+.B \-\-fetchsizelimit <number>
+(Keyword: fetchsizelimit)
+Limit the number of sizes of messages accepted from a given server in
+a single transaction.  This option is useful in reducing the delay in
+downloading the first mail when there are too many mails in the
+mailbox.  By default, the limit is 100.  If set to 0, sizes of all
+messages are downloaded at the start.
+This option does not work with ETRN or ODMR.  For POP3, the only valid
+non-zero value is 1.
+.TP
+.B \-\-fastuidl <number>
+(Keyword: fastuidl)
+Do a binary instead of linear search for the first unseen UID. Binary
+search avoids downloading the UIDs of all mails. This saves time
+(especially in daemon mode) where downloading the same set of UIDs in
+each poll is a waste of bandwidth. The number `n' indicates how rarely
+a linear search should be done. In daemon mode, linear search is used
+once followed by binary searches in `n-1' polls if `n' is greater than
+1; binary search is always used if `n' is 1; linear search is always
+used if `n' is 0. In non-daemon mode, binary search is used if `n' is
+1; otherwise linear search is used.
+This option works with POP3 only.
 .TP
 .B \-e <count> | \-\-expunge <count>
 (keyword: expunge) 
@@ -1110,6 +1138,10 @@ The
 .I postfix
 MTA runs 554 as an antispam response.
 .PP
+.I Zmailer 
+may reject code with a 500 response (followed by an enhanced status
+code that contains more information).
+.PP
 Return codes which 
 .I fetchmail
 treats as antispam responses and discards
@@ -1236,7 +1268,7 @@ T}
 set syslog  	\&	T{
 Do error logging through syslog(3).
 T}
-set nosyslog  	\&	T{
+set no syslog  	\&	T{
 Turn off error logging through syslog(3).
 T}
 set properties 	\&	T{
@@ -1313,6 +1345,9 @@ Turn off POP3 use of client-side UIDLs (default)
 T}
 interval   	\&	T{
 Only check this site every N poll cycles; N is a numeric argument.
+T}
+tracepolls	\&	T{
+Add poll tracing information to the Received header
 T}
 netsec   	\&	T{
 Pass in IPsec security option request.
@@ -1467,11 +1502,14 @@ T}
 fetchlimit	-B	T{
 Max # messages to fetch in single connect
 T}
+fetchsizelimit	\&	T{
+Max # message sizes to fetch in single transaction
+T}
+fastuidl	\&	T{
+Use binary search for first unseen message (POP3 only)
+T}
 expunge 	-e	T{
 Perform an expunge on every #th message (IMAP and POP3 only)
-T}
-tracepolls	\&	T{
-Add poll tracing information to the Received header
 T}
 properties  	\&	T{
 String value is ignored by fetchmail (may be used by extension scripts)
@@ -1662,17 +1700,20 @@ default, because doing RFC2047 conversion on headers throws away
 character-set information and can lead to bad results if the encoding
 of the headers differs from the body encoding.
 .PP
-The `idle' option is usable only with IMAP servers supporting the
-RFC2177 IDLE command extension.  If it is enabled, and fetchmail
-detects that IDLE is supported, an IDLE will be issued at the end
-of each poll.  This will tell the IMAP server to hold the connection
-open and notify the client when new mail is available.  If you need to
-poll a link frequently, IDLE can save bandwidth by eliminating TCP/IP
-connects and LOGIN/LOGOUT sequences. On the other hand, an IDLE 
-connection will eat almost all of your fetchmail's time, because it
-will never drop the connection and allow other pools to occur unless
-the server times out the IDLE.  It also doesn't work with multiple 
-folders; only the first folder will ever be polled.
+The `idle' option is intended to be used with IMAP servers supporting
+the RFC2177 IDLE command extension, but does not strictly require it.
+If it is enabled, and fetchmail detects that IDLE is supported, an
+IDLE will be issued at the end of each poll.  This will tell the IMAP
+server to hold the connection open and notify the client when new mail
+is available.  If IDLE is not supported, fetchmail will simulate it by
+periodically issuing NOOP. If you need to poll a link frequently, IDLE
+can save bandwidth by eliminating TCP/IP connects and LOGIN/LOGOUT
+sequences. On the other hand, an IDLE connection will eat almost all
+of your fetchmail's time, because it will never drop the connection
+and allow other pools to occur unless the server times out the IDLE.
+It also doesn't work with multiple folders; only the first folder will
+ever be polled.
+
 .PP
 The `properties' option is an extension mechanism.  It takes a string
 argument, which is ignored by fetchmail itself.  The string argument may be
@@ -2074,6 +2115,8 @@ BSMTP batch file could not be opened.
 Poll terminated by a fetch limit (see the --fetchlimit option).
 .IP 14
 Server busy indication.
+.IP 15
+Server timed out during an IMAP IDLE.
 .IP 23
 Internal error.  You should see a message on standard error with
 details.
@@ -2204,7 +2247,7 @@ The `principal' option only handles Kerberos IV, not V.
 Send comments, bug reports, gripes, and the like to the
 fetchmail-friends list <fetchmail-friends@lists.ccil.org>.  An HTML FAQ is
 available at the fetchmail home page; surf to
-http://www.tuxedo.org/~esr/fetchmail or do a WWW search for pages with
+http://www.catb.org/~esr/fetchmail or do a WWW search for pages with
 `fetchmail' in their titles.
 
 .SH AUTHOR
@@ -2261,4 +2304,7 @@ RFC 2033.
 .TP 5
 GSSAPI:
 RFC 1508.
+.TP 5
+TLS
+RFC 2595.
 

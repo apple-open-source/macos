@@ -1,0 +1,513 @@
+_C_ License Applicability. Except to the extent portions of this file are
+_C_ made subject to an alternative license as permitted in the SGI Free
+_C_ Software License B, Version 1.1 (the "License"), the contents of this
+_C_ file are subject only to the provisions of the License. You may not use
+_C_ this file except in compliance with the License. You may obtain a copy
+_C_ of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+_C_ Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+_C_ 
+_C_ http://oss.sgi.com/projects/FreeB
+_C_ 
+_C_ Note that, as provided in the License, the Software is distributed on an
+_C_ "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+_C_ DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+_C_ CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+_C_ PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+_C_ 
+_C_ Original Code. The Original Code is: OpenGL Sample Implementation,
+_C_ Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+_C_ Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+_C_ Copyright in any portions created by third parties is as indicated
+_C_ elsewhere herein. All Rights Reserved.
+_C_ 
+_C_ Additional Notice Provisions: The application programming interfaces
+_C_ established by SGI in conjunction with the Original Code are The
+_C_ OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+_C_ April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+_C_ 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+_C_ Window System(R) (Version 1.3), released October 19, 1998. This software
+_C_ was created using the OpenGL(R) version 1.2.1 Sample Implementation
+_C_ published by SGI, but has not been independently verified as being
+_C_ compliant with the OpenGL(R) version 1.2.1 Specification.
+_C_
+_C_ The first character in this file must be an '_'!
+_C_ Anything on a line after _C_ is ignored
+_define(_filters,tbl|eqn)_C_
+_C_      eqn is automatically replaced with neqn for nroff
+_header(PixelStore,set pixel storage modes)
+_names(PixelStore,[fi])
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+_phead(_param1)
+Specifies the symbolic name of the parameter to be set.
+Six values affect the packing of pixel data into memory:
+_const(PACK_SWAP_BYTES),
+_const(PACK_LSB_FIRST),
+_const(PACK_ROW_LENGTH),
+_const(PACK_IMAGE_HEIGHT),
+_const(PACK_SKIP_PIXELS), 
+_const(PACK_SKIP_ROWS),
+_const(PACK_SKIP_IMAGES), and
+_const(PACK_ALIGNMENT).
+Six more affect the unpacking of pixel data \f2from\fP memory:
+_const(UNPACK_SWAP_BYTES),
+_const(UNPACK_LSB_FIRST),
+_const(UNPACK_ROW_LENGTH),
+_const(UNPACK_IMAGE_HEIGHT),
+_const(UNPACK_SKIP_PIXELS), 
+_const(UNPACK_SKIP_ROWS), 
+_const(UNPACK_SKIP_IMAGES), and
+_const(UNPACK_ALIGNMENT).
+_phead(_param2)
+Specifies the value that _param1 is set to.
+.SH DESCRIPTION
+
+_cmnd sets pixel storage modes that affect the operation of subsequent
+_cmnd(DrawPixels) and _cmnd(ReadPixels) as well as the unpacking of
+polygon stipple patterns (see _cmnd(PolygonStipple)), bitmaps (see
+_cmnd(Bitmap)), texture patterns (see _cmnd(TexImage1D),
+_cmnd(TexImage2D), _cmnd(TexImage3D), _cmnd(TexSubImage1D),
+_cmnd(TexSubImage2D), _cmnd(TexSubImage3D)).
+Additionally, if the _arbstring(imaging) extension is supported, pixle
+storage modes affect convlution filters
+(see _cmnd(ConvolutionFilter1D), _cmnd(ConvolutionFilter2D), and
+_cmnd(SeparableFilter2D), color table (see _cmnd(ColorTable), and 
+_cmnd(ColorSubTable), and unpacking histogram (See _cmnd(Histogram)),
+and minmax (See _cmnd(Minmax)) data.
+.P
+_param1 is a symbolic constant indicating the parameter to be set, and
+_param2 is the new value.  Six of the twelve storage parameters affect
+how pixel data is returned to client memory.
+They are as follows:
+.TP 10
+_const(PACK_SWAP_BYTES)
+If true,
+byte ordering for multibyte color components,
+depth components,
+color indices,
+or stencil indices
+is reversed.
+That is,
+if a four-byte component consists of bytes
+$b sub 0$,
+$b sub 1$,
+$b sub 2$,
+$b sub 3$,
+it is stored in memory as
+$b sub 3$,
+$b sub 2$,
+$b sub 1$,
+$b sub 0$
+if _const(PACK_SWAP_BYTES) is true.
+_const(PACK_SWAP_BYTES) has no effect on the memory order of components
+within a pixel,
+only on the order of bytes within components or indices.
+For example,
+the three components of a _const(RGB) format pixel are always stored with
+red first,
+green second,
+and blue third,
+regardless of the value of _const(PACK_SWAP_BYTES).
+.TP
+_const(PACK_LSB_FIRST)
+If true,
+bits are ordered within a byte from least significant to most significant;
+otherwise,
+the first bit in each byte is the most significant one.
+This parameter is significant for bitmap data only.
+.TP
+_const(PACK_ROW_LENGTH)
+If greater than 0,
+_const(PACK_ROW_LENGTH) defines the number of pixels in a row.
+If the first pixel of a row is placed at location $p$ in memory,
+then the location of the first pixel of the next row is obtained by skipping
+.sp
+.ce
+$k ~=~~ left  { ^ lpile { n l above {a over s left ceiling { s n l } over a right ceiling}} ~~ lpile {s ~>=~ a above s ~<~ a }$
+.sp
+components or indices,
+where $n$ is the number of components or indices in a pixel,
+$l$ is the number of pixels in a row
+(_const(PACK_ROW_LENGTH) if it is greater than 0,
+the $width$ argument to the pixel routine otherwise),
+$a$ is the value of _const(PACK_ALIGNMENT), and
+$s$ is the size, in bytes, of a single component
+(if $ a < s$, then it is as if $a ~=~ s$).
+In the case of 1-bit values,
+the location of the next row is obtained by skipping
+.sp
+.ce
+$k ~=~ 8 a left ceiling { n l } over { 8 a } ^ right ceiling$
+.sp
+components or indices.
+.IP
+The word \f2component\fP in this description refers to the nonindex values
+red,
+green,
+blue,
+alpha,
+and depth.
+Storage format _const(RGB),
+for example,
+has three components per pixel:
+first red,
+then green,
+and finally blue.
+.TP
+_const(PACK_IMAGE_HEIGHT)
+If greater than 0,
+_const(PACK_IMAGE_HEIGHT) defines the number of pixels in an image
+three-dimensional texture volume.
+Where ``image'' is defined by all pixels sharing the same third
+dimension index.
+If the first pixel of a row is placed at location $p$ in memory,
+then the location of the first pixel of the next row is obtained by skipping
+.sp
+.ce
+$k ~=~~ left  { ~ lpile { n l h above {a over s left ceiling { s n l h }
+over a ^ right ceiling}} ~~ lpile {s ~>=~  a above s ~<~  a }$
+.sp
+components or indices, where $n$ is the number of components or indices
+in a pixel, $l$ is the number of pixels in a row
+(_const(PACK_ROW_LENGTH) if it is greater than 0,  the
+$width$ argument to _cmnd(TexImage3d) otherwise), $h$ is the number of
+rows in a pixel image (_const(PACK_IMAGE_HEIGHT) if it is greater than
+0, the $height$ arguemnt to the _cmnd(TexImage3D) routine otherwise),
+$a$ is the value of
+_const(PACK_ALIGNMENT), and $s$ is the size, in bytes, of a single
+component (if $ a < s$, then it is as if $a = s$).
+.IP
+The word \f2component\fP in this description refers to the nonindex values
+red,
+green,
+blue,
+alpha,
+and depth.
+Storage format _const(RGB),
+for example,
+has three components per pixel:
+first red,
+then green,
+and finally blue.
+.TP
+_const(PACK_SKIP_PIXELS), _const(PACK_SKIP_ROWS), and _const(PACK_SKIP_IMAGES)
+These values are provided as a convenience to the programmer;
+they provide no functionality that cannot be duplicated simply by
+incrementing the pointer passed to _cmnd(ReadPixels).
+Setting _const(PACK_SKIP_PIXELS) to $i$ is equivalent to incrementing
+the pointer by $i n$ components or indices,
+where $n$ is the number of components or indices in each pixel.
+Setting _const(PACK_SKIP_ROWS) to $j$ is equivalent to incrementing
+the pointer by $j m$ components or indices,
+where $m$ is the number of components or indices per row,
+as just computed in the _const(PACK_ROW_LENGTH) section.
+Setting _const(PACK_SKIP_IMAGES) to $k$ is equivalent to incrementing
+the pointer by $k p$, where $p$ is the number of components or indices
+per image, as computed in the _const(PACK_IMAGE_HEIGHT) section.
+.TP
+_const(PACK_ALIGNMENT)
+Specifies the alignment requirements for the start of each pixel row in memory.
+The allowable values are 
+1 (byte-alignment),
+2 (rows aligned to even-numbered bytes),
+4 (word-alignment), and
+8 (rows start on double-word boundaries).
+.P
+The other six of the twelve storage parameters affect how pixel data is
+read from client memory.
+These values are significant for _cmnd(DrawPixels),
+_cmnd(TexImage1D),
+_cmnd(TexImage2D),
+_cmnd(TexImage3D),
+_cmnd(TexSubImage1D),
+_cmnd(TexSubImage2D),
+_cmnd(TexSubImage3D),
+_cmnd(Bitmap), and
+_cmnd(PolygonStipple).
+.P
+Additionally, if the _arbstring(imaging) extension is supported,
+_cmnd(ColorTable),
+_cmnd(ColorSubTable),
+_cmnd(ConvolutionFilter1D),
+_cmnd(ConvolutionFilter2D), and
+_cmnd(SeparableFilter2D).
+They are as follows:
+.TP
+_const(UNPACK_SWAP_BYTES)
+If true,
+byte ordering for multibyte color components,
+depth components,
+color indices,
+or stencil indices
+is reversed.
+That is,
+if a four-byte component consists of bytes
+$b sub 0$,
+$b sub 1$,
+$b sub 2$,
+$b sub 3$,
+it is taken from memory as
+$b sub 3$,
+$b sub 2$,
+$b sub 1$,
+$b sub 0$
+if _const(UNPACK_SWAP_BYTES) is true.
+_const(UNPACK_SWAP_BYTES) has no effect on the memory order of components
+within a pixel,
+only on the order of bytes within components or indices.
+For example,
+the three components of a _const(RGB) format pixel are always stored with
+red first,
+green second,
+and blue third,
+regardless of the value of _const(UNPACK_SWAP_BYTES).
+.TP
+_const(UNPACK_LSB_FIRST)
+If true,
+bits are ordered within a byte from least significant to most significant;
+otherwise,
+the first bit in each byte is the most significant one.
+This is relevant only for bitmap data.
+.TP
+_const(UNPACK_ROW_LENGTH)
+If greater than 0,
+_const(UNPACK_ROW_LENGTH) defines the number of pixels in a row.
+If the first pixel of a row is placed at location $p$ in memory,
+then the location of the first pixel of the next row is obtained by skipping
+.sp
+.ce
+$k ~=~~ left  { ~ lpile { n l above {a over s left ceiling { s n l }
+over a ^ right ceiling}} ~~ lpile {s  ~>=~ a above s ~<~  a }$
+.sp
+components or indices,
+where $n$ is the number of components or indices in a pixel,
+$l$ is the number of pixels in a row
+(_const(UNPACK_ROW_LENGTH) if it is greater than 0,
+the $width$ argument to the pixel routine otherwise),
+$a$ is the value of _const(UNPACK_ALIGNMENT), and
+$s$ is the size, in bytes, of a single component
+(if $ a < s$, then it is as if $a = s$).
+In the case of 1-bit values,
+the location of the next row is obtained by skipping
+.sp
+.ce
+$k ~=~ 8 a left ceiling { n l } over { 8 a } right ceiling$
+.sp
+components or indices.
+.IP
+The word \f2component\fP in this description refers to the nonindex values
+red,
+green,
+blue,
+alpha,
+and depth.
+Storage format _const(RGB),
+for example,
+has three components per pixel:
+first red,
+then green,
+and finally blue.
+.TP
+_const(UNPACK_IMAGE_HEIGHT)
+If greater than 0,
+_const(UNPACK_IMAGE_HEIGHT) defines the number of pixels in an image of
+a three-dimensional texture volume.  Where ``image'' is defined by all
+pixel sharing the same third dimension index.
+If the first pixel of a row is placed at location $p$ in memory,
+then the location of the first pixel of the next row is obtained by skipping
+.sp
+.ce
+$k ~=~~ left  {~ lpile { n l h above {a over s left ceiling { s n l h }
+over a ^ right ceiling}} ~~ lpile {s ~ >=~  a above s  ~<~  a }$
+.sp
+components or indices,
+where $n$ is the number of components or indices in a pixel,
+$l$ is the number of pixels in a row
+(_const(UNPACK_ROW_LENGTH) if it is greater than 0,
+the $width$ argument to _cmnd(TexImage3D) otherwise),
+$h$ is the number of rows in an image (_const(UNPACK_IMAGE_HEIGHT) if
+it is greater than 0, the $height$ argument to _cmnd(TexImage3D) otherwise),
+$a$ is the value of _const(UNPACK_ALIGNMENT), and
+$s$ is the size, in bytes, of a single component
+(if $ a < s$, then it is as if $a ~=~ s$).
+.IP
+The word \f2component\fP in this description refers to the nonindex values
+red,
+green,
+blue,
+alpha,
+and depth.
+Storage format _const(RGB),
+for example,
+has three components per pixel:
+first red,
+then green,
+and finally blue.
+.TP
+_const(UNPACK_SKIP_PIXELS) and _const(UNPACK_SKIP_ROWS)
+These values are provided as a convenience to the programmer;
+they provide no functionality that cannot be duplicated by
+incrementing the pointer passed to
+_cmnd(DrawPixels),
+_cmnd(TexImage1D),
+_cmnd(TexImage2D),
+_cmnd(TexSubImage1D),
+_cmnd(TexSubImage2D),
+_cmnd(Bitmap), or
+_cmnd(PolygonStipple).
+Setting _const(UNPACK_SKIP_PIXELS) to $i$ is equivalent to incrementing
+the pointer by $i n$ components or indices,
+where $n$ is the number of components or indices in each pixel.
+Setting _const(UNPACK_SKIP_ROWS) to $j$ is equivalent to incrementing
+the pointer by $j k$ components or indices,
+where $k$ is the number of components or indices per row,
+as just computed in the _const(UNPACK_ROW_LENGTH) section.
+.TP
+_const(UNPACK_ALIGNMENT)
+Specifies the alignment requirements for the start of each pixel row in memory.
+The allowable values are
+1 (byte-alignment),
+2 (rows aligned to even-numbered bytes),
+4 (word-alignment), and
+8 (rows start on double-word boundaries).
+.P
+The following table gives the type,
+initial value,
+and range of valid values for each storage parameter
+that can be set with _cmnd.
+.sp
+
+.TS
+center tab(:) delim($$) ;
+lb cb cb cb
+l c c c.
+_
+_param1:Type:Initial Value:Valid Range
+_
+_const(PACK_SWAP_BYTES):boolean:false:true or false
+_const(PACK_LSB_FIRST):boolean:false:true or false
+_const(PACK_ROW_LENGTH):integer:0:[0,\(if)
+_const(PACK_IMAGE_HEIGHT):integer:0:[0, \(if)
+_const(PACK_SKIP_ROWS):integer:0:[0,\(if)
+_const(PACK_SKIP_PIXELS):integer:0:[0,\(if)
+_const(PACK_SKIP_IMAGES):integer:0:[0,\(if)
+_const(PACK_ALIGNMENT):integer:4:1, 2, 4, or 8
+_
+_const(UNPACK_SWAP_BYTES):boolean:false:true or false
+_const(UNPACK_LSB_FIRST):boolean:false:true or false
+_const(UNPACK_ROW_LENGTH):integer:0:[0,\(if)
+_const(UNPACK_IMAGE_HEIGHT):integer:0:[0,\(if)
+_const(UNPACK_SKIP_ROWS):integer:0:[0,\(if)
+_const(UNPACK_SKIP_PIXELS):integer:0:[0,\(if)
+_const(UNPACK_SKIP_IMAGES):integer:0:[0,\(if)
+_const(UNPACK_ALIGNMENT):integer:4:1, 2, 4, or 8
+_
+.TE
+
+.sp
+_cmnd(PixelStoref) can be used to set any pixel store parameter.
+If the parameter type is boolean,
+then if _param2 is 0,
+the parameter is false;
+otherwise it is set to true.
+If _param1 is a integer type parameter,
+_param2 is rounded to the nearest integer.
+.P
+Likewise, _cmnd(PixelStorei) can also be used to set any of the
+pixel store parameters.
+Boolean parameters are set to false if _param2 is 0 and true otherwise.
+.SH NOTES
+The pixel storage modes in effect when
+_cmnd(DrawPixels),
+_cmnd(ReadPixels),
+_cmnd(TexImage1D),
+_cmnd(TexImage2D),
+_cmnd(TexImage3D),
+_cmnd(TexSubImage1D),
+_cmnd(TexSubImage2D),
+_cmnd(TexSubImage3D),
+_cmnd(Bitmap),
+or _cmnd(PolygonStipple) is placed in a display list control the interpretation
+of memory data.
+Likewise, if the _arbstring(imaging) extension is supported, the pixel
+storage modes in effect when
+_cmnd(ColorTable),
+_cmnd(ColorSubTable),
+_cmnd(ConvolutionFilter1D),
+_cmnd(ConvolutionFilter2D), of
+_cmnd(SeparableFilter2D) is placed in a display list control the
+intrepretation of memory data.
+The pixel storage modes in effect when a display list is executed are
+not significant.
+.P
+Pixel storage modes are client state and must be pushed and restored
+using 
+.br
+_cmnd(PushClientAttrib) and _cmnd(PopClientAttrib).
+.SH ERRORS
+_const(INVALID_ENUM) is generated if _param1 is not an accepted value.
+.P
+_const(INVALID_VALUE) is generated if a negative row length,
+pixel skip,
+or row skip value is specified,
+or if alignment is specified as other than 1, 2, 4, or 8.
+.P
+_const(INVALID_OPERATION) is generated if _cmnd
+is executed between the execution of _cmnd(Begin)
+and the corresponding execution of _cmnd(End).
+.SH ASSOCIATED GETS
+_cmnd(Get) with argument _const(PACK_SWAP_BYTES)
+.br
+_cmnd(Get) with argument _const(PACK_LSB_FIRST)
+.br
+_cmnd(Get) with argument _const(PACK_ROW_LENGTH)
+.br
+_cmnd(Get) with argument _const(PACK_IMAGE_HEIGHT)
+.br
+_cmnd(Get) with argument _const(PACK_SKIP_ROWS)
+.br
+_cmnd(Get) with argument _const(PACK_SKIP_PIXELS)
+.br
+_cmnd(Get) with argument _const(PACK_SKIP_IMAGES)
+.br
+_cmnd(Get) with argument _const(PACK_ALIGNMENT)
+.br
+_cmnd(Get) with argument _const(UNPACK_SWAP_BYTES)
+.br
+_cmnd(Get) with argument _const(UNPACK_LSB_FIRST)
+.br
+_cmnd(Get) with argument _const(UNPACK_ROW_LENGTH)
+.br
+_cmnd(Get) with argument _const(UNPACK_IMAGE_HEIGHT)
+.br
+_cmnd(Get) with argument _const(UNPACK_SKIP_ROWS)
+.br
+_cmnd(Get) with argument _const(UNPACK_SKIP_PIXELS)
+.br
+_cmnd(Get) with argument _const(UNPACK_SKIP_IMAGES)
+.br
+_cmnd(Get) with argument _const(UNPACK_ALIGNMENT)
+.SH SEE ALSO
+_cmnd(Bitmap),
+_cmnd(ColorTable),
+_cmnd(ColorSubTable),
+_cmnd(ConvolutionFilter1D),
+_cmnd(ConvolutionFilter2D),
+_cmnd(SeparableFilter2D),
+_cmnd(DrawPixels),
+_cmnd(Histogram),
+_cmnd(Minmax),
+_cmnd(PixelMap),
+_cmnd(PixelTransfer),
+_cmnd(PixelZoom),
+_cmnd(PolygonStipple),
+_cmnd(PushClientAttrib),
+_cmnd(ReadPixels),
+_cmnd(TexImage1D),
+_cmnd(TexImage2D),
+_cmnd(TexImage3D),
+_cmnd(TexSubImage1D),
+_cmnd(TexSubImage2D),
+_cmnd(TexSubImage3D)

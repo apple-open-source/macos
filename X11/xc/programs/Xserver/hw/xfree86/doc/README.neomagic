@@ -1,0 +1,198 @@
+ Information for NeoMagic Users                NeoMagic Driver Version 2.0.0
+
+                          The XFree86 Project Inc.
+
+                               4 November 1998
+
+1.  Supported hardware
+
+   o  NeoMagic 2200 (MagicMedia256AV)
+
+   o  NeoMagic 2160 (MagicGraph128XD)
+
+   o  NeoMagic 2097 (MagicGraph128ZV+)
+
+   o  NeoMagic 2093 (MagicGraph128ZV)
+
+   o  NeoMagic 2090 (MagicGraph128V)
+
+   o  NeoMagic 2070 (MagicGraph128)
+
+2.  Features
+
+   o  Full support for internal flat panels, external monitors, and simulta-
+     neous internal/external displays.
+
+   o  Complete set of Panel Resolutions supported including stretch and cen-
+     tering modes for running lower resolutions on fixed resolution panels.
+
+   o  Support for depths of 8, 15, 16 and 24 bits per pixel.
+
+   o  Hardware Cursor support to reduce sprite flicker.
+
+   o  Hardware accelerated drawing engine for 8, 15 and 16 bit per pixel
+     modes.
+
+   o  Fully programmable clocks supported in external monitor only mode.
+
+   o  Robust text mode restore for VT switching.
+
+3.  Technical Notes
+
+   o  Enable both internal "intern_disp" and external "extern_disp" options
+     to get simultaneous panel/CRT support.
+
+4.  Reported Working Laptops
+
+   o  Acer Travelmate 7120T
+
+   o  Acer Extensa 367, 367D & 710TE
+
+   o  Actebis TN559Pro
+
+   o  Asus P6300
+
+   o  CTX EzBook 700 & 77X series
+
+   o  Compaq Presario 1080, 1210, 1215, 1220, 1610, 1611, 1620, 1621 & 1640
+
+   o  Dell Inspiron 3000 & 3200
+
+   o  Dell Latitude CP, CPi, LM & XPi
+
+   o  Digital VP HiNote 575, 703, 717 & 720
+
+   o  FIC DESIGNote 5550
+
+   o  Fujitsu LifeBook 420D & 656Tx
+
+   o  Gateway 2000 Solo 2300XL, 2500LS & 5150
+
+   o  Highscreen XD Advance II 21,1" TFT
+
+   o  Hi-Grade Notino AS6000 pII/266Mhz
+
+   o  Hitachi VisionBook Plus 5000
+
+   o  HP Omnibook 800, 3000, 3100, 4100 & Sojourn
+
+   o  IBM ThinkPad 380D, 380E, 380ED, 380XD, 385XD, 560X & 600
+
+   o  LEO DESIGNote 5550
+
+   o  Micron Transport XKE
+
+   o  NEC Ready 330T
+
+   o  NEC Versa 2780 MT, 5060X, 5080X, 6060 & 6230
+
+   o  NEC MB12C/UV (mobio NX)
+
+   o  OPTI Phoenix
+
+   o  Panasonic CF_S21, CF-25 MKIII & CF-35
+
+   o  Quantex H-1330
+
+   o  Sceptre 4500
+
+   o  SEH DESIGNote 5550
+
+   o  Siemens Nixdorf Scenic 510
+
+   o  Sony PCG-505, PCG-705, PCG-717, PCG-719 & PCG-731
+
+   o  TI Extensa 660 CDT
+
+   o  Toshiba Libretto 100CT
+
+   o  Toshiba Protege SS3000
+
+   o  UMAX 520T
+
+5.  Configuration
+
+The driver auto-detects all device info included memory size, so use the fol-
+lowing device section in your XF86Config file:
+
+          Section "Device"
+               Identifier     "NeoMagic"
+          EndSection
+
+or let xf86config or XF86Setup do this for you.
+
+But if you have problems with auto-detection, you can specify:
+
+           VideoRam  - in kilobytes
+           DacSpeed  - in MHz
+           MemBase   - physical address of the linear framebuffer
+           MMIOBase  - physical address of the memory mapped IO registers
+
+6.  Driver Options
+
+   o "linear"        - linear framebuffer mode (default)
+
+   o "no_linear"     - banked framebuffer mode
+
+   o "no_accel"      - software rendering only
+
+   o "hw_cursor"     - hardware cursor requested (default)
+
+   o "sw_cursor"     - software cursor only
+
+   o "mmio"          - use I/O space via memory map (default)
+
+   o "no_mmio"       - use I/O space directly
+
+   o "intern_disp"   - enable internal display (default)
+
+   o "extern_disp"   - enable external display
+
+   o "no_stretch"    - disable stretching of lower resolution modes on panel
+
+   o "lcd_center"    - center lower resolution modes on panel
+
+NOTE: Stretching of panel image is on by default for lower panel resolutions.
+
+Options useful for special lcd mode setting (should not be needed):
+
+   o "prog_lcd_mode_regs"       - set special lcd mode registers (2070
+     default)
+
+   o "no_prog_lcd_mode_regs"    - don't set lcd mode registers (non-2070
+     default)
+
+   o "prog_lcd_mode_stretch"    - force lcd mode regs if stretching is
+     enabled
+
+   o "no_prog_lcd_mode_stretch" - no lcd mode regs if stretching (default)
+
+Option for subnotebooks and other laptops with uncommon size panels:
+
+   o "override_validate_mode" - disable LCD mode checking
+
+WARNING: Disabling mode checking will allow for invalid modes that could dam-
+age your LCD.
+
+7.  Known Limitations
+
+   o  External monitor support on the NM2070.
+
+   o  Banked, or no_linear mode on the NM2070.
+
+   o  Horizontal centering for lower than panel resolution on NM2070.
+
+8.  Authors
+
+Jens Owen jens@tungstengraphics.com Kevin E. Martin kevin@precisionin-
+sight.com
+
+This driver was donated to The XFree86 Project by Precision Insight, Inc.
+Cedar Park, TX  USA
+
+http://www.precisioninsight.com
+
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/neomagic.sgml,v 1.1 1999/08/23 06:59:39 dawes Exp $
+
+
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.neomagic,v 1.4 2002/10/30 12:52:10 alanh Exp $

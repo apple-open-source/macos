@@ -1,0 +1,87 @@
+XCOMM $XFree86: xc/lib/GL/mesa/src/drv/sis/Imakefile,v 1.22 2002/11/25 14:04:52 eich Exp $
+
+#include <Threads.tmpl>
+
+#if GlxUseBuiltInDRIDriver
+#define DoNormalLib (NormalLibGlx || SharedLibGlxWithoutPIC)
+#define DoSharedLib (SharedLibGlx && !SharedLibGlxWithoutPIC)
+#define DoExtraLib SharedLibGlx
+#define DoDebugLib DebugLibGlx
+#define DoProfileLib ProfileLibGlx
+#else
+#define DoNormalLib SharedLibGlxWithoutPIC
+#define DoSharedLib !SharedLibGlxWithoutPIC
+#define DoExtrasLib NO
+#define DoDebugLib NO
+#define DoProfileLib NO
+#endif
+
+#include "../common/Imakefile.inc"
+#include "Imakefile.inc"
+#include "../../array_cache/Imakefile.inc"
+#include "../../math/Imakefile.inc"
+#include "../../swrast/Imakefile.inc"
+#include "../../swrast_setup/Imakefile.inc"
+#include "../../tnl/Imakefile.inc"
+#include "../../tnl_dd/Imakefile.inc"
+#include "../../Imakefile.inc"
+#if defined(i386Architecture) && MesaUseX86Asm
+#include "../../X86/Imakefile.inc"
+#endif
+#ifdef SparcArchitecture
+#include "../../SPARC/Imakefile.inc"
+#endif
+
+XCOMM SIS_DEFINES = -DSIS_USE_HW_CULL -DSIS_USE_FASTPATH
+SIS_DEFINES = -DSIS_USE_HW_CULL
+
+XCOMM DEBUG_DEFINES = -DDEBUG_LOCKING
+XCOMM DEBUG_DEFINES = -DSIS_DEBUG
+
+      DEFINES = $(ALLOC_DEFINES) $(DRI_DEFINES) $(MESA_ASM_DEFINES) \
+		$(DEBUG_DEFINES) $(STEREO_DEFINES)
+     INCLUDES = $(X_INCLUDES) $(MESA_INCLUDES) $(DRI_INCLUDES)
+
+      DRIOBJS = $(GLXLIBSRC)/mesa/dri/dri_mesa.o \
+		$(GLXLIBSRC)/dri/dri_tmm.o
+
+      DRMOBJS = $(GLXLIBSRC)/dri/drm/xf86drm.o \
+		$(GLXLIBSRC)/dri/drm/xf86drmHash.o \
+		$(GLXLIBSRC)/dri/drm/xf86drmRandom.o \
+		$(GLXLIBSRC)/dri/drm/xf86drmSL.o
+
+#ifdef GlxSoProf
+       LOSRCS = ../../../../lowpc.c
+       HISRCS = ../../../../highpc.c
+
+       LOOBJS = ../../../../lowpc.o
+       HIOBJS = ../../../../highpc.o
+#endif
+
+         SRCS = $(SISSRCS)
+         OBJS = $(DRIOBJS) $(DRMOBJS) $(COREMESAOBJS) \
+		$(MESA_ASM_OBJS) $(SISOBJS) $(HIOBJS)
+
+REQUIREDLIBS = MathLibrary $(LDPRELIB) $(GLXLIB) $(XONLYLIB)
+
+#include <Library.tmpl>
+
+LibraryObjectRule()
+
+SubdirLibraryRule($(SISOBJS))
+NormalLintTarget($(SRCS))
+
+#if !GlxUseBuiltInDRIDriver
+LIBNAME = sis_dri.so
+SharedDriModuleTarget($(LIBNAME),DONE $(OBJS),$(OBJS))
+InstallDynamicModule($(LIBNAME),$(MODULEDIR),dri)
+
+#ifdef GlxSoProf
+SOPROF_LIBNAME = _sis_dri_p
+NormalDepLibraryTarget($(SOPROF_LIBNAME),DONE $(OBJS),$(OBJS))
+InstallLibrary($(SOPROF_LIBNAME),$(MODULEDIR)/dri)
+#endif
+#endif
+
+DependTarget()
+

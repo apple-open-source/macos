@@ -1,0 +1,69 @@
+.\" $Xorg: testplugin.man,v 1.4 2001/02/09 02:05:58 xorgcvs Exp $
+.\" Copyright 1996, 1998  The Open Group
+.\" 
+.\" Permission to use, copy, modify, distribute, and sell this software and its
+.\" documentation for any purpose is hereby granted without fee, provided that
+.\" the above copyright notice appear in all copies and that both that
+.\" copyright notice and this permission notice appear in supporting
+.\" documentation.
+.\" 
+.\" The above copyright notice and this permission notice shall be included
+.\" in all copies or substantial portions of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+.\" OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\" IN NO EVENT SHALL THE OPEN GROUP BE LIABLE FOR ANY CLAIM, DAMAGES OR
+.\" OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+.\" ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+.\" OTHER DEALINGS IN THE SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the name of The Open Group shall
+.\" not be used in advertising or otherwise to promote the sale, use or
+.\" other dealings in this Software without prior written authorization
+.\" from The Open Group.
+.\"
+.\" $XFree86: xc/programs/xrx/testplugin/testplugin.man,v 1.7 2001/12/14 20:02:21 dawes Exp $
+.\"
+.TH TESTPLUGIN 1 __xorgversion__
+.SH NAME
+testplugin - a Netscape Plug-in test bed utility
+.SH SYNOPSIS
+.B testplugin
+src=\fIurl\fP
+[width=\fIwidth\fP]
+[height=\fIheight\fP]
+[\fIname\fP=\fIvalue\fP] ...
+.SH DESCRIPTION
+This program is designed to provide a means for testing Netscape Navigator
+UNIX plug-ins. It exercises the plug-in in a way close (I hope) to how
+Navigator does, and because it is a standalone program it allows you to run
+it through debugger and to use various program analysis tools.
+.PP
+The line-mode browser \fBwww\fP, must be in your \fBPATH\fP to be able to
+use testplugin successfully.
+.SH ARGUMENTS
+.PP
+.TP 8
+.B src=\fIurl\fP
+This argument specifies the source document to use. It should be of the MIME
+type your plug-in is expecting since unlike within Netscape, no type checking
+is done and the document is simply streamed to the plug-in.
+.PP
+.TP 8
+.B [width=\fIwidth\fP] [height=\fIheight\fP]
+These options allow to specify the plug-in window size.
+.PP
+.TP 8
+.B [\fIname\fP=\fIvalue\fP]...
+In addition to the arguments described above, any other argument can be
+specified and will be passed uninterpreted to the plug-in (through the
+NPP_New method).
+.SH CURRENT LIMITATIONS
+I've not implemented all of the "Netscape Methods", but only the ones I've
+needed so far. Also the "Plug-in Methods" are not called in every possible
+manner so it does not provide a 100% testing coverage.
+.SH "SEE ALSO"
+www(1), Netscape Navigator Documentation
+.SH AUTHOR
+Arnaud Le Hors, X Consortium

@@ -1,0 +1,5 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:55:17 cpqbld Exp $
+        DEPLIBS = $(DEPXONLYLIB)
+LOCAL_LIBRARIES = $(XONLYLIB)
+
+SimpleProgramTarget(xwud)

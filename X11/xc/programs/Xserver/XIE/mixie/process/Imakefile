@@ -1,0 +1,43 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:47:49 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/programs/Xserver/XIE/mixie/process/Imakefile,v 3.6 2001/01/17 22:13:10 dawes Exp $
+
+XCOMM build device dependent machine independent process element objs
+
+#define IHaveModules
+#include <Server.tmpl>
+
+SRCS1 = bitfun.c mpgeom.c mpgeomaa.c mpgeomnn.c mppoint.c
+OBJS1 = bitfun.o mpgeom.o mpgeomaa.o mpgeomnn.o mppoint.o
+
+#if BuildDIS
+DEFINES = -DXIE_DIS
+#else
+SRCS2 = mparith.c mpbandc.c mpbande.c mpbands.c mpblend.c mpcfromi.c \
+        mpcnst.c mpcomp.c mpconv.c mpctoi.c mpdither.c mphist.c \
+        mplogic.c mppaste.c mprgb.c mpuncnst.c
+OBJS2 = mparith.o mpbandc.o mpbande.o mpbands.o mpblend.o mpcfromi.o \
+        mpcnst.o mpcomp.o mpconv.o mpctoi.o mpdither.o mphist.o \
+        mplogic.o mppaste.o mprgb.o mpuncnst.o
+#endif
+
+       SRCS = $(SRCS1) $(SRCS2)
+
+       OBJS = $(OBJS1) $(OBJS2)
+
+   INCLUDES = -I../include -I../../include -I$(SERVERSRC)/include -I$(XINCLUDESRC) -I$(XINCLUDESRC)/extensions
+   LINTLIBS = ../../dixie/export/llib-lexp.ln ../../dixie/import/llib-limp.ln \
+              ../../dixie/process/llib-lproc.ln ../../dixie/request/llib-lreq.ln \
+              ../control/llib-lctrl.ln ../export/llib-lmexp.ln ../fax/llib-lfax.ln \
+              ../import/llib-lmimp.ln ../jpeg/llib-ljpeg.ln ../process/llib-lmproc.ln
+
+ModuleObjectRule()
+
+SubdirLibraryRule($(OBJS))
+LintLibraryTarget(mproc,$(SRCS))
+NormalLintTarget($(SRCS))
+
+DependTarget()

@@ -1,0 +1,21 @@
+XCOMM platform:  $Xorg: generic.cf,v 1.3 2000/08/17 19:41:47 cpqbld Exp $
+
+#ifndef OSName
+#define OSName            Unknown Operating System
+#endif
+XCOMM operating system:  OSName
+#ifndef OSMajorVersion
+#define OSMajorVersion    0
+#endif
+#ifndef OSMinorVersion
+#define OSMinorVersion    0
+#endif
+
+#ifdef SYSV
+#define SystemV		YES
+#endif
+#ifdef SVR4
+#define SystemV4	YES
+#endif
+
+#define BuildServer	NO

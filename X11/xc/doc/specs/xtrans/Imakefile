@@ -1,0 +1,16 @@
+XCOMM $XFree86: xc/doc/specs/xtrans/Imakefile,v 1.2 2001/04/23 15:54:00 dawes Exp $
+
+
+all:: Xtrans.PS Xtrans.txt
+
+Xtrans.txt:
+	$(TBL) Xtrans.mm  | $(NROFF) -mm > Xtrans.txt
+
+Xtrans.PS:
+	$(TBL) Xtrans.mm  | $(TROFF) -mm > Xtrans.PS
+
+clean::
+	$(RM) Xtrans.PS Xtrans.txt
+
+InstallRoffDoc(Xtrans)
+

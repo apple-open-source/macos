@@ -1,0 +1,360 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/Imakefile,v 1.45 2003/02/17 17:06:41 dawes Exp $
+XCOMM
+XCOMM Copyright 1997 through 2003 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
+XCOMM
+XCOMM Permission to use, copy, modify, distribute, and sell this software and
+XCOMM its documentation for any purpose is hereby granted without fee, provided
+XCOMM that the above copyright notice appear in all copies and that both that
+XCOMM copyright notice and this permission notice appear in supporting
+XCOMM documentation, and that the name of Marc Aurele La France not be used in
+XCOMM advertising or publicity pertaining to distribution of the software
+XCOMM without specific, written prior permission.  Marc Aurele La France makes
+XCOMM no representations about the suitability of this software for any
+XCOMM purpose.  It is provided "as-is" without express or implied warranty.
+XCOMM
+XCOMM MARC AURELE LA FRANCE DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS
+XCOMM SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+XCOMM FITNESS.  IN NO EVENT SHALL MARC AURELE LA FRANCE BE LIABLE FOR ANY
+XCOMM SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER
+XCOMM RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF
+XCOMM CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+XCOMM CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+XCOMM
+
+#define IHaveModules
+#include <Server.tmpl>
+
+#ifdef ATIDriverCCOptions
+CCOPTIONS = ATIDriverCCOptions
+#endif
+
+#if DoLoadableServer
+
+MODSRCS1 = atimodule.c
+MODSRCS2 = atiload.c atimisc.c
+MODSRCS3 = r128_misc.c
+MODSRCS4 = radeon_misc.c
+
+MODOBJS1 = atimodule.o
+MODOBJS2 = atiload.o atimisc.o
+MODOBJS3 = r128_misc.o
+MODOBJS4 = radeon_misc.o
+
+#endif
+
+#if BuildXF86DRI
+
+DRISRCS3 = r128_dri.c
+DRISRCS4 = radeon_dri.c
+
+DRIOBJS3 = r128_dri.o
+DRIOBJS4 = radeon_dri.o
+
+DRIINCLUDES = -I$(SERVERSRC)/GL/dri -I$(LIBSRC)/GL/dri -I$(TOP)/include
+DRIDEFINES  = $(GLX_DEFINES)
+
+#endif
+
+/*
+ * The following configuration logic is only meant as a first cut, and is
+ * therefore incomplete.  ...And, no, you do NOT have permission to move this
+ * into xfree86.cf...
+ *
+ * Currently, ATIAvoidCPIO >MUST< be #define'd as YES for those platforms
+ * (architecture/OS combinations) that neither provide nor emulate a
+ * little-endian undirected PIO address space of at least 64 kB in size.
+ *
+ * "Undirected" means the driver does not need to determine the identity nor
+ * location of the responding adapter before accessing a particular location in
+ * the PIO address space.
+ *
+ * #define'ing ATIAvoidCPIO to YES generates a driver that will only support
+ * PCI/AGP Mach64 adapters using a linear aperture and the accelerator CRTC.
+ * The resulting driver will also require the same of the environment on server
+ * entry.
+ *
+ * For testing purposes, #define'ing ATIAvoidCPIO as YES is also supported on
+ * platforms that do, in fact, provide or emulate a PIO address space as
+ * described above, but this should not be the default driver configuration.
+ *
+ * Currently, ATIAvoidNonPCI needs to be set to YES for those platforms that
+ * "drop down" to firmware on accesses to allocated, but disabled, PCI space.
+ * ATIAvoidNonPCI necessarily implies ATIAvoidCPIO.
+ */
+#if defined(i386Architecture) || \
+    defined(ia64Architecture) || \
+    defined(x86_64Architecture) || \
+    defined(AlphaArchitecture)
+# ifndef ATIAvoidCPIO
+#  define ATIAvoidCPIO NO
+# endif
+#elif defined(SparcArchitecture) || 1
+# undef ATIAvoidCPIO    /* Clobber any previous setting */
+# define ATIAvoidCPIO YES
+#endif
+
+#if defined(PpcArchitecture)
+# undef ATIAvoidNonPCI
+# define ATIAvoidNonPCI YES
+#elif !defined(ATIAvoidNonPCI)
+# define ATIAvoidNonPCI NO
+#endif
+
+#if ATIAvoidNonPCI
+# undef ATIAvoidCPIO
+# define ATIAvoidCPIO YES
+
+NONPCIDEFINES = -DAVOID_NON_PCI
+
+#endif
+
+#if ATIAvoidCPIO
+
+CPIODEFINES = -DAVOID_CPIO
+
+#else
+
+CPIOSRCS1 = ativgaio.c
+CPIOSRCS2 = atibank.c ativga.c atiwonder.c atiwonderio.c
+
+CPIOOBJS1 = ativgaio.o
+CPIOOBJS2 = atibank.o ativga.o atiwonder.o atiwonderio.o
+
+#endif
+
+/*
+ * For now, disable DGA on SPARC.
+ */
+#if defined(SparcArchitecture)
+# undef ATIAvoidDGA
+# define ATIAvoidDGA YES
+#endif
+
+#ifndef ATIAvoidDGA
+#define ATIAvoidDGA NO
+#endif
+
+#if ATIAvoidDGA
+
+DGADEFINES = -DAVOID_DGA
+
+#else
+
+DGASRCS2 = atidga.c
+DGAOBJS2 = atidga.o
+
+#endif
+
+DEFINES = $(CPIODEFINES) $(DGADEFINES) $(NONPCIDEFINES) $(DRIDEFINES)
+
+SRCS1 = ati.c atiadapter.c atibus.c atichip.c atiident.c atioption.c \
+        atiprobe.c atividmem.c $(CPIOSRCS1) $(MODSRCS1) \
+        radeon_probe.c r128_probe.c
+SRCS2 = atiaccel.c atiadjust.c aticlock.c aticonfig.c aticonsole.c \
+        aticursor.c atidac.c atidsp.c atilock.c atimach64.c atimach64io.c \
+        atimode.c atipreinit.c atiprint.c atirgb514.c atiscreen.c atiutil.c \
+        ativalid.c atixv.c $(CPIOSRCS2) $(DGASRCS2) $(MODSRCS2)
+SRCS3 = r128_accel.c r128_cursor.c r128_dga.c r128_driver.c \
+        r128_video.c $(DRISRCS3) $(MODSRCS3)
+SRCS4 = radeon_accel.c radeon_cursor.c radeon_dga.c radeon_driver.c \
+        radeon_video.c $(DRISRCS4) $(MODSRCS4)
+
+OBJS1 = ati.o atiadapter.o atibus.o atichip.o atiident.o atioption.o \
+        atiprobe.o atividmem.o $(CPIOOBJS1) $(MODOBJS1) \
+        radeon_probe.o r128_probe.o
+OBJS2 = atiaccel.o atiadjust.o aticlock.o aticonfig.o aticonsole.o \
+        aticursor.o atidac.o atidsp.o atilock.o atimach64.o atimach64io.o \
+        atimode.o atipreinit.o atiprint.o atirgb514.o atiscreen.o atiutil.o \
+        ativalid.o atixv.o $(CPIOOBJS2) $(DGAOBJS2) $(MODOBJS2)
+OBJS3 = r128_accel.o r128_cursor.o r128_dga.o r128_driver.o \
+        r128_video.o $(DRIOBJS3) $(MODOBJS3)
+OBJS4 = radeon_accel.o radeon_cursor.o radeon_dga.o radeon_driver.o \
+        radeon_video.o $(DRIOBJS4) $(MODOBJS4)
+
+SRCS = $(SRCS1) $(SRCS2) $(SRCS3) $(SRCS4)
+OBJS = $(OBJS1) $(OBJS2) $(OBJS3) $(OBJS4)
+
+#if defined(XF86DriverSDK)
+INCLUDES = -I. -I../../include
+#else
+INCLUDES = -I. -I$(XF86COMSRC) -I$(XF86OSSRC) -I$(XF86SRC) \
+           -I$(XF86SRC)/vbe -I$(XF86SRC)/int10 \
+           -I$(XF86SRC)/ddc -I$(XF86SRC)/i2c \
+           -I$(XF86SRC)/rac -I$(XF86SRC)/ramdac \
+           -I$(XF86SRC)/shadowfb -I$(XF86SRC)/xaa -I$(XF86SRC)/xf24_32bpp \
+           -I$(XF86SRC)/xf4bpp -I$(XF86SRC)/xf1bpp \
+           -I$(XF86SRC)/vgahw -I$(XF86SRC)/fbdevhw \
+           -I$(SERVERSRC)/cfb -I$(SERVERSRC)/mfb \
+           -I$(SERVERSRC)/fb -I$(SERVERSRC)/mi \
+           -I$(SERVERSRC)/miext/shadow \
+           -I$(SERVERSRC)/render -I$(SERVERSRC)/Xext -I$(SERVERSRC)/include \
+           $(DRIINCLUDES) -I$(FONTINCSRC) -I$(EXTINCSRC) -I$(XINCLUDESRC)
+#endif
+
+#if MakeHasPosixVariableSubstitutions
+SubdirLibraryRule($(OBJS))
+#endif
+
+ModuleObjectRule()
+
+ObjectModuleTarget(ati,$(OBJS1))
+ObjectModuleTarget(atimisc,$(OBJS2))
+ObjectModuleTarget(r128,$(OBJS3))
+ObjectModuleTarget(radeon,$(OBJS4))
+
+InstallObjectModule(ati,$(MODULEDIR),drivers)
+InstallObjectModule(atimisc,$(MODULEDIR),drivers)
+InstallObjectModule(r128,$(MODULEDIR),drivers)
+InstallObjectModule(radeon,$(MODULEDIR),drivers)
+
+#if 0
+InstallModuleManPage(ati)
+#endif
+
+InstallModuleManPage(r128)
+
+InstallModuleManPage(radeon)
+
+DependTarget()
+
+InstallDriverSDKNonExecFile(Imakefile,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(ati.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(ati.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atiaccel.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atiaccel.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atiadapter.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atiadapter.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atiadjust.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atiadjust.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atibank.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atibank.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atibus.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atibus.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atichip.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atichip.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(aticlock.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(aticlock.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(aticonfig.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(aticonfig.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(aticonsole.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(aticonsole.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(aticrtc.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(aticursor.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(aticursor.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atidac.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atidac.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atidga.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atidga.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atidsp.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atidsp.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atiident.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atiident.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atiio.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atiload.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atiload.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atilock.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atilock.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atimach64.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atimach64.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atimach64io.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atimach64io.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atimisc.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atimode.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atimode.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atimodule.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atimodule.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atimono.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atioption.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atioption.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atipreinit.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atipreinit.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atiprint.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atiprint.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atipriv.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atiprobe.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atiprobe.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atiproto.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atiregs.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atirgb514.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atirgb514.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atiscreen.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atiscreen.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atistruct.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atiutil.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atiutil.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(ativalid.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(ativalid.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(ativersion.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(ativga.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(ativga.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(ativgaio.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(ativgaio.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atividmem.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atividmem.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atiwonder.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atiwonder.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atiwonderio.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atiwonderio.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atixv.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(atixv.h,$(DRIVERSDKDIR)/drivers/ati)
+
+InstallDriverSDKNonExecFile(r128.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(r128_accel.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(r128_cursor.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(r128_dga.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(r128_dri.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(r128_dri.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(r128_dripriv.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(r128_driver.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(r128_misc.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(r128_probe.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(r128_probe.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(r128_reg.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(r128_sarea.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(r128_version.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(r128_video.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(r128_common.h,$(DRIVERSDKDIR)/drivers/ati)
+
+InstallDriverSDKNonExecFile(radeon.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(radeon_accel.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(radeon_cursor.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(radeon_dga.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(radeon_dri.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(radeon_dri.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(radeon_dripriv.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(radeon_driver.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(radeon_macros.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(radeon_misc.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(radeon_probe.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(radeon_probe.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(radeon_reg.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(radeon_sarea.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(radeon_version.h,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(radeon_video.c,$(DRIVERSDKDIR)/drivers/ati)
+InstallDriverSDKNonExecFile(radeon_common.h,$(DRIVERSDKDIR)/drivers/ati)
+
+InstallDriverSDKObjectModule(ati,$(DRIVERSDKMODULEDIR),drivers)
+InstallDriverSDKObjectModule(atimisc,$(DRIVERSDKMODULEDIR),drivers)
+InstallDriverSDKObjectModule(r128,$(DRIVERSDKMODULEDIR),drivers)
+InstallDriverSDKObjectModule(radeon,$(DRIVERSDKMODULEDIR),drivers)
+
+/* Remove instances of ati2 module */
+#if DoLoadableServer
+
+#undef ATI2DriverModuleName
+#if MakeDllModules
+# define ATI2DriverModuleName ati2_drv.so
+#else
+# define ATI2DriverModuleName ati2_drv.o
+#endif
+
+all::
+	RemoveFile($(BUILDMODULEDIR)/drivers/ATI2DriverModuleName)
+
+install::
+	RemoveFile($(DESTDIR)$(MODULEDIR)/drivers/ATI2DriverModuleName)
+
+install.sdk::
+	RemoveFile($(DESTDIR)$(DRIVERSDKMODULEDIR)/drivers/ATI2DriverModuleName)
+
+#endif

@@ -29,6 +29,7 @@
 #ifdef HAVE_NET_SOCKET_H
 #include <net/socket.h>
 #endif
+#include "md5.h"
 
 #include "i18n.h"
 #include "socket.h"
@@ -40,7 +41,7 @@ extern char *strstr();	/* needed on sysV68 R3V7.1. */
 
 int mytimeout;		/* value of nonreponse timeout */
 int suppress_tags;	/* emit tags? */
-char shroud[PASSWORDLEN*2+1];	/* string to shroud in debug output */
+char shroud[PASSWORDLEN*2+3];	/* string to shroud in debug output */
 struct msgblk msgblk;
 
 char tag[TAGLEN];
@@ -337,19 +338,30 @@ static char *parse_received(struct query *ctl, char *bufp)
 /* shared by readheaders and readbody */
 static int sizeticker;
 
-#define EMPTYLINE(s)	((s)[0] == '\r' && (s)[1] == '\n' && (s)[2] == '\0')
+#define EMPTYLINE(s)   (((s)[0] == '\r' && (s)[1] == '\n' && (s)[2] == '\0') \
+                       || ((s)[0] == '\n' && (s)[1] == '\0'))
+
+static int end_of_header (const char *s)
+/* accept "\r*\n" as EOH in order to be bulletproof against broken survers */
+{
+    while (s[0] == '\r')
+	s++;
+    return (s[0] == '\n' && s[1] == '\0');
+}
 
 int readheaders(int sock,
 		       long fetchlen,
 		       long reallen,
 		       struct query *ctl,
-		       int num)
+		       int num,
+		       flag *suppress_readbody)
 /* read message headers and ship to SMTP or MDA */
 /*   sock:		to which the server is connected */
 /*   fetchlen:		length of message according to fetch response */
 /*   reallen:		length of message according to getsizes */
 /*   ctl:		query control record */
 /*   num:		index of message */
+/*   suppress_readbody:	whether call to readbody() should be supressed */
 {
     struct addrblk
     {
@@ -370,12 +382,13 @@ int readheaders(int sock,
     int 		n, linelen, oldlen, ch, remaining, skipcount;
     struct idlist 	*idp;
     flag		no_local_matches = FALSE;
-    flag		headers_ok, has_nuls;
+    flag		has_nuls;
     int			olderrs, good_addresses, bad_addresses;
-    int			retain_mail = 0;
+    int			retain_mail = 0, refuse_mail = 0;
+    flag		already_has_return_path = FALSE;
 
     sizeticker = 0;
-    has_nuls = headers_ok = FALSE;
+    has_nuls = FALSE;
     msgblk.return_path[0] = '\0';
     olderrs = ctl->errcount;
 
@@ -394,10 +407,8 @@ int readheaders(int sock,
     if (delivered_to)
 	free(delivered_to);
 
-    /* initially, no message ID */
-    if (ctl->thisid)
-	free(ctl->thisid);
-    ctl->thisid = NULL;
+    /* initially, no message digest */
+    memset(ctl->digest, '\0', sizeof(ctl->digest));
 
     msgblk.headers = received_for = delivered_to = NULL;
     from_offs = reply_to_offs = resent_from_offs = app_from_offs = 
@@ -407,79 +418,103 @@ int readheaders(int sock,
     skipcount = 0;
     ctl->mimemsg = 0;
 
-    for (remaining = fetchlen; remaining > 0 || protocol->delimited; remaining -= linelen)
+    for (remaining = fetchlen; remaining > 0 || protocol->delimited; )
     {
-	char *line;
+	char *line, *rline;
 	int overlong = FALSE;
 
 	line = xmalloc(sizeof(buf));
 	linelen = 0;
 	line[0] = '\0';
 	do {
-	    set_timeout(mytimeout);
-	    if ((n = SockRead(sock, buf, sizeof(buf)-1)) == -1) {
+	    do {
+		char	*sp, *tp;
+
+		set_timeout(mytimeout);
+		if ((n = SockRead(sock, buf, sizeof(buf)-1)) == -1) {
+		    set_timeout(0);
+		    free(line);
+		    free(msgblk.headers);
+		    msgblk.headers = NULL;
+		    return(PS_SOCKET);
+		}
 		set_timeout(0);
-		free(line);
-		free(msgblk.headers);
-		msgblk.headers = NULL;
-		return(PS_SOCKET);
-	    }
-	    set_timeout(0);
+
+		/*
+		 * Smash out any NULs, they could wreak havoc later on.
+		 * Some network stacks seem to generate these at random,
+		 * especially (according to reports) at the beginning of the
+		 * first read.  NULs are illegal in RFC822 format.
+		 */
+		for (sp = tp = buf; sp < buf + n; sp++)
+		    if (*sp)
+			*tp++ = *sp;
+		*tp = '\0';
+		n = tp - buf;
+	    } while
+		  (n == 0);
+
+	    remaining -= n;
 	    linelen += n;
 	    msgblk.msglen += n;
 
-		/*
-		 * Try to gracefully handle the case, where the length of a
-		 * line exceeds MSGBUFSIZE.
-		 */
-		if ( n && buf[n-1] != '\n' ) {
-			unsigned int llen = strlen(line);
-			overlong = TRUE;
-			line = realloc(line, llen + n + 1);
-			strcpy(line + llen, buf);
-			ch = ' '; /* So the next iteration starts */
-			continue;
-		}
-
-	    /* lines may not be properly CRLF terminated; fix this for qmail */
-	    if (ctl->forcecr)
+	    /*
+	     * Try to gracefully handle the case where the length of a
+	     * line exceeds MSGBUFSIZE.
+	     */
+	    if (n && buf[n-1] != '\n') 
 	    {
-		cp = buf + strlen(buf) - 1;
-		if (*cp == '\n' && (cp == buf || cp[-1] != '\r'))
+		overlong = TRUE;
+		rline = (char *) realloc(line, linelen + 1);
+		if (rline == NULL)
 		{
-		    *cp++ = '\r';
-		    *cp++ = '\n';
-		    *cp++ = '\0';
+		    free (line);
+		    return(PS_IOERR);
 		}
+		line = rline;
+		memcpy(line + linelen - n, buf, n);
+		line[linelen] = '\0';
+		ch = ' '; /* So the next iteration starts */
+		continue;
 	    }
 
-		/*
-		 * Decode MIME encoded headers. We MUST do this before
-		 * looking at the Content-Type / Content-Transfer-Encoding
-		 * headers (RFC 2046).
-		 */
-		if ( ctl->mimedecode && overlong ) {
-			/*
-			 * If we received an overlong line, we have to decode the
-			 * whole line at once.
-			 */
-			line = (char *) realloc(line, strlen(line) + strlen(buf) +1);
-			strcat(line, buf);
-			UnMimeHeader(line);
+	    /* lines may not be properly CRLF terminated; fix this for qmail */
+	    /* we don't want to overflow the buffer here */
+	    if (ctl->forcecr && buf[n-1]=='\n' && (n==1 || buf[n-2]!='\r'))
+	    {
+		char * tcp;
+		rline = (char *) realloc(line, linelen + 2);
+		if (rline == NULL)
+		{
+		    free (line);
+		    return(PS_IOERR);
 		}
-		else {
-			if ( ctl->mimedecode )
-				UnMimeHeader(buf);
-
-			line = (char *) realloc(line, strlen(line) + strlen(buf) +1);
-			strcat(line, buf);
+		line = rline;
+		memcpy(line + linelen - n, buf, n - 1);
+		tcp = line + linelen - 1;
+		*tcp++ = '\r';
+		*tcp++ = '\n';
+		*tcp++ = '\0';
+		n++;
+		linelen++;
+	    }
+	    else
+	    {
+		rline = (char *) realloc(line, linelen + 1);
+		if (rline == NULL)
+		{
+		    free (line);
+		    return(PS_IOERR);
 		}
+		line = rline;
+		memcpy(line + linelen - n, buf, n + 1);
+	    }
 
 	    /* check for end of headers */
-	    if (EMPTYLINE(line))
+	    if (end_of_header(line))
 	    {
-		headers_ok = TRUE;
-		has_nuls = (linelen != strlen(line));
+		if (linelen != strlen (line))
+		    has_nuls = TRUE;
 		free(line);
 		goto process_headers;
 	    }
@@ -491,8 +526,13 @@ int readheaders(int sock,
 	     */
 	    if (protocol->delimited && line[0] == '.' && EMPTYLINE(line+1))
 	    {
-		headers_ok = FALSE;
-		has_nuls = (linelen != strlen(line));
+		if (outlevel > O_SILENT)
+		    report(stdout,
+			   GT_("message delimiter found while scanning headers\n"));
+		if (suppress_readbody)
+		    *suppress_readbody = TRUE;
+		if (linelen != strlen (line))
+		    has_nuls = TRUE;
 		free(line);
 		goto process_headers;
 	    }
@@ -501,15 +541,18 @@ int readheaders(int sock,
 	     * At least one brain-dead website (netmind.com) is known to
 	     * send out robotmail that's missing the RFC822 delimiter blank
 	     * line before the body! Without this check fetchmail segfaults.
-	     * With it, we treat such messages as though they had the missing
-	     * blank line.
+	     * With it, we treat such messages as spam and refuse them.
 	     */
-	    if (!isspace(line[0]) && !strchr(line, ':'))
+	    if (!refuse_mail && !isspace(line[0]) && !strchr(line, ':'))
 	    {
-		headers_ok = FALSE;
-		has_nuls = (linelen != strlen(line));
-		free(line);
-		goto process_headers;
+		if (linelen != strlen (line))
+		    has_nuls = TRUE;
+		if (outlevel > O_SILENT)
+		    report(stdout,
+			   GT_("incorrect header line found while scanning headers\n"));
+		if (outlevel >= O_VERBOSE)
+		    report (stdout, GT_("line: %s"), line);
+		refuse_mail = 1;
 	    }
 
 	    /* check for RFC822 continuations */
@@ -525,7 +568,7 @@ int readheaders(int sock,
 	    sizeticker += linelen;
 	    while (sizeticker >= SIZETICKER)
 	    {
-		if ((!run.use_syslog && !isafile(1)) || run.showdots)
+		if (outlevel > O_SILENT && run.showdots)
 		{
 		    fputc('.', stdout);
 		    fflush(stdout);
@@ -533,13 +576,33 @@ int readheaders(int sock,
 		sizeticker -= SIZETICKER;
 	    }
 	}
+		/*
+		 * Decode MIME encoded headers. We MUST do this before
+		 * looking at the Content-Type / Content-Transfer-Encoding
+		 * headers (RFC 2046).
+		 */
+		if ( ctl->mimedecode )
+		{
+		    char *tcp;
+		    UnMimeHeader(line);
+		    /* the line is now shorter. So we retrace back till we find our terminating
+		     * combination \n\0, we move backwards to make sure that we don't catch som
+		     * \n\0 stored in the decoded part of the message */
+		    for(tcp = line + linelen - 1; tcp > line && (*tcp != 0 || tcp[-1] != '\n'); tcp--);
+		    if(tcp > line) linelen = tcp - line;
+		}
+
+
+	/* skip processing if we are going to retain or refuse this mail */
+	if (retain_mail || refuse_mail)
+	{
+	    free(line);
+	    continue;
+	}
 
 	/* we see an ordinary (non-header, non-message-delimiter line */
-	has_nuls = (linelen != strlen(line));
-
-	/* save the message's ID, we may use it for killing duplicates later */
-	if (MULTIDROP(ctl) && !strncasecmp(line, "Message-ID:", 11))
-	    ctl->thisid = xstrdup(line);
+	if (linelen != strlen (line))
+	    has_nuls = TRUE;
 
 	/*
 	 * The University of Washington IMAP server (the reference
@@ -643,7 +706,7 @@ int readheaders(int sock,
 	}
 
 	if (ctl->rewrite)
-	    line = reply_hack(line, ctl->server.truename);
+	    line = reply_hack(line, ctl->server.truename, &linelen);
 
 	/*
 	 * OK, this is messy.  If we're forwarding by SMTP, it's the
@@ -666,9 +729,17 @@ int readheaders(int sock,
 	 * not trigger bounces if delivery fails.  What we *do* need to do is
 	 * make sure we never try to rewrite such a blank Return-Path.  We
 	 * handle this with a check for <> in the rewrite logic above.
+	 *
+	 * Also, if an email has multiple Return-Path: headers, we only
+	 * read the first occurance, as some spam email has more than one
+	 * Return-Path.
+	 *
 	 */
-	if (!strncasecmp("Return-Path:", line, 12) && (cp = nxtaddr(line)))
+	if ((already_has_return_path==FALSE) && !strncasecmp("Return-Path:", line, 12) && (cp = nxtaddr(line)))
 	{
+	    already_has_return_path = TRUE;
+	    if (cp[0]=='\0')	/* nxtaddr() strips the brackets... */
+		cp="<>";
 	    strncpy(msgblk.return_path, cp, sizeof(msgblk.return_path));
 	    msgblk.return_path[sizeof(msgblk.return_path)-1] = '\0';
 	    if (!ctl->mda) {
@@ -679,9 +750,10 @@ int readheaders(int sock,
 
 	if (!msgblk.headers)
 	{
-	    oldlen = strlen(line);
+	    oldlen = linelen;
 	    msgblk.headers = xmalloc(oldlen + 1);
-	    (void) strcpy(msgblk.headers, line);
+	    (void) memcpy(msgblk.headers, line, linelen);
+	    msgblk.headers[oldlen] = '\0';
 	    free(line);
 	    line = msgblk.headers;
 	}
@@ -690,14 +762,15 @@ int readheaders(int sock,
 	    char *newhdrs;
 	    int	newlen;
 
-	    newlen = oldlen + strlen(line);
+	    newlen = oldlen + linelen;
 	    newhdrs = (char *) realloc(msgblk.headers, newlen + 1);
 	    if (newhdrs == NULL) {
 		free(line);
 		return(PS_IOERR);
 	    }
 	    msgblk.headers = newhdrs;
-	    strcpy(msgblk.headers + oldlen, line);
+	    memcpy(msgblk.headers + oldlen, line, linelen);
+	    msgblk.headers[newlen] = '\0';
 	    free(line);
 	    line = msgblk.headers + oldlen;
 	    oldlen = newlen;
@@ -724,10 +797,10 @@ int readheaders(int sock,
 	 * human user or a computer program) rather than a standard
 	 * address."  That implies that the contents of the Sender
 	 * field don't need to be a legal email address at all So
-	 * ignore any Sender or Resent-Semnder lines unless they
+	 * ignore any Sender or Resent-Sender lines unless they
 	 * contain @.
 	 *
-	 * (RFC2822 says the condents of Sender must be a valid mailbox
+	 * (RFC2822 says the contents of Sender must be a valid mailbox
 	 * address, which is also what RFC822 4.4.4 implies.)
 	 */
 	else if (!strncasecmp("Sender:", line, 7) && (strchr(line, '@') || strchr(line, '!')))
@@ -809,7 +882,11 @@ int readheaders(int sock,
 	msgblk.headers = NULL;
 	return(PS_RETAINED);
     }
+    if (refuse_mail)
+	return(PS_REFUSED);
     /*
+     * This is the duplicate-message killer code.
+     *
      * When mail delivered to a multidrop mailbox on the server is
      * addressed to multiple people on the client machine, there will
      * be one copy left in the box for each recipient.  This is not a
@@ -821,11 +898,8 @@ int readheaders(int sock,
      * if the mail is addressed to N people, each recipient will
      * get N copies.  This is bad when N > 1.
      *
-     * Foil this by suppressing all but one copy of a message with
-     * a given Message-ID.  The accept_count test ensures that
-     * multiple pieces of email with the same Message-ID, each
-     * with a *single* addressee (the N == 1 case), won't be 
-     * suppressed.
+     * Foil this by suppressing all but one copy of a message with a
+     * given set of headers.
      *
      * Note: This implementation only catches runs of successive
      * messages with the same ID, but that should be good
@@ -838,32 +912,25 @@ int readheaders(int sock,
      * to break it in a way that blackholed mail.  Better to pass
      * the occasional duplicate than to do that...
      */
-    if (!received_for && env_offs == -1 && !delivered_to)
+    if (MULTIDROP(ctl))
     {
-	if (ctl->lastid && ctl->thisid && !strcasecmp(ctl->lastid, ctl->thisid))
+	MD5_CTX context;
+
+	MD5Init(&context);
+	MD5Update(&context, msgblk.headers, strlen(msgblk.headers));
+	MD5Final(ctl->digest, &context);
+
+	if (!received_for && env_offs == -1 && !delivered_to)
 	{
-	    if (accept_count > 1)
+	    /*
+	     * Hmmm...can MD5 ever yield all zeroes as a hash value?
+	     * If so there is a one in 18-quadrillion chance this 
+	     * code will incorrectly nuke the first message.
+	     */
+	    if (!memcmp(ctl->lastdigest, ctl->digest, DIGESTLEN))
 		return(PS_REFUSED);
 	}
-	else
-	{
-	    if (ctl->lastid)
-		free(ctl->lastid);
-	    ctl->lastid = ctl->thisid;
-	    ctl->thisid = NULL;
-	}
-    }
-
-    /*
-     * We want to detect this early in case there are so few headers that the
-     * dispatch logic barfs.
-     */
-    if (!headers_ok)
-    {
-	if (outlevel > O_SILENT)
-	    report(stdout,
-		   GT_("message delimiter found while scanning headers\n"));
-	return(PS_TRUNCATED);
+	memcpy(ctl->lastdigest, ctl->digest, DIGESTLEN);
     }
 
     /*
@@ -1245,7 +1312,7 @@ int readheaders(int sock,
     *cp++ = '\0';
     stuffline(ctl, buf);
 
-    return(headers_ok ? PS_SUCCESS : PS_TRUNCATED);
+    return(PS_SUCCESS);
 }
 
 int readbody(int sock, struct query *ctl, flag forward, int len)
@@ -1287,7 +1354,7 @@ int readbody(int sock, struct query *ctl, flag forward, int len)
 	    sizeticker += linelen;
 	    while (sizeticker >= SIZETICKER)
 	    {
-		if (outlevel > O_SILENT && (((run.poll_interval == 0 || nodetach) && !isafile(1)) || run.showdots))
+		if (outlevel > O_SILENT && run.showdots)
 		{
 		    fputc('.', stdout);
 		    fflush(stdout);
@@ -1300,9 +1367,7 @@ int readbody(int sock, struct query *ctl, flag forward, int len)
 	/* check for end of message */
 	if (protocol->delimited && *inbufp == '.')
 	{
-	    if (inbufp[1] == '\r' && inbufp[2] == '\n' && inbufp[3] == '\0')
-		break;
-	    else if (inbufp[1] == '\n' && inbufp[2] == '\0')
+	    if (EMPTYLINE(inbufp+1))
 		break;
 	    else
 		msgblk.msglen--;	/* subtract the size of the dot escape */
@@ -1374,7 +1439,7 @@ static void enshroud(char *buf)
        char    *sp;
 
        sp = cp + strlen(shroud);
-       *cp = '*';
+       *cp++ = '*';
        while (*sp)
            *cp++ = *sp++;
        *cp = '\0';
@@ -1440,7 +1505,13 @@ int size;	/* length of buffer */
     {
 	set_timeout(0);
 	phase = oldphase;
-	return(PS_SOCKET);
+	if(isidletimeout())
+	{
+	  resetidletimeout();
+	  return(PS_IDLETIMEOUT);
+	}
+	else
+	  return(PS_SOCKET);
     }
     else
     {

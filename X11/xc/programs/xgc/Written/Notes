@@ -1,0 +1,296 @@
+
+
+ClearArea
+---------
+Basically a special case of PolyFillRect.  Put up some sort of image first
+so we can clear it away.  Try both small areas and big areas, to give
+credit to servers for optimizing small ones.
+
+Data: Pixels per second.
+      Breaking that down into large and small areas would probably not
+        be userful.
+      
+GC Fields: None.
+
+
+CopyArea
+--------
+Putting up some image and then repeatedly copying from one part of it
+to another would do the right thing and could look neat if done right.
+
+We probably want to see what happens when the source area is clipped,
+as that as mentioned specifically in the protocol document.
+
+Data: Pixels per second.
+      
+GC Fields: function             (*)
+           plane-mask
+	   subwindow-mode
+	   graphics-exposures
+	   clip-x-origin
+	   clip-y-origin
+	   clip-mask
+
+
+CopyPlane
+---------
+Special case of CopyArea again.
+
+
+PolyPoint
+---------
+Draw lots of points.
+Either start out with an image that's 50/50 black and white
+(preferred) or draw enough points that some points will get drawn at
+least twice (to test functions other than copy).
+
+Data: Points per second.
+
+GC fields: function             (*)
+           plane-mask
+           foreground
+           subwindow-mode
+           clip-x-origin
+           clip-y-origin
+	   clip-mask
+
+
+PolyLine
+--------
+Circular test like there is now.
+Try clipping at window boundaries?
+
+Data: Lines per second.
+      Pixels per second (is this valid - do lines that are twice as
+        long take twice as long to draw? Also, is it valid to compare
+        thin lines and fat lines?)
+ 
+GC fields: function             (*)
+           plane-mask
+           line-width           (*)
+           line-style		(*)
+           cap-style		(*)
+           join-style		(*)
+           fill-style		(*)
+           subwindow-mode
+           clip-x-origin
+           clip-y-origin
+           clip-mask
+Possibly   foreground
+           background
+           tile			(*)
+           stipple		(*)
+           tile-stipple-x-origin
+	   tile-stipple-y-origin
+	   dash-offset
+	   dashes		(*)
+
+
+PolySegment
+-----------
+Just like PolyLine but lines don't have to be connected. Crosshatching?
+
+Data: Lines per second, pixels per second(?)
+
+GC fields: function
+	plane-mask
+	line-width
+	line-style
+	cap-style
+	fill-style
+	subwindow-mode
+	clip-x-origin
+	clip-y-origin
+	clip-mask
+Possibly  foreground
+	background
+	tile
+	stipple
+	tile-stipple-x-origin
+	tile-stipple-y-origin
+	dash-offset
+	dashes
+
+
+PolyRectangle
+-------------
+Lots of five point PolyLines.  Partly concentric ones would look nice; we
+also need overlap for testing different functions.
+
+Data: Rectangles per second.
+	Pixels per second? (divide by perimeter)
+
+GC fields: function
+	plane-mask
+	line-width
+	line-style
+	join-style
+	fill-style
+	subwindow-mode
+	clip-x-origin
+	clip-y-origin
+	clip-mask
+Possibly foreground
+	background
+	tile
+	stipple
+	tile-stipple-x-origin
+	tile-stipple-y-origin
+	dash-offset
+	dashes
+
+
+PolyArc
+-------
+Overlapping concentric things (ripples) would look cool.
+Is it possible to special-case circles?  Test for this?
+
+Data: Arcs per second?  If we had the same test each time this might
+        be OK.
+      Pixels per second?  Finding the length of an arc could be
+        annoying.
+
+GC fields: function
+	plane-mask
+	line-width
+	line-style
+	cap-style
+	join-style
+	fill-style
+	subwindow-mode
+	clip-x-origin
+	clip-y-origin
+	clip-mask
+Possibly foreground
+	background
+	tile
+	stipple
+	tile-stipple-x-origin
+	tile-stipple-y-origin
+	dash-offset
+	dashes
+
+
+FillPoly
+--------
+Use the same test as PolyLine?
+Overlapping is a must to test functions.
+Convex vs. Concave polygons.
+
+Data: Pixels per second, I guess.
+      Data for convex vs. concave could be interesting.
+
+GC fields: function
+	plane-mask
+	fill-style
+	fill-rule
+	subwindow-mode
+	clip-x-origin
+	clip-y-origin
+	clip-mask
+Possibly foreground
+	background
+	tile
+	stipple
+	tile-stipple-x-origin
+	tile-stipple-y-origin
+
+
+PolyFillRectangle
+-----------------
+Use same test as PolyRectangle?
+Perhaps give FillPoly some of these too, see if it special cases them.
+Fill Rectangle vs. Fill Poly for same size areas would be an
+  interesting comparison.
+
+Data: Pixels per second.
+
+GC fields: function
+	plane-mask
+	fill-style
+	subwindow-mode
+	clip-x-origin
+	clip-y-origin
+	clip-mask
+Possibly foreground
+	background
+	tile
+	stipple
+	tile-stipple-x-origin
+	tile-stipple-y-origin
+
+
+PolyFillArc
+-----------
+Use same test as PolyArc?
+
+Data: Pixels per second would be hard to compute, but what else is there?
+
+GC fields: function
+	plane-mask
+	fill-style
+	arc-mode
+	subwindow-mode
+	clip-x-origin
+	clip-y-origin
+	clip-mask
+Possibly foreground
+	background
+	tile
+	stipple
+	tile-stipple-x-origin
+	tile-stipple-y-origin
+
+
+PutImage
+--------
+
+GC fields: function
+	plane-mask
+	subwindow-mode
+	clip-x-origin
+	clip-y-origin
+	clip-mask
+Possibly foreground
+	background
+
+
+GetImage
+--------
+
+PolyText8
+---------
+
+GC fields: function
+	plane-mask
+	fill-style
+	font
+	subwindow-mode
+	clip-x-origin
+	clip-y-origin
+	clip-mask
+Possibly foreground
+	background
+	tile
+	stipple
+	tile-stipple-x-origin
+	tile-stipple-y-origin
+
+
+PolyText16
+----------
+
+ImageText8
+----------
+
+GC fields: plane-mask
+	foreground
+	background
+	font
+	subwindow-mode
+	clip-x-origin
+	clip-y-origin
+	clip-mask
+
+ImageText16
+---------

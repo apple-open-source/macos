@@ -1,0 +1,47 @@
+XCOMM X-TrueType Server - TrueType rasterizer for X
+XCOMM $XFree86: xc/lib/font/X-TrueType/Imakefile,v 1.9 2002/02/13 21:32:48 dawes Exp $
+
+#define IHaveSubdirs
+#define PassCDebugFlags CDEBUGFLAGS="$(CDEBUGFLAGS)"
+
+#if BuildServer && DoLoadableServer
+MODULE_SUBDIRS = module
+#endif
+
+INCLUDES = -I. -I$(FONTINCSRC) -I../include -I../fontcache \
+           -I$(XINCLUDESRC) -I$(SERVERSRC)/include \
+           -I$(FTSOURCEDIR)/lib -I$(FTSOURCEDIR)/lib/extend \
+           -I$(FTSOURCEDIR)/lib/arch/unix -I$(FONTLIBSRC)/FreeType
+
+DEFINES = -DTT_MAKE_OPTION_SINGLE_OBJECT=1  -DTT_CONFIG_OPTION_EXTEND_ENGINE \
+	  $(FONTMODULEDEF) \
+	  $(XTT_DEBUG_FLAGS) $(XTT_CCONV_MOUDLE_DEFINES) \
+	  $(XTT_USE_OPT_ENC_DEFINES)
+
+#include "Imakefile.inc"
+
+CCONVHEADERS = \
+  xttcap.h xttcconv.h xttcconvP.h xttcommon.h xttversion.h cconvversion.h
+#if XTrueTypeInstallCConvHeaders
+CCONVINSTDIR = XTrueTypeCConvIncDir
+InstallMultipleFlags($(CCONVHEADERS),$(CCONVINSTDIR),$(INSTINCFLAGS))
+#endif
+
+#if BuildFontLib && XTTInLibXFont
+#define DoNormalLib NormalLibFont
+#define DoSharedLib SharedLibFont
+#define DoDebugLib DebugLibFont
+#define DoProfileLib ProfileLibFont
+#include <Library.tmpl>
+LibraryObjectRule()
+
+SubdirLibraryRule($(OBJS))
+NormalLintTarget($(SRCS))
+#endif
+
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))
+
+DependTarget()
+
+XCOMM end of Imakefile

@@ -1,0 +1,59 @@
+// $Xorg: pl,v 1.3 2000/08/17 19:54:43 cpqbld Exp $
+
+
+
+
+// $XFree86: xc/programs/xkbcomp/symbols/pl,v 3.5 2001/01/17 23:45:59 dawes Exp $
+
+partial default alphanumeric_keys 
+xkb_symbols "basic" {
+
+    // Describes the differences between a very simple en_US
+    // keyboard and a very simple Polish keybaord
+
+    name[Group1]= "Polish";
+
+    key <AC01> {	[	        			],
+			[	  aogonek,         Aogonek	]	};
+    key <AB03> {	[                               	],	
+			[          cacute,          Cacute	]	};
+    key <AD03> {	[                                      	],	
+			[         eogonek,         Eogonek	]	};
+    key <AC09> {	[                                       ],
+			[	  lstroke,	   Lstroke	]	};
+    key	<AB06> {	[	                            	],	
+			[          nacute,          Nacute	]	};
+    key	<AD09> {	[	                        	],	
+			[          oacute,       Oacute        	]	};
+    key <AC02> {	[	         			],
+			[	   sacute,          Sacute	]	};
+    key <AB02> {	[                               	],	
+			[          zacute,          Zacute 	]	};
+    key <AB01> {	[	        			],
+			[	zabovedot,       Zabovedot	]	};
+    // End alphanumeric section
+
+    // Begin mofifier mappings
+    
+    modifier_map Shift  { Shift_L };
+    modifier_map Lock   { Caps_Lock };
+    modifier_map Control{ Control_L };
+    modifier_map Mod3   { Mode_switch };
+};
+
+partial alphanumeric_keys 
+xkb_symbols "Sundeadkeys" {
+    include "pl(basic)" // for consistent naming
+};
+
+partial alphanumeric_keys 
+xkb_symbols "sundeadkeys" {
+    include "pl(Sundeadkeys)" // for consistent naming
+};
+
+partial alphanumeric_keys 
+xkb_symbols "nodeadkeys" {
+    include "pl(basic)" // for consistent naming
+};
+// end of file /usr/X11R6/bin/X11/xkb/symbols/pl
+

@@ -1,8 +1,0 @@
-Generally, the GNU Assembler (GAS) is built as part of the cctools project and
-resides in the 'as' directory.  However, it is possible to copy only the GAS
-sources to a separate directory, and compile GAS standalone using the following
-commands:
-
-$ make installGASsrc SRCROOT=/tmp/gas
-$ cd /tmp/gas
-$ make fromGASsrc

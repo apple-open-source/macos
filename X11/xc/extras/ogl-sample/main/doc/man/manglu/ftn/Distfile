@@ -1,0 +1,64 @@
+#
+# $Date$ $Revision$
+# $Header: //depot/main/doc/man/manglu/ftn/Distfile#5 $
+#
+
+DISTDIR_SI = /xc/doc/man/GL/glu_ftn
+
+DISTFILES_SI = \
+	Imakefile \
+	fglubegincurve.3gl \
+	fglubeginpolygon.3gl \
+	fglubeginsurface.3gl \
+	fglubegintrim.3gl \
+	fglubuild1dmipmaplevels.3gl \
+	fglubuild1dmipmaps.3gl \
+	fglubuild2dmipmaplevels.3gl \
+	fglubuild2dmipmaps.3gl \
+	fglubuild3dmipmaplevels.3gl \
+	fglubuild3dmipmaps.3gl \
+	fglucheckextension.3gl \
+	fglucylinder.3gl \
+	fgludeletenurbsrenderer.3gl \
+	fgludeletequadric.3gl \
+	fgludeletetess.3gl \
+	fgludisk.3gl \
+	fgluerrorstring.3gl \
+	fglugetnurbsproperty.3gl \
+	fglugetstring.3gl \
+	fglugettessproperty.3gl \
+	fgluloadsamplingmatrices.3gl \
+	fglulookat.3gl \
+	fglunewnurbsrenderer.3gl \
+	fglunewquadric.3gl \
+	fglunewtess.3gl \
+	fglunextcontour.3gl \
+	fglunurbscallback.3gl \
+	fglunurbscallbackdata.3gl \
+	fglunurbscallbackdataext.3gl \
+	fglunurbscurve.3gl \
+	fglunurbsproperty.3gl \
+	fglunurbssurface.3gl \
+	fgluortho2d.3gl \
+	fglupartialdisk.3gl \
+	fgluperspective.3gl \
+	fglupickmatrix.3gl \
+	fgluproject.3gl \
+	fglupwlcurve.3gl \
+	fgluquadriccallback.3gl \
+	fgluquadricdrawstyle.3gl \
+	fgluquadricnormals.3gl \
+	fgluquadricorientation.3gl \
+	fgluquadrictexture.3gl \
+	fgluscaleimage.3gl \
+	fglusphere.3gl \
+	fglutessbegincontour.3gl \
+	fglutessbeginpolygon.3gl \
+	fglutesscallback.3gl \
+	fglutessendpolygon.3gl \
+	fglutessnormal.3gl \
+	fglutessproperty.3gl \
+	fglutessvertex.3gl \
+	fgluunproject.3gl \
+	fgluunproject4.3gl \
+	$(NULL)

@@ -1,0 +1,58 @@
+.\" $Xorg: constype.man,v 1.3 2000/08/17 19:48:29 cpqbld Exp $
+.\"
+.\" $XFree86: xc/programs/Xserver/hw/sun/constype.man,v 1.6 2001/01/27 18:20:41 dawes Exp $
+.\"
+.TH CONSTYPE 1 __xorgversion__
+.SH NAME
+constype \- print type of Sun console
+.SH SYNOPSIS
+.B "constype"
+[
+.I device_name
+] [
+.B \-num
+]
+.SH DESCRIPTION
+The 
+.I constype
+program
+writes on the standard output the Sun code for the type of display
+that the console is.
+The types output include these:
+.sp 2
+.in +0.5i
+.nf
+bw?	Black and White, where ? is 1-4. (eg) 3-50s are bw2
+cg?	Colour Graphics display, where ? is 1-4
+gp?	Optional Graphics Processor board, where ? is 1-2
+ns?	Not Sun display \(em where ? is A-J
+.fi
+.in -0.5i
+.sp 2
+This is useful in determining startup values and defaults for window
+systems.
+.LP
+The
+.I device_name
+argument, if given, is the device to examine.
+If not given,
+.I /dev/fb
+is used.
+.LP
+The
+.B \-num
+option causes
+.I constype
+to follow the type keyword with the numeric value of that type,
+as returned by the FBIOGATTR or FBIOGTYPE ioctl and defined in fbio.h.
+This is useful if the type is not recognized by the program.
+.SH "EXIT STATUS"
+The program exits with status 0 if it identified a known console type,
+1 if the type was unknown, and 2 if the device could not be opened or
+another error occurred.
+.SH BUGS
+Not tested on all monitor types
+.SH COPYRIGHT 
+Copyright 1988, SRI
+.SH AUTHOR
+Doug Moran <moran@ai.sri.com>

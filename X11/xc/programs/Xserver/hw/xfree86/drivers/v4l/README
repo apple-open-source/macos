@@ -1,0 +1,37 @@
+
+ Video 4 Linux adaptor driver for XFree86 v4.0
+
+ Developed by Gerd Knorr <kraxel@goldbach.in-berlin.de> and
+	David Woodhouse <David.Woodhouse@mvhi.com>
+
+----------------------------------------------------------------------------
+
+ This chipset driver does not provide a graphics adaptor driver, but instead
+ registers a number of generic Xv adaptors which can be used with any graphics
+ chipset driver.
+
+ In order to use v4l adaptors with your favourite graphics driver, the
+ graphics driver must do two things:
+
+ 1. Correctly set pScrn->memPhysBase and pScrn->fbOffset for the screens that
+	it provides, to the physical address of the frame buffer memory, and
+	the offset within that memory that the current mode starts,
+	respectively.
+
+ 2. Use the xf86XVListGenericAdaptors() routine to list all available Xv
+	adaptors which are usable with any target device, and initialise
+	them on its screens with xf86XVScreenInit() as follows...
+
+	    {
+	       XF86VideoAdaptorPtr *ptr;
+
+	       int xvexts = xf86XVListGenericAdaptors(&ptr);
+
+	       if (xvexts) {
+	           xf86XVScreenInit(pScreen, ptr, xvexts);
+	       }
+	    }
+ 
+
+
+$XFree86: xc/programs/Xserver/hw/xfree86/drivers/v4l/README,v 1.2 2001/05/07 21:59:07 tsi Exp $

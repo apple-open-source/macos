@@ -1,0 +1,26 @@
+
+// based on a keyboard
+// Created by Cristian Gafton, <gafton@redhat.com> (C) 2000
+// Modified by Miºu Moldovan, <dumol@go.ro> (C) 2001
+// Modified by Marius Andreiana, <mandreiana@yahoo.com> (C) 2001
+//
+// $XFree86: xc/programs/xkbcomp/symbols/pc/ro,v 1.2 2002/11/22 04:03:28 dawes Exp $
+
+default partial alphanumeric_keys
+xkb_symbols "basic" {
+
+    include "pc/latin"
+
+    name[Group1]="Romanian";
+
+    key <AD01>	{ [         q,          Q,  acircumflex,  Acircumflex ]	};
+    key <AD05>	{ [         t,          T,     tcedilla,     Tcedilla ]	};
+    key <AD08>	{ [         i,          I,  icircumflex,  Icircumflex ]	};
+
+    key <AC01>	{ [         a,          A,       abreve,       Abreve ]	};
+    key <AC02>	{ [         s,          S,     scedilla,     Scedilla ]	};
+
+    key <RALT>  { type[Group1]="TWO_LEVEL",
+                  [ ISO_Level3_Shift, Multi_key ]   };
+    modifier_map Mod5   { <RALT> };
+};

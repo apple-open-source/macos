@@ -1,0 +1,168 @@
+<!DOCTYPE linuxdoc PUBLIC "-//XFree86//DTD linuxdoc//EN">
+<article>
+
+<title> Information for Trident Chipset Users
+<author> The XFree86 Project, Inc.
+<date> March 7th 2000
+<toc>
+
+<sect> Supported chipsets <p>
+The Trident driver has the following list of chipsets supported for &relvers;
+
+<quote><bf>
+8900CL/D 9440AGi 9660XGi 9680 ProVidia9682 Pro-Vidia9685
+Cyber9382 Cyber9385 Cyber9385-1 Cyber9388 Cyber9397
+Cyber9520 Cyber9525 Cyber9540 3DImage975(PCI) 3DImage975(AGP)
+3DImage985(AGP) Blade3D CyberBlade/i7 CyberBlade/i1 CyberBlade/e4/128
+</bf></quote>
+It must be noted that the 9000i chipset is treated as a 9000 by the server.
+Additionally the 9100B is treated 
+as a Trident 8900CL. Therefore it is equivalent to putting 
+`<tt>Chipset "tvga8900cl"</tt>' or
+`<tt>Chipset "tvga9000"</tt>' in the <tt>XF86Config</tt> file.  Also, 
+note that the 9000i, 9100B have not been tested with the server, 
+but should work in this way according to the chipset documentation.
+
+<bf> NOTES: </bf>
+<itemize>
+<item> The chipset keyword changed in XFree86 v3.3.2 and now you
+no longer specify 'tgui96xx' as the generic keyword, but you actually
+specify your chip. i.e. Chipset 'tgui9685' will set a ProVidia9685 chip.
+<item> The Cyber9388/9397, 3DImage975 and 3DImage985 cards are fixed in
+XFree86 v3.3.3, these chipsets have some acceleration now too. This
+acceleration has been disabled by default for the Cyber9388/9397
+because there have been problems, but it can be re-enabled with the
+<tt>"accel"</tt> option (see below).
+<item> 24bpp is all drivers remains unaccelerated, this will change in
+a future version, although 32bpp acceleration is supported for all TGUI
+based chipset except the 9440 which doesn't have the capability.
+<item> 16bpp is now supported for the Cyber9320 chipset.
+<descrip>
+<tag>Option "nolinear"</tag>
+	Turn off linear mapping
+<tag>Option "linear"</tag>
+	Force linear mapping.  Use this if you have a non-PCI card and
+	require 16bpp support.  Note: ISA cards can only access up to
+	16MB of memory, so be sure you have less than this or it could
+	cause a system hang.
+<tag>MemBase 0x???????</tag>
+	This option may be used to specify the start address of the linear
+	frame buffer. By default for VLBus/EISA cards it is at 60MB.
+	For the 8900CL/D, it is at 15MB.
+<tag>Option "no_mmio"</tag>
+	This option turns off Memory Mapped IO support.  MMIO is enabled
+	by default when acceleration is enabled.  Acceleration doesn't work
+	well when MMIO is disabled.
+<tag>Option "tgui_pci_read_on"</tag>
+	Turn on PCI burst read mode.
+<tag>Option "tgui_pci_write_on"</tag>
+	Turn on PCI burst write mode.
+<tag>Option "pci_burst_on"</tag>
+	Turn on PCI burst (read and write)
+<tag>Option "pci_burst_off"</tag>
+	Turn off PCI burst (read and write)
+	<p>NOTE: PCI burst modes are now OFF by default for TGUI9440 cards
+        because it often upsets its Graphics Accelerator.  It can be
+	turned it back on as may improve performance.
+	PCI burst modes are ON by default for all other PCI/AGP cards.
+<tag>ClockChip "tgui"</tag>
+	Turn on programmable clocks.  This is the default for TGUIs.
+<tag>Option "no_program_clocks"</tag>
+	Turn off programmable clock. Use fixed VGA clocks only.
+	Useful for fixed frequency monitors - usually used for VGA
+	monitors - not SVGA.
+<tag>Option "noaccel"</tag>
+	Turn off XAA acceleration.
+<tag>Option "accel"</tag>
+	Enable acceleration for the Cyber9388/9397.
+<tag>Option "xaa_no_color_exp"</tag>
+	Disable color expansion.
+<tag>Option "no_stretch"</tag>
+	Disable LCD stretching on Cyber 938x based chips.
+<tag>Option "lcd_center"</tag>
+	Enable LCD centering on Cyber 938x based chips.
+<tag>Option "cyber_shadow"</tag>
+	Enable Shadow registers, might be needed for some
+	Cyber chipsets. (laptop machines) 
+<tag>Option "tgui_mclk_66"</tag>
+	Pushes the Memory Clock from its default value to 66MHz.
+	Increases graphics speed dramatically, but use entirely
+	at your own risk, as it may damage the video card. 
+	If snow appears, disable. Only tested on the 9440.
+</descrip>
+</itemize>
+
+The original Trident chipset, 8800BR, cannot be supported as an SVGA chipset 
+by either the color or monochrome servers.  The chip is supported, however, 
+by the ``generic'' driver for the monochrome server.
+
+<sect> Special considerations for 512k boards <p>
+There are no longer any special considerations for 512k Trident boards.
+The driver is now configured so that they can use modes with normal
+timings.  The available pixel clocks are halved compared with those
+specified on the Clocks line
+
+Be aware that older Trident chipsets support a maximum clock of 65Mhz.  Hence 
+the best actual clock available to the color server is 32.5Mhz.  This means, 
+in broad terms, that the color server will require an interlaced mode to be 
+defined for resolutions above 640x480.  Newer chipsets (8900CL, 9000, 9000i,
+9100B, 9200CX and 9420) support up to 16 clocks, and can support much higher
+clocks, which will allow 800x600 modes, non-interlaced.
+
+<sect> Additional Notes <p>
+We have had reports of the server failing to detect the amount of installed
+memory and the correct dot-clocks on older TVGA8900 boards.  If the server 
+fails to detect the correct amount of memory, use the <tt>"Videoram"</tt>
+keyword in your <tt>XF86Config</tt> file to specify it.
+(e.g. <tt>Videoram 512</tt> or <tt>Videoram 1024</tt>).  If 
+the server has problems detecting the dot-clocks, try adding the following 
+line to your <tt>XF86Config</tt> file:
+<verb>
+        Clocks  25 28 45 36 57 65 50 40
+</verb>
+This line gives the clock values provided by older Trident clock synthesizer
+chipsets.  This also appears to be the standard first 8 clocks for the newer
+clock synthesizers, but you should have no problems on newer boards.
+  
+Some newer Trident 8900B/C boards are apparently being built with the clock
+synthesizers used on the 9000 and 8900CL boards.  If your board has a chip
+labeled "Trident TCK900x" ("x" has been seen as 2 or 4; there may be others),
+your board may actually have a 4th clock select bit.  The 9002 has twelve
+distinct clocks (the other 4 are duplicates); the 9004 has 16 clocks (the
+same 12 as the 9002 + 4 others).  If you see such a chip on a board with
+an 8900B or 8900C, put the following line in the Device section of your
+<tt>XF86Config</tt> file:
+<verb>
+        Option "16clocks"
+</verb>
+This will cause the same clock selection code as is used for the 8900CL to
+be used for the board.
+
+While developing the Trident driver, an interesting and perturbing hardware
+phenomenon was discovered.  When using the default board jumper configuration,
+dot-clocks above 57Mhz would frequently lock up the machine.  There appear
+to be jumpers on all of the Trident boards that determine whether the
+board will operate in zero-wait-state mode on the ISA bus.  Disabling the
+zero-wait-state mode via jumpers cured the lockups, but at the expense
+of performance.  Whether or not a given system will experience this problem
+is likely a combination of (a) bus speed, (b) video memory speed, and (c) dot
+clock speed.  So be prepared for this phenomenon to occur, and have the board
+documentation handy.
+
+NOTE: VLBus cards are also subject to the above. By specifying the Clocks
+in the <tt>XF86Config</tt> file, these lockups are overcome. But it may
+be worth checking wait states etc. on the card and in the BIOS setup.
+
+<verb>
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/trident.sgml,v 3.25 2000/03/19 16:43:51 dawes Exp $
+
+
+
+
+
+
+$XConsortium: trident.sgml /main/11 1996/10/28 04:24:08 kaleb $
+</verb>
+
+</article>
+

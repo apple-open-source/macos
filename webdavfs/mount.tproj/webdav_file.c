@@ -95,9 +95,11 @@ done:
  * storing a cache file fd, open/create a new temp file and return it.
  * Otherwise, return the stored cache file fd.
  */
-static int get_cachefile(char *name, int *fd)
+static int get_cachefile(int *fd)
 {
 	int error, mutexerror;
+	char pathbuf[MAXPATHLEN];
+	int retrycount;
 	
 	error = 0;
 	
@@ -112,16 +114,52 @@ static int get_cachefile(char *name, int *fd)
 	if ( webdav_cachefile < 0 )
 	{
 		/* no, so create a temp file */
-		*fd = mkstemp(name);
-		if ( *fd != -1 )
+		retrycount = 0;
+		/* don't get stuck here forever */
+		while ( retrycount < 5 )
 		{
-			/* unlink it so the last close will delete it */
-			(void)unlink(name);
-		}
-		else
-		{
-			syslog(LOG_ERR, "get_cachefile: mkstemp(): %s", strerror(errno));
-			error = errno;
+			++retrycount;
+			error = 0;
+			if (*webdavcache_path == '\0')
+			{
+				/* create a template with our pid */
+				sprintf(webdavcache_path, "%s.%lu.XXXXXX", _PATH_TMPWEBDAVDIR, (unsigned long)getpid());
+				
+				/* create the cache directory */
+				if ( mkdtemp(webdavcache_path) == NULL )
+				{
+					error = errno;
+					syslog(LOG_ERR, "get_cachefile: mkdtemp(): %s", strerror(error));
+					break;	/* break with error */
+				}
+			}
+			
+			/* create a template for the cache file */
+			sprintf(pathbuf, "%s/%s", webdavcache_path, _WEBDAVCACHEFILE);
+			
+			/* crate and open the cache file */
+			*fd = mkstemp(pathbuf);
+			if ( *fd != -1 )
+			{
+				/* unlink it so the last close will delete it */
+				(void)unlink(pathbuf);
+				break;	/* break with success */
+			}
+			else
+			{
+				error = errno;
+				if ( ENOENT == error )
+				{
+					/* the webdavcache_path directory is missing, clear the old one and try again */
+					*webdavcache_path = '\0';
+					continue;
+				}
+				else
+				{
+					syslog(LOG_ERR, "get_cachefile: mkstemp(): %s", strerror(error));
+					break;	/* break with error */
+				}
+			}
 		}
 	}
 	else
@@ -193,30 +231,6 @@ die:
 
 /*****************************************************************************/
 
-void name_tempfile(buf, seed_prefix)
-	char *buf;			/* buf must be of size MAXPATHLEN */
-	char *seed_prefix;	/* seed_prefix must be a pointer to a null-terminated string (or a NULL pointer) */
-{
-	char *cp;
-
-	if (buf)
-	{
-		if ((seed_prefix == (char *)NULL) ||
-			(*seed_prefix == '\0') ||
-			(strlen(seed_prefix) > (MAXPATHLEN - strlen(_PATH_TMPWEBDAVDIR) - strlen(_WEBDAVTMPEXT) - 2)))
-		{
-			cp = GENERIC_SEED_PREFIX;
-		}
-		else
-		{
-			cp = seed_prefix;
-		}
-		sprintf(buf, "%s/%s%s", _PATH_TMPWEBDAVDIR, cp, _WEBDAVTMPEXT);
-	}
-}
-
-/*****************************************************************************/
-
 static
 int getfrommemcache(char *key, struct fetch_state *volatile fs,
 	struct file_array_element *file_array_elem)
@@ -272,7 +286,6 @@ int webdav_open(proxy_ok, pcr, key, a_socket, so, fdp, file_type, a_file_handle)
 	webdav_filehandle_t *a_file_handle;
 {
 	#pragma unused(so)
-	char pbuf[MAXPATHLEN];
 	char *utf8_key;
 	struct webdav_lock_struct lock_struct;
 	int error, error2;
@@ -325,19 +338,12 @@ int webdav_open(proxy_ok, pcr, key, a_socket, so, fdp, file_type, a_file_handle)
 	  exiting this function.
 	 */
 
-	name_tempfile(pbuf, fs.fs_outputfile);
-	fs.fs_outputfile = pbuf;
-
 	/* get a cache file */
-	error = get_cachefile(fs.fs_outputfile, &theCacheFile);
+	error = get_cachefile(&theCacheFile);
 	if ( error )
 	{
 		return (error);
 	}
-
-#ifdef DEBUG
-	fprintf(stderr, "Output file for open is %s, glast=%d\n", fs.fs_outputfile, glast_array_element);
-#endif
 
 	error = pthread_mutex_lock(&garray_lock);
 	if (error)
@@ -375,21 +381,22 @@ int webdav_open(proxy_ok, pcr, key, a_socket, so, fdp, file_type, a_file_handle)
 
 	if ((arrayelem != -1) &&
 		(gfile_array[arrayelem].fd != -1) &&
-		gfile_array[arrayelem].cachetime && /* *** just for now *** */
 		gfile_array[arrayelem].file_type == WEBDAV_FILE_TYPE &&
 		(!memcmp(utf8_key, gfile_array[arrayelem].uri, strlen(utf8_key))))
 	{
 		/* save the cache file */
 		save_cachefile(theCacheFile);
 		
-#ifdef NOT_YET
+		/* is this cache entry closed? (cachetime is set to non-zero by webdav_close) */
 		if (!gfile_array[arrayelem].cachetime)
 		{
-			/* *** We really should return an error to the kernel, telling it
-			  to repeat the lookup, but for now, just keep going.
-			*** */
+			/* We found a cache entry that's open which means another open request
+			 * was being executed while we waiting for the garray_lock mutex.
+			 * Send back EAGAIN to the kernel and let it retry again.
+			 */
+			error = EAGAIN;
+			goto free_unlock_done;
 		}
-#endif
 
 		/* We found the element we needed so we're good,  Since
 		  we have the actual contents set the mirror flag
@@ -413,7 +420,7 @@ int webdav_open(proxy_ok, pcr, key, a_socket, so, fdp, file_type, a_file_handle)
 
 #ifdef DEBUG
 		fprintf(stderr, "webdav_open: path = %s, uid = %d, gid = %d, fflag = %x, oflag = %x\n",
-			pbuf, pcr->pcr_uid, pcr->pcr_groups[0], pcr->pcr_flag, (pcr->pcr_flag) - 1);
+			fs.fs_outputfile, pcr->pcr_uid, pcr->pcr_groups[0], pcr->pcr_flag, (pcr->pcr_flag) - 1);
 #endif
 
 		/* Find an open array element in our file table and open the file again
@@ -987,7 +994,6 @@ int webdav_lookupinfo(proxy_ok, pcr, key, a_socket, a_file_type)
 	int *a_socket;
 	webdav_filetype_t *a_file_type;
 {
-	char pbuf[MAXPATHLEN];
 	char *utf8_key;
 	int error;
 	struct fetch_state fs;
@@ -1014,16 +1020,6 @@ int webdav_lookupinfo(proxy_ok, pcr, key, a_socket, a_file_type)
 		goto done;
 	}
 
-	/* After the call to http parse, the fs structure will have all
-	  the right settings except that it will have set pbuf */
-
-	name_tempfile(pbuf, fs.fs_outputfile);
-	fs.fs_outputfile = pbuf;
-
-#ifdef DEBUG
-	fprintf(stderr, "Output file for lookup is %s, glast=%d\n", fs.fs_outputfile, glast_array_element);
-#endif
-
 	error = make_request(&fs, http_lookup, (void *)a_file_type, WEBDAV_FS_CLOSE);
 	if (error)
 	{
@@ -1047,7 +1043,6 @@ int webdav_stat(proxy_ok, pcr, key, a_socket, so, statbuf)
 	struct vattr *statbuf;
 {
 	#pragma unused(so)
-	char pbuf[MAXPATHLEN];
 	char *utf8_key;
 	int error;
 	struct fetch_state fs;
@@ -1083,17 +1078,6 @@ int webdav_stat(proxy_ok, pcr, key, a_socket, so, statbuf)
 		goto done;
 	}
 
-	/* After the call to http parse, the fs structure will have all
-	  the right settings except that fs_outputfile will be incomplete.  
-	*/
-
-	name_tempfile(pbuf, fs.fs_outputfile);
-	fs.fs_outputfile = pbuf;
-
-#ifdef DEBUG
-	fprintf(stderr, "Output file for stat is %s, glast=%d\n", fs.fs_outputfile, glast_array_element);
-#endif
-
 	/* Set up the stat structure which we will use for the call to http_stat */
 
 	statstruct.orig_uri = key;
@@ -1119,7 +1103,6 @@ int webdav_statfs(proxy_ok, pcr, key, a_socket, so, statfsbuf)
 	struct statfs *statfsbuf;
 {
 	#pragma unused(so)
-	char pbuf[MAXPATHLEN];
 	char *utf8_key;
 	int error;
 	struct fetch_state fs;
@@ -1160,17 +1143,6 @@ int webdav_statfs(proxy_ok, pcr, key, a_socket, so, statfsbuf)
 		goto done;
 	}
 
-	/* After the call to http parse, the fs structure will have all
-	  the right settings except that fs_outputfile will be incomplete.  
-	*/
-
-	name_tempfile(pbuf, fs.fs_outputfile);
-	fs.fs_outputfile = pbuf;
-
-#ifdef DEBUG
-	fprintf(stderr, "Output file for stat is %s, glast=%d\n", fs.fs_outputfile, glast_array_element);
-#endif
-
 	error = make_request(&fs, http_statfs, (void *)statfsbuf, WEBDAV_FS_CLOSE);
 	if (error)
 	{
@@ -1194,7 +1166,6 @@ int webdav_mount(proxy_ok, key, a_socket, a_mount_args)
 	int *a_socket;
 	int *a_mount_args;
 {
-	char pbuf[MAXPATHLEN];
 	char *utf8_key;
 	int error;
 	struct fetch_state fs;
@@ -1232,17 +1203,6 @@ int webdav_mount(proxy_ok, key, a_socket, a_mount_args)
 	{
 		goto done;
 	}
-
-	/* After the call to http parse, the fs structure will have all
-	  the right settings except that fs_outputfile will be incomplete.  
-	*/
-
-	name_tempfile(pbuf, fs.fs_outputfile);
-	fs.fs_outputfile = pbuf;
-
-#ifdef DEBUG
-	fprintf(stderr, "Output file for mount is %s, glast=%d\n", fs.fs_outputfile, glast_array_element);
-#endif
 
 	error = make_request(&fs, http_mount, (void *)a_mount_args, WEBDAV_FS_CLOSE);
 	if (error)
@@ -1287,7 +1247,6 @@ int webdav_create(proxy_ok, pcr, key, a_socket, file_type)
 	int *a_socket;
 	webdav_filetype_t file_type;
 {
-	char pbuf[MAXPATHLEN];
 	char *utf8_key;
 	int error;
 	struct fetch_state fs;
@@ -1315,15 +1274,6 @@ int webdav_create(proxy_ok, pcr, key, a_socket, file_type)
 	{
 		goto error;
 	}
-
-	/* After the call to http parse, the fs structure will have all
-	  the right settings except that fs_outputfile will be incomplete.  
-	  Even though we are not doing a retrievel, we still need to set 
-	  pbuf so that http_get_body will have a place to put any 
-	  extraneous data that comes back on the reply. */
-
-	name_tempfile(pbuf, fs.fs_outputfile);
-	fs.fs_outputfile = pbuf;
 
 	if (file_type == WEBDAV_FILE_TYPE)
 	{
@@ -1384,7 +1334,6 @@ int webdav_read_bytes(proxy_ok, pcr, key, a_socket, a_byte_addr, a_size)
 	off_t *a_size;
 {
 	char *utf8_uri,  *uri;
-	char pbuf[MAXPATHLEN];
 	int error;
 	struct fetch_state fs;
 	struct http_state *https;
@@ -1418,15 +1367,6 @@ int webdav_read_bytes(proxy_ok, pcr, key, a_socket, a_byte_addr, a_size)
 	{
 		goto first_free;
 	}
-
-	/* After the call to http parse, the fs structure will have all
-	  the right settings except that it will have set pbuf.	 Even though
-	  we are not doing a retrievel, we still need to set pbuf so that
-	  get_body will have a place to put any extraneous data that comes
-	  back on the reply. */
-
-	name_tempfile(pbuf, fs.fs_outputfile);
-	fs.fs_outputfile = pbuf;
 
 	bzero(&byte_info, sizeof(byte_info));
 	byte_info.num_bytes = ((webdav_byte_read_header_t *)key)->wd_num_bytes;
@@ -1463,7 +1403,6 @@ int webdav_rename(proxy_ok, pcr, key, a_socket)
 {
 	char *f_utf8_key,  *f_key, 					/* original / "from" */
     *t_utf8_key,  *t_key;						/* new / "to" */
-	char pbuf[MAXPATHLEN];
 	int error = 0, error2 = 0;
 	int from_gindex = -1, to_gindex = -1;
 	struct fetch_state fs;
@@ -1495,15 +1434,6 @@ int webdav_rename(proxy_ok, pcr, key, a_socket)
 	{
 		goto first_free;
 	}
-
-	/* After the call to http parse, the fs structure will have all
-	  the right settings except that fs_outputfile will be incomplete.  
-	  Even though we are not doing a retrievel, we still need to set 
-	  pbuf so that http_get_body will have a place to put any 
-	  extraneous data that comes back on the reply. */
-
-	name_tempfile(pbuf, fs.fs_outputfile);
-	fs.fs_outputfile = pbuf;
 
 	/* Now set up the complete second uri */
 
@@ -1677,7 +1607,6 @@ int webdav_delete(proxy_ok, pcr, key, a_socket, file_type)
 	int *a_socket;
 	webdav_filetype_t file_type;
 {
-	char pbuf[MAXPATHLEN];
 	char *utf8_key;
 	int error = 0, error2 = 0;
 	int arrayelem = -1;
@@ -1705,15 +1634,6 @@ int webdav_delete(proxy_ok, pcr, key, a_socket, file_type)
 	{
 		goto done;
 	}
-
-	/* After the call to http parse, the fs structure will have all
-	  the right settings except that fs_outputfile will be incomplete.  
-	  Even though we are not doing a retrievel, we still need to set 
-	  pbuf so that http_get_body will have a place to put any 
-	  extraneous data that comes back on the reply. */
-
-	name_tempfile(pbuf, fs.fs_outputfile);
-	fs.fs_outputfile = pbuf;
 
 	if (file_type == WEBDAV_FILE_TYPE)
 	{
@@ -1955,7 +1875,6 @@ int webdav_refreshdir(proxy_ok, pcr, file_handle, a_socket, cache_appledoublehea
 {
 	int error, newerror;
 	struct fetch_state fs;
-	char pbuf[MAXPATHLEN];
 	struct webdav_refreshdir_struct refreshdirstruct;
 
 	error = pthread_mutex_lock(&garray_lock);
@@ -1984,16 +1903,6 @@ int webdav_refreshdir(proxy_ok, pcr, file_handle, a_socket, cache_appledoublehea
 	{
 		goto unlock_finish;
 	}
-
-	/* After the call to http parse, the fs structure will have all
-	  the right setting to do the retrieval except that the output file
-	  will be going to the wrong place.  We'll update that here by adding
-	  the prefix for our cache directory and then go get the file. Note that
-	  it is possible for us to have a null file becuase this is the root.
-	  We'll use the generic name in that case.*/
-
-	name_tempfile(pbuf, fs.fs_outputfile);
-	fs.fs_outputfile = pbuf;
 
 	refreshdirstruct.file_array_elem = &gfile_array[file_handle];
 	refreshdirstruct.cache_appledoubleheader = cache_appledoubleheader;

@@ -1,0 +1,63 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nv/Imakefile,v 1.19 2003/02/17 17:06:43 dawes Exp $
+XCOMM
+XCOMM This is an Imakefile for the NVIDIA driver.  
+XCOMM
+
+#define IHaveModules
+#include <Server.tmpl>
+
+SRCS = nv_driver.c nv_dac.c nv_setup.c nv_cursor.c nv_xaa.c nv_dga.c \
+       nv_shadow.c riva_hw.c nv_video.c
+
+OBJS = nv_driver.o nv_dac.o nv_setup.o nv_cursor.o nv_xaa.o nv_dga.o \
+       nv_shadow.o riva_hw.o nv_video.o
+
+
+#if defined(XF86DriverSDK)
+INCLUDES = -I. -I../../include
+#else
+INCLUDES = -I. -I$(XF86COMSRC) -I$(XF86OSSRC) \
+           -I$(SERVERSRC)/mfb -I$(SERVERSRC)/mi \
+           -I$(SERVERSRC)/cfb -I$(XF86SRC)/xaa -I$(XF86SRC)/rac \
+           -I$(XF86SRC)/vgahw -I$(XF86SRC)/fbdevhw \
+           -I$(XF86SRC)/ramdac -I$(XF86SRC)/ddc -I$(XF86SRC)/i2c \
+           -I$(SERVERSRC)/Xext -I$(XF86SRC)/int10 \
+           -I$(FONTINCSRC) -I$(SERVERSRC)/include -I$(XINCLUDESRC) \
+           -I$(XF86SRC)/shadowfb -I$(EXTINCSRC) -I$(SERVERSRC)/fb \
+	   -I$(SERVERSRC)/render -I$(XF86SRC)/vbe
+#endif
+DEFINES = -DPSZ=8
+
+#if MakeHasPosixVariableSubstitutions
+SubdirLibraryRule($(OBJS))
+#endif
+
+ModuleObjectRule()
+
+ObjectModuleTarget(nv,$(OBJS))
+
+InstallObjectModule(nv,$(MODULEDIR),drivers)
+
+#if !defined(XF86DriverSDK)
+InstallModuleManPage(nv)
+#endif
+
+DependTarget()
+
+InstallDriverSDKNonExecFile(Imakefile,$(DRIVERSDKDIR)/drivers/nv)
+InstallDriverSDKNonExecFile(nv_const.h,$(DRIVERSDKDIR)/drivers/nv)
+InstallDriverSDKNonExecFile(nv_cursor.c,$(DRIVERSDKDIR)/drivers/nv)
+InstallDriverSDKNonExecFile(nv_dac.c,$(DRIVERSDKDIR)/drivers/nv)
+InstallDriverSDKNonExecFile(nv_dga.c,$(DRIVERSDKDIR)/drivers/nv)
+InstallDriverSDKNonExecFile(nv_driver.c,$(DRIVERSDKDIR)/drivers/nv)
+InstallDriverSDKNonExecFile(nv_include.h,$(DRIVERSDKDIR)/drivers/nv)
+InstallDriverSDKNonExecFile(nv_local.h,$(DRIVERSDKDIR)/drivers/nv)
+InstallDriverSDKNonExecFile(nv_proto.h,$(DRIVERSDKDIR)/drivers/nv)
+InstallDriverSDKNonExecFile(nv_setup.c,$(DRIVERSDKDIR)/drivers/nv)
+InstallDriverSDKNonExecFile(nv_video.c,$(DRIVERSDKDIR)/drivers/nv)
+InstallDriverSDKNonExecFile(nv_shadow.c,$(DRIVERSDKDIR)/drivers/nv)
+InstallDriverSDKNonExecFile(nv_type.h,$(DRIVERSDKDIR)/drivers/nv)
+InstallDriverSDKNonExecFile(nv_xaa.c,$(DRIVERSDKDIR)/drivers/nv)
+InstallDriverSDKNonExecFile(riva_hw.c,$(DRIVERSDKDIR)/drivers/nv)
+InstallDriverSDKNonExecFile(riva_hw.h,$(DRIVERSDKDIR)/drivers/nv)
+InstallDriverSDKNonExecFile(riva_tbl.h,$(DRIVERSDKDIR)/drivers/nv)

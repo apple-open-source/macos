@@ -1,0 +1,72 @@
+<!DOCTYPE linuxdoc PUBLIC "-//XFree86//DTD linuxdoc//EN" [
+<!ENTITY % defs SYSTEM "defs.ent"> %defs;
+]>
+
+<article>
+<title>Information for newport Users
+<author>Guido Günther
+<date>24 February 2003
+<ident>
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/newport.sgml,v 1.6 2003/02/25 19:31:02 dawes Exp $
+</ident>
+<toc>
+
+<sect>Supported Hardware
+<p>
+This is an unaccelerated driver for the SGI newport cards (a.k.a. XL) as found
+in the SGI Indy and Indigo2. Both the 8bit and 24bit versions are tested and
+working.
+
+<sect>Features
+<p>
+<itemize>
+  <item>Support for 8 and 24 bit pixel depths
+  <item>Hardware cursor support to reduce flicker
+</itemize>
+
+<sect>Notes
+<p>
+<itemize>
+  <item>X -configure does not generate a XF86Config file.
+  <item>There's only a 1280x1024 mode.
+</itemize>
+
+
+<sect>Configuration
+<p>
+The driver auto-detects all device information necessary to
+initialize the card on the Indy. The only lines you need in the "Device"
+section of your XF86Config file are:
+<verb>
+       Section "Device"
+           Identifier "SGI newport"
+           Driver     "newport"
+       EndSection
+</verb>
+Indigo2 users have to use the BusID option as documented below.
+
+However, if you have problems with auto-detection, you can specify:
+<itemize>
+  <item>bitplanes - number of physical bitplanes (8 or 24)
+  <item>HWCursor - enable or disable hardware cursor
+  <item>BusID - set this to "1" on the Indigo2 XL
+</itemize>
+
+<sect>Authors
+<p>
+<itemize>
+  <item>Guido Guenther <email>agx@sigxcpu.org</email>
+</itemize>
+
+
+<sect>Acknowledgements
+<p>
+<itemize>
+  <item>Gleb O. Raiko <email>raiko@niisi.msk.ru</email> for getting the beast to build
+  <item>Ralf Baechle <email>ralf@oss.sgi.com</email> for his patience...
+  <item>Ulf Carlsson <email>ulfc@calypso.engr.sgi.com</email> for comments and elf loader code
+  <item>Nina A. Podolskaya <email>nap@niisi.msk.ru</email> for elf loader code
+  <item>all the guys who wrote the newport_con linux kernel code
+</itemize>
+
+</article>

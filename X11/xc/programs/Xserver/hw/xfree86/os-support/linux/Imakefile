@@ -1,0 +1,121 @@
+XCOMM $XConsortium: Imakefile /main/10 1996/10/19 18:06:19 kaleb $
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/os-support/linux/Imakefile,v 3.46 2002/10/11 01:40:35 dawes Exp $
+
+#include <Server.tmpl>
+
+#if BuildXInputExt
+# if JoystickSupport
+	JOYSTICK_SRC = lnx_jstk.c
+# endif
+# if DoLoadableServer
+SHARED_CFLAGS = PositionIndependentCFlags
+# else
+#  if JoystickSupport
+	JOYSTICK_OBJ = lnx_jstk.o
+#  endif
+# endif
+#endif
+
+#if HasMTRRSupport
+MTRRDEFINES = -DHAS_MTRR_SUPPORT
+#endif
+
+DRI_SRC = sigio.c
+DRI_OBJ = sigio.o
+
+MOUSESRC = lnx_mouse.c
+MOUSEOBJ = lnx_mouse.o
+
+KBDSRC = lnx_kbd.c lnx_KbdMap.c at_scancode.c
+KBDOBJ = lnx_kbd.o lnx_KbdMap.o at_scancode.o 
+
+#if defined(i386Architecture) || defined(ia64Architecture) || defined(x86_64Architecture)
+RES_SRCS=stdResource.c
+RES_OBJS=stdResource.o
+#else
+RES_SRCS=lnxResource.c
+RES_OBJS=lnxResource.o
+#endif
+
+#if defined(AlphaArchitecture)
+AXP_SRC=lnx_ev56.c xf86Axp.c lnx_axp.c
+AXP_OBJ=lnx_ev56.o xf86Axp.o lnx_axp.o
+#endif
+
+SRCS = lnx_init.c lnx_video.c lnx_io.c libc_wrapper.c bios_mmap.c \
+       VTsw_usl.c std_kbdEv.c posix_tty.c $(MOUSESRC) \
+       lnx_pci.c vidmem.c lnx_apm.c $(JOYSTICK_SRC) $(DRI_SRC) $(RES_SRCS) \
+       $(AXP_SRC) lnx_kmod.c lnx_agp.c $(KBDSRC) /*wcHelper.c*/
+
+OBJS = lnx_init.o lnx_video.o lnx_io.o libc_wrapper.o bios_mmap.o \
+       VTsw_usl.o std_kbdEv.o posix_tty.o $(MOUSEOBJ) \
+       lnx_pci.o vidmem.o lnx_apm.o $(JOYSTICK_OBJ) $(DRI_OBJ) $(RES_OBJS) \
+       $(AXP_OBJ) lnx_kmod.o lnx_agp.o $(KBDOBJ) /*wcHelper.o*/
+
+INCLUDES = -I$(XF86COMSRC) -I$(XF86OSSRC) -I. -I$(SERVERSRC)/include \
+           -I$(XINCLUDESRC) -I$(EXTINCSRC) -I$(XF86OSSRC)/shared
+
+RESDEFINES = -DUSESTDRES
+
+DEFINES = $(MTRRDEFINES) $(RESDEFINES) -DHAVE_SYSV_IPC
+
+#if defined(AlphaArchitecture)
+SpecialObjectRule(lnx_ev56.o, lnx_ev56.c, -mcpu=ev56)
+#endif
+
+SubdirLibraryRule($(OBJS))
+NormalLibraryObjectRule()
+
+#if BuildXF86DRI
+DRISUBDIR = drm
+#endif
+TESTVAR = XF86INT10_BUILD
+
+#if XF86INT10_BUILD > X86EMU_GENERIC
+INT10SUBDIR = int10
+#endif 
+
+#if BuildXF86DRI || (XF86INT10_BUILD > X86EMU_GENERIC)
+#define IHaveSubdirs
+SUBDIRS = $(DRISUBDIR) $(INT10SUBDIR)
+#endif
+
+#ifdef IHaveSubdirs
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))
+#endif
+
+#if BuildXInputExt
+# if DoLoadableServer
+#  if JoystickSupport
+AllTarget(lnx_jstk.o)
+#if 0
+InstallDynamicModule(lnx_jstk.o,$(MODULEDIR),input)
+#endif
+#  endif
+# endif
+#endif
+
+LinkSourceFile(bios_mmap.c,../shared)
+LinkSourceFile(std_kbdEv.c,../shared)
+LinkSourceFile(at_scancode.c,../shared)
+LinkSourceFile(posix_tty.c,../shared)
+LinkSourceFile(libc_wrapper.c,../shared)
+LinkSourceFile(vidmem.c,../shared)
+LinkSourceFile(VTsw_usl.c,../shared)
+LinkSourceFile(kmod_noop.c,../shared)
+
+LinkSourceFile($(DRI_SRC),../shared)
+
+#if defined(i386Architecture) || defined(ia64Architecture) || defined (x86_64Architecture)
+LinkSourceFile(stdResource.c,../shared)
+#endif
+#if defined(AlphaArchitecture)
+LinkSourceFile(xf86Axp.c,../shared)
+#endif
+DependTarget()
+
+InstallDriverSDKNonExecFile(agpgart.h,$(DRIVERSDKINCLUDEDIR)/linux)
+#if 0
+InstallDriverSDKDynamicModule(lnx_jstk.o,$(DRIVERSDKMODULEDIR))
+#endif

@@ -1,0 +1,63 @@
+#
+# $Date$ $Revision$
+# $Header: //depot/main/doc/man/manglu/html_ftn/Distfile#4 $
+#
+
+DISTDIR_SI = /xc/doc/hardcopy/GL/html/glu_ftn
+
+DISTFILES_SI = \
+	fglubegincurve.html \
+	fglubeginpolygon.html \
+	fglubeginsurface.html \
+	fglubegintrim.html \
+	fglubuild1dmipmaplevels.html \
+	fglubuild1dmipmaps.html \
+	fglubuild2dmipmaplevels.html \
+	fglubuild2dmipmaps.html \
+	fglubuild3dmipmaplevels.html \
+	fglubuild3dmipmaps.html \
+	fglucheckextension.html \
+	fglucylinder.html \
+	fgludeletenurbsrenderer.html \
+	fgludeletequadric.html \
+	fgludeletetess.html \
+	fgludisk.html \
+	fgluerrorstring.html \
+	fglugetnurbsproperty.html \
+	fglugetstring.html \
+	fglugettessproperty.html \
+	fgluloadsamplingmatrices.html \
+	fglulookat.html \
+	fglunewnurbsrenderer.html \
+	fglunewquadric.html \
+	fglunewtess.html \
+	fglunextcontour.html \
+	fglunurbscallback.html \
+	fglunurbscallbackdata.html \
+	fglunurbscallbackdataext.html \
+	fglunurbscurve.html \
+	fglunurbsproperty.html \
+	fglunurbssurface.html \
+	fgluortho2d.html \
+	fglupartialdisk.html \
+	fgluperspective.html \
+	fglupickmatrix.html \
+	fgluproject.html \
+	fglupwlcurve.html \
+	fgluquadriccallback.html \
+	fgluquadricdrawstyle.html \
+	fgluquadricnormals.html \
+	fgluquadricorientation.html \
+	fgluquadrictexture.html \
+	fgluscaleimage.html \
+	fglusphere.html \
+	fglutessbegincontour.html \
+	fglutessbeginpolygon.html \
+	fglutesscallback.html \
+	fglutessendpolygon.html \
+	fglutessnormal.html \
+	fglutessproperty.html \
+	fglutessvertex.html \
+	fgluunproject.html \
+	fgluunproject4.html \
+	$(NULL)

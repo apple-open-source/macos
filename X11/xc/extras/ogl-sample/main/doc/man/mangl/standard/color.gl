@@ -1,0 +1,103 @@
+_C_ License Applicability. Except to the extent portions of this file are
+_C_ made subject to an alternative license as permitted in the SGI Free
+_C_ Software License B, Version 1.1 (the "License"), the contents of this
+_C_ file are subject only to the provisions of the License. You may not use
+_C_ this file except in compliance with the License. You may obtain a copy
+_C_ of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+_C_ Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+_C_ 
+_C_ http://oss.sgi.com/projects/FreeB
+_C_ 
+_C_ Note that, as provided in the License, the Software is distributed on an
+_C_ "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+_C_ DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+_C_ CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+_C_ PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+_C_ 
+_C_ Original Code. The Original Code is: OpenGL Sample Implementation,
+_C_ Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+_C_ Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+_C_ Copyright in any portions created by third parties is as indicated
+_C_ elsewhere herein. All Rights Reserved.
+_C_ 
+_C_ Additional Notice Provisions: The application programming interfaces
+_C_ established by SGI in conjunction with the Original Code are The
+_C_ OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+_C_ April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+_C_ 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+_C_ Window System(R) (Version 1.3), released October 19, 1998. This software
+_C_ was created using the OpenGL(R) version 1.2.1 Sample Implementation
+_C_ published by SGI, but has not been independently verified as being
+_C_ compliant with the OpenGL(R) version 1.2.1 Specification.
+_C_
+_C_ The first character in this file must be an '_'!
+_C_ Anything on a line after _C_ is ignored
+_define(_filters,tbl|eqn)_C_
+_C_      eqn is automatically replaced with neqn for nroff
+_header(Color, set the current color)
+_names(Color,[34]u*[bsifd])
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+_phead(_param1 _param2 _param3)
+Specify new red, green, and blue values for the current color.
+_phead(_param4)
+Specifies a new alpha value for the current color.
+Included only in the four-argument _cmnd(Color4) commands.
+_names(Color,[34]u*[bsifd]v)
+.SH PARAMETERS
+_phead(_param1)
+Specifies a pointer to an array that contains red, green, blue,
+and (sometimes) alpha values.
+.SH DESCRIPTION
+The GL stores both a current single-valued color index
+and a current four-valued RGBA color.
+_cmnd sets a new four-valued RGBA color.
+_cmnd has two major variants:
+_cmnd(Color3) and _cmnd(Color4).
+_cmnd(Color3) variants specify new red,
+green,
+and blue values explicitly
+and set the current alpha value to 1.0 (full intensity) implicitly.
+_cmnd(Color4) variants specify all four color components explicitly.
+.P
+_cmnd(Color3b), _cmnd(Color4b),
+_cmnd(Color3s), _cmnd(Color4s), _cmnd(Color3i), and _cmnd(Color4i) take 
+three or four signed byte, short, or long integers as arguments.
+When \f3v\fP is appended to the name,
+the color commands can take a pointer to an array of such values.
+.P
+Current color values are stored in floating-point format,
+with unspecified mantissa and exponent sizes.
+Unsigned integer color components,
+when specified,
+are linearly mapped to floating-point values such that the largest
+representable value maps to 1.0 (full intensity),
+and 0 maps to 0.0 (zero intensity).
+Signed integer color components,
+when specified,
+are linearly mapped to floating-point values such that the most positive
+representable value maps to 1.0,
+and the most negative representable value maps to \-1.0. (Note that
+this mapping does not convert 0 precisely to 0.0.)
+Floating-point values are mapped directly.
+.P
+Neither floating-point nor signed integer values are clamped
+to the range [0,1] before the current color is updated.
+However,
+color components are clamped to this range before they are interpolated
+or written into a color buffer.
+.SH NOTES
+The initial value for the current color is (1, 1, 1, 1). 
+.P
+The current color can be updated at any time.
+In particular,
+_cmnd can be called between a call to _cmnd(Begin) and the corresponding
+call to _cmnd(End).
+.SH ASSOCIATED GETS
+_cmnd(Get) with argument _const(CURRENT_COLOR)
+.br
+_cmnd(Get) with argument _const(RGBA_MODE)
+.SH SEE ALSO
+_cmnd(Index)

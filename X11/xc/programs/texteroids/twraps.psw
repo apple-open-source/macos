@@ -1,0 +1,84 @@
+/* twraps.psw
+ *
+ * (c) Copyright 1990-1994 Adobe Systems Incorporated.
+ * All rights reserved.
+ * 
+ * Permission to use, copy, modify, distribute, and sublicense this software
+ * and its documentation for any purpose and without fee is hereby granted,
+ * provided that the above copyright notices appear in all copies and that
+ * both those copyright notices and this permission notice appear in
+ * supporting documentation and that the name of Adobe Systems Incorporated
+ * not be used in advertising or publicity pertaining to distribution of the
+ * software without specific, written prior permission.  No trademark license
+ * to use the Adobe trademarks is hereby granted.  If the Adobe trademark
+ * "Display PostScript"(tm) is used to describe this software, its
+ * functionality or for any other purpose, such use shall be limited to a
+ * statement that this software works in conjunction with the Display
+ * PostScript system.  Proper trademark attribution to reflect Adobe's
+ * ownership of the trademark shall be given whenever any such reference to
+ * the Display PostScript system is made.
+ * 
+ * ADOBE MAKES NO REPRESENTATIONS ABOUT THE SUITABILITY OF THE SOFTWARE FOR
+ * ANY PURPOSE.  IT IS PROVIDED "AS IS" WITHOUT EXPRESS OR IMPLIED WARRANTY.
+ * ADOBE DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL
+ * IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NON- INFRINGEMENT OF THIRD PARTY RIGHTS.  IN NO EVENT SHALL ADOBE BE LIABLE
+ * TO YOU OR ANY OTHER PARTY FOR ANY SPECIAL, INDIRECT, OR CONSEQUENTIAL
+ * DAMAGES OR ANY DAMAGES WHATSOEVER WHETHER IN AN ACTION OF CONTRACT,
+ * NEGLIGENCE, STRICT LIABILITY OR ANY OTHER ACTION ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.  ADOBE WILL NOT
+ * PROVIDE ANY TRAINING OR OTHER SUPPORT FOR THE SOFTWARE.
+ * 
+ * Adobe, PostScript, and Display PostScript are trademarks of Adobe Systems
+ * Incorporated which may be registered in certain jurisdictions
+ * 
+ * Author:  Adobe Systems Incorporated
+ */
+/* $XFree86: xc/programs/texteroids/twraps.psw,v 1.1 2001/03/01 01:23:59 dawes Exp $ */
+
+defineps Clear(float w, h; boolean rv)
+    rv {0 setgray} {1 setgray} ifelse
+    0 0 w h rectfill
+endps
+
+defineps CreateFont(int size; char *name)
+  /name findfont size scalefont setfont
+endps
+
+defineps GetAllSizes(char *text; int n |
+	float llx[n], lly[n], urx[n], ury[n], wid[n])
+    (text) {
+	newpath
+	0 0 moveto
+	(a) dup 0 4 -1 roll put		% make character into string
+	dup true charpath flattenpath pathbbox ury urx lly llx
+	stringwidth pop wid	
+    } forall
+endps
+
+defineps GetSize(char *text | float *llx, *lly, *urx, *ury, *wid)
+   newpath
+   0 0 moveto
+   (text) true charpath flattenpath pathbbox ury urx lly llx
+   (text) stringwidth pop wid
+endps
+
+defineps RenderString(float x, y, dx, dy, angle; char *string;
+		      float red, green, blue)
+   gsave
+   red green blue setrgbcolor
+   x y translate angle rotate
+   dx dy moveto
+   (string) show
+   grestore
+endps
+
+defineps SetXDrawable(int drawable, height)
+    currentXgcdrawable pop height
+    3 -1 roll pop drawable 3 1 roll
+    setXgcdrawable
+endps
+
+defineps GetInvCTM(| float invctm[6])
+    matrix currentmatrix matrix invertmatrix invctm
+endps

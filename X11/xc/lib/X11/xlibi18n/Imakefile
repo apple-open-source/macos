@@ -1,0 +1,9 @@
+#define IHaveSubdirs
+#define PassCDebugFlags CDEBUGFLAGS="$(CDEBUGFLAGS)"
+
+SUBDIRS = lc im om
+
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))
+MakeLintLibSubdirs($(LINTSUBDIRS))
+MakeLintSubdirs($(LINTSUBDIRS),install.ln,install.ln)

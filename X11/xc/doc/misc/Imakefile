@@ -1,0 +1,46 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:42:05 cpqbld Exp $
+
+XCOMM Format the documentation about the release as a whole.
+XCOMM The files generated here are shipped in the top-level
+XCOMM xc/ directory.
+
+XCOMM $XFree86: xc/doc/misc/Imakefile,v 1.5 2001/06/04 21:12:16 dawes Exp $
+
+MakeSimpleDoc(RELNOTES-X.org,RELNOTES.ms)
+
+MakeSimpleDoc(INSTALL-X.org,INSTALL.ms)
+
+/* the rules should be updated to generate .TXT extensions normally */
+
+RELNOTES-X.org.TXT: RELNOTES-X.org.txt
+	RemoveFile(RELNOTES-X.org.TXT)
+	$(CP) RELNOTES-X.org.txt RELNOTES-X.org.TXT
+
+INSTALL-X.org.TXT: INSTALL-X.org.txt
+	RemoveFile(INSTALL-X.org.TXT)
+	$(CP) INSTALL-X.org.txt INSTALL-X.org.TXT
+
+clean::
+	RemoveFiles(RELNOTES-X.org.TXT INSTALL-X.org.TXT)
+
+
+TXTTARGETS = RELNOTES-X.org.TXT INSTALL-X.org.TXT
+
+AllTarget($(TXTTARGETS))
+
+#ifndef UpdateDocsInSource
+#define UpdateDocsInSource NO
+#endif
+
+#if UpdateDocsInSource
+SOURCETARGET = install
+#else
+SOURCETARGET = update
+#endif
+
+$(SOURCETARGET):: $(TXTTARGETS)
+	$(CP) RELNOTES-X.org.TXT $(TOP)/RELNOTES-X.org
+	$(CP) INSTALL-X.org.TXT $(TOP)/INSTALL-X.org
+
+InstallRoffDoc(INSTALL-X.org)
+InstallRoffDoc(RELNOTES-X.org)

@@ -1,0 +1,196 @@
+                Information for Western Digital Chipset Users
+
+                          The XFree86 Project, Inc.
+
+                                 14 July 1995
+
+1.  Supported chipsets
+
+XFree86 supports the following Western Digital SVGA chipsets: PVGA1, WD90C00,
+WD90C10, WD90C11, WD90C24, WD90C30, WD90C31, WD90C33.  Note that the rest of
+the WD90C2x series of LCD-controller chipsets are still not supported.  The
+WD90C24 family is now supported including acceleration, adjustable clocks and
+a full 1MB video ram even on dual scan systems (in CRT mode).  If you have
+trouble with the new WD90C24 support (not that we expect you will), try spec-
+ifying "wd90c30" or "wd90c31" on the `Chipset' line in your XF86Config file.
+The WD90C24, WD90C31 and WD90C33 are supported as an accelerated chipset in
+the SVGA server; the accelerated features are automatically activated when a
+WD90C24, WD90C31 or WD90C33 is detected, or specified in the XF86Config file.
+
+2.  Special considerations
+
+All of the Western Digital chipsets after the PVGA1 support the ability to
+use the memory-refresh clock as an alternate dot-clock for video timing.
+Hence for all of these chipsets, the server will detect one more clocks than
+``normal''.  What this means is that if you have an old `Clocks' line in your
+XF86Config file, you should comment it out, and rerun the server with the
+`-probeonly' option to find all of the clock values.  All but the last should
+be the same as what you had before; the last will be new.
+
+For the WD90C00 chipset, the chipset will only support 640x480 in 256-color
+mode.  Even though 512k of memory should allow better than 800x600, the
+chipset itself cannot do this.  This is stated in the databook (which lists
+1024x768x16 and 640x480x256 for specifications).  We have also witnessed this
+behavior.
+
+The server will detect 17 clocks for the WD90C24, WD90C30 and WD90C31
+chipsets.  If you have one of these chipsets, you should let the server re-
+probe the clocks and update your XF86Config.
+
+There is an `Option' flag available for the XF86Config file that is specific
+to the Western Digital chipsets (except the WD90C24).  This option is
+"swap_hibit".  We have determined via experimentation that the WD90C1x and
+WD90C3x chipsets need the high-order clock-select bit inverted, and the PVGA1
+and WD90C00 need it non-inverted.  This is hardcoded into the driver.  Since
+our sample-set was rather small, we have provided the "swap_hibit" option to
+invert this behavior.  If the clocks detected by the server show a very low
+last clock (under 28Mhz), then this option is likely needed.
+
+3.  WD90C24 features
+
+These next three sections apply only if you have a WD90C24, WD90C24a, or
+WD90C24a2 and don't specify some other chipset in your XF86Config file.  The
+SVGA pvga1 driver now recognizes the wd90c24 family as different from the
+WD90C30 and seems to resolve most of the problems people encountered when
+these chips were treated as WD90C3X.  The new code has the following fea-
+tures:
+
+   o Locks the shadow registers at appropriate times; This should prevent
+     scrambled displays after exiting X with dual scan screens when simulta-
+     neous or LCD display mode is selected.  The code does depend somewhat on
+     the behavior of the BIOS regarding when it locks the shadow registers,
+     etc.
+
+   o Allows (forces) the use of a full 1 Meg VRAM for dual scan systems when
+     the server is started while external CRT only display is in operation.
+     This allows 1024x768x8 resolution.
+
+   o If the XF86Config file specifies a virtual screen size which requires
+     more than 512 K VRAM when the server is started on a Dual Scan LCD, the
+     driver will force the virtual size to 640x480.  This eliminates the need
+     to edit the XF86Config file when you switch from 1024x resolution on the
+     CRT, to or from the LCD screen.  If no virtual size is specified, the
+     result will be 800x600 virtual in LCD modes and 1024x768 in CRT only
+     mode (so you have a choice).
+
+   o Note that on dual scan systems, you must still exit X, switch displays,
+     and restart X to change to/from CRT only with 1 Meg videoram.  This is
+     because once the server starts, you can't change the virtual screen
+     size.  There is no way around this with the current server and the
+     WD90C24 with dual scan displays.  The WD90C24 requires half the videoram
+     be used for a ``Frame buffer'' when the dual scan LCD is in use.
+
+   o The new server uses the accelerated features of the WD90C24a.  It is not
+     clear from the data book if the WD90C24 also supports ALL the required
+     features.  Several people have stated that the WD90C24 is not acceler-
+     ated, but the differences section of the WD90c24a data book implies that
+     they ARE all three accelerated.  The differences documented with regard
+     to acceleration are with the type of line drawing the hardware does;
+     Only the newer chips support the type of line drawing that MS windows
+     wants.  This may be what has caused the confusion since the accelerated
+     windows drivers may only support the WD90c24a chips.  If this turns out
+     to be a problem with the WD90C24, acceleration can be disabled by adding
+     the line:
+
+                Option "noaccel"
+
+     to the Device section of the XF86Config file.
+
+   o Although the new server does not support programmable clocks in the same
+     way as some of the other servers, 8 of the 17 clocks may be set to
+     (almost) any value via the Clocks line. It also supports options for
+     adjusting the VRAM clock.
+
+4.  WD90C24 clocks
+
+Here are some more details on the adjustable clocks:
+
+The VRAM clock (Mclk) is adjusted by adding ONE of the following option lines
+to the Device section of the XF86Config:
+
+        Option      "slow_dram"     # Set Mclk to 47.429 MHz
+        Option      "med_dram"      # Set Mclk to 49.219 MHz
+        Option      "fast_dram"     # Set Mclk to 55.035 MHz
+
+The default is to leave Mclk as the BIOS sets it.  This is 44.297 on many
+systems.  Some systems may not work properly with any of these options.  If
+you experience ``bit errors'' on your display, reduce the Mclk speed, or
+don't use any of these options.  The Mclk is not reset on server exit.
+
+The data book says that the maximum pixel clock is 1.6 times Mclk so you may
+want to experiment with higher Mclk rates if you have a fast monitor.  It
+also says a 44.297MHz Mclk and 65MHz pixel clock is the fastest the WD90C24A2
+is designed to go.  However, some success has been reported with faster
+clocks.  Don't expect all the clocks the chip can provide to work properly.
+
+The second and fourth group of 4 clocks are adjustable.  That is, clocks 5,
+6, 7, 8 and 13, 14, 15, 16 (counting from 1).  These clocks are set by the
+Clocks line.  Be sure to adjust the 17th (last) clock to match your Mclk.
+Here is a sample set of clocks lines with some clocks defined which are not
+directly provided by the chip.  The NON-programmable clocks (1-4 and 9-12)
+MUST be set as indicated here.
+
+        Clocks     25.175 28.322 65     36     # These are *not* programmable
+
+        Clocks     29.979 77.408 62.195 59.957 # these are programmable
+        Clocks     31.5   35.501 75.166 50.114 # these are *not* programmable
+        Clocks     39.822 72.038 44.744 80.092 # these are programmable
+        Clocks     44.297                      # Change this if you change
+                                               #   Mclk above.
+
+You can program the clocks in increments of .447443 MHz.  The server will
+warn you and adjust to the nearest increment if you specify a clock which
+does not fit this formula.  Clocks 1-4 and 9-12 (the fixed clocks) are not
+constrained to this multiple, but instead are used to provide standard clocks
+which are not a multiple by .447443 MHz.
+
+If you probe for clocks (for example to find your Mclk), do it in CRT only
+mode and then add clocks lines in your XF86Config file.  Clocks will not
+probe correctly in LCD mode on most systems.
+
+The BIOS on some systems may not allow switching from CRT to LCD unless the
+correct clock and/or mode is used.  Try the following mode line for 640x480
+LCD displays.
+
+        ModeLine "640x480"  25.175   640 664 760 800     480 491 493 525 #CRT/LCD
+
+The following modelines have been tested with the above Clocks lines on some
+systems, and are provided here as examples. Some testers have experienced
+minor problems (snow) with the fixed 65 and 75.166 MHz dot clocks.  The mode-
+lines below have been reported to circumvent these problems.  Do not assume
+your monitor will not be damaged by any of these.
+
+      # VESA 800x600@72Hz Non-Interlaced mode
+        ModeLine  "800x600.50"  50  800  856  976 1040 600 637 643 666  +hsync +vsync
+
+      # 1024x768  Interlaced mode
+        ModeLine  "1024x768i"   45  1024 1048 1208 1264 768 776 784 817 +hsync +vsync Interlace
+
+      # 1024x768@60Hz Non-interlaced Mode
+      # One of the dram options may be necessary
+        ModeLine  "1024x768.65" 65  1024 1032 1176 1344 768 771 777 806 -hsync -vsync
+
+      # 1024x768@60Hz Non-Interlaced mode (non-standard dot-clock)
+      # Seems to work without dram options
+        ModeLine  "1024x768.62" 62  1024 1064 1240 1280 768 774 776 808
+
+      # 1024x768@70Hz Non-Interlaced mode (non-standard dot-clock)
+      # May need fast_dram option
+        ModeLine  "1024x768.72" 72  1024 1056 1192 1280 768 770 776 806 -hsync -vsync
+
+5.  Additional WD90C24 information
+
+Standard disclaimers apply.  Use this driver at your own risk.  If you need
+additional information on using XFree86 with the WD90C24 family however, you
+might try Darin Ernst's home page <URL:http://www.castle.net/~darin>.  Darin
+maintains a mini-HOWTO on ``X and the WD90C24''. He was the first tester of
+the WD90C24 code and provided many good ideas and encouragement.  You can
+reach Darin at darin@castle.net or dernst@pppl.gov.  I only provided the
+WD90C24 specific code.  You can reach me (Brad Bosch) at brad@Lachman.com.
+
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/WstDig.sgml,v 3.6 1997/01/24 09:32:38 dawes Exp $
+
+     $XConsortium: WstDig.sgml /main/5 1996/02/21 17:46:29 kaleb $
+
+
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.WstDig,v 3.21 2000/03/01 01:48:18 dawes Exp $

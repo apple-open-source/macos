@@ -1,0 +1,4 @@
+NAME xinit NOTWINDOWCOMPAT
+DESCRIPTION "@#XFREE86:4.2.0#@ $XFree86: xc/programs/xinit/xinit.def,v 3.2 2002/05/31 18:46:13 dawes Exp $"
+PROTMODE
+EXETYPE OS2

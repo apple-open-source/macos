@@ -250,6 +250,8 @@ class User:
 	self.limit = 0		# Message size limit
 	self.warnings = 3600	# Size warning interval (see tunable.h)
 	self.fetchlimit = 0	# Max messages fetched per batch
+	self.fetchsizelimit = 100	# Max message sizes fetched per transaction
+	self.fastuidl = 10	# Do fast uidl 9 out of 10 times
 	self.batchlimit = 0	# Max message forwarded per batch
 	self.expunge = 0	# Interval between expunges (IMAP)
 	self.ssl = 0		# Enable Seccure Socket Layer
@@ -287,6 +289,8 @@ class User:
 	    ('limit',       'Int'),
 	    ('warnings',    'Int'),
 	    ('fetchlimit',  'Int'),
+	    ('fetchsizelimit',  'Int'),
+	    ('fastuidl',    'Int'),
 	    ('batchlimit',  'Int'),
 	    ('expunge',     'Int'),
 	    ('ssl',	 'Boolean'),
@@ -347,6 +351,10 @@ class User:
 	    res = res + " warnings " + `self.warnings`
 	if self.fetchlimit != UserDefaults.fetchlimit:
 	    res = res + " fetchlimit " + `self.fetchlimit`
+	if self.fetchsizelimit != UserDefaults.fetchsizelimit:
+	    res = res + " fetchsizelimit " + `self.fetchsizelimit`
+	if self.fastuidl != UserDefaults.fastuidl:
+	    res = res + " fastuidl " + `self.fastuidl`
 	if self.batchlimit != UserDefaults.batchlimit:
 	    res = res + " batchlimit " + `self.batchlimit`
 	if self.ssl and self.ssl != UserDefaults.ssl:
@@ -1236,6 +1244,13 @@ It is strongly recommended that you find a better POP3 server.  The fetchmail
 FAQ includes pointers to good ones.
 
 """
+	    if string.find(greetline, "comcast.net") > 0:
+		warnings = warnings + """
+The Comcast Maillennium POP3 server only returns the first 80K of a long
+message retrieved with TOP. Its response to RETR is normal, so use the
+`fetchall' option.
+
+"""
 # Steve VanDevender <stevev@efn.org> writes:
 # The only system I have seen this happen with is cucipop-1.31
 # under SunOS 4.1.4.  cucipop-1.31 runs fine on at least Solaris
@@ -1284,13 +1299,6 @@ Its response to RETR is normal, so use the `fetchall' option.
 		warnings = warnings + """
 You appear to be using geonet.  As of late 2002, the TOP command on
 geonet's POP3 is broken.  Use the fetchall option.
-
-"""
-	    if string.find(greetline, "GMX POP3 StreamProxy") > 0:
-		warnings = warnings + """
-The GMX POP3 server behaves badly on authentication failures, sending
-back a non-conformant error message (missing an <code>-ERR</code> tag)
-that confuses fetchmail.  Use IMAP.
 
 """
 	    if string.find(greetline, "OpenMail") > 0:
@@ -1701,6 +1709,11 @@ class UserEdit(Frame, MyWidget):
 		      self.warnings, '30').pack(side=TOP, fill=X)
 	    LabeledEntry(limwin, 'Max messages to fetch per poll:',
 		      self.fetchlimit, '30').pack(side=TOP, fill=X)
+	    LabeledEntry(limwin, 'Max message sizes to fetch per transaction:',
+		      self.fetchsizelimit, '30').pack(side=TOP, fill=X)
+	    if self.parent.server.protocol not in ('ETRN', 'ODMR'):
+		LabeledEntry(limwin, 'Use fast UIDL:',
+			self.fastuidl, '30').pack(side=TOP, fill=X)
 	    LabeledEntry(limwin, 'Max messages to forward per poll:',
 		      self.batchlimit, '30').pack(side=TOP, fill=X)
 	    if self.parent.server.protocol not in ('ETRN', 'ODMR'):
@@ -1851,10 +1864,10 @@ whether to use POP or IMAP, and so forth).
 	self.configbutton.pack()
 
 	Message(self, text="""
-Use `Test fetchmail' to run fetchmail with debugging enabled.
+Use `Run fetchmail' to run fetchmail with debugging enabled.
 This is a good way to test out a new configuration.
 """, width=600).pack(side=TOP)
-	Button(self, text='Test fetchmail',fg='blue', command=self.test).pack()
+	Button(self, text='Run fetchmail',fg='blue', command=self.test).pack()
 
 	Message(self, text="""
 Use `Run fetchmail' to run fetchmail in foreground.

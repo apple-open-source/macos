@@ -1,0 +1,304 @@
+                     README for XFree86 4.3.0 on OpenBSD
+
+                               Matthieu Herrb
+
+                      Last modified on: 9 November 2002
+
+1.  What and Where is XFree86?
+
+XFree86 is an Open Source version of the X Window System that supports sev-
+eral UNIX(R) and UNIX-like operating systems (such as Linux, the BSDs and
+Solaris x86) on Intel and other platforms.  This version is compatible with
+X11R6.6.
+
+See the Copyright Notice.
+
+The sources for XFree86 4.3.0 are available by anonymous ftp from:
+
+ftp://ftp.XFree86.org/pub/XFree86/4.3.0
+
+Binaries for OpenBSD/i386 3.2 and later are available from:
+
+ftp://ftp.XFree86.org/pub/XFree86/4.3.0/binaries/OpenBSD
+
+A list of mirror sites is provided by http://www.xfree86.org/MIRRORS.shtml
+
+XFree86 also builds on other OpenBSD architectures. See section Building on
+other architectures (section 8., page 1) for details.
+
+2.  Bug Reports for This Document
+
+Send email to <herrb@xfree86.org> (Matthieu Herrb) or <XFree86@XFree86.org>
+if you have comments or suggestions about this file and we'll revise it.
+
+3.  New OS dependent features
+
+See the Release Notes for non-OS dependent new features in XFree86 4.3.0.
+
+3.1  New OS related features in 4.3
+
+   o Support for some VGA cards on OpenBSD/alpha
+
+3.2  New OS dependent features in 4.2
+
+   o Support for OpenBSD/macppc on the ATI Rage128 based Power Macintoshes.
+
+   o Support for building clients on OpenBSD/sparc64.
+
+3.3  New OS dependent features in 4.0.3
+
+   o Support for the wscons console driver in post 2.8 OpenBSD.
+
+   o A fix for multi-threaded libraries support.
+
+3.4  New OS dependent features in 4.0.2
+
+   o Support for the OpenBSD ports tree,
+
+   o Preliminary support for the macppc architecture (clients build and work,
+     the server doesn't work yet),
+
+   o xdm now writes an utmp entry,
+
+   o startx now creates an Xauthority magic cookie for the display.
+
+3.5  New OS dependent features in 4.0.1
+
+   o Several features from the OpenBSD X11 tree were merged into xdm:
+
+        o  support for Kerberos IV authentication
+
+        o use the arc4random(4) random number generator
+
+        o add a new resource "allowRootLogin", which can be used to disable
+          root logins through xdm
+
+        o log failed logins to syslogd
+
+        o verify that the shell is valid using /etc/shell
+
+        o verify that the account hasn't expired
+
+   o The Xsun server can be built again on OpenBSD/sparc.
+
+3.6  New OS dependent features in 4.0
+
+   o Multi-thread safe libraries are built by default on OpenBSD 2.6 and
+     later,
+
+   o Preliminary APM support.
+
+3.7  New OS dependent features in 3.9.18
+
+   o Support for USB mices has been added on OpenBSD.
+
+   o Soft-booting secondary cards through the int10 BIOS interface is now
+     possible using the x86emu real mode emulator.
+
+3.8  New OS dependent features in 3.9.17
+
+   o Silken mouse is supported for serial mices, and, under post 2.6 OpenBSD-
+     current for PS/2 mices.
+
+   o MTRR Write Combining is enabled under post 2.6 OpenBSD-current.
+
+4.  Installing the Binaries
+
+Refer to the Installation Document for detailed installation instructions.
+
+5.  Configuring X for Your Hardware
+
+The /etc/X11/XF86Config file tells the X server what kind of monitor, video
+card and mouse you have.  You must create it to tell the server what specific
+hardware you have.
+
+You'll need info on your hardware:
+
+   o Your mouse type, baud rate and its /dev entry.
+
+   o The video card's chipset (e.g. ET4000, S3, etc).
+
+   o Your monitor's sync frequencies.
+
+The recommended way to generate an XF86Config file is to use the xf86cfg
+utility.  The xf86config text utility is still there for the (few) cases
+where xf86cfg can't be used. Also, there is a sample file installed as
+/usr/X11R6/lib/X11/XF86Config.eg, which can be used as a starting point.
+
+For details about the XF86Config file format, refer to the XF86Config(5) man-
+ual page.
+
+Once you've set up a XF86Config file, you can fine tune the video modes with
+the xvidtune utility.
+
+5.1  About mouse configuration
+
+XFree86 4.3.0 has support for the mouse driver included in the new wscons
+console driver introduced by OpenBSD-2.9.  Specify ``wsmouse'' as the proto-
+col and ``/dev/wsmouse0'' as the  device in /etc/X11/XF86Config if you're
+using OpenBSD-2.9 or later with a PS/2 or USB mouse.
+
+See README.mouse  for general instruction on mouse configuration in XFree86.
+
+6.  Running X
+
+6.1  Starting xdm, the display manager
+
+To start the display manager, log in as root on the console and type: ``xdm
+-nodaemon''.
+
+You can start xdm automatically on bootup by changing the line
+
+     xdm_flags=NO            # for normal use: xdm_flags=""
+
+to:
+
+     xdm_flags=""            # for normal use: xdm_flags=""
+
+in /etc/rc.conf.
+
+Note that the binary distributions of XFree86 for OpenBSD on ftp.xfree86.org
+and its mirrors don't include support for the XDM-AUTHORIZATION-1 protocol,
+because of the US export rules.
+
+6.2  Running X without the display manager
+
+The easiest way for new users to start X windows is to type: ``startx >&
+startx.log''.  Error messages are lost unless you redirect them because the
+server takes over the screen.
+
+To get out of X windows, type: ``exit'' in the console xterm.  You can cus-
+tomize your X by creating .xinitrc, .xserverrc, and .twmrc files in your home
+directory as described in the xinit and startx man pages.
+
+7.  Kernel Support for X
+
+To make sure X support is enabled under  OpenBSD, the following line must be
+in your config file in /sys/arch/i386/conf:
+
+     option APERTURE
+
+7.1  Console drivers
+
+The server supports the standard  OpenBSD/i386 console drivers: pcvt and
+wscons. They are detected at runtime and no configuration of the server
+itself is required.
+
+The pcvt console driver is the default in OpenBSD up to OpenBSD 2.8.  It
+offers several virtual consoles and international keyboard support.
+
+OpenBSD 2.9 and later has switched to the wscons console driver. This console
+driver has a pcvt compatibility mode for X support.
+
+7.2  Aperture Driver
+
+By default OpenBSD includes the BSD 4.4 kernel security feature that disables
+access to the /dev/mem device when in multi-user mode. But the XFree86 server
+requires linear access to the display memory in most cases.
+
+OpenBSD now requires the aperture driver to be enabled for all X servers,
+because the aperture driver also controls access to the I/O ports of the
+video boards.
+
+To enable the aperture driver, once included in the kernel, set
+
+     machdep.allowaperture=2
+
+in /etc/sysctl.conf.  See the xf86(4) manual page for details.
+
+Another (less recommended) way to enable linear memory and I/O ports access
+is to disable the kernel security feature by initializing securelevel to -1
+in /etc/rc.securelevel.
+
+     Caveat: the aperture driver only allows one access at a time (so
+     that the system is in the same security state once X is launched).
+     This means that if you run multiple servers on multiple virtual
+     terminals, only the first one will have linear memory access.  Set
+     securelevel to -1 if you need more that one X server at a time.
+
+7.3  MIT-SHM
+
+OpenBSD supports System V shared memory. If XFree86 detects this support in
+your kernel, it will support the MIT-SHM extension.
+
+8.  Rebuilding the XFree86 Distribution
+
+You should configure the distribution by editing xc/config/cf/host.def
+before compiling.  To compile the sources, invoke ``make World'' in the xc
+directory."
+
+Note that OpenBSD project now has its own source tree, based on the XFree86
+source tree, with some local modifications. You may want to start with this
+tree to rebuild from sources.  The OpenBSD XF4 source tree is available by
+anoncvs from all OpenBSD anoncvs servers. See http://www.openbsd.org/anon-
+cvs.html for details on anoncvs.
+
+XFree86  also compiles on other OpenBSD architectures.
+
+8.1  XFree86 on OpenBSD/alpha
+
+The XFree86 server is known to work on some VGA cards in alpha machines that
+support BWX I/O, with OpenBSD 3.2 and higher.
+
+The following cards have been successfully tested for now:
+
+   o 3DLabs Permedia 2 (8, 15, 16 and 24 bits depth)
+
+   o ATI Rage Pro (works with 'Option "NoAccel"')
+
+   o Cirrus Logic CL5430 (works with 'Option "NoAccel"')
+
+   o Cirrus Logic GD5446 (8, 16 and 24 bits depth)
+
+   o Matrox MGA 2064 (8, 16 and 24 bits depth)
+
+Note that this version of XFree86 doesn't work on TGA cards. The version
+shipped with OpenBSD 3.1 and higher includes an OS-specific driver wsfb that
+is used to support TGA cards.
+
+8.2  XFree86 on OpenBSD/macppc
+
+The XFree86 server is currently known to work on the G4 Macs and new iBooks
+with ATI Rage 128 cards running OpenBSD 3.0 or later.  Other machines are
+more or less untested. Earlier OpenBSD versions lack some kernel support for
+it.
+
+Use xf86config to build a /etc/X11/XF86Config file before starting the server
+for the first time.
+
+For the Titanium Powerbook G4, you can try the following mode line in
+/etc/X11/XF86Config to match the flat panel resolution:
+
+     Modeline "1152x768" 64.995 1152 1213 1349 1472  768 771 777 806 -HSync -VSync
+
+8.3  XFree86 on OpenBSD/sparc
+
+OpenBSD 3.2 on sparc switched to the wscons device driver and now uses the OS
+specific wsfb driver in the XFree86 server. This driver is not included in
+XFree86 4.3. Please use the version shipped with OpenBSD instead.
+
+8.4  XFree86 on OpenBSD/sparc64
+
+This version of XFree68 only has support for X clients on OpenBSD/sparc64.
+Note that the version shipped with OpenBSD also has support for the X server
+on both SBus and PCI based machines.
+
+9.  Building New X Clients
+
+The easiest way to build a new client (X application) is to use xmkmf if an
+Imakefile is included in the sources.  Type ``xmkmf -a'' to create the Make-
+files, check the configuration if necessary and type ``make''.  Whenever you
+install additional man pages you should update whatis.db by running ``make-
+whatis /usr/X11R6/man''.
+
+10.  Thanks
+
+Many thanks to all people who contributed to make XFree86 work on *BSD, in
+particular: David Dawes, Todd Fries, Rod Grimes, Charles Hannum, Amancio
+Hasty, Christoph Robitschko, Matthias Scheler, Michael Smith, Ignatios Sou-
+vatzis, Jack Velte, Nate Williams and Pace Willison.
+
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/OpenBSD.sgml,v 1.30 2003/02/25 19:31:01 dawes Exp $
+
+
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.OpenBSD,v 1.38 2003/02/25 21:32:34 dawes Exp $

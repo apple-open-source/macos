@@ -1,0 +1,2276 @@
+# This is a shell archive.  Save it in a file, remove anything before
+# this line, and then unpack it by entering "sh file".  Note, it may
+# create directories;  files and directories will be owned by you and
+# have default permissions.
+#
+# This archive contains:
+#
+#	COPYRIGHT
+#	Makefile
+#	Makefile.inc
+#	README
+#	memconfig
+#	module
+#	xf86test
+#	memconfig/Makefile
+#	memconfig/memconfig.8
+#	memconfig/memconfig.c
+#	module/Makefile
+#	module/aperture.c
+#	module/i686_mem.c
+#	module/k6_mem.c
+#	module/memrange.h
+#	module/xf86.4
+#	module/xf86_mod.c
+#	module/xf86_mod.h
+#	module/xf86_mod_install
+#	module/xf86_reg.h
+#	xf86test/Makefile
+#	xf86test/xf86test.c
+# 
+# $XFree86: xc/programs/Xserver/hw/xfree86/etc/apNetBSD.shar,v 3.13 2000/10/24 18:07:51 dawes Exp $
+#
+echo x - COPYRIGHT
+sed 's/^X//' >COPYRIGHT << 'END-of-COPYRIGHT'
+XCopyright (C) 1999   The XFree86 Project Inc.
+X
+XPermission is hereby granted, free of charge, to any person obtaining
+Xa copy of this software and associated documentation files (the
+X"Software"), to deal in the Software without restriction, including
+Xwithout limitation the rights to use, copy, modify, merge, publish,
+Xdistribute, sublicense, and/or sell copies of the Software, and to
+Xpermit persons to whom the Software is furnished to do so, subject to
+Xthe following conditions:
+X
+XThe above copyright notice and the following permission notice shall be
+Xincluded in all copies of the Software:
+X
+XTHE SOFTWARE IS PROVIDED AS IS, WITHOUT WARRANTY OF ANY KIND, EXPRESS
+XOR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE WARRANTIES OF
+XMERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-
+XINFRINGEMENT. IN NO EVENT SHALL THE XFREE86 PROJECT BE LIABLE FOR ANY
+XCLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+XTORT OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE
+XSOFTWARE OR THE USE OF OTHER DEALINGS IN THE SOFTWARE.
+X
+XExcept as contained in this notice, the name of The XFree86 Project
+Xshall not be used in advertising or otherwise to promote the use or
+Xother dealings in this Software without prior written authorization
+Xfrom The XFree86 Project.
+X
+END-of-COPYRIGHT
+echo x - Makefile
+sed 's/^X//' >Makefile << 'END-of-Makefile'
+X# Makefile for the XFree86 aperture driver
+X#
+X# Copyright (C) 1999 The XFree86 Project Inc. 
+X#
+X
+XSUBDIR= module memconfig xf86test
+X
+XDISTRIB= COPYRIGHT Makefile Makefile.inc README memconfig module xf86test \
+X	memconfig/Makefile memconfig/memconfig.8 memconfig/memconfig.c \
+X	module/Makefile module/aperture.c \
+X	module/i686_mem.c module/k6_mem.c module/memrange.h \
+X	module/xf86.4 module/xf86_mod.c module/xf86_mod.h \
+X	module/xf86_mod_install module/xf86_reg.h \
+X	xf86test/Makefile xf86test/xf86test.c
+X
+Xbuild: dirs
+X	${MAKE} ${_J} cleandir
+X	${MAKE} ${_J} includes
+X	${MAKE} ${_J} depend
+X	${MAKE} ${_J} 
+X	${MAKE} ${_J} install
+X
+Xdirs:
+X	if [ ! -d ${KMODDIR} ]; then ${INSTALL} -d ${KMODDIR} ; fi
+X	if [ ! -d ${INCSDIR} ]; then ${INSTALL} -d ${INCSDIR} ; fi
+X	if [ ! -d ${BINDIR} ]; then ${INSTALL} -d ${BINDIR} ; fi
+X	if [ ! -d ${MANDIR}/man4 ]; then ${INSTALL} -d ${MANDIR}/man4 ; fi
+X	if [ ! -d ${MANDIR}/cat4 ]; then ${INSTALL} -d ${MANDIR}/cat4 ; fi
+X	if [ ! -d ${MANDIR}/man8 ]; then ${INSTALL} -d ${MANDIR}/man8 ; fi
+X	if [ ! -d ${MANDIR}/cat8 ]; then ${INSTALL} -d ${MANDIR}/cat8 ; fi
+X
+Xshar:
+X	shar $(DISTRIB) > apNetBSD.shar
+X
+Xclean:
+X	rm -f apNetBSD.shar
+X
+X.include "Makefile.inc"
+X.include <bsd.subdir.mk>
+END-of-Makefile
+echo x - Makefile.inc
+sed 's/^X//' >Makefile.inc << 'END-of-Makefile.inc'
+X# Define the directory where to install the aperture driver
+X# If you change it from the default value, also define the 
+X# NetBSDApertureDir variable in xc/config/cf/host.def before rebuilding 
+X# the X server
+X
+XAPDIR=		/usr/local/aperture
+X
+XKMODDIR=	${APDIR}/lkm
+XBINDIR=		${APDIR}/bin
+XMANDIR= 	${APDIR}/man
+XINCSDIR=	${APDIR}/include
+END-of-Makefile.inc
+echo x - README
+sed 's/^X//' >README << 'END-of-README'
+X
+X	XFree86 Framebuffer "aperture" driver for NetBSD.
+X	-------------------------------------------------
+X
+XVersion 2.0
+X-----------
+X
+XThis module was originally written to help work around the security
+Xfeature of NetBSD that prevents read/write access to /dev/mem.  It also
+Xprovide Pentium II and AMD K6 MTRR control in order to control
+Xwrite-combining to the framebuffer memory.
+X
+XXFree86 can take advantage of having direct access to video
+Xmemory (especially with VLB and PCI cards) and even requires it for
+Xthe most recent PCI or AGP video boards.
+X
+XThis driver works like the standard /dev/mem driver.  It just allows
+Xmapping of the VGA framebuffer and BIOS even if kernel security level
+Xis > 0.  The driver only implements the open(), close(), ioctl() and
+Xmmap() calls.  In order not to defeat kernel security, only one open()
+Xat a time is allowed and only a process with effective user id of 0 can
+Xperform it.  So while you're running XFree86, no other process will be
+Xallowed to open /dev/xf86.
+X
+XThis work is originally heavily inspired from the Solaris x86 aperture
+Xdriver by Doug Anson (danson@lgc.com) and David Holland
+X(davidh@use.com).  MTRR support is derived from FreeBSD. 
+X
+X
+XInstallation:
+X-------------
+X
+Xo Optionnally, edit Makefile.inc to set the APDIR variable to the
+X  directory where you want to install the aperture driver.  If you change 
+X  this, and want to rebuild XFree86 from source, also define
+X  NetBSDApertureDir in xc/config/cf/host.def before rebuilding it. 
+X
+Xo run 'make build' as root. This will build and install the XFree86 
+X  aperture kernel module. 
+X  
+Xo add the following line to /etc/lkm.conf (replace /usr/local/aperture 
+X  by the $APDIR directory):
+X
+X    /usr/local/aperture/lkm/xf86.o	    -	 -  /usr/local/aperture/lkm/xf86_mod_install - -
+X
+X  and set:
+X
+X    lkm=YES
+X
+X  in /etc/rc.conf
+X
+Xo Reboot your system.
+X
+Xo Test the module by running 'aptest' as root.  The output will look like:
+X
+X  # ./aptest
+X  NOTICE: VGA mapped [0xa0000 ,size=4096) to addr=0x10073000...
+X
+X  DONE displaying memory contents (80 bytes)
+X  UNMAPPING [0xa0000 ,size=4096) to addr=0x10073000... and closing...DONE.
+X  Exiting successful...
+X
+Xo Start the XFree86 server.  All XFree86 versions post 3.9.16d have support 
+X  for the aperture driver enabled.
+X
+XBug reports, comments, suggestions can be sent to <herrb@XFree86.Org>
+X
+X--Matthieu Herrb
+X
+X----------------------------------------------------------------------
+X
+X Copyright (c) 1994,1999 The XFree86 Project Inc.
+X
+END-of-README
+echo c - memconfig
+mkdir -p memconfig > /dev/null 2>&1
+echo c - module
+mkdir -p module > /dev/null 2>&1
+echo c - xf86test
+mkdir -p xf86test > /dev/null 2>&1
+echo x - memconfig/Makefile
+sed 's/^X//' >memconfig/Makefile << 'END-of-memconfig/Makefile'
+X# $FreeBSD: src/usr.sbin/memcontrol/Makefile,v 1.2 1999/09/29 21:43:31 chris Exp $
+X
+XPROG=		memconfig
+XMAN=		memconfig.8
+XCPPFLAGS+=	-I${.CURDIR}/../module
+X
+X.include <bsd.prog.mk>
+END-of-memconfig/Makefile
+echo x - memconfig/memconfig.8
+sed 's/^X//' >memconfig/memconfig.8 << 'END-of-memconfig/memconfig.8'
+X.\" Copyright (c) 1999 Chris Costello
+X.\" All rights reserved.
+X.\" 
+X.\" Redistribution and use in source and binary forms, with or without
+X.\" modification, are permitted provided that the following conditions
+X.\" are met:
+X.\" 1. Redistributions of source code must retain the above copyright
+X.\"    notice, this list of conditions and the following disclaimer.
+X.\" 2. Redistributions in binary form must reproduce the above copyright
+X.\"    notice, this list of conditions and the following disclaimer in the
+X.\"    documentation and/or other materials provided with the distribution.
+X.\" 
+X.\" THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+X.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+X.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+X.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+X.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+X.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+X.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+X.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+X.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+X.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+X.\" SUCH DAMAGE.
+X.\" 
+X.\" $FreeBSD: src/usr.sbin/memcontrol/memcontrol.8,v 1.2 1999/10/09 16:37:37 chris Exp $
+X.\" 
+X.Dd November 14, 1999
+X.Dt MEMCONFIG 8
+X.Os NetBSD
+X.Sh NAME
+X.Nm memconfig
+X.Nd "Control system cache behaviour with respect to memory"
+X.Sh SYNOPSIS
+X.Nm
+X.Ar list
+X.Op Fl a
+X.Pp
+X.Nm
+X.Ar set
+X.Fl b Ar base
+X.Fl l Ar length
+X.Fl o Ar owner
+X.Ar attribute
+X.Pp
+X.Nm
+X.Ar clear
+X.Fl o Ar owner
+X.Pp
+X.Nm
+X.Ar clear
+X.Fl b Ar base
+X.Fl l Ar length
+X.Sh DESCRIPTION
+XA number of supported system architectures allow the behaviour of the CPU
+Xcache to be programmed to behave differently depending on the region being
+Xwritten.
+X.Pp
+X.Nm Memconfig
+Xprovides an interface to this facility, allowing CPU cache behavior to
+Xbe altered for ranges of system physical memory.
+X.Pp
+XThese ranges are typically power-of-2 aligned and sized, however the specific
+Xrules governing their layout vary between architectures.  The
+X.Nm memconfig
+Xprogram does not attempt to enforce these rules, however the system will
+Xreject any attempt to set an illegal combination.
+X.Bl -tag -width clear
+X.It Ar list
+XList range slots.
+X.Bl -tag -width xxxxxx
+X.It Op Fl a
+XList all range slots, even those that are inactive
+X.El
+X.It Ar set
+XSet memory range attributes.
+X.Bl -tag -width xxxxxx
+X.It Fl b Ar base
+XMemory range base address
+X.It Fl l Ar length
+XLength of memory range in bytes, power of 2
+X.It Fl o Ar owner
+XText identifier for this setting (7 char max)
+X.It Ar attribute
+XAttributes applied to this range; one of
+X.Ar uncacheable ,
+X.Ar write-combine ,
+X.Ar write-through ,
+X.Ar write-back ,
+X.Ar write-protect
+X.El
+X.It Ar clear
+XClear memory range attributes. Ranges may be cleared by owner or by
+Xbase/length combination.
+X.Pp
+XTo clear based on ownership:
+X.Bl -tag -width xxxxxx
+X.It Fl o Ar owner
+XAll ranges with this owner will be cleared
+X.El
+X.Pp
+XTo clear based on the base/length combination:
+X.Bl -tag -width xxxxxx
+X.It Fl b Ar base
+XMemory range base address
+X.It Fl l Ar length
+XLength of memory range in bytes, power of 2
+X.El
+X.Pp
+XBase and length must exactly match an existing range.
+X.El
+X.Sh NOTE
+XSince 
+X.Nm memconfig
+Xuses the XFree86 aperture driver 
+X.Pa /dev/xf86
+Xon NetBSD, it can only be run after the driver has beed loaded and
+Xbefore the X server starts.
+X.Sh HISTORY
+X.Nm memconfig 
+Xwas originally introduced in FreeBSD 3.3 as
+X.Xr memcontrol 8 .
+XIt is provided as part of the XFree86 aperture driver version 2.0 for
+XNetBSD. 
+X.Sh SEE ALSO
+X.Xr xf86 4
+END-of-memconfig/memconfig.8
+echo x - memconfig/memconfig.c
+sed 's/^X//' >memconfig/memconfig.c << 'END-of-memconfig/memconfig.c'
+X/*-
+X * Copyright (c) 1999 Michael Smith <msmith@freebsd.org>
+X * All rights reserved.
+X *
+X * Redistribution and use in source and binary forms, with or without
+X * modification, are permitted provided that the following conditions
+X * are met:
+X * 1. Redistributions of source code must retain the above copyright
+X *    notice, this list of conditions and the following disclaimer.
+X * 2. Redistributions in binary form must reproduce the above copyright
+X *    notice, this list of conditions and the following disclaimer in the
+X *    documentation and/or other materials provided with the distribution.
+X *
+X * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+X * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+X * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+X * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+X * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+X * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+X * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+X * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+X * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+X * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+X * SUCH DAMAGE.
+X *
+X * $FreeBSD: src/usr.sbin/memcontrol/memcontrol.c,v 1.3 1999/08/28 01:17:00 peter Exp $
+X */
+X
+X#include <sys/types.h>
+X#include <sys/ioctl.h>
+X
+X#include <err.h>
+X#include <fcntl.h>
+X#include <stdio.h>
+X#include <stdlib.h>
+X#include <string.h>
+X#include <unistd.h>
+X
+X#include "memrange.h"
+X
+Xstruct
+X{
+X    char	*name;
+X    int		val;
+X    int		kind;
+X#define MDF_SETTABLE	(1<<0)
+X} attrnames[] = {
+X    {"uncacheable",	MDF_UNCACHEABLE,	MDF_SETTABLE},
+X    {"write-combine",	MDF_WRITECOMBINE,	MDF_SETTABLE},
+X    {"write-through",	MDF_WRITETHROUGH,	MDF_SETTABLE},
+X    {"write-back",	MDF_WRITEBACK,		MDF_SETTABLE},
+X    {"write-protect",	MDF_WRITEPROTECT,	MDF_SETTABLE},
+X    {"fixed-base",	MDF_FIXBASE,		0},
+X    {"fixed-length",	MDF_FIXLEN,		0},
+X    {"set-by-firmware",	MDF_FIRMWARE,		0},
+X    {"active",		MDF_ACTIVE,		MDF_SETTABLE},
+X    {"bogus",		MDF_BOGUS,		0},
+X    {NULL,		0,			0}
+X};
+X
+Xstatic void	listfunc(int memfd, int argc, char *argv[]);
+Xstatic void	setfunc(int memfd, int argc, char *argv[]);
+Xstatic void	clearfunc(int memfd, int argc, char *argv[]);
+Xstatic void	helpfunc(int memfd, int argc, char *argv[]);
+Xstatic void	help(char *what);
+X
+Xstruct 
+X{
+X    char	*cmd;
+X    char	*desc;
+X    void	(*func)(int memfd, int argc, char *argv[]);
+X} functions[] = {
+X    {"list",	
+X     "List current memory range attributes\n"
+X     "    list [-a]\n"
+X     "        -a    list all range slots, even those that are inactive",
+X     listfunc},
+X    {"set",	
+X     "Set memory range attributes\n"
+X     "    set -b <base> -l <length> -o <owner> <attribute>\n"
+X     "        <base>      memory range base address\n"
+X     "        <length>    length of memory range in bytes, power of 2\n"
+X     "        <owner>     text identifier for this setting (7 char max)\n"
+X     "        <attribute> attribute(s) to be applied to this range:\n"
+X     "                        uncacheable\n"
+X     "                        write-combine\n"
+X     "                        write-through\n"
+X     "                        write-back\n"
+X     "                        write-protect",
+X     setfunc},
+X    {"clear",	
+X     "Clear memory range attributes\n"
+X     "    clear -o <owner>\n"
+X     "        <owner>     all ranges with this owner will be cleared\n"
+X     "    clear -b <base> -l <length>\n"
+X     "        <base>      memory range base address\n"
+X     "        <length>    length of memory range in bytes, power of 2\n"
+X     "                    Base and length must exactly match an existing range",
+X     clearfunc},
+X    {NULL,	NULL,					helpfunc}
+X};
+X
+Xint
+Xmain(int argc, char *argv[])
+X{
+X    int		i, memfd;
+X
+X    if (argc < 2) {
+X	help(NULL);
+X    } else {
+X	if ((memfd = open("/dev/xf86", O_RDONLY)) == -1)
+X	    err(1, "can't open /dev/xf86");
+X
+X	for (i = 0; functions[i].cmd != NULL; i++)
+X	    if (!strcmp(argv[1], functions[i].cmd))
+X		break;
+X	functions[i].func(memfd, argc - 1, argv + 1);
+X	close(memfd);
+X    }
+X    return(0);
+X}
+X
+Xstatic struct mem_range_desc *
+Xmrgetall(int memfd, int *nmr)
+X{
+X    struct mem_range_desc	*mrd;
+X    struct mem_range_op		mro;
+X
+X    mro.mo_arg[0] = 0;
+X    if (ioctl(memfd, MEMRANGE_GET, &mro))
+X	err(1, "can't size range descriptor array");
+X    
+X    *nmr = mro.mo_arg[0];
+X    mrd = malloc(*nmr * sizeof(struct mem_range_desc));
+X    if (mrd == NULL)
+X	errx(1, "can't allocate %d bytes for %d range descriptors", 
+X	     *nmr * sizeof(struct mem_range_desc), *nmr);
+X
+X    mro.mo_arg[0] = *nmr;
+X    mro.mo_desc = mrd;
+X    if (ioctl(memfd, MEMRANGE_GET, &mro))
+X	err(1, "can't fetch range descriptor array");
+X
+X    return(mrd);
+X}
+X
+X
+Xstatic void
+Xlistfunc(int memfd, int argc, char *argv[])
+X{
+X    struct mem_range_desc	*mrd;
+X    int				nd, i, j;
+X    int				error;
+X    int				ch;
+X    int				showall = 0;
+X    char			*owner;
+X
+X    owner = NULL;
+X    while ((ch = getopt(argc, argv, "ao:")) != -1)
+X	switch(ch) {
+X	case 'a':
+X	    showall = 1;
+X	    break;
+X	case 'o':
+X	    owner = strdup(optarg);
+X	    break;
+X	case '?':
+X	default:
+X	    help("list");
+X	}
+X
+X    mrd = mrgetall(memfd, &nd);
+X    
+X    for (i = 0; i < nd; i++) {
+X	if (!showall && !(mrd[i].mr_flags & MDF_ACTIVE))
+X	    continue;
+X	if (owner && strcmp(mrd[i].mr_owner, owner))
+X	    continue;
+X	printf("%qx/%qx %.8s ", mrd[i].mr_base, mrd[i].mr_len, 
+X	       mrd[i].mr_owner[0] ? mrd[i].mr_owner : "-");
+X	for (j = 0; attrnames[j].name != NULL; j++)
+X	    if (mrd[i].mr_flags & attrnames[j].val)
+X		printf("%s ", attrnames[j].name);
+X	printf("\n");
+X    }
+X    free(mrd);
+X    if (owner)
+X	free(owner);
+X}
+X
+Xstatic void
+Xsetfunc(int memfd, int argc, char *argv[])
+X{
+X    struct mem_range_desc	mrd;
+X    struct mem_range_op		mro;
+X    int				i;
+X    int				ch;
+X    char			*ep;
+X
+X    mrd.mr_base = 0;
+X    mrd.mr_len = 0;
+X    mrd.mr_flags = 0;
+X    strcpy(mrd.mr_owner, "user");
+X    while ((ch = getopt(argc, argv, "b:l:o:")) != -1)
+X	switch(ch) {
+X	case 'b':
+X	    mrd.mr_base = strtouq(optarg, &ep, 0);
+X	    if ((ep == optarg) || (*ep != 0))
+X		help("set");
+X	    break;
+X	case 'l':
+X	    mrd.mr_len = strtouq(optarg, &ep, 0);
+X	    if ((ep == optarg) || (*ep != 0))
+X		help("set");
+X	    break;
+X	case 'o':
+X	    if ((*optarg == 0) || (strlen(optarg) > 7))
+X		help("set");
+X	    strcpy(mrd.mr_owner, optarg);
+X	    break;
+X	    
+X	case '?':
+X	default:
+X	    help("set");
+X	}
+X
+X    if (mrd.mr_len == 0)
+X	help("set");
+X
+X    argc -= optind;
+X    argv += optind;
+X    
+X    while(argc--) {
+X	for (i = 0; attrnames[i].name != NULL; i++) {
+X	    if (!strcmp(attrnames[i].name, argv[0])) {
+X		if (!attrnames[i].kind & MDF_SETTABLE)
+X		    help("flags");
+X		mrd.mr_flags |= attrnames[i].val;
+X		break;
+X	    }
+X	}
+X	if (attrnames[i].name == NULL)
+X	    help("flags");
+X	argv++;
+X    }
+X
+X    mro.mo_desc = &mrd;
+X    mro.mo_arg[0] = 0;
+X    if (ioctl(memfd, MEMRANGE_SET, &mro))
+X	err(1, "can't set range");
+X}
+X
+Xstatic void
+Xclearfunc(int memfd, int argc, char *argv[])
+X{
+X    struct mem_range_desc	mrd, *mrdp;
+X    struct mem_range_op		mro;
+X    int				i, nd;
+X    int				ch;
+X    char			*ep, *owner;
+X
+X    mrd.mr_base = 0;
+X    mrd.mr_len = 0;
+X    owner = NULL;
+X    while ((ch = getopt(argc, argv, "b:l:o:")) != -1)
+X	switch(ch) {
+X	case 'b':
+X	    mrd.mr_base = strtouq(optarg, &ep, 0);
+X	    if ((ep == optarg) || (*ep != 0))
+X		help("clear");
+X	    break;
+X	case 'l':
+X	    mrd.mr_len = strtouq(optarg, &ep, 0);
+X	    if ((ep == optarg) || (*ep != 0))
+X		help("clear");
+X	    break;
+X	case 'o':
+X	    if ((*optarg == 0) || (strlen(optarg) > 7))
+X		help("clear");
+X	    owner = strdup(optarg);
+X	    break;
+X	    
+X	case '?':
+X	default:
+X	    help("clear");
+X	}
+X
+X    if (owner != NULL) {
+X	/* clear-by-owner */
+X	if ((mrd.mr_base != 0) || (mrd.mr_len != 0))
+X	    help("clear");
+X
+X	mrdp = mrgetall(memfd, &nd);
+X	mro.mo_arg[0] = MEMRANGE_SET_REMOVE;
+X	for (i = 0; i < nd; i++) {
+X	    if (!strcmp(owner, mrdp[i].mr_owner) && 
+X		(mrdp[i].mr_flags & MDF_ACTIVE) &&
+X		!(mrdp[i].mr_flags & MDF_FIXACTIVE)) {
+X		
+X		mro.mo_desc = mrdp + i;
+X		if (ioctl(memfd, MEMRANGE_SET, &mro))
+X		    warn("couldn't clear range owned by '%s'", owner);
+X	    }
+X	}
+X    } else if ((mrd.mr_base != 0) && (mrd.mr_len != 0)) {
+X	/* clear-by-base/len */
+X	mro.mo_arg[0] = MEMRANGE_SET_REMOVE;
+X	mro.mo_desc = &mrd;
+X	if (ioctl(memfd, MEMRANGE_SET, &mro))
+X	    err(1, "couldn't clear range");
+X    } else {
+X	help("clear");
+X    }
+X}
+X
+Xstatic void
+Xhelpfunc(int memfd, int argc, char *argv[])
+X{
+X    help(argv[1]);
+X}
+X
+Xstatic void
+Xhelp(char *what)
+X{
+X    int		i;
+X
+X    if (what != NULL) {
+X	/* find a function that matches */
+X	for (i = 0; functions[i].cmd != NULL; i++)
+X	    if (!strcmp(what, functions[i].cmd)) {
+X		fprintf(stderr, "%s\n", functions[i].desc);
+X		return;
+X	    }
+X	fprintf(stderr, "Unknown command '%s'\n", what);
+X    }
+X    
+X    /* print general help */
+X    fprintf(stderr, "Valid commands are :\n");
+X    for (i = 0; functions[i].cmd != NULL; i++)
+X	fprintf(stderr, "    %s\n", functions[i].cmd);
+X    fprintf(stderr, "Use help <command> for command-specific help\n");
+X}
+END-of-memconfig/memconfig.c
+echo x - module/Makefile
+sed 's/^X//' >module/Makefile << 'END-of-module/Makefile'
+X#
+X# Loadable Kernel Module for the XFree86 Aperture Driver
+X#
+X# Copyright (c) 1994-1999 The XFree86 Project Inc.
+X#
+X
+X# Add -DXF86_DEBUG to CPPFLAGS to add debugging printfs
+XCPPFLAGS+= 	$(PC98)
+XWARNS?=		1
+X
+XKMOD= 	xf86
+XSRCS= 	aperture.c i686_mem.c k6_mem.c xf86_mod.c
+XMAN=	xf86.4
+X
+XPOSTINSTALL= ${.CURDIR}/xf86_mod_install
+X
+Xafterinstall:
+X	${INSTALL} -c -o root -g wheel -m 755 $(POSTINSTALL) $(KMODDIR)
+X
+X
+Xincludes: 
+X	install -c -p -o root -g wheel -m 444 ${.CURDIR}/memrange.h $(INCSDIR)
+X
+XKMOD_LOADFLAGS= -p$(POSTINSTALL)
+X
+X.include <bsd.kmod.mk>
+END-of-module/Makefile
+echo x - module/aperture.c
+sed 's/^X//' >module/aperture.c << 'END-of-module/aperture.c'
+X/*-
+X * Copyright (c) 1988 University of Utah.
+X * Copyright (c) 1982, 1986, 1990 The Regents of the University of California.
+X * Copyright (c) 1994, 1999 The XFree86 Project Inc. 
+X * All rights reserved.
+X *
+X * This code is derived from software contributed to Berkeley by
+X * the Systems Programming Group of the University of Utah Computer
+X * Science Department, and code derived from software contributed to
+X * Berkeley by William Jolitz.
+X *
+X * Redistribution and use in source and binary forms, with or without
+X * modification, are permitted provided that the following conditions
+X * are met:
+X * 1. Redistributions of source code must retain the above copyright
+X *    notice, this list of conditions and the following disclaimer.
+X * 2. Redistributions in binary form must reproduce the above copyright
+X *    notice, this list of conditions and the following disclaimer in the
+X *    documentation and/or other materials provided with the distribution.
+X * 3. All advertising materials mentioning features or use of this software
+X *    must display the following acknowledgement:
+X *	This product includes software developed by the University of
+X *	California, Berkeley and its contributors.
+X * 4. Neither the name of the University nor the names of its contributors
+X *    may be used to endorse or promote products derived from this software
+X *    without specific prior written permission.
+X *
+X * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+X * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+X * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+X * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+X * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+X * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+X * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+X * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+X * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+X * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+X * SUCH DAMAGE.
+X *
+X *	from: Utah $Hdr: mem.c 1.13 89/10/08$
+X *	from: @(#)mem.c	7.2 (Berkeley) 5/9/91
+X *      from: $FreeBSD: src/sys/i386/i386/mem.c,v 1.76 1999/10/30 06:31:46 phk Exp $
+X */
+X
+X/* 
+X * linear framebuffer aperture driver for NetBSD
+X */
+X
+X#include <sys/param.h>
+X#include <sys/systm.h>
+X#include <sys/ioccom.h>
+X#include <sys/proc.h>
+X#include <sys/malloc.h>
+X#include <sys/errno.h>
+X#include <sys/conf.h>
+X#include <sys/exec.h>
+X#include <sys/lkm.h>
+X
+X#ifdef _LKM
+X#include "xf86_mod.h"
+X#endif
+X#include "xf86_reg.h"
+X#include "memrange.h"
+X
+X#define ISA_END   0xFFFFF
+X#ifdef PC98 
+X#define HOLE16M_START	0xF00000
+X#define HOLE16M_END	0xFFFFFF
+X#endif 
+X
+X/* open counter */
+Xstatic int xf86_open_count = 0;
+X
+X/* mem range descriptors */
+Xstruct mem_range_softc mem_range_softc;
+X
+X/*
+X * Open the device
+X */
+Xint
+Xxf86open(dev, oflags, devtype, p)
+X	dev_t dev;
+X	int oflags;
+X	int devtype;
+X	struct proc *p;
+X{
+X
+X	if (suser(p->p_ucred, &p->p_acflag) != 0) {
+X		return(EPERM);
+X	}
+X	/* authorize only one simultaneous open() */
+X	if (xf86_open_count > 0) {
+X		return(EPERM);
+X	}
+X	xf86_open_count++;
+X	
+X	return(0);
+X}
+X
+X/*
+X * Close the device
+X */
+Xint
+Xxf86close(dev, cflags, devtype, p)
+X	dev_t dev;
+X	int cflags;
+X	int devtype;
+X	struct proc *p;
+X{
+X	xf86_open_count--;
+X	return(0);
+X}
+X
+X/*
+X *  mmap() physical memory sections
+X * 
+X * allow only section in the vga framebuffer and above main memory 
+X * to be mapped
+X */
+X#if !defined(__NetBSD_Version__) || \
+X    (defined(__NetBSD_Version__) && (__NetBSD_Version__ < 105000000))
+Xint
+Xxf86mmap(dev, offset, length)
+X	dev_t dev;
+X	int offset;
+X	int length;
+X#else
+Xpaddr_t
+Xxf86mmap(dev, offset, length)
+X	dev_t dev;
+X	off_t offset;
+X	int length;
+X#endif /* __NetBSD_Version__ */
+X{
+X
+X#ifdef XF86_DEBUG
+X	printf("xf86mmap: addr 0x%x\n", offset);
+X#endif
+X	if  ((minor(dev) == 0) 
+X	     && ((offset <= ISA_END )
+X		 || (unsigned)offset > (unsigned)ctob(physmem)
+X#ifdef PC98
+X		 || ((unsigned)offset >=HOLE16M_START
+X		     && (unsigned)offset <= HOLE16M_END)
+X#endif
+X		     )) {
+X		return i386_btop(offset);
+X	} else {
+X		return(-1);
+X	}
+X}
+X       
+Xint
+Xxf86ioctl(dev, cmd, data, flags, p)
+X	dev_t dev;
+X	u_long cmd;
+X	caddr_t data;
+X	int flags;
+X	struct proc *p;
+X{
+X	int nd, error = 0;
+X	struct mem_range_op *mo = (struct mem_range_op *)data;
+X	struct mem_range_desc *md;
+X	
+X	/* is this for us? */
+X	if ((cmd != MEMRANGE_GET) &&
+X	    (cmd != MEMRANGE_SET))
+X		return (ENOTTY);
+X
+X	/* any chance we can handle this? */
+X	if (mem_range_softc.mr_op == NULL)
+X		return (EOPNOTSUPP);
+X
+X	/* do we have any descriptors? */
+X	if (mem_range_softc.mr_ndesc == 0)
+X		return (ENXIO);
+X
+X	switch (cmd) {
+X	case MEMRANGE_GET:
+X		nd = imin(mo->mo_arg[0], mem_range_softc.mr_ndesc);
+X		if (nd > 0) {
+X			md = (struct mem_range_desc *)
+X				malloc(nd * sizeof(struct mem_range_desc),
+X				       M_MEMDESC, M_WAITOK);
+X			error = mem_range_attr_get(md, &nd);
+X			if (!error)
+X				error = copyout(md, mo->mo_desc, 
+X					nd * sizeof(struct mem_range_desc));
+X			free(md, M_MEMDESC);
+X		} else {
+X			nd = mem_range_softc.mr_ndesc;
+X		}
+X		mo->mo_arg[0] = nd;
+X		break;
+X		
+X	case MEMRANGE_SET:
+X		md = (struct mem_range_desc *)malloc(sizeof(struct mem_range_desc),
+X						    M_MEMDESC, M_WAITOK);
+X		error = copyin(mo->mo_desc, md, sizeof(struct mem_range_desc));
+X		/* clamp description string */
+X		md->mr_owner[sizeof(md->mr_owner) - 1] = 0;
+X		if (error == 0)
+X			error = mem_range_attr_set(md, &mo->mo_arg[0]);
+X		free(md, M_MEMDESC);
+X		break;
+X	}
+X	return (error);
+X}
+X
+X/*
+X * Implementation-neutral, kernel-callable functions for manipulating
+X * memory range attributes.
+X */
+Xint
+Xmem_range_attr_get(mrd, arg)
+X	struct mem_range_desc *mrd;
+X	int *arg;
+X{
+X	/* can we handle this? */
+X	if (mem_range_softc.mr_op == NULL)
+X		return (EOPNOTSUPP);
+X
+X	if (*arg == 0) {
+X		*arg = mem_range_softc.mr_ndesc;
+X	} else {
+X		bcopy(mem_range_softc.mr_desc, mrd, (*arg) * sizeof(struct mem_range_desc));
+X	}
+X	return (0);
+X}
+X
+Xint
+Xmem_range_attr_set(mrd, arg)
+X	struct mem_range_desc *mrd;
+X	int *arg;
+X{
+X	/* can we handle this? */
+X	if (mem_range_softc.mr_op == NULL)
+X		return (EOPNOTSUPP);
+X
+X	return (mem_range_softc.mr_op->set(&mem_range_softc, mrd, arg));
+X }
+END-of-module/aperture.c
+echo x - module/i686_mem.c
+sed 's/^X//' >module/i686_mem.c << 'END-of-module/i686_mem.c'
+X/*-
+X * Copyright (c) 1999 Michael Smith <msmith@freebsd.org>
+X * All rights reserved.
+X *
+X * Redistribution and use in source and binary forms, with or without
+X * modification, are permitted provided that the following conditions
+X * are met:
+X * 1. Redistributions of source code must retain the above copyright
+X *    notice, this list of conditions and the following disclaimer.
+X * 2. Redistributions in binary form must reproduce the above copyright
+X *    notice, this list of conditions and the following disclaimer in the
+X *    documentation and/or other materials provided with the distribution.
+X *
+X * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+X * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+X * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+X * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+X * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+X * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+X * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+X * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+X * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+X * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+X * SUCH DAMAGE.
+X *
+X * $FreeBSD: src/sys/i386/i386/i686_mem.c,v 1.8 1999/10/12 22:53:05 green Exp $
+X */
+X
+X#include <sys/param.h>
+X#include <sys/systm.h>
+X#include <sys/malloc.h>
+X
+X#include <machine/cpufunc.h>
+X#include <machine/specialreg.h>
+X
+X#include "memrange.h"
+X#include "xf86_reg.h"
+X
+X/*
+X * i686 memory range operations
+X *
+X * This code will probably be impenetrable without reference to the
+X * Intel Pentium Pro documentation.
+X */
+X
+Xstatic char *mem_owner_bios = "BIOS";
+X
+X#define MR686_FIXMTRR	(1<<0)
+X
+X#define mrwithin(mr, a) \
+X    (((a) >= (mr)->mr_base) && ((a) < ((mr)->mr_base + (mr)->mr_len)))
+X#define mroverlap(mra, mrb) \
+X    (mrwithin(mra, mrb->mr_base) || mrwithin(mrb, mra->mr_base))
+X
+X#define mrvalid(base, len) 						\
+X    ((!(base & ((1 << 12) - 1))) && 	/* base is multiple of 4k */	\
+X     ((len) >= (1 << 12)) && 		/* length is >= 4k */		\
+X     powerof2((len)) && 		/* ... and power of two */	\
+X     !((base) & ((len) - 1)))		/* range is not discontiuous */
+X
+X#define mrcopyflags(curr, new) (((curr) & ~MDF_ATTRMASK) | ((new) & MDF_ATTRMASK))
+X
+Xstatic void i686_mrinit(struct mem_range_softc * sc);
+X
+Xstatic int i686_mrset __P((struct mem_range_softc * sc,
+X			  struct mem_range_desc * mrd,
+X			  int *arg));
+Xstatic void i686_mrAPinit __P((struct mem_range_softc * sc));
+X
+Xstruct mem_range_ops i686_mrops = {
+X	i686_mrinit,
+X	i686_mrset,
+X	i686_mrAPinit
+X};
+X
+X/* XXX for AP startup hook */
+Xstatic u_int64_t mtrrcap, mtrrdef;
+X
+Xstatic struct mem_range_desc *mem_range_match __P((struct mem_range_softc * sc,
+X						  struct mem_range_desc * mrd));
+Xstatic void i686_mrfetch __P((struct mem_range_softc * sc));
+Xstatic int i686_mtrrtype __P((int flags));
+Xstatic void i686_mrstore __P((struct mem_range_softc * sc));
+Xstatic void i686_mrstoreone __P((void *arg));
+Xstatic struct mem_range_desc *i686_mtrrfixsearch __P((struct mem_range_softc * sc,
+X						     u_int64_t addr));
+Xstatic int i686_mrsetlow __P((struct mem_range_softc * sc,
+X			     struct mem_range_desc * mrd,
+X			     int *arg));
+Xstatic int i686_mrsetvariable __P((struct mem_range_softc * sc,
+X				  struct mem_range_desc * mrd,
+X				  int *arg));
+X
+X/* i686 MTRR type to memory range type conversion */
+Xstatic int i686_mtrrtomrt[] = {
+X	MDF_UNCACHEABLE,
+X	MDF_WRITECOMBINE,
+X	0,
+X	0,
+X	MDF_WRITETHROUGH,
+X	MDF_WRITEPROTECT,
+X	MDF_WRITEBACK
+X};
+X
+X/*
+X * i686 MTRR conflict matrix for overlapping ranges
+X *
+X * Specifically, this matrix allows writeback and uncached ranges
+X * to overlap (the overlapped region is uncached).  The array index
+X * is the translated i686 code for the flags (because they map well).
+X */
+Xstatic int i686_mtrrconflict[] = {
+X	MDF_WRITECOMBINE | MDF_WRITETHROUGH | MDF_WRITEPROTECT,
+X	MDF_ATTRMASK,
+X	0,
+X	0,
+X	MDF_ATTRMASK,
+X	MDF_ATTRMASK,
+X	MDF_WRITECOMBINE | MDF_WRITETHROUGH | MDF_WRITEPROTECT
+X};
+X
+X/*
+X * Look for an exactly-matching range.
+X */
+Xstatic struct mem_range_desc *
+Xmem_range_match(struct mem_range_softc * sc, struct mem_range_desc * mrd)
+X{
+X	struct mem_range_desc *cand;
+X	int     i;
+X
+X	for (i = 0, cand = sc->mr_desc; i < sc->mr_ndesc; i++, cand++)
+X		if ((cand->mr_base == mrd->mr_base) &&
+X		    (cand->mr_len == mrd->mr_len))
+X			return (cand);
+X	return (NULL);
+X}
+X
+X/*
+X * Fetch the current mtrr settings from the current CPU (assumed to all
+X * be in sync in the SMP case).  Note that if we are here, we assume
+X * that MTRRs are enabled, and we may or may not have fixed MTRRs.
+X */
+Xstatic void
+Xi686_mrfetch(struct mem_range_softc * sc)
+X{
+X	struct mem_range_desc *mrd;
+X	u_int64_t msrv;
+X	int     i, j, msr;
+X
+X	mrd = sc->mr_desc;
+X
+X	/* Get fixed-range MTRRs */
+X	if (sc->mr_cap & MR686_FIXMTRR) {
+X		msr = MSR_MTRR64kBase;
+X		for (i = 0; i < (MTRR_N64K / 8); i++, msr++) {
+X			msrv = rdmsr(msr);
+X			for (j = 0; j < 8; j++, mrd++) {
+X				mrd->mr_flags = (mrd->mr_flags & ~MDF_ATTRMASK) |
+X				    i686_mtrrtomrt[msrv & 0xff] |
+X				    MDF_ACTIVE;
+X				if (mrd->mr_owner[0] == 0)
+X					strcpy(mrd->mr_owner, mem_owner_bios);
+X				msrv = msrv >> 8;
+X			}
+X		}
+X		msr = MSR_MTRR16kBase;
+X		for (i = 0; i < (MTRR_N16K / 8); i++, msr++) {
+X			msrv = rdmsr(msr);
+X			for (j = 0; j < 8; j++, mrd++) {
+X				mrd->mr_flags = (mrd->mr_flags & ~MDF_ATTRMASK) |
+X				    i686_mtrrtomrt[msrv & 0xff] |
+X				    MDF_ACTIVE;
+X				if (mrd->mr_owner[0] == 0)
+X					strcpy(mrd->mr_owner, mem_owner_bios);
+X				msrv = msrv >> 8;
+X			}
+X		}
+X		msr = MSR_MTRR4kBase;
+X		for (i = 0; i < (MTRR_N4K / 8); i++, msr++) {
+X			msrv = rdmsr(msr);
+X			for (j = 0; j < 8; j++, mrd++) {
+X				mrd->mr_flags = (mrd->mr_flags & ~MDF_ATTRMASK) |
+X				    i686_mtrrtomrt[msrv & 0xff] |
+X				    MDF_ACTIVE;
+X				if (mrd->mr_owner[0] == 0)
+X					strcpy(mrd->mr_owner, mem_owner_bios);
+X				msrv = msrv >> 8;
+X			}
+X		}
+X	}
+X	/* Get remainder which must be variable MTRRs */
+X	msr = MSR_MTRRVarBase;
+X	for (; (mrd - sc->mr_desc) < sc->mr_ndesc; msr += 2, mrd++) {
+X		msrv = rdmsr(msr);
+X		mrd->mr_flags = (mrd->mr_flags & ~MDF_ATTRMASK) |
+X		    i686_mtrrtomrt[msrv & 0xff];
+X		mrd->mr_base = msrv & 0x0000000ffffff000LL;
+X		msrv = rdmsr(msr + 1);
+X		mrd->mr_flags = (msrv & 0x800) ?
+X		    (mrd->mr_flags | MDF_ACTIVE) :
+X		    (mrd->mr_flags & ~MDF_ACTIVE);
+X		/* Compute the range from the mask. Ick. */
+X		mrd->mr_len = (~(msrv & 0x0000000ffffff000LL) & 0x0000000fffffffffLL) + 1;
+X		if (!mrvalid(mrd->mr_base, mrd->mr_len))
+X			mrd->mr_flags |= MDF_BOGUS;
+X		/* If unclaimed and active, must be the BIOS */
+X		if ((mrd->mr_flags & MDF_ACTIVE) && (mrd->mr_owner[0] == 0))
+X			strcpy(mrd->mr_owner, mem_owner_bios);
+X	}
+X}
+X
+X/*
+X * Return the MTRR memory type matching a region's flags
+X */
+Xstatic int
+Xi686_mtrrtype(int flags)
+X{
+X	int     i;
+X
+X	flags &= MDF_ATTRMASK;
+X
+X	for (i = 0; i < (sizeof(i686_mtrrtomrt) / sizeof(i686_mtrrtomrt[0])); i++) {
+X		if (i686_mtrrtomrt[i] == 0)
+X			continue;
+X		if (flags == i686_mtrrtomrt[i])
+X			return (i);
+X	}
+X	return (-1);
+X}
+X
+X/*
+X * Update running CPU(s) MTRRs to match the ranges in the descriptor
+X * list.
+X *
+X * XXX Must be called with interrupts enabled.
+X */
+Xstatic void
+Xi686_mrstore(struct mem_range_softc * sc)
+X{
+X	disable_intr();		/* disable interrupts */
+X	i686_mrstoreone((void *) sc);
+X	enable_intr();
+X}
+X
+X/*
+X * Update the current CPU's MTRRs with those represented in the
+X * descriptor list.  Note that we do this wholesale rather than
+X * just stuffing one entry; this is simpler (but slower, of course).
+X */
+Xstatic void
+Xi686_mrstoreone(void *arg)
+X{
+X	struct mem_range_softc *sc = (struct mem_range_softc *) arg;
+X	struct mem_range_desc *mrd;
+X	u_int64_t msrv;
+X	int     i, j, msr;
+X	u_int   cr4save;
+X
+X	mrd = sc->mr_desc;
+X
+X	cr4save = rcr4();	/* save cr4 */
+X	if (cr4save & CR4_PGE)
+X		lcr4(cr4save & ~CR4_PGE);
+X	lcr0((rcr0() & ~CR0_NW) | CR0_CD);	/* disable caches (CD = 1, NW
+X						 * = 0) */
+X	wbinvd();		/* flush caches, TLBs */
+X	wrmsr(MSR_MTRRdefType, rdmsr(MSR_MTRRdefType) & ~0x800);	/* disable MTRRs (E = 0) */
+X
+X	/* Set fixed-range MTRRs */
+X	if (sc->mr_cap & MR686_FIXMTRR) {
+X		msr = MSR_MTRR64kBase;
+X		for (i = 0; i < (MTRR_N64K / 8); i++, msr++) {
+X			msrv = 0;
+X			for (j = 7; j >= 0; j--) {
+X				msrv = msrv << 8;
+X				msrv |= (i686_mtrrtype((mrd + j)->mr_flags) & 0xff);
+X			}
+X			wrmsr(msr, msrv);
+X			mrd += 8;
+X		}
+X		msr = MSR_MTRR16kBase;
+X		for (i = 0; i < (MTRR_N16K / 8); i++, msr++) {
+X			msrv = 0;
+X			for (j = 7; j >= 0; j--) {
+X				msrv = msrv << 8;
+X				msrv |= (i686_mtrrtype((mrd + j)->mr_flags) & 0xff);
+X			}
+X			wrmsr(msr, msrv);
+X			mrd += 8;
+X		}
+X		msr = MSR_MTRR4kBase;
+X		for (i = 0; i < (MTRR_N4K / 8); i++, msr++) {
+X			msrv = 0;
+X			for (j = 7; j >= 0; j--) {
+X				msrv = msrv << 8;
+X				msrv |= (i686_mtrrtype((mrd + j)->mr_flags) & 0xff);
+X			}
+X			wrmsr(msr, msrv);
+X			mrd += 8;
+X		}
+X	}
+X	/* Set remainder which must be variable MTRRs */
+X	msr = MSR_MTRRVarBase;
+X	for (; (mrd - sc->mr_desc) < sc->mr_ndesc; msr += 2, mrd++) {
+X		/* base/type register */
+X		if (mrd->mr_flags & MDF_ACTIVE) {
+X			msrv = mrd->mr_base & 0x0000000ffffff000LL;
+X			msrv |= (i686_mtrrtype(mrd->mr_flags) & 0xff);
+X		} else {
+X			msrv = 0;
+X		}
+X		wrmsr(msr, msrv);
+X
+X		/* mask/active register */
+X		if (mrd->mr_flags & MDF_ACTIVE) {
+X			msrv = 0x800 | (~(mrd->mr_len - 1) & 0x0000000ffffff000LL);
+X		} else {
+X			msrv = 0;
+X		}
+X		wrmsr(msr + 1, msrv);
+X	}
+X	wbinvd();		/* flush caches, TLBs */
+X	wrmsr(MSR_MTRRdefType, rdmsr(MSR_MTRRdefType) | 0x800);	/* restore MTRR state */
+X	lcr0(rcr0() & ~(CR0_CD | CR0_NW));	/* enable caches CD = 0 and NW
+X						 * = 0 */
+X	lcr4(cr4save);		/* restore cr4 */
+X}
+X
+X/*
+X * Hunt for the fixed MTRR referencing (addr)
+X */
+Xstatic struct mem_range_desc *
+Xi686_mtrrfixsearch(struct mem_range_softc * sc, u_int64_t addr)
+X{
+X	struct mem_range_desc *mrd;
+X	int     i;
+X
+X	for (i = 0, mrd = sc->mr_desc; i < (MTRR_N64K + MTRR_N16K + MTRR_N4K); i++, mrd++)
+X		if ((addr >= mrd->mr_base) && (addr < (mrd->mr_base + mrd->mr_len)))
+X			return (mrd);
+X	return (NULL);
+X}
+X
+X/*
+X * Try to satisfy the given range request by manipulating the fixed MTRRs that
+X * cover low memory.
+X *
+X * Note that we try to be generous here; we'll bloat the range out to the
+X * next higher/lower boundary to avoid the consumer having to know too much
+X * about the mechanisms here.
+X *
+X * XXX note that this will have to be updated when we start supporting "busy" ranges.
+X */
+Xstatic int
+Xi686_mrsetlow(struct mem_range_softc * sc, struct mem_range_desc * mrd, int *arg)
+X{
+X	struct mem_range_desc *first_md, *last_md, *curr_md;
+X
+X	/* range check */
+X	if (((first_md = i686_mtrrfixsearch(sc, mrd->mr_base)) == NULL) ||
+X	    ((last_md = i686_mtrrfixsearch(sc, mrd->mr_base + mrd->mr_len - 1)) == NULL))
+X		return (EINVAL);
+X
+X	/* set flags, clear set-by-firmware flag */
+X	for (curr_md = first_md; curr_md <= last_md; curr_md++) {
+X		curr_md->mr_flags = mrcopyflags(curr_md->mr_flags & ~MDF_FIRMWARE, mrd->mr_flags);
+X		bcopy(mrd->mr_owner, curr_md->mr_owner, sizeof(mrd->mr_owner));
+X	}
+X
+X	return (0);
+X}
+X
+X
+X/*
+X * Modify/add a variable MTRR to satisfy the request.
+X *
+X * XXX needs to be updated to properly support "busy" ranges.
+X */
+Xstatic int
+Xi686_mrsetvariable(struct mem_range_softc * sc, struct mem_range_desc * mrd, int *arg)
+X{
+X	struct mem_range_desc *curr_md, *free_md;
+X	int     i;
+X
+X	/* Scan the currently active variable descriptors, look for one we
+X	 * exactly match (straight takeover) and for possible accidental
+X	 * overlaps. Keep track of the first empty variable descriptor in case
+X	 * we can't perform a takeover. */
+X	i = (sc->mr_cap & MR686_FIXMTRR) ? MTRR_N64K + MTRR_N16K + MTRR_N4K : 0;
+X	curr_md = sc->mr_desc + i;
+X	free_md = NULL;
+X	for (; i < sc->mr_ndesc; i++, curr_md++) {
+X		if (curr_md->mr_flags & MDF_ACTIVE) {
+X			/* exact match? */
+X			if ((curr_md->mr_base == mrd->mr_base) &&
+X			    (curr_md->mr_len == mrd->mr_len)) {
+X				/* whoops, owned by someone */
+X				if (curr_md->mr_flags & MDF_BUSY)
+X					return (EBUSY);
+X				/* Ok, just hijack this entry */
+X				free_md = curr_md;
+X				break;
+X			}
+X			/* non-exact overlap ? */
+X			if (mroverlap(curr_md, mrd)) {
+X				/* between conflicting region types? */
+X				if ((i686_mtrrconflict[i686_mtrrtype(curr_md->mr_flags)] & mrd->mr_flags) ||
+X				    (i686_mtrrconflict[i686_mtrrtype(mrd->mr_flags)] & curr_md->mr_flags))
+X					return (EINVAL);
+X			}
+X		} else if (free_md == NULL) {
+X			free_md = curr_md;
+X		}
+X	}
+X	/* got somewhere to put it? */
+X	if (free_md == NULL)
+X		return (ENOSPC);
+X
+X	/* Set up new descriptor */
+X	free_md->mr_base = mrd->mr_base;
+X	free_md->mr_len = mrd->mr_len;
+X	free_md->mr_flags = mrcopyflags(MDF_ACTIVE, mrd->mr_flags);
+X	bcopy(mrd->mr_owner, free_md->mr_owner, sizeof(mrd->mr_owner));
+X	return (0);
+X}
+X
+X/*
+X * Handle requests to set memory range attributes by manipulating MTRRs.
+X *
+X */
+Xstatic int
+Xi686_mrset(struct mem_range_softc * sc, struct mem_range_desc * mrd, int *arg)
+X{
+X	struct mem_range_desc *targ;
+X	int     error = 0;
+X
+X	switch (*arg) {
+X	case MEMRANGE_SET_UPDATE:
+X		/* make sure that what's being asked for is even possible at
+X		 * all */
+X		if (!mrvalid(mrd->mr_base, mrd->mr_len) ||
+X		    (i686_mtrrtype(mrd->mr_flags & MDF_ATTRMASK) == -1))
+X			return (EINVAL);
+X
+X#define FIXTOP	((MTRR_N64K * 0x10000) + (MTRR_N16K * 0x4000) + (MTRR_N4K * 0x1000))
+X
+X		/* are the "low memory" conditions applicable? */
+X		if ((sc->mr_cap & MR686_FIXMTRR) &&
+X		    ((mrd->mr_base + mrd->mr_len) <= FIXTOP)) {
+X			if ((error = i686_mrsetlow(sc, mrd, arg)) != 0)
+X				return (error);
+X		} else {
+X			/* it's time to play with variable MTRRs */
+X			if ((error = i686_mrsetvariable(sc, mrd, arg)) != 0)
+X				return (error);
+X		}
+X		break;
+X
+X	case MEMRANGE_SET_REMOVE:
+X		if ((targ = mem_range_match(sc, mrd)) == NULL)
+X			return (ENOENT);
+X		if (targ->mr_flags & MDF_FIXACTIVE)
+X			return (EPERM);
+X		if (targ->mr_flags & MDF_BUSY)
+X			return (EBUSY);
+X		targ->mr_flags &= ~MDF_ACTIVE;
+X		targ->mr_owner[0] = 0;
+X		break;
+X
+X	default:
+X		return (EOPNOTSUPP);
+X	}
+X
+X	/* update the hardware */
+X	i686_mrstore(sc);
+X	i686_mrfetch(sc);	/* refetch to see where we're at */
+X	return (0);
+X}
+X
+X/*
+X * Work out how many ranges we support, initialise storage for them,
+X * fetch the initial settings.
+X */
+Xstatic void
+Xi686_mrinit(struct mem_range_softc * sc)
+X{
+X	struct mem_range_desc *mrd;
+X	int     nmdesc = 0;
+X	int     i;
+X
+X	mtrrcap = rdmsr(MSR_MTRRcap);
+X	mtrrdef = rdmsr(MSR_MTRRdefType);
+X
+X	/* For now, bail out if MTRRs are not enabled */
+X	if (!(mtrrdef & 0x800)) {
+X		printf("CPU supports MTRRs but not enabled\n");
+X		return;
+X	}
+X	nmdesc = mtrrcap & 0xff;
+X	printf("Pentium Pro MTRR support enabled\n");
+X
+X	/* If fixed MTRRs supported and enabled */
+X	if ((mtrrcap & 0x100) && (mtrrdef & 0x400)) {
+X		sc->mr_cap = MR686_FIXMTRR;
+X		nmdesc += MTRR_N64K + MTRR_N16K + MTRR_N4K;
+X	}
+X	sc->mr_desc =
+X	    (struct mem_range_desc *) malloc(nmdesc * sizeof(struct mem_range_desc),
+X	    M_MEMDESC, M_WAITOK);
+X	bzero(sc->mr_desc, nmdesc * sizeof(struct mem_range_desc));
+X	sc->mr_ndesc = nmdesc;
+X
+X	mrd = sc->mr_desc;
+X
+X	/* Populate the fixed MTRR entries' base/length */
+X	if (sc->mr_cap & MR686_FIXMTRR) {
+X		for (i = 0; i < MTRR_N64K; i++, mrd++) {
+X			mrd->mr_base = i * 0x10000;
+X			mrd->mr_len = 0x10000;
+X			mrd->mr_flags = MDF_FIXBASE | MDF_FIXLEN | MDF_FIXACTIVE;
+X		}
+X		for (i = 0; i < MTRR_N16K; i++, mrd++) {
+X			mrd->mr_base = i * 0x4000 + 0x80000;
+X			mrd->mr_len = 0x4000;
+X			mrd->mr_flags = MDF_FIXBASE | MDF_FIXLEN | MDF_FIXACTIVE;
+X		}
+X		for (i = 0; i < MTRR_N4K; i++, mrd++) {
+X			mrd->mr_base = i * 0x1000 + 0xc0000;
+X			mrd->mr_len = 0x1000;
+X			mrd->mr_flags = MDF_FIXBASE | MDF_FIXLEN | MDF_FIXACTIVE;
+X		}
+X	}
+X	/* Get current settings, anything set now is considered to have been
+X	 * set by the firmware. (XXX has something already played here?) */
+X	i686_mrfetch(sc);
+X	mrd = sc->mr_desc;
+X	for (i = 0; i < sc->mr_ndesc; i++, mrd++) {
+X		if (mrd->mr_flags & MDF_ACTIVE)
+X			mrd->mr_flags |= MDF_FIRMWARE;
+X	}
+X}
+X
+X/*
+X * Initialise MTRRs on an AP after the BSP has run the init code.
+X */
+Xstatic void
+Xi686_mrAPinit(struct mem_range_softc * sc)
+X{
+X	i686_mrstoreone((void *) sc);	/* set MTRRs to match BSP */
+X	wrmsr(MSR_MTRRdefType, mtrrdef);	/* set MTRR behaviour to match
+X						 * BSP */
+X}
+END-of-module/i686_mem.c
+echo x - module/k6_mem.c
+sed 's/^X//' >module/k6_mem.c << 'END-of-module/k6_mem.c'
+X/*-
+X * Copyright (c) 1999 Brian Fundakowski Feldman
+X * All rights reserved.
+X *
+X * Redistribution and use in source and binary forms, with or without
+X * modification, are permitted provided that the following conditions
+X * are met:
+X * 1. Redistributions of source code must retain the above copyright
+X *    notice, this list of conditions and the following disclaimer.
+X * 2. Redistributions in binary form must reproduce the above copyright
+X *    notice, this list of conditions and the following disclaimer in the
+X *    documentation and/or other materials provided with the distribution.
+X *
+X * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+X * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+X * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+X * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+X * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+X * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+X * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+X * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+X * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+X * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+X * SUCH DAMAGE.
+X *
+X * $FreeBSD: src/sys/i386/i386/k6_mem.c,v 1.4 1999/09/05 15:45:57 green Exp $
+X *
+X */
+X
+X#include <sys/param.h>
+X#include <sys/systm.h>
+X#include <sys/malloc.h>
+X
+X#include <machine/cpufunc.h>
+X
+X#include "memrange.h"
+X#include "xf86_reg.h"
+X
+X/*
+X * A K6-2 MTRR is defined as the highest 15 bits having the address, the next
+X * 15 having the mask, the 1st bit being "write-combining" and the 0th bit
+X * being "uncacheable".
+X *
+X *	Address		    Mask	WC  UC
+X * | XXXXXXXXXXXXXXX | XXXXXXXXXXXXXXX | X | X |
+X *
+X * There are two of these in the 64-bit UWCCR.
+X */
+X
+X/*
+X * NOTE: I do _not_ comment my code unless it's truly necessary. Don't
+X * 	 expect anything frivolous here, and do NOT touch my bit-shifts
+X *	 unless you want to break this.
+X */
+X
+X#define UWCCR 0xc0000085
+X
+X#define k6_reg_get(reg, addr, mask, wc, uc)	do {			\
+X		addr = (reg) & 0xfffe0000;				\
+X		mask = ((reg) & 0x1fffc) >> 2;				\
+X		wc = ((reg) & 0x2) >> 1;				\
+X		uc = (reg) & 0x1;					\
+X	} while (0)
+X
+X#define k6_reg_make(addr, mask, wc, uc) 				\
+X		((addr) | ((mask) << 2) | ((wc) << 1) | uc)
+X
+Xstatic void k6_mrinit __P((struct mem_range_softc * sc));
+Xstatic int k6_mrset __P((struct mem_range_softc *, struct mem_range_desc *, int *));
+Xstatic __inline int k6_mrmake __P((struct mem_range_desc *, u_int32_t *));
+X
+Xstruct mem_range_ops k6_mrops = {
+X	k6_mrinit,
+X	k6_mrset,
+X	NULL
+X};
+X
+Xstatic __inline int
+Xk6_mrmake(struct mem_range_desc * desc, u_int32_t * mtrr)
+X{
+X	u_int32_t len = 0, wc, uc;
+X	register int bit;
+X
+X	if (desc->mr_base & ~0xfffe0000)
+X		return EINVAL;
+X	if (desc->mr_len < 131072 || !powerof2(desc->mr_len))
+X		return EINVAL;
+X	if (desc->mr_flags & ~(MDF_WRITECOMBINE | MDF_UNCACHEABLE))
+X		return EOPNOTSUPP;
+X
+X	for (bit = ffs(desc->mr_len >> 17) - 1; bit < 15; bit++)
+X		len |= 1 << (14 - bit);
+X	wc = (desc->mr_flags & MDF_WRITECOMBINE) ? 1 : 0;
+X	uc = (desc->mr_flags & MDF_UNCACHEABLE) ? 1 : 0;
+X
+X	*mtrr = k6_reg_make(desc->mr_base, len, wc, uc);
+X	return 0;
+X}
+X
+Xstatic void
+Xk6_mrinit(struct mem_range_softc * sc)
+X{
+X	u_int64_t reg;
+X	u_int32_t addr, mask, wc, uc;
+X	int     d;
+X
+X	sc->mr_cap = 0;
+X	sc->mr_ndesc = 2;	/* XXX (BFF) For now, we only have one msr for
+X				 * this */
+X	sc->mr_desc = malloc(sc->mr_ndesc * sizeof(struct mem_range_desc),
+X	    M_MEMDESC, M_NOWAIT);
+X	if (sc->mr_desc == NULL)
+X		panic("k6_mrinit: malloc returns NULL");
+X	bzero(sc->mr_desc, sc->mr_ndesc * sizeof(struct mem_range_desc));
+X
+X	reg = rdmsr(UWCCR);
+X	for (d = 0; d < sc->mr_ndesc; d++) {
+X		u_int32_t one = (reg & (0xffffffff << (32 * d))) >> (32 * d);
+X
+X		k6_reg_get(one, addr, mask, wc, uc);
+X		sc->mr_desc[d].mr_base = addr;
+X		sc->mr_desc[d].mr_len = ffs(mask) << 17;
+X		if (wc)
+X			sc->mr_desc[d].mr_flags |= MDF_WRITECOMBINE;
+X		if (uc)
+X			sc->mr_desc[d].mr_flags |= MDF_UNCACHEABLE;
+X	}
+X
+X	printf("K6-family MTRR support enabled (%d registers)\n", sc->mr_ndesc);
+X}
+X
+Xstatic int
+Xk6_mrset(struct mem_range_softc * sc, struct mem_range_desc * desc, int *arg)
+X{
+X	u_int64_t reg;
+X	u_int32_t mtrr;
+X	int     error, d;
+X
+X	switch (*arg) {
+X	case MEMRANGE_SET_UPDATE:
+X		error = k6_mrmake(desc, &mtrr);
+X		if (error)
+X			return error;
+X		for (d = 0; d < sc->mr_ndesc; d++) {
+X			if (!sc->mr_desc[d].mr_len) {
+X				sc->mr_desc[d] = *desc;
+X				goto out;
+X			}
+X			if (sc->mr_desc[d].mr_base == desc->mr_base &&
+X			    sc->mr_desc[d].mr_len == desc->mr_len)
+X				return EEXIST;
+X		}
+X
+X		return ENOSPC;
+X	case MEMRANGE_SET_REMOVE:
+X		mtrr = 0;
+X		for (d = 0; d < sc->mr_ndesc; d++)
+X			if (sc->mr_desc[d].mr_base == desc->mr_base &&
+X			    sc->mr_desc[d].mr_len == desc->mr_len) {
+X				bzero(&sc->mr_desc[d], sizeof(sc->mr_desc[d]));
+X				goto out;
+X			}
+X		return ENOENT;
+X	default:
+X		return EOPNOTSUPP;
+X	}
+X
+Xout:
+X
+X	disable_intr();
+X	wbinvd();
+X	reg = rdmsr(UWCCR);
+X	reg &= ~(0xffffffff << (32 * d));
+X	reg |= mtrr << (32 * d);
+X	wrmsr(UWCCR, reg);
+X	wbinvd();
+X	enable_intr();
+X
+X	return 0;
+X}
+END-of-module/k6_mem.c
+echo x - module/memrange.h
+sed 's/^X//' >module/memrange.h << 'END-of-module/memrange.h'
+X#ifndef _MEMRANGE_H
+X#define _MEMRANGE_H
+X/*
+X * Memory range attribute operations, peformed on /dev/mem
+X */
+X
+X/* Memory range attributes */
+X#define MDF_UNCACHEABLE		(1<<0)	/* region not cached */
+X#define MDF_WRITECOMBINE	(1<<1)	/* region supports "write combine"
+X					 * action */
+X#define MDF_WRITETHROUGH	(1<<2)	/* write-through cached */
+X#define MDF_WRITEBACK		(1<<3)	/* write-back cached */
+X#define MDF_WRITEPROTECT	(1<<4)	/* read-only region */
+X#define MDF_ATTRMASK		(0x00ffffff)
+X
+X#define MDF_FIXBASE		(1<<24)	/* fixed base */
+X#define MDF_FIXLEN		(1<<25)	/* fixed length */
+X#define MDF_FIRMWARE		(1<<26)	/* set by firmware (XXX not useful?) */
+X#define MDF_ACTIVE		(1<<27)	/* currently active */
+X#define MDF_BOGUS		(1<<28)	/* we don't like it */
+X#define MDF_FIXACTIVE		(1<<29)	/* can't be turned off */
+X#define MDF_BUSY		(1<<30)	/* range is in use */
+X
+Xstruct mem_range_desc {
+X	u_int64_t mr_base;
+X	u_int64_t mr_len;
+X	int     mr_flags;
+X	char    mr_owner[8];
+X};
+X
+Xstruct mem_range_op {
+X	struct mem_range_desc *mo_desc;
+X	int     mo_arg[2];
+X#define MEMRANGE_SET_UPDATE	0
+X#define MEMRANGE_SET_REMOVE	1
+X	/* XXX want a flag that says "set and undo when I exit" */
+X};
+X#define MEMRANGE_GET	_IOWR('m', 50, struct mem_range_op)
+X#define MEMRANGE_SET	_IOW('m', 51, struct mem_range_op)
+X
+X#ifdef _KERNEL
+X
+Xstruct mem_range_softc;
+Xstruct mem_range_ops {
+X	void    (*init) __P((struct mem_range_softc * sc));
+X	int     (*set) __P((struct mem_range_softc * sc, struct mem_range_desc * mrd, int *arg));
+X	void    (*initAP) __P((struct mem_range_softc * sc));
+X};
+X
+Xstruct mem_range_softc {
+X	struct mem_range_ops *mr_op;
+X	int     mr_cap;
+X	int     mr_ndesc;
+X	struct mem_range_desc *mr_desc;
+X};
+X
+Xextern struct mem_range_softc mem_range_softc;
+X
+Xextern int mem_range_attr_get __P((struct mem_range_desc * mrd, int *arg));
+Xextern int mem_range_attr_set __P((struct mem_range_desc * mrd, int *arg));
+Xextern void mem_range_AP_init __P((void));
+X#endif
+X
+X#endif
+END-of-module/memrange.h
+echo x - module/xf86.4
+sed 's/^X//' >module/xf86.4 << 'END-of-module/xf86.4'
+X.\"
+X.\" Copyright (c) 1998 Matthieu Herrb
+X.\" All rights reserved.
+X.\"
+X.\" Redistribution and use in source and binary forms, with or without
+X.\" modification, are permitted provided that the following conditions
+X.\" are met:
+X.\" 1. Redistributions of source code must retain the above copyright
+X.\"    notice, this list of conditions and the following disclaimer.
+X.\" 2. Redistributions in binary form must reproduce the above copyright
+X.\"    notice, this list of conditions and the following disclaimer in the
+X.\"    documentation and/or other materials provided with the distribution.
+X.\" 3. The name of the author may not be used to endorse or promote products
+X.\"    derived from this software without specific prior written permission
+X.\"
+X.\" THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+X.\" IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+X.\" OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+X.\" IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+X.\" INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+X.\" NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+X.\" DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+X.\" THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+X.\" (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+X.\" THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+X.\"
+X.Dd November 14, 1999
+X.Dt XF86 4 i386
+X.Os
+X.Sh NAME
+X.Nm xf86
+X.Nd
+XXFree86 aperture driver
+X.Sh SYNOPSIS
+X.Cd "modload -oxf86 -pxf86_mod_install xf86.o"
+X.Sh DESCRIPTION
+XThe
+X.Pa /dev/xf86
+Xdriver provides access to the memory of a VGA board as well as to the
+XISA BIOS for
+Xuse by the XFree86 X servers
+Xwhen running with a kernel security level > 0.
+X.Pp
+XOn
+X.Tn ISA
+Xthe
+X.Tn I/O
+Xmemory space begins at physical address 0x000a0000
+Xand runs to 0x00100000.
+X.Pp
+XMost X servers can take advantage of the use of this driver
+X.Sh IOCTL INTERFACE
+XSeveral architectures allow attributes to be associated with ranges of physical
+Xmemory.  These attributes can be manipulated via
+X.Fn ioctl
+Xcalls performed on
+X.Nm /dev/mem .
+XDeclarations and data types are to be found in
+X.Pa <memrange.h>
+X.Pp
+XThe specific attributes, and number of programmable ranges may vary between
+Xarchitectures.  The full set of supported attributes is:
+X.Bl -tag -width 10
+X.It MDF_UNCACHEABLE
+XThe region is not cached.
+X.It MDF_WRITECOMBINE
+XWrites to the region may be combined or performed out of order.
+X.It MDF_WRITETHROUGH
+XWrites to the region are committed synchronously.
+X.It MDF_WRITEBACK
+XWrites to the region are committed asynchronously.
+X.It MDF_WRITEPROTECT
+XThe region cannot be written to.
+X.El
+X.Pp
+XMemory ranges are described by
+X.Fa struct mem_range_desc :
+X.Bd -literal -offset indent
+Xu_int64_t	mr_base;	/\(** physical base address \(**/
+Xu_int64_t	mr_len;		/\(** physical length of region \(**/
+Xint		mr_flags;	/\(** attributes of region \(**/
+Xchar		mr_owner[8];
+X.Ed
+X.Pp
+XIn addition to the region attributes listed above, the following flags
+Xmay also be set in the
+X.Fa mr_flags
+Xfield:
+X.Bl -tag -width 10
+X.It MDF_FIXBASE
+XThe region's base address cannot be changed.
+X.It MDF_FIXLEN
+XThe region's length cannot be changed.
+X.It MDF_FIRMWARE
+XThe region is believed to have been established by the system firmare.
+X.It MDF_ACTIVE
+XThe region is currently active.
+X.It MDF_BOGUS
+XWe believe the region to be invalid or otherwise erroneous.
+X.It MDF_FIXACTIVE
+XThe region cannot be disabled.
+X.It MDF_BUSY
+XThe region is currently owned by another process and may not be 
+Xaltered.
+X.El
+X.Pp
+XOperations are performed using
+X.Fa struct mem_range_op :
+X.Bd -literal -offset indent
+Xstruct mem_range_desc	*mo_desc;
+Xint			mo_arg[2];
+X.Ed
+X.Pp
+XThe
+X.Fa MEMRANGE_GET
+Xioctl is used to retrieve current memory range attributes. If
+X.Fa mo_arg[0]
+Xis set to 0, it will be updated with the total number of memory range
+Xdescriptors.  If greater than 0, the array at
+X.Fa mo_desc
+Xwill be filled with a corresponding number of descriptor structures,
+Xor the maximum, whichever is less.
+X.Pp
+XThe 
+X.Fa MEMRANGE_SET
+Xioctl is used to add, alter and remove memory range attributes.  A range
+Xwith the MDF_FIXACTIVE flag may not be removed; a range with the MDF_BUSY
+Xflag may not be removed or updated.
+X.Pp
+X.Fa mo_arg[0] 
+Xshould be set to MEMRANGE_SET_UPDATE to update an existing
+Xor establish a new range, or to MEMRANGE_SET_REMOVE to remove a range.
+X.Pp
+X.Sh RETURN VALUES
+X.Bl -tag -width 10
+X.It EOPNOTSUPP
+XMemory range operations are not supported on this architecture.
+X.It ENXIO
+XNo memory range descriptors are available (eg. firmware has not enabled
+Xany).
+X.It EINVAL
+XThe memory range supplied as an argument is invalid or overlaps another
+Xrange in a fashion not supported by this architecture.
+X.It EBUSY
+XAn attempt to remove or update a range failed because the range is busy.
+X.It ENOSPC
+XAn attempt to create a new range failed due to a shortage of hardware
+Xresources (eg. descriptor slots).
+X.It ENOENT
+XAn attempt to remove a range failed because no range matches the descriptor
+Xbase/length supplued.
+X.It EPERM
+XAn attempt to remove a range failed because the range is permanently
+Xenabled.
+X.El
+X.Sh SEE ALSO
+X.Xr XF86_Accel 1 ,
+X.Xr XF86_SVGA 1 ,
+X.Xr options 4 ,
+X.Xr lkm.conf 5 ,
+X.Xr config 8 ,
+X.Xr init 8 ,
+X.Xr memconfig 8
+X.Sh HISTORY
+X.Pa /dev/xf86
+Xwas introduced as a loadable kernel module for NetBSD 0.9C
+Xwith XFree86 3.1. The version 2.0 of the driver added MTRR support. 
+X.Sh AUTHOR
+XThe aperture driver was written for the XFree86 Project Inc. by
+XMatthieu Herrb. The memory range 
+Xattributes support was originally written by Michael Smith for FreeBSD.
+X.Sh BUGS
+XThis driver allows access to all addresses above
+X.Va physmem .
+XIt should be restricted to the actual address range of the video
+Xmemory.
+X.Pp
+XBusy range attributes are not yet managed correctly.
+X.Pp
+XMemory range attributes configuration should probably be controlled through 
+X.Pa /dev/mem . 
+END-of-module/xf86.4
+echo x - module/xf86_mod.c
+sed 's/^X//' >module/xf86_mod.c << 'END-of-module/xf86_mod.c'
+X/*
+X * Copyright (c) 1994 The XFree86 Project Inc.
+X */
+X
+X#include <sys/param.h>
+X#include <sys/systm.h>
+X#include <sys/conf.h>
+X#include <sys/uio.h>
+X#include <sys/exec.h>
+X#include <sys/lkm.h>
+X#include <sys/malloc.h>
+X
+X#include <machine/specialreg.h>
+X
+X#include "xf86_reg.h"
+X#include "xf86_mod.h"
+X#include "memrange.h"
+X
+X/* Pull in the cpuid values from locore.s */
+Xextern int cpu_id;
+Xextern int cpu_feature;
+Xextern char cpu_vendor[];
+X
+Xextern struct mem_range_ops i686_mrops, k6_mrops;
+X
+Xstatic struct cdevsw newdev = {
+X	xf86open, xf86close, 
+X	(dev_type_read((*))) enodev, (dev_type_write((*))) enodev,
+X	xf86ioctl, 
+X	(dev_type_stop((*))) enodev,
+X	0,
+X	seltrue, xf86mmap, 0};
+X
+XMOD_DEV("xf86", LM_DT_CHAR, -1, &newdev)
+X
+Xchar *xf86_major_version = "2";
+Xchar *xf86_minor_version = "0";
+X
+Xstatic int xf86action __P((struct lkm_table *lktmp, int cmd));
+X
+Xstatic int 
+Xxf86action(lkmtp, cmd)
+X	struct lkm_table *lkmtp;
+X	int cmd;
+X{
+X	int err = 0;
+X	
+X	switch (cmd) {
+X	case LKM_E_LOAD:
+X		if (lkmexists(lkmtp)) 
+X			return EEXIST;
+X		
+X		printf("XFree86 aperture driver version %s.%s\n",
+X		       xf86_major_version, xf86_minor_version);
+X		
+X		/* Try for i686 MTRRs */
+X		if ((cpu_feature & CPUID_MTRR) &&
+X		    ((cpu_id & 0xf00) == 0x600) &&
+X		    ((strcmp(cpu_vendor, "GenuineIntel") == 0) ||
+X		     (strcmp(cpu_vendor, "AuthenticAMD") == 0))) {
+X			mem_range_softc.mr_op = &i686_mrops;
+X			
+X		} else if (!strcmp(cpu_vendor, "AuthenticAMD") &&
+X			   (cpu_id & 0xf00) == 0x500 &&
+X			   ((cpu_id & 0xf0) > 0x80 ||
+X			    ((cpu_id & 0xf0) == 0x80 &&
+X			     (cpu_id & 0xf) > 0x7))
+X			)
+X			mem_range_softc.mr_op = &k6_mrops;
+X		
+X		/* Initialise memory range handling */
+X		if (mem_range_softc.mr_op != NULL)
+X			mem_range_softc.mr_op->init(&mem_range_softc);
+X		
+X		break;
+X		
+X	case LKM_E_UNLOAD:
+X		/* Free allocated memory */
+X		free(mem_range_softc.mr_desc, M_MEMDESC);
+X		break;
+X		
+X	case LKM_E_STAT:
+X		break;
+X
+X	default:
+X		err = EIO;
+X		break;
+X	}
+X	return err;
+X}
+X
+Xint
+Xxf86_lkmentry(lkmtp, cmd, ver)
+X	struct lkm_table *lkmtp;
+X	int cmd;
+X	int ver;
+X{
+X	DISPATCH(lkmtp, cmd, ver, xf86action, xf86action, xf86action)
+X}
+END-of-module/xf86_mod.c
+echo x - module/xf86_mod.h
+sed 's/^X//' >module/xf86_mod.h << 'END-of-module/xf86_mod.h'
+X/*
+X * Copyright (C) 1999, The XFree86 Project Inc.
+X *
+X * $XFree86: xc/programs/Xserver/hw/xfree86/etc/apNetBSD.shar,v 3.13 2000/10/24 18:07:51 dawes Exp $
+X */
+X#ifndef _XF86_MOD_H
+X#define _XF86_MOD_H
+X
+X/*
+X * This is the exported driver interface 
+X */
+Xdev_type_open(xf86open);
+Xdev_type_close(xf86close);
+Xdev_type_mmap(xf86mmap);
+Xdev_type_ioctl(xf86ioctl);
+X
+Xextern int xf86_lkmentry __P((struct lkm_table *lkmtp, int cmd, int ver));
+X
+X/*
+X * version number
+X */
+Xextern char *xf86_major_version;
+Xextern char *xf86_minor_version;
+X
+X#endif
+END-of-module/xf86_mod.h
+echo x - module/xf86_mod_install
+sed 's/^X//' >module/xf86_mod_install << 'END-of-module/xf86_mod_install'
+X#! /bin/sh
+X# 
+X# Postinstall script for the XFree86 Aperture Driver for NetBSD
+X# 
+X# Copyright (C) 1994,1999 The XFree86 Project Inc.
+X#
+Xif [ $# -ne 3 ]; then
+X    echo "$0: should be called by modload(8) with 3 arguments"
+X    exit 1
+Xfi
+X
+Xecho "Major device number: $3"
+Xrm -f /dev/xf86
+Xmknod /dev/xf86 c $3 0
+Xexit 0
+END-of-module/xf86_mod_install
+echo x - module/xf86_reg.h
+sed 's/^X//' >module/xf86_reg.h << 'END-of-module/xf86_reg.h'
+X/*
+X * Copyright (C) 1999 The XFree86 Project Inc.
+X */
+X#ifndef _XF86_REG_H
+X#define _XF86_REG_H
+X
+X#define MSR_MTRRcap		0x0fe
+X#define MSR_MTRRVarBase		0x200
+X#define MSR_MTRR64kBase		0x250
+X#define MSR_MTRR16kBase		0x258
+X#define MSR_MTRR4kBase		0x268
+X#define MSR_MTRRdefType		0x2ff
+X 
+X/*
+X * Constants related to MTRRs
+X */
+X#define MTRR_N64K		8	/* numbers of fixed-size entries */
+X#define MTRR_N16K		16
+X#define MTRR_N4K		64
+X
+X#if defined(__NetBSD__) && (__NetBSD_Version__ < 10424000)
+X/*
+X * XXX - These belong to cpufunc.h
+X */
+Xstatic __inline u_int64_t
+Xrdmsr(u_int msr)
+X{
+X	u_int64_t rv;
+X
+X	__asm __volatile(".byte 0x0f, 0x32" : "=A" (rv) : "c" (msr));
+X	return (rv);
+X}
+X
+Xstatic __inline void
+Xwbinvd(void)
+X{
+X	__asm __volatile("wbinvd");
+X}
+X
+Xstatic __inline void
+Xwrmsr(u_int msr, u_int64_t newval)
+X{
+X	__asm __volatile(".byte 0x0f, 0x30" : : "A" (newval), "c" (msr));
+X}
+X#endif /* __NetBSD_Version__ */
+X
+X#ifndef M_MEMDESC
+X#define M_MEMDESC M_TEMP		/* XXX */
+X#endif
+X
+X
+X#endif
+END-of-module/xf86_reg.h
+echo x - xf86test/Makefile
+sed 's/^X//' >xf86test/Makefile << 'END-of-xf86test/Makefile'
+X# Makefile for xf86test
+X#
+X# Copyright (C) 1999 The XFree86 Project Inc.
+X#
+XPROG=	xf86test
+XMKMAN=	no
+X
+XWARNS?=	1
+X
+X.include <bsd.prog.mk>
+END-of-xf86test/Makefile
+echo x - xf86test/xf86test.c
+sed 's/^X//' >xf86test/xf86test.c << 'END-of-xf86test/xf86test.c'
+X/* 
+X * Copyright 1994  	Doug Anson, danson@lgc.com & David Holland, davidh@use.com
+X *
+X * Author: Doug Anson (danson@lgc.com)
+X * Date  : 2/21/94
+X * Modifed: David Holland (davidh@use.com)
+X * Log:
+X * 		DWH - Changed names/added comments	2/23/94
+X * 		DWH - Removed annoying delays.		2/23/94
+X * 
+X * This program test the fb aperture driver by 'cheating'
+X * it uses the aperture driver to access/read the main
+X * system BIOS header
+X * 
+X * Copyright notice:
+X * Permission to use, copy, modify, distribute, and sell this software and its
+X * documentation for any purpose is hereby granted without fee, provided that
+X * the above copyright notice appear in all copies and that both that
+X * copyright notice and this permission notice appear in supporting
+X * documentation, and that the name of Doug Anson, and David Holland be used in
+X * advertising or publicity pertaining to distribution of the software 
+X * Doug Anson, and David Holland make no * representations about the 
+X * suitability of this software for any purpose.
+X * It is provided "as is" without express or implied warranty.
+X *
+X * Disclaimer:
+X * DOUG ANSON, AND DAVID HOLLAND DISCLAIMS ALL WARRIENTS WITH REGARD TO THIS 
+X * SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY, AND FITNESS, 
+X * IN NO EVENT SHALL DOUG ANSON, OR DAVID HOLLAND BE LIABLE FOR ANY SPECIAL, 
+X * INDIRECT, OR CONSEQUENTIAL DAMAGES, OR ANY DAMAGES WHATSOEVER RESULTING FROM 
+X * USAGE OF THIS SOFTWARE.
+X */
+X
+X/*
+X * linear framebuffer aperture driver test program
+X */
+X
+X#include <stdio.h>
+X#include <sys/types.h>
+X#include <sys/mman.h>
+X#include <sys/stat.h>
+X#include <fcntl.h>
+X#include <errno.h>
+X#include <unistd.h>
+X
+X/* framebuffer access defines */
+X#define AP_DEV		"/dev/xf86"	/* framebuffer apperture device		*/
+X#define PADDR		0xa0000				/* offset from fbmem base     		*/
+X#define BUF_LENGTH  0x1000				/* length in bytes -- ignored 		*/
+X
+X/* debug testing defines */
+X#define START_INDEX	0		/* display starting index(>=0)*/
+X#define STOP_INDEX	80		/* display stopping index	  */
+X#define INCR		1		/* display increment		  */
+X
+X/* main program */
+Xint
+Xmain(int argc,char **argv)
+X{
+X	caddr_t	addr = (caddr_t)0;
+X	int		fb_dev;
+X	long	start = START_INDEX;
+X	long	stop = STOP_INDEX;
+X	int		i;
+X
+X	/* open the framebuffer device */
+X	fb_dev = open (AP_DEV,O_RDWR);
+X	if (fb_dev < 0)
+X	{
+X		/* failed to open framebuffer driver */
+X		printf("ERROR: failed to open %s\n",AP_DEV);
+X		perror("ERROR: open()");
+X		exit(1);
+X	} 
+X
+X	/* memory map the framebuffer */
+X	addr = (caddr_t)mmap((caddr_t)0,BUF_LENGTH,PROT_READ|PROT_WRITE,MAP_SHARED,
+X			             fb_dev,(off_t)PADDR);
+X	if (addr == (caddr_t)-1)
+X	{
+X		/* failed to memory map framebuffer driver */
+X		printf("ERROR: failed to mmap [0x%x ,size=%d bytes)\n",
+X			   PADDR,BUF_LENGTH);
+X		perror("ERROR: mmap()");
+X		close(fb_dev);
+X		exit(1);
+X	}
+X	else
+X	{
+X		/* frame buffer mapped */
+X		close(fb_dev);
+X		printf("NOTICE: BIOS mapped [0x%x ,size=%d) to addr=0x%x...\n",
+X			   PADDR,BUF_LENGTH,(int)addr);
+X
+X		/* display the buffer */
+X    	for(i=start;i<stop;i=i+INCR)
+X			printf("%c",addr[i]);
+X        	/* printf("addr[%d]=%c\n",i,addr[i]);
+X			 */
+X		printf("\nDONE displaying memory contents (%ld bytes)\n",stop);
+X
+X		/* unmap and close */
+X		printf("UNMAPPING [0x%x ,size=%d) to addr=0x%x... and closing...",
+X               PADDR,BUF_LENGTH,(int)addr);
+X		munmap(addr,BUF_LENGTH);
+X		printf("DONE.\n");
+X		printf("Exiting successful...\n");
+X		exit(0);
+X	}
+X	return 1;
+X}
+END-of-xf86test/xf86test.c
+exit
+

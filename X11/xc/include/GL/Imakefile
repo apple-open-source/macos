@@ -1,0 +1,20 @@
+XCOMM $XFree86: xc/include/GL/Imakefile,v 1.14 2002/02/22 21:32:50 dawes Exp $
+
+LinkSourceFile(gl.h, ../../extras/Mesa/include/GL)
+LinkSourceFile(glext.h, ../../extras/Mesa/include/GL)
+LinkSourceFile(glxext.h, ../../extras/Mesa/include/GL)
+LinkSourceFile(osmesa.h, ../../extras/Mesa/include/GL)
+
+GLXHEADERS = gl.h glext.h glu.h glx.h glxint.h glxmd.h glxproto.h \
+	     glxtokens.h osmesa.h glxext.h
+
+HEADERS = $(GLXHEADERS)
+
+all::
+
+BuildIncludes($(HEADERS),GL,..)
+InstallMultipleFlags($(HEADERS),$(INCDIR)/GL,$(INSTINCFLAGS))
+
+InstallDriverSDKNonExecFile(glxint.h,$(DRIVERSDKINCLUDEDIR)/GL)
+InstallDriverSDKNonExecFile(glxtokens.h,$(DRIVERSDKINCLUDEDIR)/GL)
+

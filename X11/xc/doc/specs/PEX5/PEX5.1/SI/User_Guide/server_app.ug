@@ -1,0 +1,1230 @@
+.\"##
+.\" $Xorg: server_app.ug,v 1.3 2000/08/17 19:42:18 cpqbld Exp $
+.\"##
+.\"## 
+$XMCOPY
+.\"## Copyright (c) 1990, 1991 by Sun Microsystems, Inc. 
+.\"## 
+.\"##                         All Rights Reserved
+.\"## 
+.\"## Permission to use, copy, modify, and distribute this software and its 
+.\"## documentation for any purpose and without fee is hereby granted, 
+.\"## provided that the above copyright notice appear in all copies and that
+.\"## both that copyright notice and this permission notice appear in 
+.\"## supporting documentation, and that the name of Sun Microsystems,
+.\"## not be used in advertising or publicity 
+.\"## pertaining to distribution of the software without specific, written 
+.\"## prior permission.  
+.\"## 
+.\"## SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\"## INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\"## EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\"## CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\"## USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\"## OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\"## PERFORMANCE OF THIS SOFTWARE.
+.H A "PEX-SI Server Functional Description"
+.LP
+.IX "server extension"
+This appendix specifies the implementation-dependent functionality
+of the \s-1PEX-SI\s+1 server extension.
+The following sections cover Enumerated Types, Implementation-Dependent Constants, 
+Renderer Dynamics, \s-1PHIGS\s+1 Workstation Dynamics, and Lookup Tables.
+.H 2 "Enumerated Type Information"
+.IX "enumerated types"
+.LP
+Tables 
+.XR @NumberOf(MarkerType) through
+.XR @NumberOf(Parametric) list the enumerated types supported in the
+\s-1PEX-SI\s+1 server.
+.KS
+.H 3 "MarkerType"
+.IX "MarkerType"
+.TN "MarkerType" MarkerType
+.TS
+expand, box,tab(@);
+cfBI | cfBI | cfBI | cfBIw(4i)
+n l c l .
+Value@Name@Symbol@Description
+_
+1@Dot@\(m.@T{
+The smallest displayable dot (the \fImarker_scale\fP attribute 
+is ignored) at the marker position.
+T}
+2@Cross@\(pl@A cross or plus sign with intersection at the marker position.
+3@Asterisk@\(**@An asterisk with intersection at the marker position.
+4@Circle@\(ci@A circle with center at the marker position.
+5@X@\(mu@A multiplication sign with intersection at the marker position.
+.TE
+.KE
+.KS
+.H 3 "ATextStyle"
+.IX "ATextStyle"
+.TN "ATextStyle"
+.TS
+expand, box,tab(@);
+cfBI | cfBI | cfBIw(4i)
+n l l.
+Value@Name@Description
+_
+1@NotConnected@T{
+The annotation text primitive will be drawn with no line
+connecting it to the annotation text
+reference point.
+T}
+2@Connected@T{
+The annotation text primitive will be connected to the annotation text
+reference point with a line, which will be drawn using the current set 
+of line attributes.
+T}
+.TE
+.KE
+.KS
+.H 3 "InteriorStyle"
+.IX "InteriorStyle"
+.TN "InteriorStyle"
+.TS
+expand box tab(@);
+cfBI | cfBI | cfBIw(4i)
+n l l.
+Value@Name@Description
+_
+1@Hollow@T{
+The interiors of surface primitives are not filled, but the boundary is drawn using the
+surface colour.
+If the surface primitive is clipped as a result of modeling, view, or workstation
+clipping, the boundary must be drawn along the clipped boundary as well.
+T}
+2@Solid@T{
+The interiors of surface primitives are filled using the surface colour.
+T}
+5@Empty@The interior of the surface primitive is not drawn at all.
+.ig Zz
+3@Pattern@T{
+The interiors of surface primitives are filled using the
+pattern table entry specified by the interior style index.
+T}
+4@Hatch@T{
+The interiors of surface primitives are filled using the
+surface colour and the hatch style whose index is specified by
+the interior style index.
+T}
+.Zz
+.TE
+.KE
+.H 3 "HatchStyle"
+.IX "HatchStyle"
+.LP
+No hatch styles are implemented.
+.KS
+.H 3 "LineType"
+.IX "LineType"
+.TN "LineType"
+.TS
+expand, box,tab(@);
+cfBI | cfBI | cfBIw(4i)
+n l l.
+Value@Name@Description
+_
+1@Solid@Draw the polyline or curve with a solid, unbroken line.
+2@Dashed@Draw the polyline or curve with a line that is dashed.
+3@Dotted@Draw the polyline or curve with a line that is dotted.
+4@DashDot@T{
+Draw the polyline or curve with a line that contains alternating dots and dashes.
+T}
+.TE
+.KE
+.KS
+.H 3 "SurfaceEdgeType"
+.IX "SurfaceEdgeType"
+.TN "SurfaceEdgeType"
+.TS
+expand, box,tab(@);
+cfBI | cfBI | cfBIw(4i)
+n l l.
+Value@Name@Description
+_
+1@Solid@Draw the surface edge with a solid, unbroken line.
+2@Dashed@Draw the surface edge with a line that is dashed.
+3@Dotted@Draw the surface edge with a line that is dotted.
+4@DashDot@T{
+Draw the surface edge with a line that contains alternating dots and dashes.
+T}
+.TE
+.KE
+.KS
+.H 3 "PickDeviceType"
+.IX "PickDeviceType"
+.TN "PickDeviceType"
+.TS
+expand, box,tab(@);
+cfBI | cfBI | cfBIw(4i)
+n l l.
+Value@Name@Description
+_
+1@DC_HitBox@T{
+The picking aperture is defined by a pick position and a pick distance,
+both in device coordinates.
+The shape of the hit box (square, circle, etc.) is implementation-dependent.
+The pick distance defines the half-width or radius of the hit box.
+T}
+2@NPC_HitVolume@T{
+The picking aperture is defined by two points that define a parallelepiped
+in \s-1NPC\s+1 space.
+Any graphics intersecting with the volume will be selected.
+T}
+.TE
+.KE
+.KS
+.H 3 "PolylineInterpMethod"
+.IX "PolylineInterpMethod"
+.TN "PolylineInterpMethod"
+.TS
+expand, box,tab(@);
+cfBI | cfBI | cfBIw(4i)
+n l l.
+Value@Name@Description
+_
+1@None@T{
+No interpolation will be performed between polyline vertices.
+If colour values are supplied that differ for the endpoints of
+a polyline segment,
+it is implementation-dependent whether the
+colour of the \fIi\fPth vertex will be used to draw the line
+between the \fIi\fPth and (\fIi\fP+\fI1\fP)th vertices,
+or whether they will be used to compute an average colour
+that will be used for the entire segment.
+If \fIn\fP is the number of vertices,
+the colour at the \fIn\fPth will be ignored.
+\s-1PEX-SI\s+1 computes an average color.
+T}
+.ig Zz
+2@Colour@T{
+The polyline's vertex colours (if present) are used.
+Colour values along each polyline segment are then computed by linearly
+interpolating between the colour values at the vertices.
+T}
+.Zz
+.TE
+.KE
+.H 3 "CurveApproxMethod"
+.IX "CurveApproxMethod"
+.TN "CurveApproxMethod"
+.TS H
+expand, box,tab(@);
+cfBI | cfBI | cfBIw(4i)
+n l l.
+Value@Name@Description
+_
+.TH
+1@Implementation Dependent@T{
+This type is ConstantBetweenKnots (the same as value 2).
+T}
+2@ConstantBetweenKnots@T{
+This technique tessellates the curve
+with equal parametric
+increments between successive pairs of knots.
+The tolerance value controls tessellation of the curve.
+If the tolerance value is not an
+integer value, it is truncated and only the integer portion
+will be used.
+If \fItolerance\fP is less than or equal to zero,
+the curve will be evaluated only at the
+parameter limits, and at the knots that are within
+the specified parameter range.
+If \fItolerance\fP is greater than zero,
+the curve will be evaluated at the parameter limits,
+at the knots that are within the specified parameter range,
+and at the number of positions specified by \fItolerance\fP
+between each pair of knots.
+T}
+3@WCS_ChordalSize@T{
+This technique tessellates the curve until the length of each line
+segment (chord) in world coordinates is less than the tolerance.
+T}
+4@NPC_ChordalSize@T{
+This technique tessellates the curve until the length of each line
+segment (chord) in normalized projection coordinates is
+less than the tolerance.
+T}
+.ig Zz
+5@DC_ChordalSize@T{
+This technique tessellates the curve until the length of each line
+segment (chord) in device coordinates is less than the tolerance.
+T}
+.Zz
+6@WCS_ChordalDev@T{
+This technique tessellates the curve until the maximum deviation
+(in world coordinates) between the line and the
+curve is less than the tolerance.
+T}
+7@NPC_ChordalDev@T{
+This technique tessellates the curve until the maximum deviation
+(in normalized projection coordinates) between the
+line and the curve is less than the tolerance.
+T}
+.ig Zz
+8@DC_ChordalDev@T{
+This technique tessellates the curve until the maximum deviation
+(in device coordinates) between the line and the
+curve is less than the tolerance.
+T}
+9@WCS_Relative@T{
+This technique maintains a relative level of quality based on the
+tolerance value independent of scaling in world coordinates.
+T}
+10@NPC_Relative@T{
+This technique maintains a relative level of quality based on the
+tolerance value independent of scaling in normalized projection coordinates.
+T}
+11@DC_Relative@T{
+This technique maintains a relative level of quality based on the
+tolerance value independent of scaling in device coordinates.
+T}
+.Zz
+.TE
+.KS
+.H 3 "ReflectionModel"
+.IX "ReflectionModel"
+.TN "ReflectionModel"
+.TS
+expand, box,tab(@);
+cfBI | cfBI | cfBIw(4i)
+n l l.
+Value@Name@Description
+_
+1@NoShading@T{
+No light source shading computation is performed.
+The surface colour is not affected by light source illumination
+(effectively, shaded colour = intrinsic colour).
+T}
+2@Ambient@T{
+Only the ambient terms of the lighting equation are used.
+The shaded colour will be the intrinsic colour as seen under ambient
+light.
+T}
+3@Diffuse@T{
+Only the ambient and diffuse terms of the lighting equation are
+used.
+The shaded colour will be the intrinsic colour as seen
+under ambient light, plus a diffuse reflection component
+from each light source.
+T}
+4@Specular@T{
+The ambient, diffuse, and specular terms of the lighting equation
+are all used during the light source shading computation.
+The shaded colour will be the same as for \fIDiffuse\fP,
+plus a specular reflection component from each
+light source.
+T}
+.TE
+.KE
+.KS
+.H 3 "SurfaceInterpMethod"
+.IX "SurfaceInterpMethod"
+.TN "SurfaceInterpMethod"
+.TS
+expand, box,tab(@);
+cfBI | cfBI | cfBIw(4i)
+n l l.
+Value@Name@Description
+_
+1@None@T{
+The colour resulting from a single light source computation is used
+for the entire surface.
+No interpolation will be performed across surface interiors or edges.
+T}
+.ig Zz
+2@Colour@T{
+The colours are computed at the vertices of the surface according to
+the current \fIreflection_model\fP.
+These colour values are then linearly interpolated across the interior of the
+surface or the edges.
+T}
+3@DotProduct@T{
+The lighting equation dot products are computed at the vertices.
+These dot products are linearly interpolated and
+the light source shading computation is applied using these
+values to compute the colour value at each pixel in the
+interior of a surface or along a surface edge.
+T}
+4@Normal@T{
+An attempt is made to interpolate the normal across the facet
+and perform the light source shading computation
+as accurately as possible at each pixel in the
+interior of a surface or along a surface edge.
+T}
+.Zz
+.TE
+.KE
+.KS
+.H 3 "SurfaceApproxMethod"
+.TN "SurfaceApproxMethod"
+.IX "SurfaceApproxMethod"
+.TS 
+expand box tab(@);
+cfBI | cfBI | cfBIw(4i)
+n l l.
+Value@Name@Description
+_
+1@Implementation Dependent@T{
+This type is ConstantBetweenKnots (the same as value 2)
+T}
+2@ConstantBetweenKnots@T{
+This technique tessellates the surface with equal parametric
+increments between successive pairs of knots.
+The two tolerance values control tesselation in each of the two parameter
+dimensions.
+If the
+tolerance values are not integer values,
+they are truncated
+and only the integer portions of each will be used.
+If \fIu_tolerance\fP is less than or equal to zero,
+the surface will
+be evaluated only at the \fIu\fP parameter limits in the
+\fIu\fP direction, and at the \fIu\fP knots that are within
+the specified parameter range.
+If \fIu_tolerance\fP is greater than zero,
+the surface will be evaluated at the \fIu\fP parameter limits
+in the \fIu\fP direction, at the \fIu\fP knots that are within
+the specified parameter range, and at the number of positions specified by
+\fIu_tolerance\fP between each pair of knots.
+The value of \fIv_tolerance\fP is used similarly to control
+the evaluation in the \fIv\fP direction.
+T}
+3@WCS_ChordalSize@T{
+This technique tessellates the surface until the length of
+each line segment (chord) in world coordinates in the \fIu\fP
+parameter direction is less than the specified \fIu_tolerance\fP
+value, and the length of every line segment in world coordinates in
+the \fIv\fP parameter direction is less than the specified
+\fIv\fP tolerance value.
+T}
+4@NPC_ChordalSize@T{
+This technique tessellates the surface until the length of
+each line segment (chord) in normalized projection coordinates in the \fIu\fP
+parameter direction is less than the specified
+\fIu\fP tolerance value, and the length of every line segment in
+normalized projection coordinates in the \fIv\fP parameter direction is less than
+the specified \fIv\fP tolerance value.
+T}
+.\".ig Zz
+.\"5@DC_ChordalSize@T{
+.\"This technique tessellates the surface until the length of
+.\"each line segment (chord) in device coordinates in the \fIu\fP
+.\"parameter direction is less than the specified \fIu\fP tolerance value,
+.\"and the length of every line segment in device coordinates
+.\"in the \fIv\fP parameter direction is less than
+.\"the specified \fIv\fP tolerance value.
+.\"T}
+.\".Zz
+6@WCS_PlanarDev@T{
+This technique tessellates the surface into facets.
+The technique subdivides the surface until the absolute value
+of the maximum deviation, in world coordinates, between any facet and the surface
+is less than \fIu_tolerance\fP.
+T}
+7@NPC_PlanarDev@T{
+This technique tessellates the surface into facets.
+The technique subdivides the surface until the absolute value
+of the maximum deviation, in normalized projection coordinates,
+between any facet and the surface
+is less than \fIu_tolerance\fP.
+T}
+.ig Zz
+8@DC_PlanarDev@T{
+This technique tessellates the surface into facets.
+The technique subdivides the surface until the absolute value
+of the maximum deviation, in device coordinates,
+between any facet and the surface
+is less than \fIu_tolerance\fP.
+T}
+9@WCS_Relative@T{
+This technique maintains a relative level of quality based on the
+specified \fIu_tolerance\fP value independent of scaling in
+world coordinates.
+T}
+10@NPC_Relative@T{
+This technique maintains a relative level of quality based on the
+specified \fIu_tolerance\fP value independent of scaling in
+normalized projection coordinates.
+T}
+11@DC_Relative@T{
+This technique maintains a relative level of quality based on the
+specified \fIu_tolerance\fP value independent of scaling in
+device coordinates.
+T}
+.Zz
+.TE
+.KE
+.bp
+.H 3 "TrimCurveApproxMethod"
+.TN "TrimCurveApproxMethod"
+.IX "TrimCurveApproxMethod"
+.TS H
+expand, box,tab(@);
+cfBI | cfBI | cfBIw(4i)
+n l l.
+Value@Name@Description
+_
+.TH
+1@Implementation Dependent@T{
+This type is ConstantBetweenKnots (the same as value 2)
+T}
+2@ConstantBetweenKnots@T{
+This technique tessellates the trim curve
+with equal parametric
+increments between successive pairs of knots.
+The tolerance value controls tessellation of the trim curve.
+If the tolerance value is not an
+integer value, it is truncated and only the integer portion
+will be used.
+If \fItolerance\fP is less than or equal to zero,
+the trim curve will be evaluated only at the
+parameter limits, and at the knots that are within
+the specified parameter range.
+If \fItolerance\fP is greater than zero,
+the trim curve will be evaluated at the parameter limits,
+at the knots that are within the specified parameter range,
+and at the number of positions specified by \fItolerance\fP
+between each pair of knots.
+T}
+.TE
+.KS
+.H 3 "ModelClipOperator"
+.TN "ModelClipOperator"
+.IX "ModelClipOperator"
+.TS
+expand, box,tab(@);
+cfBI | cfBI | cfBIw(4i)
+n l l.
+Value@Name@Description
+_
+1@Replace@T{
+The specified halfspaces are used to create a new composite modeling
+clipping volume that replaces the current composite modeling
+clipping volume.
+T}
+2@Intersection@T{
+The specified halfspaces are intersected with the current composite
+modeling clipping volume to compute a new composite modeling
+clipping volume.
+T}
+.TE
+.KE
+.KS
+.H 3 "LightType"
+.TN "LightType"
+.IX "LightType"
+.TS
+expand, box,tab(@);
+cfBI | cfBI | cfBIw(4i)
+n l l.
+Value@Name@Description
+_
+1@Ambient@T{
+A light source that affects all surface primitives uniformly.
+Ambient light sources have only a colour attribute.
+T}
+2@WCS_Vector@T{
+A light source that is specified in world coordinates with
+a colour and a direction vector.
+T}
+3@WCS_Point@T{
+A light source that is specified in world coordinates with
+a colour, a position, and two attenuation coefficients.
+T}
+4@WCS_Spot@T{
+A light source that is specified in world coordinates with
+a colour, a position, a direction vector, a concentration exponent,
+two attenuation coefficients, and a spread angle.
+T}
+.TE
+.KE
+.H 3 "ColourType"
+.TN "ColourType"
+.IX "ColourType"
+.TS H
+expand, box,tab(@);
+cfBI | cfBI | cfBIw(4i)
+n l l.
+Value@Name@Description
+_
+.TH
+0@Indexed@T{
+A colour that is passed as an unsigned 16-bit integer
+(i.e., it is of type \s-1TABLE_INDEX\s+1).
+The integer value is used as an index into a colour lookup table.
+Dereferencing of an indexed colour value occurs at the time of rendering,
+at the time when the actual colour value is needed for rendering
+an output primitive.
+T}
+1@RGBFloat@T{
+A colour that is passed as three floating-point values,
+in the order red [0-1], green [0-1], blue [0-1].
+A colour in this format has a type defined by:  \s-1COLOR_RGB_FLOAT\s+1: 
+[r, g, b : \s-1FLOAT\s+1]
+T}
+.ig Zz
+2@CIEFloat@T{
+A colour that is passed as three floating-point values,
+in the order u [0-1], v [0-1] (\s-1CIELUV\s+1 diagram coefficients),
+and luminance [0-1].
+A colour in this format has a type defined by:  \s-1COLOR_CIE_FLOAT\s+1: 
+[u, v, luminance : \s-1FLOAT\s+1]
+T}
+3@HSVFloat@T{
+A colour that is passed as three floating-point values,
+in the order hue [0-1] (angle in fractions of a circle,
+with red being zero), saturation [0-1], and value [0-1].
+A colour in this format has a type defined by:  \s-1COLOR_HSV_FLOAT\s+1: 
+[hue, saturation, value : \s-1FLOAT\s+1]
+T}
+4@HLSFloat@T{
+A colour that is passed as three floating-point values,
+in the order hue [0-1] (angle in fractions of a circle,
+with red being zero), lightness [0-1], and saturation [0-1].
+A colour in this format has a type defined by:  \s-1COLOR_HLS_FLOAT\s+1: 
+[hue, lightness, saturation : \s-1FLOAT\s+1]
+T}
+5@RGBInt8@T{
+A colour that is passed as a unit of four bytes,
+in the order red, green, blue.
+A colour in this format has a type defined by:  \s-1COLOR_RGB_INT8\s+1:
+[r, g, b, pad : \s-1CARD8\s+1]
+T}
+6@RGBInt16@T{
+A colour that is passed as a unit of eight bytes,
+in the order red, green, blue.
+A colour in this format has a type defined by:  \s-1COLOR_RGB_INT16\s+1:
+[r, g, b, pad : \s-1CARD16\s+1]
+T}
+.Zz
+.TE
+.KS
+.H 3 "FloatFormat"
+.TN "FloatFormat"
+.IX "FloatFormat"
+.TS
+expand, box,tab(@);
+cfBI | cfBI | cfBIw(4i)
+n l l.
+Value@Name@Description
+_
+1@\s-1IEEE\s+1_754_32@An \s-1IEEE\s+1 754 standard 32-bit floating-point value.
+2@\s-1DEC_F_F\s+1loating@A \s-1DEC F\s+1-floating value.
+.ig Zz
+3@\s-1IEEE\s+1_754_64@An \s-1IEEE\s+1 754 standard 64-bit floating-point value.
+4@\s-1DEC_D_F\s+1loating@A \s-1DEC D\s+1-floating value.
+.Zz
+.TE
+.KE
+.H 3 "HLHSRMode"
+.TN "HLHSRMode"
+.IX "HLHSRMode"
+.TS H
+expand, box,tab(@);
+cfBI | cfBI | cfBIw(4i)
+n l l.
+Value@Name@Description
+_
+.TH
+1@Off@T{
+All output primitives are drawn in the order they are processed.
+No attempt will be made to remove hidden surfaces.
+T}
+.ig Zz
+2@ZBuffer@T{
+Visibility is resolved at each pixel using a depth- or
+z-buffering technique.
+The z-buffering method and the number of bits of precision in the z values is
+device-dependent.
+This technique permits visibility to
+be computed without an intermediate storage area for transformed
+data, can be used to incrementally add primitives to
+an image, and is an \s-1HLHSR\s+1 method of linear order.
+T}
+3@Painters@T{
+Output primitives are buffered as they are processed.
+When an "end rendering" occurs with flush = True,
+the primitives in the buffer are sorted based on the average depth
+and rendered back-to-front.
+This technique is fairly fast for small numbers of primitives,
+but requires an intermediate storage area.
+This technique does not guarantee totally correct
+results, since it fails in cases involving cyclically overlapping
+or interpenetrating objects, and in other, even simpler cases.
+T}
+4@Scanline@T{
+Output primitives are buffered as they are received.
+When an "end rendering" occurs with flush = True,
+the primitives in the buffer are sorted and visibility is computed in
+scan line order.
+This technique can be fairly fast for small numbers of polygons,
+but uses an intermediate storage area to
+buffer output primitives and must perform a sorting step.
+T}
+5@HiddenLineOnly@T{
+Only visible lines will be drawn.
+Output primitives may be buffered as they are received.
+When an "end rendering" occurs with flush = True,
+the primitives in the buffer are sorted and a
+hidden line computation is performed.
+T}
+.Zz
+.TE
+.KS
+.H 3 "PromptEchoType"
+.TN "PromptEchoType"
+.IX "PromptEchoType"
+.TS
+expand, box,tab(@);
+cfBI | cfBI | cfBIw(4i)
+n l l.
+Value@Name@Description
+_
+1@EchoPrimitive@T{
+Use an implementation-dependent technique that at least
+highlights the picked primitive for a short period of time.
+T}
+.ig Zz
+2@EchoStructure@T{
+Echo the contiguous group of primitives with the same pick
+ID as the picked primitive, or all of the primitives of
+the structure with the same pick ID as the picked primitive
+(the extension is free to implement either semantic for this type).
+T}
+3@EchoNetwork@T{
+Echo the entire posted structure network that contains the
+picked primitive.
+T}
+.Zz
+.TE
+.KE
+.KS
+.H 3 "DisplayUpdateMode"
+.TN "DisplayUpdateMode"
+.IX "DisplayUpdateMode"
+.TS
+expand, box,tab(@);
+cfBI | cfBI | cfBIw(4i)
+n l l.
+Value@Name@Description
+_
+1@VisualizeEach@Visualize each change as it occurs (\s-1PHIGS\s+1 \(en \s-1ASAP\s+1).
+2@VisualizeEasy@T{
+Visualize only the changes that are ``easy to do'' (\s-1PHIGS\s+1 \(en \s-1WAIT/UWOR\s+1).
+Things that are ``easy to do'' are those that have
+a dynamic modification of \fI\s-1IMM\s+1\fP or can be updated without
+a regeneration of the displayed image.
+If regeneration is ``easy to do'' (as defined by the \s-1PEX\s+1 implementor),
+then a regeneration may occur.
+T}
+3@VisualizeNone@T{
+Visualize none of the changes (\s-1PHIGS\s+1 \(en \s-1WAIT/NIVE\s+1).
+The changes are applied, but the image is not regenerated until there
+is an explicit request to do so.
+T}
+4@SimulateSome@T{
+Visualize the easy changes and simulate those changes that
+can be simulated (\s-1PHIGS\s+1 \(en \s-1WAIT/UQUM\s+1).
+The \s-1PEX-SI\s+1 server performs no simulations; therefore,
+this mode behaves the same as VisualizeEasy.
+The \s-1PEX-SI\s+1 server implements this the same as VisualizeEasy.
+T}
+5@VisualizeWhenever@T{
+All changes will eventually be visualized.
+If regenerations are necessary, they will be performed at the server's
+convenience.
+One regeneration may cause a number of changes to
+be visualized.
+The client can issue an update workstation request
+to guarantee that all changes have been visualized
+(\s-1PHIGS\s+1 \(en \s-1ASTI/NIVE\s+1).
+T}
+.TE
+.KE
+.KS
+.H 3 "ColourApproxType"
+.TN "ColourApproxType"
+.IX "ColourApproxType"
+.TS
+expand, box,tab(@);
+cfBI | cfBI | cfBIw(4i)
+n l l.
+Value@Name@Description
+_
+1@ColourSpace@T{
+The rendering pipeline colour is converted into a
+colour with three individual colour components.
+T}
+2@ColourRange@T{
+The rendering pipeline colour is converted into a
+single colour index.
+T}
+.TE
+.KE
+.KS
+.H 3 "ColourApproxModel"
+.TN "ColourApproxModel"
+.IX "ColourApproxModel"
+.TS
+expand, box,tab(@);
+cfBI | cfBI | cfBIw(4i)
+n l l.
+Value@Name@Description
+_
+1@RGB@red, green, blue
+.ig Zz
+2@CIE@CIELUV diagram u, v coordinates plus luminance
+3@HSV@hue, saturation, value
+4@HLS@hue, lightness, saturation
+5@YIQ@T{
+(NTSC) luminance (Y), inphase (wideband orange-cyan),
+and quadrature (narrowband magenta-green)
+T}
+.Zz
+.TE
+.KE
+.H 3 "GDP"
+No Generalized Drawing Primitives are implemented.
+.H 3 "GDP3"
+No Generalized Drawing Primitives are implemented.
+.H 3 "GSE"
+No Generalized Structure Elements are implemented.
+.H 3 "RenderingColourModel"
+.TN "RenderingColourModel"
+.IX "RenderingColourModel"
+.TS
+expand, box,tab(@);
+cfBI | cfBI | cfBIw(4i)
+n l l.
+Value@Name@Description
+_
+0@RGB@red, green, blue colour model
+1@RGB@red, green, blue colour model
+.ig Zz
+2@CIE@CIELUV diagram u, v coordinates plus luminance colour model
+3@HSV@hue, saturation, value colour model
+4@HLS@hue, lightness, saturation colour model
+.Zz
+.TE
+.KE
+.H 3 "ParametricSurfaceCharacteristics"
+.TN "ParametricSurfaceCharacteristics" Parametric
+.IX "ParametricSurfaceCharacteristics" 
+.TS H
+expand box tab(@);
+cfBI | cfBI | cfBIw(4i)
+n l l .
+Value@Name@Description
+_
+.TH
+1@None@T{
+No additional surface characteristics beyond the current surface
+attributes.
+T}
+2@Implementation Dependent@T{
+An implementation-dependent method that displays
+the shape of the surface.
+This method does not distinguish between front and back
+facing portions of the surface.
+The appearance of the representation is controlled by the appropriate
+set of primitive attributes for the representation.
+It is implementation-dependent how the representation interacts
+with any interior rendering indicated by the interior attributes.
+The data record is ignored for this type.
+T}
+3@IsoparametricCurves@T{
+Isoparametric curves are drawn on the surface.
+The data record contains the number of curves to draw in each of the
+parameter dimensions and their placement.
+If the placement is \fIUniform\fP, the specified number of curves
+is evenly spaced between the parameter limits
+of the surface; curves are also drawn at the parameter limits.
+If the placement is \fINonUniform\fP, the specified number of curves
+is evenly spaced between each pair of knots; curves are also drawn at
+the knots.
+In both cases, only the portions of isoparametric curves are drawn
+that are within the interior of the surface as defined by any trimming
+curves.
+This method does not distinguish between front and back
+facing portions of the surface.
+\fIContinued on next page\fR.
+T}
+3@T{
+IsoparametricCurves\ 
+\(em\ \fIContinued\fR
+T}@T{
+The tessellation and appearance of the isoparametric curves are
+controlled by the surface approximation criteria and the
+polyline attributes, respectively.
+The isoparametric curves are drawn in addition to any interior
+rendering indicated by the interior style or back interior style
+attributes.
+Isoparametric curves have higher visual priority than the primitive's
+filled or hollow interiors, but lower priority than the primitive's
+edges.
+T}
+.ig Zz
+.EQ
+delim %%
+.EN
+4@MC_LevelCurves@T{
+Level curves are drawn on the surface.
+The curves correspond to the intersections of the surface and a
+finite set of planes perpendicular to a modeling coordinate
+direction vector.
+The positions of the planes are specified by a sequence of
+intersection points along an infinite line defined by a
+modeling coordinate origin point, %P sub 0%, and a direction
+vector, %V vec%.
+.EQ
+P sub i~=~P sub 0~+~t sub i V vec
+.EN
+The %t sub i% are a sequence of parameters specifying the
+intersection points.
+They are in the range:
+.EQ
+~- inf~<~t sub i~<~inf
+.EN
+The %P sub i% are the intersection points of the perpendicular
+planes with the infinite line.
+%P sub 0% is a specified origin point in modeling coordinates, and
+%V vec% is the specified direction vector in modeling coordinates.
+The \fIi\fPth plane is perpendicular to the direction vector,
+%V vec%, and intersects the infinite line at point %P sub i%.
+The data record consists of the origin point %P sub 0%, the direction
+vector %V vec%, and the list of parameters, %t sub i%.
+.sp
+This method does not distinguish between front and back
+facing portions of the surface.
+The tessellation and appearance of the level curves are
+controlled by the surface approximation criteria and the
+polyline attributes, respectively.
+The curves are drawn in addition to any interior
+rendering indicated by the interior style or back interior style
+attributes.
+Level curves have higher visual priority than the primitive's
+filled or hollow interiors, but lower priority than the primitive's
+edges.
+T}
+5@WC_LevelCurves@T{
+Level curves are drawn on the surface.
+The curves correspond to the intersections of the surface and a
+finite set of planes perpendicular to a modeling coordinate
+direction vector.
+The positions of the planes are specified by a sequence of
+intersection points along an infinite line defined by a
+modeling coordinate origin point, %P sub 0%, and a direction
+vector, %V vec%.
+.EQ
+P sub i~=~P sub 0~+~t sub i V vec
+.EN
+The %t sub i% are a sequence of parameters specifying the
+intersection points.
+They are in the range:
+.EQ
+~- inf~<~t sub i~<~inf
+.EN
+The %P sub i% are the intersection points of the perpendicular
+planes with the infinite line.
+%P sub 0% is a specified origin point in world coordinates, and
+%V vec% is the specified direction vector in world coordinates.
+The \fIi\fPth plane is perpendicular to the direction vector,
+%V vec%, and intersects the infinite line at point %P sub i%.
+The data record consists of the origin point %P sub 0%, the direction
+vector %V vec%, and the list of parameters, %t sub i%.
+.sp
+This method does not distinguish between front and back
+facing portions of the surface.
+The tessellation and appearance of the level curves are
+controlled by the surface approximation criteria and the
+polyline attributes, respectively.
+The curves are drawn in addition to any interior
+rendering indicated by the interior style or back interior style
+attributes.
+Level curves have higher visual priority than the primitive's
+filled or hollow interiors, but lower priority than the primitive's
+edges.
+T}
+.Zz
+.TE
+.H 2 "Implementation-Dependent Constants"
+.LP
+Table
+.XR @NumberOf(Imp_Dep_Const)
+lists the values implemented for the Implementation Dependent Constants.
+.TN "Implementation-Dependent Constants" Imp_Dep_Const
+.IX "Implementation-Dependent Constants" 
+.TS H
+center box tab(@);
+cfBI | cfBI | cfBI
+l l l.
+Name@Type@Value
+_
+.TH
+NominalLineWidth@CARD32@1
+NumSupportedLineWidths@CARD32@~0L
+MinLineWidth@CARD32@0
+MaxLineWidth@CARD32@~0L
+NominalEdgeWidth@CARD32@1
+NumSupportedEdgeWidths@CARD32@~0L
+MinEdgeWidth@CARD32@0
+MaxEdgeWidth@CARD32@~0L
+NominalMarkerSize@CARD32@1
+NumSupportedMarkerSizes@CARD32@~0L
+MinMarkerSize@CARD32@0
+MaxMarkerSize@CARD32@~0L
+ChromaticityRedU@FLOAT@0.628
+ChromaticityRedV@FLOAT@0.346
+LuminanceRed@FLOAT@1.0
+ChromaticityGreenU@FLOAT@0.268
+ChromaticityGreenV@FLOAT@0.588
+LuminanceGreen@FLOAT@1.0
+ChromaticityBlueU@FLOAT@0.150
+ChromaticityBlueV@FLOAT@0.070
+LuminanceBlue@FLOAT@1.0
+ChromaticityWhiteU@FLOAT@0.313
+ChromaticityWhiteV@FLOAT@0.329
+LuminanceWhite@FLOAT@1.0
+MaxNamesetNames@CARD32@256
+MaxModelClipPlanes@CARD32@64
+TransparencySupported@CARD32@FALSE
+DitheringSupported@CARD32@FALSE
+MaxNonAmbientLights@CARD32@64
+MaxNURBOrder@CARD32@10
+MaxTrimCurveOrder@CARD32@6
+BestColourApproxValues@CARD32@PEXColourApproxAnyValues
+DoubleBufferingSupported@BOOLEAN@FALSE
+.TE
+.\" _________________________
+.H 2 "Renderer Dynamics"
+.LP
+Table
+.XR @NumberOf(Rend_Dyn)
+lists the binding of attributes to the renderer during rendering.
+Changes to statically bound attributes are not visible until the next rendering.
+Changes to dynamically bound attributes become visible immediately.
+.TN "Renderer Dynamics" Rend_Dyn
+.IX "Renderer Dynamics" 
+.TS H
+center box,tab(@);
+cfBI | cfBI
+le ce.
+Attribute@Binding Type
+_
+.TH
+MarkerBundle@dynamic
+MarkerBundleContents@dynamic
+TextBundle@dynamic
+TextBundleContents@dynamic
+LineBundle@dynamic
+LineBundleContents@dynamic
+InteriorBundle@dynamic
+InteriorBundleContents@dynamic
+EdgeBundle@dynamic
+EdgeBundleContents@dynamic
+ViewTable@dynamic
+ViewTableContents@dynamic
+ColourTable@dynamic
+ColourTableContents@dynamic
+DepthCueTable@dynamic
+DepthCueTableContents@dynamic
+LightTable@dynamic
+LightTableContents@dynamic
+ColourApproxTable@dynamic
+ColourApproxTableContents@dynamic
+PatternTable@dynamic
+PatternTableContents@dynamic
+TextFontTable@dynamic
+TextFontTableContents@dynamic
+_
+HighlightNameset@dynamic
+HighlightNamesetContents@dynamic
+InvisibilityNameset@dynamic
+InvisibilityNamesetContents@dynamic
+_
+HLHSRMode@dynamic
+NPCSubvolume@dynamic
+Viewport@dynamic
+Cliplist@dynamic
+.TE
+.sp
+.H 2 "PHIGS Workstation Dynamics"
+.TN "PHIGS Workstation Dynamics"
+.IX "PHIGS Workstation Dynamics"
+.TS H
+center box,tab(@);
+cfBI | cfBI
+le ce.
+Attribute@Dynamic
+_
+.TH
+view_rep@IRG
+marker_bundle@IRG
+text_bundle@IRG
+line_bundle@IRG
+interior_bundle@IRG
+edge_bundle@IRG
+colour_table@IRG
+pattern_table@IRG
+wks_transform@IRG
+highlight_filter@IRG
+invisibility_filter@IRG
+HLHSR_mode@IRG
+structure_modify@IRG
+post_structure@IRG
+unpost_structure@IRG
+delete_structure@IRG
+reference_modify@IRG
+buffer_modify@IRG
+.TE
+.H 2 "Lookup Tables"
+.LP
+Table
+.XR @NumberOf(Lookup_Tables) lists the maximum number of entries
+definable for each lookup table.  Table
+.XR @NumberOf(Predefined_Values) 
+lists the predefined entries for each lookup table.
+Each table except the Colour Lookup Table has one predefined entry.
+The index of that entry is given in the table.
+.TN "Lookup Tables" Lookup_Tables
+.IX "Lookup Tables" 
+.TS
+center box,tab(@);
+cfBI | cfBI
+l n.
+Name@Maximum Number of Entries
+_
+LineBundle@20
+MarkerBundle@20
+TextBundle@20
+InteriorBundle@20
+EdgeBundle@20
+Pattern@0
+Colour@256
+TextFont@2
+View@6
+Light@16
+DepthCue@6
+ColourApprox@6
+.TE
+.TN "Predefined Values" Predefined_Values
+.IX "Predefined Values" 
+.TS H
+box tab(~);
+cfBI | cfBI | cfBI 
+l c l .
+Attribute~Index~Values
+_
+.TH
+LineBundle~1
+      line_type~~1
+      polyline_interp~~1
+      curve_approx~~{0,1.0}
+      line_width~~1.0
+      line_color~~{\fIIndexed\fR, 1}
+~~~
+MarkerBundle~1
+      marker_type~~3
+      marker_scale~~1.0
+      marker_color~~{\fIIndexed\fR, 1}
+~~~
+TextBundle~1
+      text_font_index~~1
+      text_precision~~\fIString\fR
+      char_expansion~~1.0
+      char_spacing~~0.0
+      text_color~~{\fIIndexed\fR, 1}
+~~~
+InteriorBundle~1
+      interior_style~~1
+      interior_style_index~~1
+      surface_color~~{\fIIndexed\fR, 1}
+      reflection_attr~~{1.0, 1.0, 1.0, (\fIIndexed\fR, 1), 0.0, 0.0}
+      reflection_model~~1
+      surface_interp~~1
+      bf_interior_style~~1
+      bf_interior_style1_index~~1
+      bf_surface_color~~{\fIIndexed\fR, 1}
+      bf_reflection_attr~~{1.0, 1.0, 1.0, (\fIIndexed\fR, 1), 0.0, 0.0}
+      bf_reflection_model~~1
+      bf_surface_interp~~1
+      surface_approx~~{0, 1.0, 1.0}
+      trim_curve_approx~~{0, 1.0}
+~~~
+EdgeBundle~1
+      surface_edges~~\fIOff\fR
+      surface_edge_type~~1
+      surface_edge_width~~1.0
+      surface_edge_color~~{\fIIndexed\fR, 1}
+~~~
+Pattern~None~T{
+Pattern Lookup Tables are not implemented.
+T}
+~~~
+Colour~T{
+See Table
+.XR @NumberOf(Colour_Entries).
+T}
+~~~
+TextFont~1
+      font\\(dg~~Roman_M
+~~~
+View~0
+      clip_flags~~all \fIOn\fR
+      clip_limits~~(0,0,0),(1,1,1)
+      orientation~~identity matrix
+      mapping~~identity matrix
+~~~
+Light~1
+      light_type~~Ambient
+      direction~~(0.0,0,0,0.0)
+      point~~(0.0,0.0,0.0)
+      concentration~~0.0
+      spread_angle~~0.0
+      attenuation~~(0.0,0.0)
+      color~~{RGBFloat, (1.0,1.0,1.0)}
+~~~
+DepthCue~1
+      mode~~off
+      front_plane~~1.0
+      back_plane~~0.0
+      front_scaling~~1.0
+      back_scaling~~0.5
+      color~~{Indexed}
+~~~
+Colour Approx~1
+.TE
+.IP \s-1\(dg
+TextFont Lookup Tables entries are a list of font identifiers.
+\s-1PEX-SI\s+1 allows a maximum of 16 font identifiers per entry.
+The predefined entry sets all 16 font ids to a server generated id 
+that is loaded with the default font \fIRoman_M\fR.
+.bp
+.TN "Predefined Colour Entries" Colour_Entries
+.IX "Predefined Colour Entries" 
+.TS
+box,tab(@);
+cfBI | cfBI | cfBI | cfBI | cfBI
+n n n n l .
+Colour Index@Red@Green@Blue@Description
+_
+0@0.0@0.0@0.0@Black
+1@1.0@1.0@1.0@White
+2@1.0@0.0@0.0@Red
+3@0.0@1.0@0.0@Green
+4@0.0@0.0@1.0@Blue
+5@1.0@1.0@0.0@Yellow
+6@0.0@1.0@1.0@Cyan
+7@1.0@0.0@1.0@Magenta
+\(>=8@1.0@1.0@1.0@White
+.TE
+.H 3 Fonts
+.LP
+Two font definitions are provided with \s-1PEX-SI\s+1.
+They are called \fIRoman\fR and \fIRoman_M\fR.
+\fIRoman_M\fR (monospaced \fIRoman\fR) is the default font.
+See the \fI\s-1PEX-SI\s+1 Porting Guide\fR for information on how
+to define new fonts.

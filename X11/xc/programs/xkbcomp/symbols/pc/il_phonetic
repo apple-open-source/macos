@@ -1,0 +1,46 @@
+
+// based on a keyboard map from an 'xkb/symbols/il_phonetic' file
+//
+// $XFree86: xc/programs/xkbcomp/symbols/pc/il_phonetic,v 1.2 2002/11/22 04:03:28 dawes Exp $
+
+partial default alphanumeric_keys 
+xkb_symbols "basic" {
+
+    // uses the phonetic layout from old Slackware 'il.map' file
+
+    name[Group1]= "Israelian(phonetic)";
+
+    key <AE12> {        [     equal,    plus            ],
+			[ hebrew_doublelowline, hebrew_doublelowline ]};
+
+    key <LatQ> {	[ hebrew_qoph, hebrew_qoph	]	};
+    key <LatW> {	[ hebrew_waw, hebrew_waw	]	};
+    key <LatE> {	[ hebrew_aleph, hebrew_aleph	]       };
+    key <LatR> {	[ hebrew_resh, hebrew_resh	]	};
+    key <LatT> {	[ hebrew_taw, hebrew_tet	]       };
+    key <LatY> {	[ hebrew_ayin, hebrew_ayin	]       };
+    key <LatU> {	[ hebrew_waw, hebrew_waw	]       };
+    key <LatI> {	[ hebrew_yod, hebrew_yod	]       };
+    key <LatO> {	[ hebrew_samech, hebrew_samech	]       };
+    key <LatP> {	[ hebrew_pe, hebrew_finalpe	]	};
+
+    key <LatA> {	[ hebrew_aleph, hebrew_aleph	]	};
+    key <LatS> {	[ hebrew_shin, hebrew_shin	]       };
+    key <LatD> {	[ hebrew_dalet, hebrew_dalet	]       };
+    key <LatF> {	[ hebrew_pe, hebrew_finalpe	]	};
+    key <LatG> {	[ hebrew_gimel, hebrew_gimel	]       };
+    key <LatH> {	[ hebrew_he, hebrew_he		]       };
+    key <LatJ> {	[ hebrew_yod, hebrew_yod	]	};
+    key <LatK> {	[ hebrew_kaph, hebrew_finalkaph	]	};
+    key <LatL> {	[ hebrew_lamed, hebrew_lamed	]       };
+
+    key <LatZ> {	[ hebrew_zain, hebrew_zain	]       };
+    key <LatX> {	[ hebrew_chet, hebrew_chet	]       };
+    key <LatC> {	[ hebrew_zade, hebrew_finalzade	]       };
+    key <LatV> {	[ hebrew_waw, hebrew_waw	]       };
+    key <LatB> {	[ hebrew_bet, hebrew_bet	]       };
+    key <LatN> {	[ hebrew_nun, hebrew_finalnun	]	};
+    key <LatM> {	[ hebrew_mem, hebrew_finalmem	]	};
+};
+
+

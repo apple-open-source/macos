@@ -1,0 +1,351 @@
+2001-06-06  Gian-Carlo Pascutto  <gcp@sjeng.org>
+
+	* Released 10.0
+
+2001-04-05  Gian-Carlo Pascutto  <gcp@sjeng.org>
+
+	* Released 9.0
+
+2001-01-02  Gian-Carlo Pascutto  <gcp@users.sourceforge.net>
+
+	* Released 8.0
+
+	* lots of changes, see NEWS
+	(sorry...didnt have time to update changelog)
+
+2000-12-07  Gian-Carlo Pascutto  <gcp@users.sourceforge.net>
+
+	* Released 7.5.1
+
+	* newbook.c: BUILDTHRESHOLD, PLAYTHRESHOLD added
+
+	* sjeng.h: smaller movedate (int->unsig char)
+
+	* sjeng.c: (main): recognize 'variant giveaway'
+
+	* seval.c: (suicide_mid_eval): smaller king centralisation bonus
+
+	* search.c: (order_captures): fix MVV/LVA
+	(qsearch): slightly smaller futility cutoff
+	(search): more cautious check extension trigger
+	(search): no nullmove in endgames
+	(search): R=4 if depth > 12
+	(search): passed pawn extensions
+	
+	* protos.h: add new functions
+
+	* proof.c: (suicide_pn_eval): add early exit condition
+
+	* moves.c: use global from variable
+	(gen): remove 'from' in calls
+	(gen): use push_king_castle
+	(push_king_castle): added
+	(push_king): remove castling condition
+	(add_move): use global from
+
+	* eval.c: tweaked some piece-square tables
+	rewrote the (disabled) FULLEVAL code
+
+2000-10-24  Gian-Carlo Pascutto  <gcp@users.sourceforge.net>
+
+	* Released 7.4.3
+
+	* utils.c: (interrupt): return 0 on fallthrough
+
+	* epd.c: (run_epd_testsuite): do not report pn-time if
+	no pn-search was run
+	(run_epd_testsuite): use FILENAME_MAX
+	(check_solution): return FALSE on fallthrough
+	
+	* newbook.c: (*): use exit(EXIT_FAILURE)
+	(build_book): use FILENAME_MAX
+
+	* search.c: (think): short circuit if result var set
+	(think): add time cushion on book move
+	(think): do not exit without returning a var
+	(search): enfore greater or equal to 0 depth before extending
+
+	* proof.c: (proofnumbersearch): output game result
+
+2000-10-22  Gian-Carlo Pascutto  <gcp@users.sourceforge.net>
+
+	* Released 7.4.2
+
+	* blob2.c: fix neval/seval/eval.c
+
+	* proof.c: (develop_node): handle suicide 'stalemates'
+
+	* seval.c: lower queen value
+	remove srev_rank to prevent blob2.c conflict
+
+	* search.c: (order_moves): lower queen value
+	(qsearch): do legality check anyway
+
+	* utils.c: (comp_to_coord): king promotions in suicide
+
+	* moves.c: (gen): fixes to promotions in suicide
+
+2000-10-20  Gian-Carlo Pascutto  <gcp@users.sourceforge.net>
+
+	* Released 7.4.1
+
+	* proof.c: (proofnumbersearch): only kibitz in xb_mode
+	Use SAFETY margin for node buffer allocation
+
+	* sjeng.c: (main): ask for time with 'prove'
+
+	* README: MVV/LVA typo
+
+	* moves.c: (push_pawn): add king promotions in suicide
+
+	* Released 7.4
+
+	* learn.c: avoid code duplication via pointers
+
+	* blob2.c: added
+
+	* proof.c: added
+
+2000-10-19  Gian-Carlo Pascutto  <gcp@users.sourceforge.net>
+
+	* utils.c: (verify_coord): use strncasecmp
+
+	* ttable.c: use 2-level tables
+
+	* moves.c: (gen): break on king-capture
+
+	* search.c: (qsearch): do not check for legality but
+	check for kingcapture instead
+
+	(ALL) imported suicide support from experimental versions
+
+2000-07-23  Gian-Carlo Pascutto  <gcp@users.sourceforge.net>
+
+	* search.c: (search): do not apply limited razoring 
+	if we are in check
+
+2000-07-23  Gian-Carlo Pascutto  <gcp@users.sourceforge.net>
+
+	* moves.c: (gen): optimized pawn-movegeneration
+	(gen): split up movegen in drop and nondrop part
+	(push_slide): optimized with macro
+	(ALL) replaced instances of %2 with &1
+	(ALL) removed moves[] parameters
+
+2000-07-22  Gian-Carlo Pascutto  <gcp@users.sourceforge.net>
+
+	* Released 7.3
+
+	* book.c: (choose_book_move): cleanups
+
+	* extvars.h: opening_history made larger
+
+	* epd.c (setup_epd_line): avoid use of 'rank'
+
+	* moves.c (add_move): added
+	(try_drop): use add_move
+	(push_*): use add_move
+
+	* search.c: (search): use original alpha when storing into TTable
+	(qsearch): no new best score if move was illegal
+	(search): no new best score if move was illegal
+	(search_root): handle fail-high cases immediately
+	(think): return immediately if we are going to be interrupted on
+	first call
+
+	* sjeng.h: no more bitfields for movedata (breaks GCC)
+
+	* utils.c: (post_*_thinking): reverted to comp_to_coord
+	(allocate_time): use more time if we have an increment
+
+	* newbook.c: (build_book) zh/bug book support
+	(choose_binary_book_move) zh/bug book support
+
+	* sjeng.c: (main): added 'speed' option
+
+	* utils.c: (speed_test): added
+	
+
+2000-07-03  Gian-Carlo Pascutto  <gcp@users.sourceforge.net>
+
+	* utils.c (comp_to_san): use new movegen calling format
+	(init_game): reset phase
+	(hash_extract_pv): use new movegen calling format
+	(hash_extract_pv): indicate brokenness and ugly_ep_hack
+	(speed_test): added
+
+	* ttable.c (initialize_hash): set hold_hash (fixes learning)
+
+	* sjeng.h: changed some move structure data in bitfields for
+	-maybe- faster access
+
+	* ttable.c: (clear_tt): added
+
+	* sjeng.c: (main): call clear_tt on variant-switch
+	(main): 'book' and 'speed' commands added
+
+	* epd.c: (run_epd_testsuite): call clear_tt
+
+	* seval.c: changes to piece-square tables
+	(end_eval): keep piece counters
+	(end_eval): bad trade and drawn engame code
+	(end_eval): relocated king position bonusses
+	(end_eval): larger bonusses for passed pawns
+	(check_phase): added
+	(seval): use phase var rather than on-the-fly check
+	(mid_eval): keep piece counters
+	(mid_eval): bad trade code
+	(mid_eval): kingsafety bugfixes
+	(mid_eval): tweaked bonusses
+	(opn_eval): tweaked bonusses
+
+	* search.c: added ugly_ep_hack
+	(order_moves): ifdef'ed EXTRAKILLERS
+	(perft): updated for new movegen calling format
+	(qsearch): updated for new movegen calling format
+	(search): disable Extended Futility Pruning in endgames
+	(search): updated for new movegen calling format
+	(search): better(?) killer replacement code
+	(search_root): use ugly_ep_hack
+	(search_root): better killer replacement code
+	(search_root): update bestmovenum on fail-high
+	(think): use new book code
+	(think): update and print game phase
+	(think): removed bogus cpu_start update
+	(think): new fail-low handling code
+	(tree): use new movegen calling format
+	
+	* extvars.h: added phase, numb_moves, ugly_ep_hack
+
+	* partner.c (CheckBadFlow): adapted for new movegen calling format
+
+	* newbook.c: new file
+
+	* moves.c: (gen) changed calling sequence to eliminate num_moves
+	indirections
+	(try_drop): removed num_moves parameter
+	(push_king): removed num_moves parameter
+	(push_knight): removed num_moves parameter
+	(push_pawn): removed num_moves parameter
+	(push_slide): removed num_moves parameter
+
+	* book.c: (choose_book_move): do not fix first move for any variant
+	(choose_book_move): adapted for new movegen calling format
+
+2000-06-01  Gian-Carlo Pascutto  <gcp@users.sourceforge.net>
+
+	* moves.c: (gen): use 'else if' for second case in ep move testing
+	(push_slide): use break instead of set/test
+	(try_drop): piece drop has always npiece captured
+
+2000-05-29  Gian-Carlo Pascutto  <gcp@users.sourceforge.net>
+
+	* ttable.c: (initialize_hash): reset hash before rebuilding
+
+2000-05-28  Gian-Carlo Pascutto  <gcp@users.sourceforge.net>
+
+	* search.c (search_root): time_failure only on no_moves
+	(think): use partial search results
+
+	* WAC, 486DX33 5sec: 176/300
+
+	* search.c (search): removed NDCuts/NDTries counting
+	(search): No nullmoves on the PV. This seems to increase tactical
+	awareness a bit as well as a few PV-backup problems.
+
+	* extvars.h: removed NDCuts/NDTries display
+
+	* sjeng.c (main): removed NDCuts/NDTries display
+
+	* epd.c: (run_epd_testsuite): use rinput rather than scanf
+	(run_epd_testsuite): removed NDCuts/NDTries display
+	use check_solution and print results
+	(check_solution): added
+
+2000-05-26  Gian-Carlo Pascutto  <gcp@users.sourceforge.net>
+
+	* utils.c (post_fail_thinking) print ?? instead of --
+	removed some obsolete references to Faile
+	(comp_to_san): new function
+	(hash_extract_pv): new function
+	(post_thinking): use comp_to_san and hash_extract_pv
+	(post_fail_thinking): use comp_to_san
+	(post_fh_thinking): use comp_to_san
+	(post_fl_thiking): use comp_to_san
+
+2000-05-20  Gian-Carlo Pascutto  <gcp@users.sourceforge.net>
+
+	* search.c: (search) disable nullmove if fewer than 14 pieces
+	(search): only use check extensions near leaves
+	(search): fixed: double queen and rook futility margins 
+	(search): razor first moves, except if PV
+	(search): removed DPVS
+
+	* search.c: (think) removed: printing of RS
+	(think): count researches and display on whisper
+	(think): only learn if depth is at least 3
+
+	* search.c: (qsearch) removed lazy evaluation
+
+2000-04-22  Gian-Carlo Pascutto  <gcp@users.sourceforge.net>
+
+	* Released 7.2
+
+	* NEWS: updated
+
+	* README: added remark about _WIN32
+
+	* utils.c: (rdifftime): use precise function if HAVE_GETTIMEOFDAY
+	or HAVE_FTIME
+
+	* sjeng.h: don't use timeb if !HAVE_GETTIMEOFDAY and !HAVE_FTIME
+
+	* utils.c: (interrupt): check for _WIN32 if !HAVE_SELECT
+
+	* added THANKS
+
+	* utils.c: (rtime): use gettimeofday if ftime is not available
+
+	* configure.in: added check for gettimeofday
+	AM_INIT_AUTOMAKE: updated version number
+
+	* eval.c: (initialize_eval): last fix was not sufficent
+	increased dimension of pre_tropism arrays
+
+2000-04-18  Gian-Carlo Pascutto  <gcp@users.sourceforge.net>
+
+	* eval.c: (initialize_eval): fix out-of-bounds error
+
+2000-04-16  Gian-Carlo Pascutto  <gcp@users.sourceforge.net>
+
+	* Released 7.1
+
+	* sjeng.c: (main) updated version output
+
+	* configure.in: updated AC_OUTPUT
+	AM_INIT_AUTOMAKE: updated version number
+
+	* tests/Makefile.am: file added
+
+	* books/Makefile.am: file added
+
+	* Makefile.am: added SUBDIRS
+	
+
+2000-04-12  Gian-Carlo Pascutto  <gcp@users.sourceforge.net>
+
+	* Released 7.0
+
+	* Added/renamed files to comply with GNU standards (NEWS,BUGS,...)
+
+	* Added automake/autoconf/autoheader/etc... support
+
+
+
+
+
+
+
+
+
+	

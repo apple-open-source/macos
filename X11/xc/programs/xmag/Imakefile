@@ -1,0 +1,11 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:54 cpqbld Exp $
+        DEFINES = $(IEEE_DEFS) $(SIGNAL_DEFINES)
+        DEPLIBS = XawClientDepLibs
+LOCAL_LIBRARIES = XawClientLibs
+  SYS_LIBRARIES = MathLibrary
+           SRCS = xmag.c CutPaste.c RootWin.c Scale.c 
+           OBJS = xmag.o CutPaste.o RootWin.o Scale.o
+
+ComplexProgramTarget(xmag)
+InstallAppDefaults(Xmag)
+

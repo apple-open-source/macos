@@ -1,0 +1,78 @@
+Information on files in this directory
+--------------------------------------
+\xc\programs\xserver\hw\xfree86\os-support\os2
+
+The files in this directory form the OS-dependent porting layer of
+XFree86 for OS/2. They are the work of:
+
+       Holger Veit <Holger.Veit@gmd.de>
+       Sebastien Marineau <marineau@genie.uottawa.ca>
+
+Some functions which were absent from OS/2,
+such as direct access to IO ports and the mapping of physical memory,
+are implemented in a device-driver written for this purpose by Holger Veit 
+<Holger.Veit@gmd.de>. The driver also implements several functions
+necessary for xterm.
+The driver should be installed in the config.sys with a line:
+
+DEVICE=path\XF86SUP.SYS
+
+The following gives a brief overview of the implementation of the
+porting layer, and lists some of the "gotchas" when modifying the source.
+
+BIOS and physical memory mapping: This is handled by the functions in XF86SUP.SYS driver.
+
+IO permission: Handled by a function in the XF86SUP.SYS driver. Essentially, IO permissions
+are granted for the whole Xserver at server initialisation. The device-driver sets the IOPL
+level to ring 3 for the Xserver, which in essence gives it the same IO privileges that a
+device-driver has. Note the danger here: the Xserver can write to any IO port it wishes,
+and can disable interrupts (something which it does), thus can potentially hang the system.
+
+VT switching (switching back and forth to the WPS): This is handled by the keyboard driver,
+i.e. the stardard keyboard sequences (CTRL-ESC etc.) trigger the switch back to PM. The 
+Xserver is notified of switches by the VIO function VIOSavRedrawWait(), which is run in
+a separate thread. When a switch to/from PM is requested, this function call unblocks, and
+the Xserver either saves or restores the video buffer and video mode. Note that semaphores
+are used to communicate with the main Xserver thread, and handle cases such as server
+reset while the server has lost focus etc.
+A similar mechanism is used to handle hard-error popups. A thread is run which blocks
+on the VIOModeWait() function. When a hard-error notification occurs, the Xserver attempts
+to recover by resetting the screen. Note that, due to some (probable) bugs in the OS/2
+video drivers, this does not always work as expected. According to the specs, the OS/2
+video drivers are supposed to restore the palette when returning from a hard-error. This
+does not seem to be always the case..... so the palette in X may be screwed up after the
+hard-error.
+
+Keyboard input: because X needs all keyboard event to function (both keypresses, key
+releases, for all keys), the keyboard input was implemented by registering a keyboard
+monitor for the Xserver. The keyboard monitor is run in a separate thread, and sends
+the keystrokes back to the Xserver main thread through a queue. Another thread is
+also started, whose purpose is to "eat" the keystrokes returned by KbdCharIn(). Note that 
+the monitor was necessary because the OS/2 keyboard driver does not pass all keystrokes
+to the application calling KbdCharIn().
+
+Mouse input: This was implemented similarly to the keyboard input: mouse events are
+read in a thread, which then passes them to the main Xserver thread through a queue.
+
+Select: this unix and emx function has been reimplemented and optimized for the xserver.
+Because of the need to handle input from pipes, sockets, the mouse and keyboard (which
+select() in unix does but the EMX select does not), it was decided to rewrite it in
+order to minimize CPU usage and maximize responsiveness. Essentially, select() blocks on
+a MuxWait semaphore, and unblocks when input is available from pipes, the mouse and the
+keyboard. The MuxWait semaphore times out every timeslice, so that sockets can be checked
+for activity (unfortunately, sockets are not well-handled in the OS/2 TCPIP and one cannot
+attach a semaphore to a socket). There is also the possibility of using the high-resolution
+timer (found in Merlin) to check sockets more often than every timeslice.
+*** Important: in order to maximize speed, certain shortcuts are utilized in this 
+implementation of select(), which makes it unsuitable as a general-purpose function. Also,
+it is imperative that the EMX select() never be called from the Xserver! ***
+
+
+If you wish to modify the source, be aware that there may be very good reasons as
+to why certain things were done this way. Usually, if certain function implementations
+appear unnecessarily complicated, it is probably because there were subtle problems
+with the simpler solutions. Due to the complexity of the Xserver code, and the
+differences between OS/2 and unix, there are many potential pitfalls.
+
+$XFree86: xc/programs/Xserver/hw/xfree86/os-support/os2/README,v 3.2 1997/01/27 06:58:06 dawes Exp $
+

@@ -1,0 +1,54 @@
+** This document is out of date **
+
+The following is a list of files/directories required for a self-contained
+cut-down source tree suitable for building the lbxproxy server.  When
+using this cut-down tree, set BuildLBXProxyOnly to YES in
+xc/config/cf/xf86site.def.
+
+xc/Imakefile
+xc/Makefile
+xc/Makefile.ini
+xc/RELNOTES.TXT
+xc/bug-report
+xc/config/
+xc/include/
+xc/lib/Imakefile
+xc/lib/X11/
+xc/lib/XExExt/
+xc/lib/Xau/
+xc/lib/Xbsd/
+xc/lib/Xdmcp/
+xc/lib/Xext/
+xc/lib/xtrans/
+xc/programs/Xserver/include/
+xc/registry
+xc/workInProgress/Imakefile
+xc/workInProgress/lbx/Imakefile
+xc/workInProgress/lbx/README
+xc/workInProgress/lbx/include/
+xc/workInProgress/lbx/lib/
+xc/workInProgress/lbx/programs/Imakefile
+xc/workInProgress/lbx/programs/lbxproxy/
+
+Notes:
+
+1. To start the build, run the following from the 'xc' directoty:
+
+  make -f Makefile.ini World
+
+For some OSs you may need to set BOOTSTRAPCFLAGS.
+
+
+2. If your system uses shared libraries, and you have the latest patchlevel
+of X11R6 installed, you can set DynamicLBXProxyOnly to YES in
+xc/config/cf/xf86site.def to have lbxproxy dynamically linked instead of
+statically linked against the X libraries.
+
+
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/LbxproxyOnly,v 3.3 1996/12/26 07:00:12 dawes Exp $
+
+
+
+
+
+$XConsortium: LbxproxyOnly /main/3 1996/02/21 17:42:14 kaleb $

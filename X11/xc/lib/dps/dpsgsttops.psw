@@ -1,0 +1,213 @@
+/* dpsgsttops.psw
+ *
+ * (c) Copyright 1988-1994 Adobe Systems Incorporated.
+ * All rights reserved.
+ * 
+ * Permission to use, copy, modify, distribute, and sublicense this software
+ * and its documentation for any purpose and without fee is hereby granted,
+ * provided that the above copyright notices appear in all copies and that
+ * both those copyright notices and this permission notice appear in
+ * supporting documentation and that the name of Adobe Systems Incorporated
+ * not be used in advertising or publicity pertaining to distribution of the
+ * software without specific, written prior permission.  No trademark license
+ * to use the Adobe trademarks is hereby granted.  If the Adobe trademark
+ * "Display PostScript"(tm) is used to describe this software, its
+ * functionality or for any other purpose, such use shall be limited to a
+ * statement that this software works in conjunction with the Display
+ * PostScript system.  Proper trademark attribution to reflect Adobe's
+ * ownership of the trademark shall be given whenever any such reference to
+ * the Display PostScript system is made.
+ * 
+ * ADOBE MAKES NO REPRESENTATIONS ABOUT THE SUITABILITY OF THE SOFTWARE FOR
+ * ANY PURPOSE.  IT IS PROVIDED "AS IS" WITHOUT EXPRESS OR IMPLIED WARRANTY.
+ * ADOBE DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL
+ * IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NON- INFRINGEMENT OF THIRD PARTY RIGHTS.  IN NO EVENT SHALL ADOBE BE LIABLE
+ * TO YOU OR ANY OTHER PARTY FOR ANY SPECIAL, INDIRECT, OR CONSEQUENTIAL
+ * DAMAGES OR ANY DAMAGES WHATSOEVER WHETHER IN AN ACTION OF CONTRACT,
+ * NEGLIGENCE, STRICT LIABILITY OR ANY OTHER ACTION ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.  ADOBE WILL NOT
+ * PROVIDE ANY TRAINING OR OTHER SUPPORT FOR THE SOFTWARE.
+ * 
+ * Adobe, PostScript, and Display PostScript are trademarks of Adobe Systems
+ * Incorporated which may be registered in certain jurisdictions
+ * 
+ * Author:  Adobe Systems Incorporated
+ */
+
+defineps DPSconcat(DPSContext ctxt; float m[6])
+	m concat
+endps
+
+defineps DPScurrentdash(DPSContext ctxt)
+	currentdash 
+endps
+
+defineps DPScurrentflat(DPSContext ctxt | float *flatness)
+	currentflat flatness 
+endps
+
+defineps DPScurrentgray(DPSContext ctxt | float *gray)
+	currentgray gray 
+endps
+
+defineps DPScurrentgstate(DPSContext ctxt; userobject gst)
+	gst currentgstate 
+endps
+
+defineps DPScurrenthalftone(DPSContext ctxt)
+	currenthalftone 
+endps
+
+defineps DPScurrenthalftonephase(DPSContext ctxt | float *x, *y)
+	currenthalftonephase y x 
+endps
+
+defineps DPScurrenthsbcolor(DPSContext ctxt | float *h, *s, *b)
+	currenthsbcolor b s h 
+endps
+
+defineps DPScurrentlinecap(DPSContext ctxt | int *linecap)
+	currentlinecap linecap 
+endps
+
+defineps DPScurrentlinejoin(DPSContext ctxt | int *linejoin)
+	currentlinejoin linejoin 
+endps
+
+defineps DPScurrentlinewidth(DPSContext ctxt | float *width)
+	currentlinewidth width 
+endps
+
+defineps DPScurrentmatrix(DPSContext ctxt)
+	currentmatrix 
+endps
+
+defineps DPScurrentmiterlimit(DPSContext ctxt | float *limit)
+	currentmiterlimit limit 
+endps
+
+defineps DPScurrentpoint(DPSContext ctxt | float *x, *y)
+	currentpoint y x 
+endps
+
+defineps DPScurrentrgbcolor(DPSContext ctxt | float *r, *g, *b)
+	currentrgbcolor b g r 
+endps
+
+defineps DPScurrentscreen(DPSContext ctxt)
+	currentscreen 
+endps
+
+defineps DPScurrentstrokeadjust(DPSContext ctxt | boolean *b)
+	currentstrokeadjust b 
+endps
+
+defineps DPScurrenttransfer(DPSContext ctxt)
+	currenttransfer 
+endps
+
+defineps DPSdefaultmatrix(DPSContext ctxt)
+	defaultmatrix 
+endps
+
+defineps DPSgrestore(DPSContext ctxt)
+	grestore 
+endps
+
+defineps DPSgrestoreall(DPSContext ctxt)
+	grestoreall 
+endps
+
+defineps DPSgsave(DPSContext ctxt)
+	gsave 
+endps
+
+defineps DPSgstate(DPSContext ctxt)
+	gstate 
+endps
+
+defineps DPSinitgraphics(DPSContext ctxt)
+	initgraphics 
+endps
+
+defineps DPSinitmatrix(DPSContext ctxt)
+	initmatrix 
+endps
+
+defineps DPSrotate(DPSContext ctxt; float angle)
+	angle rotate 
+endps
+
+defineps DPSscale(DPSContext ctxt; float x, y)
+	x y scale 
+endps
+
+defineps DPSsetdash(DPSContext ctxt; float pat[size]; int size; float offset)
+	pat offset setdash
+endps
+
+defineps DPSsetflat(DPSContext ctxt; float flatness)
+	flatness setflat 
+endps
+
+defineps DPSsetgray(DPSContext ctxt; float gray)
+	gray setgray 
+endps
+
+defineps DPSsetgstate(DPSContext ctxt; userobject gst)
+	gst setgstate 
+endps
+
+defineps DPSsethalftone(DPSContext ctxt)
+	sethalftone 
+endps
+
+defineps DPSsethalftonephase(DPSContext ctxt; float x, y)
+	x y sethalftonephase 
+endps
+
+defineps DPSsethsbcolor(DPSContext ctxt; float h, s, b)
+	h s b sethsbcolor 
+endps
+
+defineps DPSsetlinecap(DPSContext ctxt; int linecap)
+	linecap setlinecap 
+endps
+
+defineps DPSsetlinejoin(DPSContext ctxt; int linejoin)
+	linejoin setlinejoin 
+endps
+
+defineps DPSsetlinewidth(DPSContext ctxt; float width)
+	width setlinewidth 
+endps
+
+defineps DPSsetmatrix(DPSContext ctxt)
+	setmatrix 
+endps
+
+defineps DPSsetmiterlimit(DPSContext ctxt; float limit)
+	limit setmiterlimit 
+endps
+
+defineps DPSsetrgbcolor(DPSContext ctxt; float r, g, b)
+	r g b setrgbcolor 
+endps
+
+defineps DPSsetscreen(DPSContext ctxt)
+	setscreen 
+endps
+
+defineps DPSsetstrokeadjust(DPSContext ctxt; boolean b)
+	b setstrokeadjust 
+endps
+
+defineps DPSsettransfer(DPSContext ctxt)
+	settransfer 
+endps
+
+defineps DPStranslate(DPSContext ctxt; float x, y)
+	x y translate 
+endps
+

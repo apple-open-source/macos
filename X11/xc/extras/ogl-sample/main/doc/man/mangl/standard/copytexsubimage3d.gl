@@ -1,0 +1,159 @@
+_C_ License Applicability. Except to the extent portions of this file are
+_C_ made subject to an alternative license as permitted in the SGI Free
+_C_ Software License B, Version 1.1 (the "License"), the contents of this
+_C_ file are subject only to the provisions of the License. You may not use
+_C_ this file except in compliance with the License. You may obtain a copy
+_C_ of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+_C_ Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+_C_ 
+_C_ http://oss.sgi.com/projects/FreeB
+_C_ 
+_C_ Note that, as provided in the License, the Software is distributed on an
+_C_ "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+_C_ DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+_C_ CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+_C_ PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+_C_ 
+_C_ Original Code. The Original Code is: OpenGL Sample Implementation,
+_C_ Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+_C_ Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+_C_ Copyright in any portions created by third parties is as indicated
+_C_ elsewhere herein. All Rights Reserved.
+_C_ 
+_C_ Additional Notice Provisions: The application programming interfaces
+_C_ established by SGI in conjunction with the Original Code are The
+_C_ OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+_C_ April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+_C_ 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+_C_ Window System(R) (Version 1.3), released October 19, 1998. This software
+_C_ was created using the OpenGL(R) version 1.2.1 Sample Implementation
+_C_ published by SGI, but has not been independently verified as being
+_C_ compliant with the OpenGL(R) version 1.2.1 Specification.
+_C_
+_C_ The first character in this file must be an '_'!
+_C_ Anything on a line after _C_ is ignored
+_define(_filters,tbl|eqn)_C_
+_C_      eqn is automatically replaced with neqn for nroff
+_header(CopyTexSubImage3D,copy a three-dimensional texture subimage)
+_names(CopyTexSubImage3D)
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+_phead(_param1)
+Specifies the target texture.
+Must be _const(TEXTURE_3D) 
+_phead(_param2)
+Specifies the level-of-detail number.
+Level 0 is the base image level.
+Level \f2n\fP is the \f2n\fPth mipmap reduction image.
+_phead(_param3)
+Specifies a texel offset in the x direction within the texture array.
+_phead(_param4)
+Specifies a texel offset in the y direction within the texture array.
+_phead(_param5)
+Specifies a texel offset in the z direction within the texture array.
+_phead(_param6 _param7)
+Specify the window coordinates of the lower left corner
+of the rectangular region of pixels to be copied.
+_phead(_param8)
+Specifies the width of the texture subimage.
+_phead(_param9)
+Specifies the height of the texture subimage.
+.SH DESCRIPTION
+_cmnd replaces a rectangular portion of a three-dimensional
+texture image with pixels from the current _const(READ_BUFFER) (rather
+than from main memory, as is the case for _cmnd(TexSubImage3D)).
+.P
+The screen-aligned pixel rectangle with lower left corner at
+(_param6,\ _param7) and with
+width _param8 and height _param9 replaces the portion of the
+texture array with x indices _param3 through _param3$~+~$_param8$~-~$1,
+inclusive, and y indices _param4 through _param4$~+~$_param9$~-~$1,
+inclusive, at z index _param5 and at the mipmap level specified by _param2.
+.P
+The pixels in the rectangle are processed exactly as if
+_cmnd(CopyPixels) had been called, but the process stops just before
+final conversion.
+At this point, all pixel component values are clamped to the range [0,\ 1]
+and then converted to the texture's internal format for storage in the texel
+array.
+.P
+The destination rectangle in the texture array may not include any texels
+outside the texture array as it was originally specified.
+It is not an error to specify a subtexture with zero width or height, but
+such a specification has no effect.
+.P
+If any of the pixels within the specified rectangle of the current
+_const(READ_BUFFER) are outside the read window associated with the current
+rendering context, then the values obtained for those pixels are undefined.
+.P
+No change is made to the \f2internalformat\fP, \f2width\fP,
+\f2height\fP, \f2depth\fP, or \f2border\fP parameters of the specified texture
+array or to texel values outside the specified subregion.
+.SH NOTES
+_cmnd is available only if the GL version is 1.2 or greater. 
+.P
+Texturing has no effect in color index mode.
+.P
+_cmnd(PixelStore) and _cmnd(PixelTransfer) modes affect texture images
+in exactly the way they affect _cmnd(DrawPixels).
+.P
+When the _arbstring(imaging) extension is supported, the RGBA components
+copied from the framebuffer may be processed by the imaging pipeline, as 
+if they were a two-dimensional texture.  See _cmnd(TexImage2D) for
+specific details.
+.SH ERRORS
+_const(INVALID_ENUM) is generated if _param1 is not _const(TEXTURE_3D). 
+.P
+_const(INVALID_OPERATION) is generated if the texture array has not
+been defined by a previous _cmnd(TexImage3D) or _cmnd(CopyTexImage3D) operation.
+.P
+_const(INVALID_VALUE) is generated if _param2 is less than 0.
+.P 
+_const(INVALID_VALUE) may be generated if _param2 is greater
+than $log sub 2^max$,
+where $max$ is the returned value of _const(MAX_3D_TEXTURE_SIZE).
+.P
+_const(INVALID_VALUE) is generated if _param6$ ~<~ ~-b$ or if
+_param7$ ~<~ ~-b$, 
+where $b$ is the border width of the texture array.
+.P
+_const(INVALID_VALUE) is generated if $_eqnparam3 ~<~ -b$,
+(_param3$~+~$_param8)$~>~(w ~-~b)$, 
+_param4$~<~ ~-b$, 
+(_param4$~+~$_param9)$~>~(h ~-~b)$,
+_param5$~<~ ~-b$, or _param5$~>~(d ~-~b)$,
+where $w$ is the _const(TEXTURE_WIDTH), 
+$h$ is the  _const(TEXTURE_HEIGHT),
+$d$ is the _const(TEXTURE_DEPTH),
+and $b$ is the _const(TEXTURE_BORDER)
+of the texture image being modified.
+Note that $w$, $h$, and $d$
+include twice the border width.
+.P
+_const(INVALID_OPERATION) is generated if _cmnd is executed
+between the execution of _cmnd(Begin) and the corresponding
+execution of _cmnd(End).
+.SH ASSOCIATED GETS
+_cmnd(GetTexImage)
+.br
+_cmnd(IsEnabled) with argument _const(TEXTURE_3D)
+.SH SEE ALSO
+_cmnd(CopyPixels),
+_cmnd(CopyTexImage1D),
+_cmnd(CopyTexImage2D),
+_cmnd(CopyTexSubImage1D),
+_cmnd(CopyTexSubImage2D),
+_cmnd(PixelStore),
+_cmnd(PixelTransfer),
+_cmnd(ReadBuffer),
+_cmnd(TexEnv),
+_cmnd(TexGen),
+_cmnd(TexImage1D),
+_cmnd(TexImage2D),
+_cmnd(TexImage3D),
+_cmnd(TexParameter),
+_cmnd(TexSubImage1D),
+_cmnd(TexSubImage2D),
+_cmnd(TexSubImage3D)

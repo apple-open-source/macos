@@ -1,0 +1,9 @@
+/* code converter: GEORGIAN */
+
+#define ModuleName GEORGIAN
+SRCS = GEORGIANtoUCS2.c main.c
+OBJS = GEORGIANtoUCS2.o main.o
+
+#include <xttMod.tmpl>
+
+/* end of file */

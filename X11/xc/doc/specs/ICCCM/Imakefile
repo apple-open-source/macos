@@ -1,0 +1,9 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:42:08 cpqbld Exp $
+XCOMM $XFree86: xc/doc/specs/ICCCM/Imakefile,v 1.2 2001/04/23 15:53:49 dawes Exp $
+
+MakeEqnDoc(icccm,icccm.ms)
+
+MakeDocIndex(icccm,indexmacros.t)
+
+InstallRoffDoc(icccm)
+

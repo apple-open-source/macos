@@ -1,0 +1,19 @@
+#include "../../Xi18nLib.conf"
+
+ EXTRA_INCLUDES = -I../../..
+           SRCS = omDefault.c omGeneric.c omImText.c omText.c \
+		  omTextEsc.c omTextExt.c omTextPer.c omXChar.c
+
+           OBJS = ${SRCS:.c=.o}
+   REQUIREDLIBS = -L$(XENVLIBDIR) -lX11 -lc
+
+LinkSourceFile(omDefault.c, ../../..)
+LinkSourceFile(omGeneric.c, ../../..)
+LinkSourceFile(omImText.c, ../../..)
+LinkSourceFile(omText.c, ../../..)
+LinkSourceFile(omTextEsc.c, ../../..)
+LinkSourceFile(omTextExt.c, ../../..)
+LinkSourceFile(omTextPer.c, ../../..)
+LinkSourceFile(omXChar.c, ../../..)
+
+Xi18nLibraryTarget(xomGeneric)

@@ -1,0 +1,8 @@
+bin/X
+bin/XDarwinStartup
+bin/XDarwinQuartz
+lib/libfreetype.6.3.dylib
+lib/libfreetype.6.dylib
+lib/libfreetype.a
+lib/libfreetype.dylib
+../../Applications/XDarwin.app

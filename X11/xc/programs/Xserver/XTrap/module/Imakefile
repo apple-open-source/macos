@@ -1,0 +1,26 @@
+XCOMM $XFree86: xc/programs/Xserver/XTrap/module/Imakefile,v 1.3 2002/09/17 01:15:09 dawes Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+
+       SRCS = xtrapddmi.c xtrapdi.c xtrapdiswp.c xtrapditbl.c xf86XTrapModule.c
+       OBJS = xtrapddmi.o xtrapdi.o xtrapdiswp.o xtrapditbl.o xf86XTrapModule.o
+   INCLUDES = -I.. -I../../include -I$(EXTINCSRC) -I$(XINCLUDESRC) \
+	-I$(SERVERSRC)/Xext
+    DEFINES = -DEXTMODULE
+
+LinkSourceFile(xf86XTrapModule.c,..)
+LinkSourceFile(xtrapddmi.c,..)
+LinkSourceFile(xtrapdi.c,..)
+LinkSourceFile(xtrapdiswp.c,..)
+LinkSourceFile(xtrapditbl.c,..)
+
+ModuleObjectRule()
+LibraryModuleTarget(xtrap,$(OBJS))
+
+InstallLibraryModule(xtrap,$(MODULEDIR),extensions)
+
+DependTarget()
+
+InstallDriverSDKLibraryModule(xtrap,$(DRIVERSDKMODULEDIR),extensions)
+

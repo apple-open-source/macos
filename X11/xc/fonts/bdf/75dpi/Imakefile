@@ -1,0 +1,25 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:43:37 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/fonts/bdf/75dpi/Imakefile,v 1.6 2001/04/04 22:56:07 dawes Exp $
+
+all::
+
+#include "Imakefile.inc"
+
+OBJS1 = $(UCSOBJS1) $(DERIVEDOBJS1) $(PREDERIVEDOBJS1)
+OBJS2 = $(UCSOBJS2) $(DERIVEDOBJS2) $(PREDERIVEDOBJS2) $(MISCOBJS)
+
+OBJS = $(OBJS1) $(OBJS2)
+
+FONTINSTDIR = $(FONTDIR)/75dpi
+
+MakeFonts()
+
+InstallFontObjs($(OBJS1),$(FONTINSTDIR))
+InstallFontObjs($(OBJS2),$(FONTINSTDIR))
+InstallFontAliases($(FONTINSTDIR))
+InstallEncodingsDir($(ENCODINGSSRC),$(FONTINSTDIR))
+

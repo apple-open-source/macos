@@ -1,0 +1,191 @@
+
+                        Outline for Xbench
+                        ------------------
+
+GENERAL
+-------
+
+Stuff starting with '-' are callbacks for that widget.
+'<>' means whatever is appropriate.
+
+Choice widgets will either be implemented as a new type of widget or a
+form containing a bunch of Command widgets.  The automatic callbacks for
+the commands are:
+   - set all children of parent to normal colors
+   - set oneself to reverse colors
+There will be a
+   - put <> in buffer, specified by the parent widget
+There will also be a
+   - put <>\n in buffer
+specific to each command.
+
+In general, the buffer does not need to be looked at until the test is
+actually run; however, if we decide to "gray out" choices in the Graphics
+Options window that have nothing to do with the benchmark, then choosing
+a benchmark must flush also.
+
+Widgets - we need to decide whether the windows that are turn-on-and-offable
+should be children of Form, or of TopLevel.  If they're children of Form,
+then the user won't be able to stack them or have a say in where they go.
+We also might run out of space.  If they're children of TopLevel, the user
+can decide where they go, but he's going to have to choose their location
+(with the wm) every time they come up.  I would vote for the latter approach.
+(Uh oh... I don't think that the TopLevel widget can have more than one
+child...)
+
+All choosing Widgets should write strings in the Xbench language to some
+buffer, where the actual testing thing can pull them out.
+
+
+
+HIERARCHY OF WIDGETS
+--------------------
+
+Form (form) surrounding the whole thing (owned by TopLevel)
+Title (label) on top describing version & current test (owned by Form)
+MenuLine (form) under Title giving top level choices (owned by Form)
+MenuLine contains these Commands:
+   Run
+       - flush the buffer
+       - run benchmark
+   BenchmarkOptionsOn
+       - map benchmark options window (BenchmarkOptions)
+   BenchmarkOptionsOff
+       - unmap benchmark options window
+   GraphicsOptionsOn
+       - map graphics options window (GraphicsOptions)
+   GraphicsOptionsOff
+       - unmap graphics options window
+   DescriptionOn
+       - map description window (Description)
+   DescriptionOff
+       - unmap description window
+   RecordingOn
+       - bring up dialog box for name of file
+       - start saving commands into file (set a global boolean TRUE)
+   RecordingOff
+       - stop saving commands into file (set the global boolean FALSE)
+   Playback
+       - bring up dialog box for name of file
+       - read from file until EOF
+   Quit
+       - quit
+   
+The toggling command buttons exist in pairs, of which only one is visible at
+any one point.  This makes callbacks/names of buttons easier to implement.
+
+---
+
+BenchmarkOptions (form) describing benchmark options (owned by Toplevel?)
+BenchmarkOptions contains:
+   TestChoice (choice) the 16 different test choices.
+       - put "test <>" in buffer
+       - put description of test in Description window
+       - call disable_gc_choices() with the GC field flags
+   Iterations (text) the number of times to run.
+       - put "iterations <>" in buffer
+   
+---
+
+GraphicsOptions (form) describing graphics options (owned by Toplevel?)
+GraphicsOptions contains:
+   ChooseFunction (choice)
+       - put "function <>" in buffer
+   ChooseColormap (choice)
+       - put "colormap <>" in buffer
+   Foreground (text)
+       - put "foreground <>" in buffer
+   Background (text)
+       - put "background <>" in buffer
+   LineWidth (text)
+       - put "linewidth <>" in buffer
+   LineStyle (choice)
+       - put "linestyle <>" in buffer
+   CapStyle (choice)
+       - put "capstyle <>" in buffer
+   JoinStyle (choice)
+       - put "joinstyle <>" in buffer
+   FillStyle (choice)
+       - put "fillstyle <>" in buffer
+   FillRule (choice)
+       - put "fillrule <>" in buffer
+   ArcMode (choice)
+       - put "arcmode <>" in buffer
+   TStipOrigin (text * 2)
+       - put "tsorigin <>" in buffer
+   DashList (???)
+       - put "dashlist <>" in buffer
+   DashOffset (text?)
+       - put "dashoffset <>" in buffer
+   ClipMask (choice)
+       - put "clipmask <>" in buffer
+   Planemask (text)
+       - put "planemask <>" in buffer
+
+We need specialized widgets for DashList, possibly TStipOrigin and DashOffset.
+
+Still to be decided: can one choose GC options that have no meaning for that
+  particular benchmark? I don't think it should be a problem.
+
+---
+
+Description (text) describing the current test (owned by Toplevel?)
+
+I really need to find out how to use sources and sinks for Text widgets -
+the documentation does not say how to do it.
+
+Every test will have a block of text associated with it.  When a new 
+benchmark is chosen, its associated text will become the source for the
+Description widget.  Note that we don't have to worry about whether 
+Description is mapped or not; we're just setting a source.
+
+---
+
+Analysis (text) describing the results of the current test (owned by Form -
+we always want this to be around)
+
+This will display the name of the test, the important values of the GC,
+the results of the test, and a short analysis thereof.  If more than
+one test of a particular benchmark is performed, it will be appended to
+the analysis source (not replacing it).  This will allow for comparing
+results obtained with different GC's.
+
+---
+
+Test (core + expose event handler) for doing the test.
+
+All this really needs to do, besides actually doing the test, is to
+time it and make sure the Analysis part knows about it.
+
+---
+
+RecordingOn / RecordingOff / Playback
+
+When the user presses Playback, pretty much all we have to do is to
+1) change the buffer to the file that he wants, and 2) start reading.
+The rest should be taken care of the buffer-interpreting module.
+
+RecordingOn changes the output buffer _and_ the input buffer to the 
+desired file.
+       
+RecordingOff changes them both back to the usual.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

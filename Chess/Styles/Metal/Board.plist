@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>BlackAlpha</key>
+	<real>1</real>
+	<key>BlackShininess</key>
+	<real>21.894737243652344</real>
+	<key>BlackSpecular</key>
+	<real>0.25</real>
+	<key>BorderAlpha</key>
+	<real>1</real>
+	<key>BorderShininess</key>
+	<real>23.017543792724609</real>
+	<key>BorderSpecular</key>
+	<real>0.15350876748561859</real>
+	<key>LabelIntensity</key>
+	<real>1</real>
+	<key>Reflectivity</key>
+	<real>0.60087716579437256</real>
+	<key>WhiteAlpha</key>
+	<real>1</real>
+	<key>WhiteShininess</key>
+	<real>27.508771896362305</real>
+	<key>WhiteSpecular</key>
+	<real>0.32017543911933899</real>
+</dict>
+</plist>

@@ -1,0 +1,17 @@
+xmessage displays a message or query in a window.  The user can click
+on an "okay" button to dismiss it or can select one of several buttons
+to answer a question.  xmessage can also exit after a specified time.
+
+
+This is the X11R6 version.  Here is what's new since R5:
+
+maxWidth (used in auto geom calc, ignored if geometry explicitly given)
+maxHeight
+-center
+-timeout
+-nearmouse
+scrollbars
+
+
+Stephen Gildea
+gildea@x.org

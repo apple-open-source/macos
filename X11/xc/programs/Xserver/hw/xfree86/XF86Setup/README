@@ -1,0 +1,204 @@
+
+                               XF86SETUP README
+                               ----------------
+
+INTRODUCTION
+
+   XF86Setup is a new program to aid in the configuration of the XFree86
+   servers. It is unlike previous programs (such as ConfigXF86 and
+   xf86config) in that it is specifically designed to do as much as
+   possible while in graphics mode.
+
+   However, xf86config is _not_ being replaced. XF86Setup's resource
+   requirements are considerably greater than those of xf86config. It also
+   is not usable for OS/2 configuration (at least not yet).
+
+   XF86Setup requires that both the VGA16 and card-appropriate servers be
+   installed. Furthermore, the servers must include the XKEYBOARD,
+   XFree86-VidModeExtension, and XFree86-Misc extensions. If the dialog
+   program is installed, it will be used, but is not required.
+
+   If you wish to run XF86Setup without installing it first, you need to
+   set the environment variable "XF86SETUPLIB" to point to the source
+   directory.
+
+   The command line options are documented in the XF86Setup man page. For
+   instructions regarding the use of the program, see the Quick Start Guide
+   to XFree86 Configuration and the on-line help.
+
+   The rest of this file contains information that is mainly of use to
+   someone interested in hacking on the code.
+
+MANIFEST
+     CHANGELOG           List of changes in each version
+     Imakefile           Imakefile to generate the program
+     LICENSE             Redistribution license and disclaimer
+     README              ASCII version of the README
+     README.html         HTML version of the README
+     TODO                Things to be done or at least considered
+     XF86Setup.man       The man page
+     main.c              Main prog that starts the Tcl interpreter
+     tclcards.c          Routines to connect Tcl and the Cards database
+                         reading functions
+     tclcards.h          Prototypes for above
+     tclkbd.c            Routines to connect to the XKB extension
+     tclmisc.c           Routines to connect to the XFree86-Misc extension
+     tclmisc.h           Prototypes for above
+     tclother.c          Routines to implement misc Tcl commands
+     tclvidmode.c        Routines to connect Tcl and
+                         XFree86-VidModeExtension
+     tclvidmode.h        Prototypes for above
+     tclxfconf.c         Interface to xf86Config.c for reading an existing
+                         XF86Config file
+     xfsconf.h           Prototypes for above
+     tclxkbui.c          Tk widget interface to the xkbui library
+     tkother.c           Routines to implement misc commands requiring Tk
+     card.tcl            Device configuration routines
+     carddata.tcl        Information regarding supported chips and such
+                         that is used by card.tcl
+     done.tcl            Routines that are used once the user has finished
+                         the various configuration steps
+     filelist.tcl        Lists of files that should be checked for proper
+                         installation
+     keyboard.tcl        Routines for keyboard and other configuration
+     mondata.tcl         Default monitor sync rates and modes
+     monitor.tcl         Monitor configuration routines
+     mouse.tcl           Mouse configuration routines
+     phase1.tcl          Tcl commands to do Phase I
+     phase2.tcl          Tcl commands for Phase II
+     phase3.tcl          Tcl commands for Phase III
+     phase4.tcl          Tcl commands for Phase IV
+     phase5.tcl          Tcl commands for Phase V
+     setuplib.tcl        Library of XF86Setup specific Tcl procs
+     srvflags.tcl        Configuration routines for server flags
+     pics                Directory containing bitmaps used by program
+     scripts             Directory of other scripts that use XF86Setup as
+                         an interpreter to implement other clients
+     tcllib              Directory containing Tcl code to set the standard
+                         widget bindings (from the Tcl & Tk 4.0p3
+                         distributions) and with misc tcl routines and the
+                         combobox widget
+
+NEW TCL COMMANDS
+
+   The program includes a Tcl interpreter which has been extended with
+   additional commands (in addition to those in the Tk toolkit). They are
+   explained below.
+
+Interfacing with the Cards database
+
+   Two commands have been added to read data from the "Cards" database (as
+   used by "xf86config")
+     xf86cards_getlist   Return the full list of card names
+     xf86cards_getentry  Get complete info on a card
+
+   A valid card name should be supplied as an argument to
+   "xf86cards_getentry"
+
+XFree86-VidModeExtension commands
+
+   Several commands have been added which allow the program to communicate
+   with the XFree86-VidModeExtension server extension, namely:
+     xf86vid_getversion  Query extension version
+     xf86vid_getbasevals
+                         Get the ErrorBase and EventBase
+     xf86vid_getmodeline
+                         Get the current video mode settings
+     xf86vid_getallmodelines
+                         Get video settings for all modes
+     xf86vid_getmonitor  Get monitor specs
+     xf86vid_lockmodeswitch
+                         Turn on/off mode switching
+     xf86vid_switchmode  Switch to next/previous mode
+
+   Only the last two take an argument, which is either "lock" or "unlock"
+   in the case of "xf86vid_lockmodeswitch" and either "next" or "prev" in
+   the case of "xf86vid_switchmode".
+
+   "xf86vid_getversion" returns the version as a floating point number
+   (e.g., 1.2), whereas "xf86vid_getbasevals" returns a Tcl list containing
+   two elements.
+
+   The "xf86vid_getmodeline" command returns a string which contains the
+   standard mode line values including flags, if any, with each value
+   separated by a single space.
+
+   "xf86vid_getallmodelines" returns a Tcl list. The number of elements
+   corresponds to the number of valid video modes. Each element is in the
+   format returned by "xf86vid_getmodeline". The first element contains the
+   mode info for the current mode.
+
+   "xf86vid_getmonitor" also returns a Tcl list. The first element is the
+   vendor name. The second is the model name. The third element contains
+   all of the horizontal sync rates as comma separated ranges (so for
+   example if the sync rates were 31.5, 35-40, and 45-55 the return value
+   would be: "31.50-31.50,35.00-40.00,45.00-55.00"). The last element
+   contains the vertical sync rates in the same format.
+
+XFree86-Misc extension commands
+
+   Communication with the XFree86-Misc extension is possible using these
+   new commands:
+     xf86misc_getversion
+                         Query extension version
+     xf86misc_getbasevals
+                         Get the ErrorBase and EventBase
+     xf86misc_getmouse   Get the current mouse settings
+     xf86misc_setmouse   Set the current mouse settings
+     xf86misc_getkeyboard
+                         Get the current keyboard settings
+     xf86misc_setkeyboard
+                         Set the current keyboard settings
+     xf86misc_getsaver   Get the power saver settings
+     xf86misc_setsaver   Set the power saver settings
+
+XKEYBOARD extension commands
+
+   A few commands are available for communicating with the XKEYBOARD
+   extension:
+     xkb_components      List the components that make up the given
+                         keyboard
+     xkb_free            Free a previously allocated keyboard description
+                         structure
+     xkb_getrulesprop    Read the _XKB_RULES_NAMES root property
+     xkb_list            Returns a list of available components
+     xkb_listrules       Returns a list of available rules defs and their
+                         descriptions
+     xkb_load            Change the keyboard setup for the specified
+                         components
+     xkb_read            Get keyboard information from the server
+     xkb_setrulesprop    Set the _XKB_RULES_NAMES root property
+     xkb_resolvecomponents
+                         Use the XKB rules to determine the components
+                         necessay for an appropriate keymap (requires XKB
+                         library support that might not yet be in the
+                         XFree86 tree).
+
+   The xkbview widget is also available as interface to the xkbui library.
+
+Miscellaneous
+
+   Other commands added to the interpreter are:
+     getuid              Returns the real uid of the user
+     server_running      Returns true if a server is running on the
+                         specified display
+     process_running     Checks if the specified process is running
+     has_symlinks        Returns true if running on an OS that supports
+                         symbolic links
+     link                Makes a (soft or hard) link from one file to
+                         another
+     unlink              Removes the specified file
+     mkdir               Create the named directory
+     rmdir               Remove the named directory
+     umask               Set the file creation mode mask
+     sleep               Sleeps for the specified number of seconds
+     findfocuswindow     Search along an axis for a window which accepts
+                         focus (added to the interpreter after Tk has been
+                         initialized)
+
+   "getuid" just returns the numeric result of getuid().
+
+   The "server_running" command simply tries to perform an "XOpenDisplay()"
+   on its argument. If the call fails, it returns false (0), otherwise it
+   calls "XCloseDisplay()" and returns true (1).
+

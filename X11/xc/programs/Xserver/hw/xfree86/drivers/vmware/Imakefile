@@ -1,0 +1,47 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/drivers/vmware/Imakefile,v 1.6 2003/02/17 17:06:45 dawes Exp $
+XCOMM
+XCOMM This is an Imakefile for the VMware virtual SVGA driver.  
+XCOMM
+
+#define IHaveModules
+#include <Server.tmpl>
+
+SRCS = vmware.c vmwarecurs.c vmwarexaa.c bits2pixels.c offscreen_manager.c
+
+OBJS = vmware.o vmwarecurs.o vmwarexaa.o bits2pixels.o offscreen_manager.o
+
+#if defined(XF86DriverSDK)
+INCLUDES = -I. -I../../include
+#else
+INCLUDES = -I. -I$(XF86COMSRC) -I$(XF86OSSRC) \
+           -I$(SERVERSRC)/fb -I$(SERVERSRC)/mi -I$(XF86SRC)/int10 \
+           -I$(XF86SRC)/xaa -I$(XF86SRC)/rac \
+           -I$(XF86SRC)/vgahw -I$(XF86SRC)/fbdevhw \
+           -I$(XF86SRC)/ramdac -I$(XF86SRC)/ddc -I$(XF86SRC)/i2c \
+           -I$(SERVERSRC)/Xext -I$(SERVERSRC)/render \
+           -I$(FONTINCSRC) -I$(SERVERSRC)/include -I$(XINCLUDESRC) \
+           -I$(XF86SRC)/shadowfb -I$(EXTINCSRC) \
+	   -I$(XF86SRC)/vbe $(DRIINCLUDES)
+#endif
+
+DEFINES = $(DRIDEFINES)
+
+#if MakeHasPosixVariableSubstitutions
+SubdirLibraryRule($(OBJS))
+#endif
+
+ModuleObjectRule()
+
+ObjectModuleTarget(vmware,$(OBJS))
+
+InstallObjectModule(vmware,$(MODULEDIR),drivers)
+
+#if !defined(XF86DriverSDK)
+InstallModuleManPage(vmware)
+#endif
+
+DependTarget()
+
+InstallDriverSDKNonExecFile(Imakefile,$(DRIVERSDKDIR)/drivers/vmware)
+
+InstallDriverSDKObjectModule(vmware,$(DRIVERSDKMODULEDIR),drivers)

@@ -1,0 +1,6 @@
+$Xorg: README,v 1.3 2000/08/17 19:54:59 cpqbld Exp $
+
+This library exists solely to get the new extensions linked into the
+Netscape Plug-in. Once vendors start shipping R7 versions of libXext.so
+then there will be no need for this library.
+

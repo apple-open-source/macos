@@ -67,7 +67,7 @@ extern char * yytext;
 %token SMTPADDRESS SMTPNAME SPAMRESPONSE PRECONNECT POSTCONNECT LIMIT WARNINGS
 %token NETSEC INTERFACE MONITOR PLUGIN PLUGOUT
 %token IS HERE THERE TO MAP WILDCARD
-%token BATCHLIMIT FETCHLIMIT EXPUNGE PROPERTIES
+%token BATCHLIMIT FETCHLIMIT FETCHSIZELIMIT FASTUIDL EXPUNGE PROPERTIES
 %token SET LOGFILE DAEMON SYSLOG IDFILE INVISIBLE POSTMASTER BOUNCEMAIL 
 %token SPAMBOUNCE SHOWDOTS
 %token <proto> PROTO AUTHTYPE
@@ -106,8 +106,8 @@ statement	: SET LOGFILE optmap STRING	{run.logfile = prependdir ($4, rcfiledir);
 		| SET NO SYSLOG			{run.use_syslog = FALSE;}
 		| SET INVISIBLE			{run.invisible = TRUE;}
 		| SET NO INVISIBLE		{run.invisible = FALSE;}
-		| SET SHOWDOTS			{run.showdots = TRUE;}
-		| SET NO SHOWDOTS		{run.showdots = FALSE;}
+		| SET SHOWDOTS			{run.showdots = FLAG_TRUE;}
+		| SET NO SHOWDOTS		{run.showdots = FLAG_FALSE;}
 
 /* 
  * The way the next two productions are written depends on the fact that
@@ -374,6 +374,8 @@ user_option	: TO localnames HERE
 		| LIMIT NUMBER		{current.limit       = NUM_VALUE_IN($2);}
 		| WARNINGS NUMBER	{current.warnings    = NUM_VALUE_IN($2);}
 		| FETCHLIMIT NUMBER	{current.fetchlimit  = NUM_VALUE_IN($2);}
+		| FETCHSIZELIMIT NUMBER	{current.fetchsizelimit = NUM_VALUE_IN($2);}
+		| FASTUIDL NUMBER	{current.fastuidl    = NUM_VALUE_IN($2);}
 		| BATCHLIMIT NUMBER	{current.batchlimit  = NUM_VALUE_IN($2);}
 		| EXPUNGE NUMBER	{current.expunge     = NUM_VALUE_IN($2);}
 
@@ -428,14 +430,14 @@ int prc_filecheck(const char *pathname, const flag securecheck)
 
     if (!securecheck)	return PS_SUCCESS;
 
-    if ((statbuf.st_mode & S_IFLNK) == S_IFLNK)
+    if (!S_ISREG(statbuf.st_mode))
     {
-	fprintf(stderr, GT_("File %s must not be a symbolic link.\n"), pathname);
+	fprintf(stderr, GT_("File %s must be a regular file.\n"), pathname);
 	return(PS_IOERR);
     }
 
 #ifndef __BEOS__
-    if (statbuf.st_mode & ~(S_IFREG | S_IREAD | S_IWRITE | S_IEXEC | S_IXGRP))
+    if (statbuf.st_mode & (S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH | S_IXOTH))
     {
 	fprintf(stderr, GT_("File %s must have no more than -rwx--x--- (0710) permissions.\n"), 
 		pathname);

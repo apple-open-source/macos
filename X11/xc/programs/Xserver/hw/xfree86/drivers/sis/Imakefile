@@ -1,0 +1,107 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/drivers/sis/Imakefile,v 1.31 2003/02/17 17:06:44 dawes Exp $
+XCOMM
+XCOMM This is an Imakefile for the SIS driver.  
+XCOMM
+
+#define IHaveModules
+#include <Server.tmpl>
+
+/* DRI static build only works on Linux */
+#if !defined(LinuxArchitecture) && !DoLoadableServer && BuildXF86DRI
+#undef BuildXF86DRI
+#define BuildXF86DRI NO
+#endif
+
+#if BuildXF86DRI
+DRISRCS = sis_dri.c
+DRIOBJS = sis_dri.o
+DRIINCLUDES = -I$(SERVERSRC)/GL/dri -I$(LIBSRC)/GL/dri \
+              -I$(XTOP)/include
+DRIDEFINES = $(GLX_DEFINES)
+#endif
+
+SRCS = sis_driver.c sis_dac.c sis_cursor.c sis_accel.c sis_setup.c\
+       sis300_accel.c sis310_accel.c sis_vga.c sis_vb.c\
+       sis_opt.c sis_dga.c sis_video.c init.c init301.c sis_shadow.c \
+       sis6326_video.c \
+	   $(DRISRCS)
+OBJS = sis_driver.o sis_dac.o sis_cursor.o sis_accel.o sis_setup.o\
+       sis300_accel.o sis310_accel.o sis_vga.o sis_vb.o\
+       sis_opt.o sis_dga.o sis_video.o init.o init301.o sis_shadow.o \
+       sis6326_video.o \
+	   $(DRIOBJS)
+
+#if defined(XF86DriverSDK)
+INCLUDES = -I. -I../../include
+#else
+INCLUDES = -I. -I$(XF86COMSRC) -I$(XF86OSSRC) -I$(SERVERSRC)/Xext \
+           -I$(SERVERSRC)/mfb -I$(SERVERSRC)/mi \
+           -I$(SERVERSRC)/fb -I$(XF86SRC)/xaa \
+           -I$(XF86SRC)/xf1bpp -I$(XF86SRC)/xf4bpp \
+           -I$(XF86SRC)/xf24_32bpp \
+           -I$(XF86SRC)/vgahw -I$(XF86SRC)/ramdac \
+           -I$(XF86SRC)/ddc -I$(XF86SRC)/i2c -I$(XF86SRC)/vbe \
+           -I$(XF86SRC)/rac -I$(XF86SRC)/int10 \
+           -I$(FONTINCSRC) -I$(SERVERSRC)/include -I$(XINCLUDESRC) \
+           -I$(XTOP)/include/extensions \
+		   -I$(SERVERSRC)/render \
+		   -I$(XF86SRC)/shadowfb \
+           $(DRIINCLUDES)
+#endif
+
+DEFINES = $(DRIDEFINES)
+
+#if MakeHasPosixVariableSubstitutions
+SubdirLibraryRule($(OBJS))
+#endif
+
+ModuleObjectRule()
+
+ObjectModuleTarget(sis,$(OBJS))
+
+InstallObjectModule(sis,$(MODULEDIR),drivers)
+
+#if !defined(XF86DriverSDK)
+InstallModuleManPage(sis)
+#endif
+
+DependTarget()
+
+InstallDriverSDKNonExecFile(Imakefile,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(sis.h,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(sis300_accel.c,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(sis300_accel.h,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(sis310_accel.c,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(sis310_accel.h,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(sis_accel.c,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(init.c,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(init.h,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(init301.c,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(init301.h,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(osdef.h,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(initdef.h,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(300vtbl.h,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(310vtbl.h,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(oem300.h,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(oem310.h,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(sis_cursor.c,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(sis_cursor.h,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(sis_dac.c,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(sis_dac.h,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(sis_dga.c,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(sis_dri.c,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(sis_dri.h,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(sis_driver.c,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(sis_driver.h,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(sis_opt.c,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(sis_regs.h,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(sis_setup.c,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(sis_shadow.c,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(sis_shadow.h,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(sis_vb.c,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(sis_vb.h,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(sis_vga.c,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(sis_video.c,$(DRIVERSDKDIR)/drivers/sis)
+InstallDriverSDKNonExecFile(sis6326_video.c,$(DRIVERSDKDIR)/drivers/sis)
+
+InstallDriverSDKObjectModule(sis,$(DRIVERSDKMODULEDIR),drivers)

@@ -1,0 +1,91 @@
+
+What works: 
+- Supports 8bpp, 15/16bpp, 24bpp and 32bpp. Heavy testing on ViRGE DX.
+- There is some known instability in ViRGE GX2, please report problems.
+- Silken Mouse is enabled by default, use the generic server option of
+  -nosilk to disable it.
+
+XCONFIG options:
+
+The driver supports quite a few different XConfig options, which can
+be used to tune the driver and improve performance. Without any options, 
+the driver will use conservative settings which should work on most
+hardware. Large improvements in performance are possible by selecting
+the proper options, which will probably work on most systems.
+
+Cursor:
+
+- "hwcursor" "off" behaves exactly like "swcursor".  Default: "on"
+- "swcursor" will disable the HW Cursor.  HW Cursor is used by default and
+	no option is needed to enable it.
+
+Display:
+- "ShadowFB"  Use shadow framebuffer.  Disables HW acceleration.  Default: off.
+- "Rotate" " cw "|" ccw "  Rotate the screen CW - clockwise or CCW - counter
+    clockwise.  Disables HW Acceleration and HW Cursor, uses ShadowFB.
+    Default: no rotation.
+- "XVideo"  Disable XVideo support by using the off option.  This changes FIFO
+    settings which prevent screen noise for high-res modes.  Default: on
+
+Video memory:
+
+- "slow_edodram" will switch the standard ViRGE to 2-cycle edo mode. Try this
+	if you encounter pixel corruption on the ViRGE. Using this option will
+	cause a large decrease in performance. 
+- "fpm_vram" will switch the ViRGE/VX to fast page mode vram mode
+- "slow_dram " | " fast_dram"  Change Trio 3D and 3D/2X memory options.
+    Default: Use BIOS defaults.
+- "early_ras_precharge", "late_ras_precharge" adjust memory parameters.  One
+	of these will us the same settings as your video card defaults, and
+	using neither in the config file does the same.
+- "set_mclk" sets the memory clock, format is:
+	Option "set_mclk" "50000" 
+	in the XF86Config file.  Valid values are any 
+	integer <= 100000, where 100000 == 100 MHz.
+- "set_refclk" sets the ref clock for ViRGE MX, format is:
+	Option "set_refclk" "50000" 
+
+Acceleration and graphic engine:
+ 
+- "NoAccel" turns off all acceleration
+- "fifo_aggressive", "fifo_moderate" and "fifo_conservative" alter the settings
+	for the threshold at which the pixel FIFO takes over the internal 
+	memory bus to refill itself. The smaller this threshold, the better
+	the acceleration performance of the card. You may try the fastest 
+	setting ("aggressive") and move down if you encounter pixel corruption.
+	The optimal setting will probably depend on dot-clock and on color 
+	depth. Note that specifying any of these options will also alter other
+	memory settings which should increase performance, so you should at
+        least use "fifo_conservative" (this uses the chip defaults).
+- Common XAA acceleration options to disable primitives for test purposes:
+	"XaaNoScreenToScreenCopy"
+	"XaaNoSolidFillRect"
+	"XaaNoColor8x8PatternFillRect"
+	"XaaNoImageWriteRect"
+	"XaaNoPixmapCache"
+
+PCI bus:
+- "pci_burst" will enable PCI burst mode. This should work on all but a
+	few "broken" PCI chipsets, and will increase performance.  Option may
+	take a parameter "on", "off", "yes", etc...
+- "pci_retry" will allow the driver to rely on PCI Retry to program the 
+	ViRGE registers. "pci_burst" must be enabled for this to work. 
+	This will increase performance, especially for small fills/blits, 
+        because the driver does not have to poll the ViRGE before sending it 
+        commands to make sure it is ready. It should work on most 
+        recent PCI chipsets. 
+
+ViRGE MX LCD options:
+- "lcd_center"
+- "set_lcdclk" allows setting the clock for a ViRGE MX LCD display. Format is:
+	Option "set_lcdclk" "30000"
+	in the config file.  Valid values are ?
+
+Debug:
+- "ShowCache"  Enable or disable viewing offscreen cache memory.  A
+    development debug option.  Default: off.
+- "mx_cr3a_fix"  Enable or disable a cr3a fix added for ViRGE MX.
+    Default: on.
+
+
+$XFree86: xc/programs/Xserver/hw/xfree86/drivers/s3virge/README,v 1.10 2001/11/21 22:43:00 dawes Exp $

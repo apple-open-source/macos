@@ -1,0 +1,88 @@
+.\" $XFree86: xc/programs/Xserver/hw/xfree86/input/palmax/palmax.man,v 1.1 2002/11/22 03:40:22 dawes Exp $
+.\" shorthand for double quote that works everywhere.
+.ds q \N'34'
+.TH PALMAX __drivermansuffix__ __vendorversion__
+.SH NAME
+palmax \- Palmax (TR88L803) touchscreen driver
+.SH SYNOPSIS
+.B "Section \*qInputDevice\*q"
+.br
+.BI "  Identifier \*q" idevname \*q
+.br
+.B  "  Driver \*qpalmax\*q"
+.br
+.BI "  Option \*qDevice\*q   \*q" devpath \*q
+.br
+\ \ ...
+.br
+.B EndSection
+.SH DESCRIPTION
+.B palmax
+is an XFree86 input driver for the Palmax PD1000/PD1100
+.PP
+The
+.B palmax
+driver functions as a pointer input device, and is normally used as the
+X server's core pointer. It supports positioning and mouse buttons using 
+the touchscreen display and lid buttons on the Palmax machines.
+.SH SUPPORTED HARDWARE
+Palmax PD1000, Palmax PD1100. In theory also any other system using a
+TR88L803 wired to a serial port.
+.SH CONFIGURATION DETAILS
+Please refer to XF86Config(__filemansuffix__) for general configuration
+details and for options that can be used with all input drivers.  This
+section only covers configuration details specific to this driver.
+.PP
+The following driver
+.B options
+are supported
+.TP
+.BI "Option \*qMinX\*q \*q" integer \*q
+Set the left hand X value from the touchscreen, for calibration.
+.TP
+.BI "Option \*qMaxX\*q \*q" integer \*q
+Set the right hand X value from the touchscreen, for calibration.
+.TP
+.BI "Option \*qMinY\*q \*q" integer \*q
+Set the top Y value from the touchscreen, for calibration.
+.TP
+.BI "Option \*qMaxY\*q \*q" integer \*q
+Set the bottom Y value from the touchscreen, for calibration.
+.TP
+.BI "Option \*qScreen\*q \*q" integer \*q
+The screen to attach to the touchscreen when running with multiple screens. 
+The default is screen 0.
+.TP
+.BI "Option \*qDevice\*q \*q" string \*q
+The serial port that is attached to the touchscreen interface. On the Palmax
+PD1000 and PD1100 this is ttyS0.
+.TP
+.BI "Option \*qDeviceName\*q \*q" string \*q
+Set the X11 device name for the touchscreen. This defaults to TOUCHSCREEN.
+.TP
+.BI "Option \*qPortraitMode\*q \*q" string \*q
+Set the display orientation. The default is "landscape" but you can rotate
+the screen clockwise ("portrait") or anticlockwise ("portraitCCW").
+.TP
+.BI "Option \*qSwapXY\*q \*q" boolean \*q
+Swap the X and Y values on the display. The default is false.
+.TP
+.BI "Option \*qTapButton\*q \*q" boolean \*q
+Set the touchscreen tap to act as mouse button 1. This allows single handed
+operation except when using the menu buttons. The default is false.
+.SH "BUGS"
+The driver has been tested on the Palmax systems, the defaults reflect the
+Palmax hardware and should work out of the box. No testing has been done on
+other systems using the same digitizer.
+.PP
+Support for a double-tap menu button option would be nice.
+.PP
+The smoothing algorithm would benefit from real mathematics.
+.PP
+XFree86 needs a nice calibration tool.
+.PP
+.SH "SEE ALSO"
+XFree86(1), XF86Config(__filemansuffix__), xf86config(1), Xserver(1), X(__miscmansuffix__).
+.SH AUTHORS
+Authors include...
+ Alan Cox

@@ -1,0 +1,29 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:52 cpqbld Exp $
+
+
+
+XCOMM $XFree86: xc/programs/xlogo/Imakefile,v 1.3 2002/07/01 02:26:04 tsi Exp $
+
+#ifndef XLogoUseRender
+#define XLogoUseRender BuildRenderLibrary
+#endif
+
+#if XLogoUseRender
+    XRENDERDEFS = -DXRENDER
+    XRENDERDEPS = XftClientDepLibs $(DEPXFTLIB) $(DEPXRENDERLIB)
+    XRENDERLIBS = XftClientLibs $(XRENDERLIB) -lm
+    XRENDERINCS = $(XFTINCLUDES) $(XRENDERINCLUDES)
+#endif
+
+        DEPLIBS = $(XRENDERDEPS) XawClientDepLibs XkbClientDepLibs
+LOCAL_LIBRARIES = $(XRENDERLIBS) XawClientLibs XkbClientLibs
+           SRCS = xlogo.c Logo.c RenderLogo.c
+           OBJS = xlogo.o Logo.o RenderLogo.o
+        HEADERS = LogoP.h Logo.h RenderLogo.h
+       INCLUDES = $(XRENDERINCS)
+        DEFINES = $(XRENDERDEFS) XkbClientDefines
+    CDEBUGFLAGS = -g
+
+ComplexProgramTarget(xlogo)
+InstallAppDefaults(XLogo)
+InstallAppDefaultsLong(XLogo-co,XLogo-color)

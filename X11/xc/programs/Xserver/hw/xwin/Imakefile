@@ -1,0 +1,135 @@
+XCOMM $XConsortium: Imakefile /main/10 1996/12/02 10:20:33 lehors $
+XCOMM $XFree86: xc/programs/Xserver/hw/xwin/Imakefile,v 1.15 2003/02/12 15:01:38 alanh Exp $
+
+#include <Server.tmpl>
+
+#if HasShm
+SHMDEF = -DHAS_SHM
+#endif
+
+MMAPDEF = -DHAS_MMAP
+
+SRCS =	InitInput.c \
+	InitOutput.c \
+	stubs.c \
+	wingc.c \
+	winpolyline.c \
+	winfillsp.c \
+	wingetsp.c \
+	winsetsp.c \
+	winwindow.c \
+	winpntwin.c \
+	winpixmap.c \
+	winfont.c \
+	wincmap.c \
+	winclip.c \
+	winallpriv.c \
+	winscrinit.c \
+	winmisc.c \
+	winblock.c \
+	winwakeup.c \
+	wincursor.c \
+	winwndproc.c \
+	winshadgdi.c \
+	winshaddd.c \
+	winshadddnl.c \
+	winpfbdd.c \
+	winkeybd.c \
+	winmouse.c \
+	wincutpaste.c \
+	winnativegdi.c \
+	winlayer.c \
+	winerror.c \
+	winengine.c \
+	wincreatewnd.c \
+	winregistry.c \
+	winconfig.c \
+	winmsg.c \
+	winmultiwindowwindow.c \
+	winmultiwindowwm.c \
+	winclipboardinit.c \
+	winclipboardtextconv.c \
+	winclipboardthread.c \
+	winclipboardunicode.c \
+	winclipboardwndproc.c \
+	winclipboardxevents.c
+
+/*
+ * NOTE: The windialogs.rc file is compiled into windialogs.res.
+ * This compiled-resource file must be directly linked into XWin.exe
+ * by the commands in xc/programs/Xserver/Imakefile; it cannot be
+ * linked into libXwin.a because it will not be correctly positioned
+ * in the XWin.exe image for Windows to be able to find the resources.
+ */
+
+OBJS =	InitInput.o \
+	InitOutput.o \
+	stubs.o \
+	wingc.o \
+	winpolyline.o \
+	winfillsp.o \
+	wingetsp.o \
+	winsetsp.o \
+	winwindow.o \
+	winpntwin.o \
+	winpixmap.o \
+	winfont.o \
+	wincmap.o \
+	winclip.o \
+	winallpriv.o \
+	winscrinit.o \
+	winmisc.o \
+	winblock.o \
+	winwakeup.o \
+	wincursor.o \
+	winwndproc.o \
+	winshadgdi.o \
+	winshaddd.o \
+	winshadddnl.o \
+	winpfbdd.o \
+	winkeybd.o \
+	winmouse.o \
+	wincutpaste.o \
+	winnativegdi.o \
+	winlayer.o \
+	winerror.o \
+	winengine.o \
+	wincreatewnd.o \
+	winregistry.o \
+	winconfig.o \
+	winmsg.o \
+	winmultiwindowwindow.o \
+	winmultiwindowwm.o \
+	winclipboardinit.o \
+	winclipboardtextconv.o \
+	winclipboardthread.o \
+	winclipboardunicode.o \
+	winclipboardwndproc.o \
+	winclipboardxevents.o
+
+INCLUDES = -I. -I$(XBUILDINCDIR) -I$(FONTINCSRC) \
+	   -I$(SERVERSRC)/fb -I$(SERVERSRC)/mi \
+	   -I$(SERVERSRC)/miext/shadow -I$(SERVERSRC)/miext/layer \
+	   -I$(SERVERSRC)/include -I$(SERVERSRC)/os  \
+           -I$(EXTINCSRC) -I$(XINCLUDESRC) \
+	   -I$(SERVERSRC)/render -I$(SERVERSRC)/randr
+
+DEFINES = $(OS_DEFINES) $(SHMDEF) $(MMAPDEF) -UXFree86LOADER -UXF86DRI \
+          -DPROJECTROOT="\"$(PROJECTROOT)\""
+
+LinkSourceFile(stubs.c,$(SERVERSRC)/Xi)
+SpecialCObjectRule(stubs,$(ICONFIGFILES),$(EXT_DEFINES))
+
+
+/*
+ * Build the Windows resource file (contains the program icon, etc.)
+ */
+
+ResourceObjectRule(XWin,,)
+
+NormalLibraryObjectRule()
+NormalLibraryTarget(Xwin,$(OBJS))
+
+InstallManPage(XWin,$(MANDIR))
+
+DependTarget()

@@ -1,0 +1,127 @@
+<!DOCTYPE linuxdoc PUBLIC "-//XFree86//DTD linuxdoc//EN" [
+<!ENTITY % defs SYSTEM "defs.ent"> %defs;
+]>
+
+<article>
+<title>Information for i810 Users
+<author>Precision Insight, Inc.
+<date>3 March 2000
+<ident>
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/i810.sgml,v 1.3 2001/04/04 01:34:18 dawes Exp $
+</ident>
+<toc>
+
+<sect>Supported Hardware
+<p>
+<itemize>
+  <item>Intel 810 motherboards:
+	<itemize>
+	  <item>i810,
+	  <item>i810-dc100,
+	  <item>i810e
+	  <item>i815
+	</itemize>
+</itemize>
+
+
+<sect>Features
+<p>
+<itemize>
+  <item>Full support for 8, 15, 16, and 24 bit pixel depths.
+  <item>Hardware cursor support to reduce sprite flicker.
+  <item>Hardware accelerated 2D drawing engine support for 8, 15, 16 and
+        24 bit pixel depths.
+  <item>Support for high resolution video modes up to 1600x1200.
+  <item>Fully programmable clock supported.
+  <item>Robust text mode restore for VT switching.
+</itemize>
+
+
+<sect>Technical Notes
+<p>
+<itemize>
+  <item>Hardware acceleration is not possible when using the framebuffer
+	in 32 bit per pixel format, and this mode is not supported by
+	this driver.
+  <item>Interlace modes cannot be supported.
+  <item>This driver currently only works for Linux/ix86 and recent versions
+	of FreeBSD.  It requires the agpgart kernel support, which is
+	included in Linux kernels 2.3.42 and higher, and FreeBSD 4.1
+	and higher.
+</itemize>
+
+
+<sect>Reported Working Video Cards
+<p>
+<itemize>
+  <item>Intel evaluation hardware - i810, i810-dc100, i810e and i815.
+  <item>Tyan Tomcat Motherboard.
+  <item>HappyPC set-top box.
+</itemize>
+
+
+<sect>Configuration
+<p>
+The driver auto-detects all device information necessary to
+initialize the card.  The only lines you need in the "Device"
+section of your XF86Config file are:
+<verb>
+       Section "Device"
+           Identifier "Intel i810"
+           Driver     "i810"
+       EndSection
+</verb>
+or let <tt>xf86config</tt> do this for you.
+
+However, if you have problems with auto-detection, you can specify:
+<itemize>
+  <item>DacSpeed - in MHz
+  <item>MemBase  - physical address of the linear framebuffer
+  <item>IOBase   - physical address of the memory mapped IO registers
+</itemize>
+
+In order to use most resolutions, it is necessary to install the
+'agpgart.o' module.  You will probably have to compile the module yourself
+(see the notes in the module).
+
+Note: the i810 driver detects whether your motherboard has display cache
+video memory.  This memory is has reduced bandwidth compared to normal
+system memory, and isn't used by the server.  The main function of this
+memory is for ancillary buffers (eg. z buffer) in a forthcoming 3d
+capable server.
+
+
+<sect>Driver Options
+<p>
+<itemize>
+  <item>"NoAccel"  - Turn off hardware acceleration
+  <item>"SWCursor" - Request a software cursor (hardware is default)
+  <item>"Dac6Bit"  - Force the use of a 6 Bit Dac (8 Bit is the default)
+</itemize>
+
+<sect>Known Limitations
+<p>
+<itemize>
+  <item>No 3D support in this release.
+  <item>Running two X servers on different VTs is not supported at this time.
+</itemize>
+
+
+<sect>Author
+<p>
+<itemize>
+   <item>Keith Whitwell
+</itemize>
+
+This driver was donated to The XFree86 Project by:
+<verb>
+    Precision Insight, Inc.
+    Cedar Park, TX
+    USA
+</verb>
+
+<htmlurl name="http://www.precisioninsight.com"
+          url="http://www.precisioninsight.com">
+
+
+</article>

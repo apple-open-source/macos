@@ -1,0 +1,85 @@
+/* The various tags:
+	!	best
+	!?	interesting
+	=	unusual but solid
+	?!	murky - meant for surprise
+	?	plain bad
+*/
+
+/* Various bad first moves - don't play these! */
+
+a2a3?	e7e5!
+a2a4?	e7e5!
+b1a3?	e7e5!
+b1c3?	e7e6!
+
+/* Now, 1. b3 is an interesting and OK slow move that can be used for surprise. 1. b4 is an interesting wild move planning to put pressure on the long diagonal and hit a N on c6 with b4-b5 */
+
+b2b3!?
+b2b4?!
+
+/* 1. c3 is too committal to be used as surprise weapon, but 1. c4 is better than it looks. 1. d3 has the same problem as 1.c3: it is likely to transpose to some slow reversed system but without giving black any head aches with move orders. */
+
+c2c3?	e7e5!
+c2c4?!	e7e5!
+d2d3?	e7e5!
+
+/* 1. d4 is a good, calm move which often leads to semi-blocked positions. I'm interested in seeing how well the program can be taught to handle those. */
+
+d2d4=
+
+/* 1. e3 can be used as a surprise weapon intending to make a reversed set up or something slow like Ng1-f3 and b2-b3. */
+
+e2e3?!	e7e5!
+
+/* 1. e4! Best by test! */
+
+/* Queen's fianchetto */
+
+e2e4	b7b6?!	d2d4!
+
+/* Queen's knight - most likely to transpose */
+
+e2e4	b8c6=
+
+/* C-line crap lines */
+
+e2e4	c7c5?	b1c3!
+e2e4	c7c6?	d2d4!	d7d5	e4d5	c6d5	c1f4
+
+/* The leaf - God I hate this shitty line. */
+
+e2e4	d7d5?
+
+/* 1... d6 - transposing to the Wall most likely, but also some independant lines. */
+
+e2e4	d7d6=
+
+/* I would expect the program to handle the tactics in the Kamikaze pretty well. */
+
+e2e4	e7e5!?
+
+/* On with the main bulk of opening theory. */
+
+e2e4	e7e6!
+
+/* The Dog will suit the computer well. */
+
+e2e4	g8f6!
+
+/* 1. f3 is simply bad but 1.f4 is a whole lot better than it looks - an interesting surprise weapon maybe. */
+
+f2f3?	e7e5!
+f2f4?!	g8f6!
+
+/* 1. Nf3 is a good second string first move along with 1. d4. */
+
+g1f3=
+
+/* The rest is just crap. */
+
+g1h3?	e7e5!
+g2g3?	e7e5!
+g2g4?	e7e5!
+h2h3?	e7e5!
+h2h4?	e7e5!	h4h5	d7d5	P@g6	h7g6	h5g6	h8h1	g6f7	e8f7

@@ -1,0 +1,40 @@
+.\" $XFree86: xc/programs/dpsinfo/dpsinfo.man,v 1.1 2001/03/01 01:23:59 dawes Exp $
+.TH DPSINFO 1 __vendorversion__
+.SH NAME
+dpsinfo \- Display PostScript Information
+
+.SH SYNOPSIS
+.B dpsinfo
+[
+.B \-display
+.I name
+] [
+.B -debug
+]
+
+.SH DESCRIPTION
+
+.B Dpsinfo
+is a utility for displaying information about the DPS extension
+present in an X server or provided by a client-side DPS agent.
+.B Dpsinfo
+will print out the version of the DPS protocol used, the language
+level and version of the underlying PS interpreter, as well as the set
+of font formats supported.
+
+If
+.B \-debug
+is specified,
+.B dpsinfo
+will print out all the PS code sent to the server.
+
+.SH SEE ALSO
+X(1), xdpyinfo(1), dpsexec(1)
+
+.SH AUTHOR
+Juliusz Chroboczek
+
+.SH NOTES
+PostScript and Display PostScript are trademarks
+of Adobe Systems Incorporated which may be registered
+in certain jurisdictions.

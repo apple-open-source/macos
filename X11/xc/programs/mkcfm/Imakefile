@@ -1,0 +1,82 @@
+XCOMM $XFree86: xc/programs/mkcfm/Imakefile,v 1.4 2000/11/15 01:36:16 dawes Exp $
+
+SYS_LIBRARIES = MathLibrary
+
+INCLUDES = -I$(FONTLIBSRC)/Type1 -I$(FONTINCSRC) -I$(FONTLIBSRC)/include \
+	-I$(XINCLUDESRC) -I$(SERVERSRC)/include
+
+DEFINES = -DBUILDCID -DCID_ALL_CHARS
+
+SRCS =             \
+        mkcfm.c    \
+        arith.c    \
+        curves.c   \
+        fontfcn.c  \
+        hints.c    \
+        lines.c    \
+        objects.c  \
+        paths.c    \
+        regions.c  \
+        scanfont.c \
+        spaces.c   \
+        t1funcs.c  \
+        t1info.c   \
+        t1io.c     \
+        t1malloc.c \
+        t1snap.c   \
+        t1stub.c   \
+        token.c    \
+        type1.c    \
+        util.c     \
+        afm.c      \
+        cidchar.c
+
+OBJS =             \
+        mkcfm.o    \
+        arith.o    \
+        curves.o   \
+        fontfcn.o  \
+        hints.o    \
+        lines.o    \
+        objects.o  \
+        paths.o    \
+        regions.o  \
+        scanfont.o \
+        spaces.o   \
+        t1funcs.o  \
+        t1info.o   \
+        t1io.o     \
+        t1malloc.o \
+        t1snap.o   \
+        t1stub.o   \
+        token.o    \
+        type1.o    \
+        util.o     \
+        afm.o      \
+        cidchar.o
+
+ComplexProgramTarget(mkcfm)
+LinkBuildBinary(ProgramTargetName(mkcfm))
+
+LinkSourceFile(arith.c,$(FONTLIBSRC)/Type1)
+LinkSourceFile(curves.c,$(FONTLIBSRC)/Type1)
+LinkSourceFile(fontfcn.c,$(FONTLIBSRC)/Type1)
+LinkSourceFile(hints.c,$(FONTLIBSRC)/Type1)
+LinkSourceFile(lines.c,$(FONTLIBSRC)/Type1)
+LinkSourceFile(objects.c,$(FONTLIBSRC)/Type1)
+LinkSourceFile(paths.c,$(FONTLIBSRC)/Type1)
+LinkSourceFile(regions.c,$(FONTLIBSRC)/Type1)
+LinkSourceFile(scanfont.c,$(FONTLIBSRC)/Type1)
+LinkSourceFile(spaces.c,$(FONTLIBSRC)/Type1)
+LinkSourceFile(t1funcs.c,$(FONTLIBSRC)/Type1)
+LinkSourceFile(t1info.c,$(FONTLIBSRC)/Type1)
+LinkSourceFile(t1io.c,$(FONTLIBSRC)/Type1)
+LinkSourceFile(t1malloc.c,$(FONTLIBSRC)/Type1)
+LinkSourceFile(t1snap.c,$(FONTLIBSRC)/Type1)
+LinkSourceFile(t1stub.c,$(FONTLIBSRC)/Type1)
+LinkSourceFile(token.c,$(FONTLIBSRC)/Type1)
+LinkSourceFile(type1.c,$(FONTLIBSRC)/Type1)
+LinkSourceFile(util.c,$(FONTLIBSRC)/Type1)
+LinkSourceFile(afm.c,$(FONTLIBSRC)/Type1)
+LinkSourceFile(cidchar.c,$(FONTLIBSRC)/Type1)
+

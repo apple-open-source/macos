@@ -1,0 +1,86 @@
+/* -*- Makefile -*- */
+XCOMM Code converter template of X-TT
+XCOMM $XFree86: xc/config/cf/xttMod.tmpl,v 1.6 2001/04/23 21:41:43 dawes Exp $ */
+
+#ifdef IHaveModules
+/* New designed XFree86 module */
+
+#include <Server.tmpl>
+
+INCLUDES = -I.. -I../.. -I$(FONTINCSRC) -I../../../include \
+           -I$(TOP)/include -I$(SERVERSRC)/include \
+           -I$(FTSOURCEDIR)/lib -I$(FTSOURCEDIR)/lib/extend \
+           -I$(FTSOURCEDIR)/lib/arch/unix -I$(XTTSOURCEDIR)
+
+#if 0
+LinkSourceFile(xttversion.h,$(XTTSOURCEDIR))
+LinkSourceFile(xttcommon.h,$(XTTSOURCEDIR))
+LinkSourceFile(xttcconv.h,$(XTTSOURCEDIR))
+LinkSourceFile(xttcconvP.h,$(XTTSOURCEDIR))
+LinkSourceFile(xttcap.h,$(XTTSOURCEDIR))
+#endif
+
+DEFINES = -DFONTMODULE -DMODNAME=$(MODULENAME) $(XTT_DEBUG_DEF)
+
+ModuleObjectRule()
+LibraryModuleTarget($(MODULENAME),$(OBJS))
+InstallLibraryModule($(MODULENAME),$(MODULEDIR),codeconv)
+
+DependTarget()
+
+InstallDriverSDKLibraryModule($(MODULENAME),$(DRIVERSDKMODULEDIR),codeconv)
+
+# else
+/* dlopen based code converter */
+
+#if DoLoadableServer && BuildServer
+#define IHaveSubdirs
+#define PassCDebugFlags CDEBUGFLAGS="$(CDEBUGFLAGS)"
+SUBDIRS = module
+#endif
+
+#if 0
+
+DEFINES = -DMODNAME=$(MODULENAME) $(XTT_DEBUG_DEF)
+
+INCLUDES = -I./ -I../ -I../../ -I$(TOP)/lib/font/include -I$(FTSOURCEDIR)/lib \
+		-I$(SERVERSRC)/include -I$(XTOP)/include -I$(FONTINCSRC)
+
+CCONV_MODULE_FILE = Concat(ModuleName,.so)
+
+#define DoNormalLib NormalLibFont
+#define DoSharedLib SharedLibFont
+#define DoDebugLib DebugLibFont
+#define DoProfileLib ProfileLibFont
+#include <Library.tmpl>
+LibraryObjectRule()
+
+SubdirLibraryRule($(OBJS))
+NormalLintTarget($(SRCS))
+
+#ifndef SharedDepModuleTarget
+AllTarget($(CCONV_MODULE_FILE))
+
+$(CCONV_MODULE_FILE): $(OBJS)
+        $(RM) $@~
+        $(CC) -o $@~ $(SHLIBLDFLAGS) $(OBJS) $(REQUIREDLIBS)
+        $(RM) $@
+        $(MV) $@~ $@
+
+clean::
+        $(RM) $(CCONV_MODULE_FILE)
+#else	
+SharedDepModuleTarget($(CCONV_MODULE_FILE),$(OBJS),$(OBJS))
+#endif
+
+#endif /* 0 */
+
+#if DoLoadableServer && BuildServer
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))
+#endif
+
+DependTarget()
+#endif
+
+/* end of file */

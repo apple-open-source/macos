@@ -1,0 +1,40 @@
+ttf2pfb is oriented towards support for CJK fonts containing several
+thousand glyphs to be splitted into subfonts with 256 characters each usable
+by TeX. Nevertheless, it is quite generic and works with normal ttf files
+too.
+
+Some features are still missing or should be added for convenience:
+
+. Documentation. ttf2pbf explains itself; t1asm is a filter which converts
+  the (disassembled) pseudo font created by ttf2pfb into a real PFA font
+  (or PFB if you use the `-b' command line switch).
+
+  Example for an ordinary font:
+
+    ttf2pfb -v -m -enc Uni-T1.enc -f FooBar -o foobar.ps foobar.ttf
+    t1asm -b < foobar.ps > foobar.pfb
+    printafm foobar.pfb > foobar.afm
+    afm2tfm foobar.afm
+
+  Example for a CJK font in Big 5 encoding to be used with the CJK package
+  for LaTeX (note that the call creates just the first subfont):
+
+    ttf2pfb -c -pid 3 -eid 4 -plane 1 -f FooBar01 -o foobar01.ps foobar.ttf
+    t1asm -b < foobar01.ps > foobar01.pfb
+    printafm foobar01.pfb > foobar01.afm
+    afm2tfm foobar01.afm
+
+. Inclusion of t1asm and t1binary into ttf2pfb so that ttf2pfb can directly
+  produce PFA and PFB files.
+
+. Overlapping outlines produce incorrect shapes: The overlapping areas
+  appear white instead of black.
+
+. A more flexible encoding file format (maybe similar to ttf2tfm) which can
+  handle glyph names.
+
+. [t1asm has been slightly patched to allow partial font downloading with
+  dvips.]
+
+. Note that compiling ttf2pfb with `-O2' doesn't work, most probably due to
+  a compiler bug (we've tested with gcc 2.7.2.1 and 2.7.2.3).

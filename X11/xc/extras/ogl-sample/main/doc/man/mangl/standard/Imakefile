@@ -1,0 +1,874 @@
+XCOMM License Applicability. Except to the extent portions of this file are
+XCOMM made subject to an alternative license as permitted in the SGI Free
+XCOMM Software License B, Version 1.1 (the "License"), the contents of this
+XCOMM file are subject only to the provisions of the License. You may not use
+XCOMM this file except in compliance with the License. You may obtain a copy
+XCOMM of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+XCOMM Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+XCOMM 
+XCOMM http://oss.sgi.com/projects/FreeB
+XCOMM 
+XCOMM Note that, as provided in the License, the Software is distributed on an
+XCOMM "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+XCOMM DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+XCOMM CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+XCOMM PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+XCOMM 
+XCOMM Original Code. The Original Code is: OpenGL Sample Implementation,
+XCOMM Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+XCOMM Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+XCOMM Copyright in any portions created by third parties is as indicated
+XCOMM elsewhere herein. All Rights Reserved.
+XCOMM 
+XCOMM Additional Notice Provisions: The application programming interfaces
+XCOMM established by SGI in conjunction with the Original Code are The
+XCOMM OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+XCOMM April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+XCOMM 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+XCOMM Window System(R) (Version 1.3), released October 19, 1998. This software
+XCOMM was created using the OpenGL(R) version 1.2.1 Sample Implementation
+XCOMM published by SGI, but has not been independently verified as being
+XCOMM compliant with the OpenGL(R) version 1.2.1 Specification.
+XCOMM
+
+#ifdef	ManPageAlias
+#undef	ManPageAlias
+#endif
+#define	ManPageAlias(file,destdir,alias)				@@\
+alias.$(MANSUFFIX): file.$(MANSUFFIX)					@@\
+	echo .so `basename destdir`/file.$(MANSUFFIX) > alias.$(MANSUFFIX) @@\
+
+MANSUFFIX = 3gl
+
+MAN_PAGES = \
+glAccum.$(MANSUFFIX)                  glAlphaFunc.$(MANSUFFIX)              \
+glAreTexturesResident.$(MANSUFFIX)    glArrayElement.$(MANSUFFIX)           \
+glBegin.$(MANSUFFIX)                  glBindTexture.$(MANSUFFIX)            \
+glBitmap.$(MANSUFFIX)                 glBlendColorEXT.$(MANSUFFIX)          \
+glBlendFunc.$(MANSUFFIX)              glCallList.$(MANSUFFIX)               \
+glCallLists.$(MANSUFFIX)              glClear.$(MANSUFFIX)                  \
+glClearAccum.$(MANSUFFIX)             glClearColor.$(MANSUFFIX)             \
+glClearDepth.$(MANSUFFIX)             glClearIndex.$(MANSUFFIX)             \
+glClearStencil.$(MANSUFFIX)           glClipPlane.$(MANSUFFIX)              \
+glColor3b.$(MANSUFFIX)                glColor3bv.$(MANSUFFIX)               \
+glColor3d.$(MANSUFFIX)                glColor3dv.$(MANSUFFIX)               \
+glColor3f.$(MANSUFFIX)                glColor3fv.$(MANSUFFIX)               \
+glColor3i.$(MANSUFFIX)                glColor3iv.$(MANSUFFIX)               \
+glColor3s.$(MANSUFFIX)                glColor3sv.$(MANSUFFIX)               \
+glColor3ub.$(MANSUFFIX)               glColor3ubv.$(MANSUFFIX)              \
+glColor3ui.$(MANSUFFIX)               glColor3uiv.$(MANSUFFIX)              \
+glColor3us.$(MANSUFFIX)               glColor3usv.$(MANSUFFIX)              \
+glColor4b.$(MANSUFFIX)                glColor4bv.$(MANSUFFIX)               \
+glColor4d.$(MANSUFFIX)                glColor4dv.$(MANSUFFIX)               \
+glColor4f.$(MANSUFFIX)                glColor4fv.$(MANSUFFIX)               \
+glColor4i.$(MANSUFFIX)                glColor4iv.$(MANSUFFIX)               \
+glColor4s.$(MANSUFFIX)                glColor4sv.$(MANSUFFIX)               \
+glColor4ub.$(MANSUFFIX)               glColor4ubv.$(MANSUFFIX)              \
+glColor4ui.$(MANSUFFIX)               glColor4uiv.$(MANSUFFIX)              \
+glColor4us.$(MANSUFFIX)               glColor4usv.$(MANSUFFIX)              \
+glColorMask.$(MANSUFFIX)              glColorMaterial.$(MANSUFFIX)          \
+glColorPointer.$(MANSUFFIX)           glCopyPixels.$(MANSUFFIX)             \
+glCopyTexImage1D.$(MANSUFFIX)         glCopyTexImage2D.$(MANSUFFIX)         \
+glCopyTexSubImage1D.$(MANSUFFIX)      glCopyTexSubImage2D.$(MANSUFFIX)      \
+glCullFace.$(MANSUFFIX)               glDeleteLists.$(MANSUFFIX)            \
+glDeleteTextures.$(MANSUFFIX)         glDepthFunc.$(MANSUFFIX)              \
+glDepthMask.$(MANSUFFIX)              glDepthRange.$(MANSUFFIX)             \
+glDisable.$(MANSUFFIX)                glDisableClientState.$(MANSUFFIX)     \
+glDrawArrays.$(MANSUFFIX)             glDrawBuffer.$(MANSUFFIX)             \
+glDrawElements.$(MANSUFFIX)           glDrawPixels.$(MANSUFFIX)             \
+glEdgeFlag.$(MANSUFFIX)               glEdgeFlagPointer.$(MANSUFFIX)        \
+glEdgeFlagv.$(MANSUFFIX)              glEnable.$(MANSUFFIX)                 \
+glEnableClientState.$(MANSUFFIX)      glEnd.$(MANSUFFIX)                    \
+glEndList.$(MANSUFFIX)                glEvalCoord1d.$(MANSUFFIX)            \
+glEvalCoord1dv.$(MANSUFFIX)           glEvalCoord1f.$(MANSUFFIX)            \
+glEvalCoord1fv.$(MANSUFFIX)           glEvalCoord2d.$(MANSUFFIX)            \
+glEvalCoord2dv.$(MANSUFFIX)           glEvalCoord2f.$(MANSUFFIX)            \
+glEvalCoord2fv.$(MANSUFFIX)           glEvalMesh1.$(MANSUFFIX)              \
+glEvalMesh2.$(MANSUFFIX)              glEvalPoint1.$(MANSUFFIX)             \
+glEvalPoint2.$(MANSUFFIX)             glFeedbackBuffer.$(MANSUFFIX)         \
+glFinish.$(MANSUFFIX)                 glFlush.$(MANSUFFIX)                  \
+glFogf.$(MANSUFFIX)                   glFogfv.$(MANSUFFIX)                  \
+glFogi.$(MANSUFFIX)                   glFogiv.$(MANSUFFIX)                  \
+glFrontFace.$(MANSUFFIX)              glFrustum.$(MANSUFFIX)                \
+glGenLists.$(MANSUFFIX)               glGenTextures.$(MANSUFFIX)            \
+glGetBooleanv.$(MANSUFFIX)            glGetClipPlane.$(MANSUFFIX)           \
+glGetDoublev.$(MANSUFFIX)             glGetError.$(MANSUFFIX)               \
+glGetFloatv.$(MANSUFFIX)              glGetIntegerv.$(MANSUFFIX)            \
+glGetLightfv.$(MANSUFFIX)             glGetLightiv.$(MANSUFFIX)             \
+glGetMapdv.$(MANSUFFIX)               glGetMapfv.$(MANSUFFIX)               \
+glGetMapiv.$(MANSUFFIX)               glGetMaterialfv.$(MANSUFFIX)          \
+glGetMaterialiv.$(MANSUFFIX)          glGetPixelMapfv.$(MANSUFFIX)          \
+glGetPixelMapuiv.$(MANSUFFIX)         glGetPixelMapusv.$(MANSUFFIX)         \
+glGetPointerv.$(MANSUFFIX)            glGetPolygonStipple.$(MANSUFFIX)      \
+glGetString.$(MANSUFFIX)              glGetTexEnvfv.$(MANSUFFIX)            \
+glGetTexEnviv.$(MANSUFFIX)            glGetTexGendv.$(MANSUFFIX)            \
+glGetTexGenfv.$(MANSUFFIX)            glGetTexGeniv.$(MANSUFFIX)            \
+glGetTexImage.$(MANSUFFIX)            glGetTexLevelParameterfv.$(MANSUFFIX) \
+glGetTexLevelParameteriv.$(MANSUFFIX) glGetTexParameterfv.$(MANSUFFIX)      \
+glGetTexParameteriv.$(MANSUFFIX)      glHint.$(MANSUFFIX)                   \
+glIndexMask.$(MANSUFFIX)              glIndexPointer.$(MANSUFFIX)           \
+glIndexd.$(MANSUFFIX)                 glIndexdv.$(MANSUFFIX)                \
+glIndexf.$(MANSUFFIX)                 glIndexfv.$(MANSUFFIX)                \
+glIndexi.$(MANSUFFIX)                 glIndexiv.$(MANSUFFIX)                \
+glIndexs.$(MANSUFFIX)                 glIndexsv.$(MANSUFFIX)                \
+glIndexub.$(MANSUFFIX)                glIndexubv.$(MANSUFFIX)               \
+glInitNames.$(MANSUFFIX)              glInterleavedArrays.$(MANSUFFIX)      \
+glIsEnabled.$(MANSUFFIX)              glIsList.$(MANSUFFIX)                 \
+glIsTexture.$(MANSUFFIX)              glLightModelf.$(MANSUFFIX)            \
+glLightModelfv.$(MANSUFFIX)           glLightModeli.$(MANSUFFIX)            \
+glLightModeliv.$(MANSUFFIX)           glLightf.$(MANSUFFIX)                 \
+glLightfv.$(MANSUFFIX)                glLighti.$(MANSUFFIX)                 \
+glLightiv.$(MANSUFFIX)                glLineStipple.$(MANSUFFIX)            \
+glLineWidth.$(MANSUFFIX)              glListBase.$(MANSUFFIX)               \
+glLoadIdentity.$(MANSUFFIX)           glLoadMatrixd.$(MANSUFFIX)            \
+glLoadMatrixf.$(MANSUFFIX)            glLoadName.$(MANSUFFIX)               \
+glLogicOp.$(MANSUFFIX)                glMap1d.$(MANSUFFIX)                  \
+glMap1f.$(MANSUFFIX)                  glMap2d.$(MANSUFFIX)                  \
+glMap2f.$(MANSUFFIX)                  glMapGrid1d.$(MANSUFFIX)              \
+glMapGrid1f.$(MANSUFFIX)              glMapGrid2d.$(MANSUFFIX)              \
+glMapGrid2f.$(MANSUFFIX)              glMaterialf.$(MANSUFFIX)              \
+glMaterialfv.$(MANSUFFIX)             glMateriali.$(MANSUFFIX)              \
+glMaterialiv.$(MANSUFFIX)             glMatrixMode.$(MANSUFFIX)             \
+glMultMatrixd.$(MANSUFFIX)            glMultMatrixf.$(MANSUFFIX)            \
+glNewList.$(MANSUFFIX)                glNormal3b.$(MANSUFFIX)               \
+glNormal3bv.$(MANSUFFIX)              glNormal3d.$(MANSUFFIX)               \
+glNormal3dv.$(MANSUFFIX)              glNormal3f.$(MANSUFFIX)               \
+glNormal3fv.$(MANSUFFIX)              glNormal3i.$(MANSUFFIX)               \
+glNormal3iv.$(MANSUFFIX)              glNormal3s.$(MANSUFFIX)               \
+glNormal3sv.$(MANSUFFIX)              glNormalPointer.$(MANSUFFIX)          \
+glOrtho.$(MANSUFFIX)                  glPassThrough.$(MANSUFFIX)            \
+glPixelMapfv.$(MANSUFFIX)             glPixelMapuiv.$(MANSUFFIX)            \
+glPixelMapusv.$(MANSUFFIX)            glPixelStoref.$(MANSUFFIX)            \
+glPixelStorei.$(MANSUFFIX)            glPixelTransferf.$(MANSUFFIX)         \
+glPixelTransferi.$(MANSUFFIX)         glPixelZoom.$(MANSUFFIX)              \
+glPointSize.$(MANSUFFIX)              glPolygonMode.$(MANSUFFIX)            \
+glPolygonOffset.$(MANSUFFIX)          glPolygonStipple.$(MANSUFFIX)         \
+glPopAttrib.$(MANSUFFIX)              glPopClientAttrib.$(MANSUFFIX)        \
+glPopMatrix.$(MANSUFFIX)              glPopName.$(MANSUFFIX)                \
+glPrioritizeTextures.$(MANSUFFIX)     glPushAttrib.$(MANSUFFIX)             \
+glPushClientAttrib.$(MANSUFFIX)       glPushMatrix.$(MANSUFFIX)             \
+glPushName.$(MANSUFFIX)               glRasterPos2d.$(MANSUFFIX)            \
+glRasterPos2dv.$(MANSUFFIX)           glRasterPos2f.$(MANSUFFIX)            \
+glRasterPos2fv.$(MANSUFFIX)           glRasterPos2i.$(MANSUFFIX)            \
+glRasterPos2iv.$(MANSUFFIX)           glRasterPos2s.$(MANSUFFIX)            \
+glRasterPos2sv.$(MANSUFFIX)           glRasterPos3d.$(MANSUFFIX)            \
+glRasterPos3dv.$(MANSUFFIX)           glRasterPos3f.$(MANSUFFIX)            \
+glRasterPos3fv.$(MANSUFFIX)           glRasterPos3i.$(MANSUFFIX)            \
+glRasterPos3iv.$(MANSUFFIX)           glRasterPos3s.$(MANSUFFIX)            \
+glRasterPos3sv.$(MANSUFFIX)           glRasterPos4d.$(MANSUFFIX)            \
+glRasterPos4dv.$(MANSUFFIX)           glRasterPos4f.$(MANSUFFIX)            \
+glRasterPos4fv.$(MANSUFFIX)           glRasterPos4i.$(MANSUFFIX)            \
+glRasterPos4iv.$(MANSUFFIX)           glRasterPos4s.$(MANSUFFIX)            \
+glRasterPos4sv.$(MANSUFFIX)           glReadBuffer.$(MANSUFFIX)             \
+glReadPixels.$(MANSUFFIX)             glRectd.$(MANSUFFIX)                  \
+glRectdv.$(MANSUFFIX)                 glRectf.$(MANSUFFIX)                  \
+glRectfv.$(MANSUFFIX)                 glRecti.$(MANSUFFIX)                  \
+glRectiv.$(MANSUFFIX)                 glRects.$(MANSUFFIX)                  \
+glRectsv.$(MANSUFFIX)                 glRenderMode.$(MANSUFFIX)             \
+glRotated.$(MANSUFFIX)                glRotatef.$(MANSUFFIX)                \
+glScaled.$(MANSUFFIX)                 glScalef.$(MANSUFFIX)                 \
+glScissor.$(MANSUFFIX)                glSelectBuffer.$(MANSUFFIX)           \
+glShadeModel.$(MANSUFFIX)             glStencilFunc.$(MANSUFFIX)            \
+glStencilMask.$(MANSUFFIX)            glStencilOp.$(MANSUFFIX)              \
+glTexCoord1d.$(MANSUFFIX)             glTexCoord1dv.$(MANSUFFIX)            \
+glTexCoord1f.$(MANSUFFIX)             glTexCoord1fv.$(MANSUFFIX)            \
+glTexCoord1i.$(MANSUFFIX)             glTexCoord1iv.$(MANSUFFIX)            \
+glTexCoord1s.$(MANSUFFIX)             glTexCoord1sv.$(MANSUFFIX)            \
+glTexCoord2d.$(MANSUFFIX)             glTexCoord2dv.$(MANSUFFIX)            \
+glTexCoord2f.$(MANSUFFIX)             glTexCoord2fv.$(MANSUFFIX)            \
+glTexCoord2i.$(MANSUFFIX)             glTexCoord2iv.$(MANSUFFIX)            \
+glTexCoord2s.$(MANSUFFIX)             glTexCoord2sv.$(MANSUFFIX)            \
+glTexCoord3d.$(MANSUFFIX)             glTexCoord3dv.$(MANSUFFIX)            \
+glTexCoord3f.$(MANSUFFIX)             glTexCoord3fv.$(MANSUFFIX)            \
+glTexCoord3i.$(MANSUFFIX)             glTexCoord3iv.$(MANSUFFIX)            \
+glTexCoord3s.$(MANSUFFIX)             glTexCoord3sv.$(MANSUFFIX)            \
+glTexCoord4d.$(MANSUFFIX)             glTexCoord4dv.$(MANSUFFIX)            \
+glTexCoord4f.$(MANSUFFIX)             glTexCoord4fv.$(MANSUFFIX)            \
+glTexCoord4i.$(MANSUFFIX)             glTexCoord4iv.$(MANSUFFIX)            \
+glTexCoord4s.$(MANSUFFIX)             glTexCoord4sv.$(MANSUFFIX)            \
+glTexCoordPointer.$(MANSUFFIX)        glTexEnvf.$(MANSUFFIX)                \
+glTexEnvfv.$(MANSUFFIX)               glTexEnvi.$(MANSUFFIX)                \
+glTexEnviv.$(MANSUFFIX)               glTexGend.$(MANSUFFIX)                \
+glTexGendv.$(MANSUFFIX)               glTexGenf.$(MANSUFFIX)                \
+glTexGenfv.$(MANSUFFIX)               glTexGeni.$(MANSUFFIX)                \
+glTexGeniv.$(MANSUFFIX)               glTexImage1D.$(MANSUFFIX)             \
+glTexImage2D.$(MANSUFFIX)             glTexParameterf.$(MANSUFFIX)          \
+glTexParameterfv.$(MANSUFFIX)         glTexParameteri.$(MANSUFFIX)          \
+glTexParameteriv.$(MANSUFFIX)         glTexSubImage1D.$(MANSUFFIX)          \
+glTexSubImage2D.$(MANSUFFIX)          glTranslated.$(MANSUFFIX)             \
+glTranslatef.$(MANSUFFIX)             glVertex2d.$(MANSUFFIX)               \
+glVertex2dv.$(MANSUFFIX)              glVertex2f.$(MANSUFFIX)               \
+glVertex2fv.$(MANSUFFIX)              glVertex2i.$(MANSUFFIX)               \
+glVertex2iv.$(MANSUFFIX)              glVertex2s.$(MANSUFFIX)               \
+glVertex2sv.$(MANSUFFIX)              glVertex3d.$(MANSUFFIX)               \
+glVertex3dv.$(MANSUFFIX)              glVertex3f.$(MANSUFFIX)               \
+glVertex3fv.$(MANSUFFIX)              glVertex3i.$(MANSUFFIX)               \
+glVertex3iv.$(MANSUFFIX)              glVertex3s.$(MANSUFFIX)               \
+glVertex3sv.$(MANSUFFIX)              glVertex4d.$(MANSUFFIX)               \
+glVertex4dv.$(MANSUFFIX)              glVertex4f.$(MANSUFFIX)               \
+glVertex4fv.$(MANSUFFIX)              glVertex4i.$(MANSUFFIX)               \
+glVertex4iv.$(MANSUFFIX)              glVertex4s.$(MANSUFFIX)               \
+glVertex4sv.$(MANSUFFIX)              glVertexPointer.$(MANSUFFIX)          \
+glViewport.$(MANSUFFIX)               
+
+LINK_NAMES = \
+glAccum.$(MANSUFFIX)                  glAlphaFunc.$(MANSUFFIX)              \
+glAreTexturesResident.$(MANSUFFIX)    glArrayElement.$(MANSUFFIX)           \
+glBegin.$(MANSUFFIX)                  glBindTexture.$(MANSUFFIX)            \
+glBitmap.$(MANSUFFIX)                 glBlendColorEXT.$(MANSUFFIX)          \
+glBlendFunc.$(MANSUFFIX)              glCallList.$(MANSUFFIX)               \
+glCallLists.$(MANSUFFIX)              glClear.$(MANSUFFIX)                  \
+glClearAccum.$(MANSUFFIX)             glClearColor.$(MANSUFFIX)             \
+glClearDepth.$(MANSUFFIX)             glClearIndex.$(MANSUFFIX)             \
+glClearStencil.$(MANSUFFIX)           glClipPlane.$(MANSUFFIX)              \
+glColor3b.$(MANSUFFIX)                glColorMask.$(MANSUFFIX)              \
+glColorMaterial.$(MANSUFFIX)          glColorPointer.$(MANSUFFIX)           \
+glCopyPixels.$(MANSUFFIX)             glCopyTexImage1D.$(MANSUFFIX)         \
+glCopyTexImage2D.$(MANSUFFIX)         glCopyTexSubImage1D.$(MANSUFFIX)      \
+glCopyTexSubImage2D.$(MANSUFFIX)      glCullFace.$(MANSUFFIX)               \
+glDeleteLists.$(MANSUFFIX)            glDeleteTextures.$(MANSUFFIX)         \
+glDepthFunc.$(MANSUFFIX)              glDepthMask.$(MANSUFFIX)              \
+glDepthRange.$(MANSUFFIX)             glDrawArrays.$(MANSUFFIX)             \
+glDrawBuffer.$(MANSUFFIX)             glDrawElements.$(MANSUFFIX)           \
+glDrawPixels.$(MANSUFFIX)             glEdgeFlag.$(MANSUFFIX)               \
+glEdgeFlagPointer.$(MANSUFFIX)        glEnable.$(MANSUFFIX)                 \
+glEnableClientState.$(MANSUFFIX)      glEvalCoord1d.$(MANSUFFIX)            \
+glEvalMesh1.$(MANSUFFIX)              glEvalPoint1.$(MANSUFFIX)             \
+glFeedbackBuffer.$(MANSUFFIX)         glFinish.$(MANSUFFIX)                 \
+glFlush.$(MANSUFFIX)                  glFogf.$(MANSUFFIX)                   \
+glFrontFace.$(MANSUFFIX)              glFrustum.$(MANSUFFIX)                \
+glGenLists.$(MANSUFFIX)               glGenTextures.$(MANSUFFIX)            \
+glGetBooleanv.$(MANSUFFIX)            glGetClipPlane.$(MANSUFFIX)           \
+glGetError.$(MANSUFFIX)               glGetLightfv.$(MANSUFFIX)             \
+glGetMapdv.$(MANSUFFIX)               glGetMaterialfv.$(MANSUFFIX)          \
+glGetPixelMapfv.$(MANSUFFIX)          glGetPointerv.$(MANSUFFIX)            \
+glGetPolygonStipple.$(MANSUFFIX)      glGetString.$(MANSUFFIX)              \
+glGetTexEnvfv.$(MANSUFFIX)            glGetTexGendv.$(MANSUFFIX)            \
+glGetTexImage.$(MANSUFFIX)            glGetTexLevelParameterfv.$(MANSUFFIX) \
+glGetTexParameterfv.$(MANSUFFIX)      glHint.$(MANSUFFIX)                   \
+glIndexMask.$(MANSUFFIX)              glIndexPointer.$(MANSUFFIX)           \
+glIndexd.$(MANSUFFIX)                 glInitNames.$(MANSUFFIX)              \
+glInterleavedArrays.$(MANSUFFIX)      glIsEnabled.$(MANSUFFIX)              \
+glIsList.$(MANSUFFIX)                 glIsTexture.$(MANSUFFIX)              \
+glLightModelf.$(MANSUFFIX)            glLightf.$(MANSUFFIX)                 \
+glLineStipple.$(MANSUFFIX)            glLineWidth.$(MANSUFFIX)              \
+glListBase.$(MANSUFFIX)               glLoadIdentity.$(MANSUFFIX)           \
+glLoadMatrixd.$(MANSUFFIX)            glLoadName.$(MANSUFFIX)               \
+glLogicOp.$(MANSUFFIX)                glMap1d.$(MANSUFFIX)                  \
+glMap2d.$(MANSUFFIX)                  glMapGrid1d.$(MANSUFFIX)              \
+glMaterialf.$(MANSUFFIX)              glMatrixMode.$(MANSUFFIX)             \
+glMultMatrixd.$(MANSUFFIX)            glNewList.$(MANSUFFIX)                \
+glNormal3b.$(MANSUFFIX)               glNormalPointer.$(MANSUFFIX)          \
+glOrtho.$(MANSUFFIX)                  glPassThrough.$(MANSUFFIX)            \
+glPixelMapfv.$(MANSUFFIX)             glPixelStoref.$(MANSUFFIX)            \
+glPixelTransferf.$(MANSUFFIX)         glPixelZoom.$(MANSUFFIX)              \
+glPointSize.$(MANSUFFIX)              glPolygonMode.$(MANSUFFIX)            \
+glPolygonOffset.$(MANSUFFIX)          glPolygonStipple.$(MANSUFFIX)         \
+glPrioritizeTextures.$(MANSUFFIX)     glPushAttrib.$(MANSUFFIX)             \
+glPushClientAttrib.$(MANSUFFIX)       glPushMatrix.$(MANSUFFIX)             \
+glPushName.$(MANSUFFIX)               glRasterPos2d.$(MANSUFFIX)            \
+glReadBuffer.$(MANSUFFIX)             glReadPixels.$(MANSUFFIX)             \
+glRectd.$(MANSUFFIX)                  glRenderMode.$(MANSUFFIX)             \
+glRotated.$(MANSUFFIX)                glScaled.$(MANSUFFIX)                 \
+glScissor.$(MANSUFFIX)                glSelectBuffer.$(MANSUFFIX)           \
+glShadeModel.$(MANSUFFIX)             glStencilFunc.$(MANSUFFIX)            \
+glStencilMask.$(MANSUFFIX)            glStencilOp.$(MANSUFFIX)              \
+glTexCoord1d.$(MANSUFFIX)             glTexCoordPointer.$(MANSUFFIX)        \
+glTexEnvf.$(MANSUFFIX)                glTexGend.$(MANSUFFIX)                \
+glTexImage1D.$(MANSUFFIX)             glTexImage2D.$(MANSUFFIX)             \
+glTexParameterf.$(MANSUFFIX)          glTexSubImage1D.$(MANSUFFIX)          \
+glTexSubImage2D.$(MANSUFFIX)          glTranslated.$(MANSUFFIX)             \
+glVertex2d.$(MANSUFFIX)               glVertexPointer.$(MANSUFFIX)          \
+glViewport.$(MANSUFFIX)               
+
+ALIAS_NAMES = \
+glColor3bv.$(MANSUFFIX)               glColor3d.$(MANSUFFIX)                \
+glColor3dv.$(MANSUFFIX)               glColor3f.$(MANSUFFIX)                \
+glColor3fv.$(MANSUFFIX)               glColor3i.$(MANSUFFIX)                \
+glColor3iv.$(MANSUFFIX)               glColor3s.$(MANSUFFIX)                \
+glColor3sv.$(MANSUFFIX)               glColor3ub.$(MANSUFFIX)               \
+glColor3ubv.$(MANSUFFIX)              glColor3ui.$(MANSUFFIX)               \
+glColor3uiv.$(MANSUFFIX)              glColor3us.$(MANSUFFIX)               \
+glColor3usv.$(MANSUFFIX)              glColor4b.$(MANSUFFIX)                \
+glColor4bv.$(MANSUFFIX)               glColor4d.$(MANSUFFIX)                \
+glColor4dv.$(MANSUFFIX)               glColor4f.$(MANSUFFIX)                \
+glColor4fv.$(MANSUFFIX)               glColor4i.$(MANSUFFIX)                \
+glColor4iv.$(MANSUFFIX)               glColor4s.$(MANSUFFIX)                \
+glColor4sv.$(MANSUFFIX)               glColor4ub.$(MANSUFFIX)               \
+glColor4ubv.$(MANSUFFIX)              glColor4ui.$(MANSUFFIX)               \
+glColor4uiv.$(MANSUFFIX)              glColor4us.$(MANSUFFIX)               \
+glColor4usv.$(MANSUFFIX)              glDisable.$(MANSUFFIX)                \
+glDisableClientState.$(MANSUFFIX)     glEdgeFlagv.$(MANSUFFIX)              \
+glEnd.$(MANSUFFIX)                    glEndList.$(MANSUFFIX)                \
+glEvalCoord1dv.$(MANSUFFIX)           glEvalCoord1f.$(MANSUFFIX)            \
+glEvalCoord1fv.$(MANSUFFIX)           glEvalCoord2d.$(MANSUFFIX)            \
+glEvalCoord2dv.$(MANSUFFIX)           glEvalCoord2f.$(MANSUFFIX)            \
+glEvalCoord2fv.$(MANSUFFIX)           glEvalMesh2.$(MANSUFFIX)              \
+glEvalPoint2.$(MANSUFFIX)             glFogfv.$(MANSUFFIX)                  \
+glFogi.$(MANSUFFIX)                   glFogiv.$(MANSUFFIX)                  \
+glGetDoublev.$(MANSUFFIX)             glGetFloatv.$(MANSUFFIX)              \
+glGetIntegerv.$(MANSUFFIX)            glGetLightiv.$(MANSUFFIX)             \
+glGetMapfv.$(MANSUFFIX)               glGetMapiv.$(MANSUFFIX)               \
+glGetMaterialiv.$(MANSUFFIX)          glGetPixelMapuiv.$(MANSUFFIX)         \
+glGetPixelMapusv.$(MANSUFFIX)         glGetTexEnviv.$(MANSUFFIX)            \
+glGetTexGenfv.$(MANSUFFIX)            glGetTexGeniv.$(MANSUFFIX)            \
+glGetTexLevelParameteriv.$(MANSUFFIX) glGetTexParameteriv.$(MANSUFFIX)      \
+glIndexdv.$(MANSUFFIX)                glIndexf.$(MANSUFFIX)                 \
+glIndexfv.$(MANSUFFIX)                glIndexi.$(MANSUFFIX)                 \
+glIndexiv.$(MANSUFFIX)                glIndexs.$(MANSUFFIX)                 \
+glIndexsv.$(MANSUFFIX)                glIndexub.$(MANSUFFIX)                \
+glIndexubv.$(MANSUFFIX)               glLightModelfv.$(MANSUFFIX)           \
+glLightModeli.$(MANSUFFIX)            glLightModeliv.$(MANSUFFIX)           \
+glLightfv.$(MANSUFFIX)                glLighti.$(MANSUFFIX)                 \
+glLightiv.$(MANSUFFIX)                glLoadMatrixf.$(MANSUFFIX)            \
+glMap1f.$(MANSUFFIX)                  glMap2f.$(MANSUFFIX)                  \
+glMapGrid1f.$(MANSUFFIX)              glMapGrid2d.$(MANSUFFIX)              \
+glMapGrid2f.$(MANSUFFIX)              glMaterialfv.$(MANSUFFIX)             \
+glMateriali.$(MANSUFFIX)              glMaterialiv.$(MANSUFFIX)             \
+glMultMatrixf.$(MANSUFFIX)            glNormal3bv.$(MANSUFFIX)              \
+glNormal3d.$(MANSUFFIX)               glNormal3dv.$(MANSUFFIX)              \
+glNormal3f.$(MANSUFFIX)               glNormal3fv.$(MANSUFFIX)              \
+glNormal3i.$(MANSUFFIX)               glNormal3iv.$(MANSUFFIX)              \
+glNormal3s.$(MANSUFFIX)               glNormal3sv.$(MANSUFFIX)              \
+glPixelMapuiv.$(MANSUFFIX)            glPixelMapusv.$(MANSUFFIX)            \
+glPixelStorei.$(MANSUFFIX)            glPixelTransferi.$(MANSUFFIX)         \
+glPopAttrib.$(MANSUFFIX)              glPopClientAttrib.$(MANSUFFIX)        \
+glPopMatrix.$(MANSUFFIX)              glPopName.$(MANSUFFIX)                \
+glRasterPos2dv.$(MANSUFFIX)           glRasterPos2f.$(MANSUFFIX)            \
+glRasterPos2fv.$(MANSUFFIX)           glRasterPos2i.$(MANSUFFIX)            \
+glRasterPos2iv.$(MANSUFFIX)           glRasterPos2s.$(MANSUFFIX)            \
+glRasterPos2sv.$(MANSUFFIX)           glRasterPos3d.$(MANSUFFIX)            \
+glRasterPos3dv.$(MANSUFFIX)           glRasterPos3f.$(MANSUFFIX)            \
+glRasterPos3fv.$(MANSUFFIX)           glRasterPos3i.$(MANSUFFIX)            \
+glRasterPos3iv.$(MANSUFFIX)           glRasterPos3s.$(MANSUFFIX)            \
+glRasterPos3sv.$(MANSUFFIX)           glRasterPos4d.$(MANSUFFIX)            \
+glRasterPos4dv.$(MANSUFFIX)           glRasterPos4f.$(MANSUFFIX)            \
+glRasterPos4fv.$(MANSUFFIX)           glRasterPos4i.$(MANSUFFIX)            \
+glRasterPos4iv.$(MANSUFFIX)           glRasterPos4s.$(MANSUFFIX)            \
+glRasterPos4sv.$(MANSUFFIX)           glRectdv.$(MANSUFFIX)                 \
+glRectf.$(MANSUFFIX)                  glRectfv.$(MANSUFFIX)                 \
+glRecti.$(MANSUFFIX)                  glRectiv.$(MANSUFFIX)                 \
+glRects.$(MANSUFFIX)                  glRectsv.$(MANSUFFIX)                 \
+glRotatef.$(MANSUFFIX)                glScalef.$(MANSUFFIX)                 \
+glTexCoord1dv.$(MANSUFFIX)            glTexCoord1f.$(MANSUFFIX)             \
+glTexCoord1fv.$(MANSUFFIX)            glTexCoord1i.$(MANSUFFIX)             \
+glTexCoord1iv.$(MANSUFFIX)            glTexCoord1s.$(MANSUFFIX)             \
+glTexCoord1sv.$(MANSUFFIX)            glTexCoord2d.$(MANSUFFIX)             \
+glTexCoord2dv.$(MANSUFFIX)            glTexCoord2f.$(MANSUFFIX)             \
+glTexCoord2fv.$(MANSUFFIX)            glTexCoord2i.$(MANSUFFIX)             \
+glTexCoord2iv.$(MANSUFFIX)            glTexCoord2s.$(MANSUFFIX)             \
+glTexCoord2sv.$(MANSUFFIX)            glTexCoord3d.$(MANSUFFIX)             \
+glTexCoord3dv.$(MANSUFFIX)            glTexCoord3f.$(MANSUFFIX)             \
+glTexCoord3fv.$(MANSUFFIX)            glTexCoord3i.$(MANSUFFIX)             \
+glTexCoord3iv.$(MANSUFFIX)            glTexCoord3s.$(MANSUFFIX)             \
+glTexCoord3sv.$(MANSUFFIX)            glTexCoord4d.$(MANSUFFIX)             \
+glTexCoord4dv.$(MANSUFFIX)            glTexCoord4f.$(MANSUFFIX)             \
+glTexCoord4fv.$(MANSUFFIX)            glTexCoord4i.$(MANSUFFIX)             \
+glTexCoord4iv.$(MANSUFFIX)            glTexCoord4s.$(MANSUFFIX)             \
+glTexCoord4sv.$(MANSUFFIX)            glTexEnvfv.$(MANSUFFIX)               \
+glTexEnvi.$(MANSUFFIX)                glTexEnviv.$(MANSUFFIX)               \
+glTexGendv.$(MANSUFFIX)               glTexGenf.$(MANSUFFIX)                \
+glTexGenfv.$(MANSUFFIX)               glTexGeni.$(MANSUFFIX)                \
+glTexGeniv.$(MANSUFFIX)               glTexParameterfv.$(MANSUFFIX)         \
+glTexParameteri.$(MANSUFFIX)          glTexParameteriv.$(MANSUFFIX)         \
+glTranslatef.$(MANSUFFIX)             glVertex2dv.$(MANSUFFIX)              \
+glVertex2f.$(MANSUFFIX)               glVertex2fv.$(MANSUFFIX)              \
+glVertex2i.$(MANSUFFIX)               glVertex2iv.$(MANSUFFIX)              \
+glVertex2s.$(MANSUFFIX)               glVertex2sv.$(MANSUFFIX)              \
+glVertex3d.$(MANSUFFIX)               glVertex3dv.$(MANSUFFIX)              \
+glVertex3f.$(MANSUFFIX)               glVertex3fv.$(MANSUFFIX)              \
+glVertex3i.$(MANSUFFIX)               glVertex3iv.$(MANSUFFIX)              \
+glVertex3s.$(MANSUFFIX)               glVertex3sv.$(MANSUFFIX)              \
+glVertex4d.$(MANSUFFIX)               glVertex4dv.$(MANSUFFIX)              \
+glVertex4f.$(MANSUFFIX)               glVertex4fv.$(MANSUFFIX)              \
+glVertex4i.$(MANSUFFIX)               glVertex4iv.$(MANSUFFIX)              \
+glVertex4s.$(MANSUFFIX)               glVertex4sv.$(MANSUFFIX)              
+
+
+AllTarget($(MAN_PAGES))
+
+list:
+	@for i in $(MAN_PAGES); do echo $$i; done;
+
+install_list:
+	@for i in $(MAN_PAGES); do echo $(LIBMANDIR)/$$i; done;
+
+install:: install.man
+
+clean::
+	$(RM) $(LINK_NAMES) $(ALIAS_NAMES)
+
+InstallMultipleMan($(MAN_PAGES),$(LIBMANDIR))
+
+LinkFile(glAccum.$(MANSUFFIX), accum.3gl)
+
+LinkFile(glAlphaFunc.$(MANSUFFIX), alphafunc.3gl)
+
+LinkFile(glAreTexturesResident.$(MANSUFFIX), aretexturesresident.3gl)
+
+LinkFile(glArrayElement.$(MANSUFFIX), arrayelement.3gl)
+
+LinkFile(glBegin.$(MANSUFFIX), begin.3gl)
+ManPageAlias(glBegin, $(LIBMANDIR), glEnd)
+
+LinkFile(glBindTexture.$(MANSUFFIX), bindtexture.3gl)
+
+LinkFile(glBitmap.$(MANSUFFIX), bitmap.3gl)
+
+LinkFile(glBlendColorEXT.$(MANSUFFIX), blendcolorext.3gl)
+
+LinkFile(glBlendFunc.$(MANSUFFIX), blendfunc.3gl)
+
+LinkFile(glCallList.$(MANSUFFIX), calllist.3gl)
+
+LinkFile(glCallLists.$(MANSUFFIX), calllists.3gl)
+
+LinkFile(glClear.$(MANSUFFIX), clear.3gl)
+
+LinkFile(glClearAccum.$(MANSUFFIX), clearaccum.3gl)
+
+LinkFile(glClearColor.$(MANSUFFIX), clearcolor.3gl)
+
+LinkFile(glClearDepth.$(MANSUFFIX), cleardepth.3gl)
+
+LinkFile(glClearIndex.$(MANSUFFIX), clearindex.3gl)
+
+LinkFile(glClearStencil.$(MANSUFFIX), clearstencil.3gl)
+
+LinkFile(glClipPlane.$(MANSUFFIX), clipplane.3gl)
+
+LinkFile(glColor3b.$(MANSUFFIX), color.3gl)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor3d)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor3f)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor3i)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor3s)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor3ub)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor3ui)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor3us)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor4b)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor4d)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor4f)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor4i)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor4s)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor4ub)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor4ui)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor4us)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor3bv)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor3dv)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor3fv)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor3iv)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor3sv)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor3ubv)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor3uiv)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor3usv)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor4bv)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor4dv)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor4fv)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor4iv)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor4sv)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor4ubv)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor4uiv)
+ManPageAlias(glColor3b, $(LIBMANDIR), glColor4usv)
+
+LinkFile(glColorMask.$(MANSUFFIX), colormask.3gl)
+
+LinkFile(glColorMaterial.$(MANSUFFIX), colormaterial.3gl)
+
+LinkFile(glColorPointer.$(MANSUFFIX), colorpointer.3gl)
+
+LinkFile(glCopyPixels.$(MANSUFFIX), copypixels.3gl)
+
+LinkFile(glCopyTexImage1D.$(MANSUFFIX), copyteximage1d.3gl)
+
+LinkFile(glCopyTexImage2D.$(MANSUFFIX), copyteximage2d.3gl)
+
+LinkFile(glCopyTexSubImage1D.$(MANSUFFIX), copytexsubimage1d.3gl)
+
+LinkFile(glCopyTexSubImage2D.$(MANSUFFIX), copytexsubimage2d.3gl)
+
+LinkFile(glCullFace.$(MANSUFFIX), cullface.3gl)
+
+LinkFile(glDeleteLists.$(MANSUFFIX), deletelists.3gl)
+
+LinkFile(glDeleteTextures.$(MANSUFFIX), deletetextures.3gl)
+
+LinkFile(glDepthFunc.$(MANSUFFIX), depthfunc.3gl)
+
+LinkFile(glDepthMask.$(MANSUFFIX), depthmask.3gl)
+
+LinkFile(glDepthRange.$(MANSUFFIX), depthrange.3gl)
+
+LinkFile(glDrawArrays.$(MANSUFFIX), drawarrays.3gl)
+
+LinkFile(glDrawBuffer.$(MANSUFFIX), drawbuffer.3gl)
+
+LinkFile(glDrawElements.$(MANSUFFIX), drawelements.3gl)
+
+LinkFile(glDrawPixels.$(MANSUFFIX), drawpixels.3gl)
+
+LinkFile(glEdgeFlag.$(MANSUFFIX), edgeflag.3gl)
+ManPageAlias(glEdgeFlag, $(LIBMANDIR), glEdgeFlagv)
+
+LinkFile(glEdgeFlagPointer.$(MANSUFFIX), edgeflagpointer.3gl)
+
+LinkFile(glEnable.$(MANSUFFIX), enable.3gl)
+ManPageAlias(glEnable, $(LIBMANDIR), glDisable)
+
+LinkFile(glEnableClientState.$(MANSUFFIX), enableclientstate.3gl)
+ManPageAlias(glEnableClientState, $(LIBMANDIR), glDisableClientState)
+
+LinkFile(glEvalCoord1d.$(MANSUFFIX), evalcoord.3gl)
+ManPageAlias(glEvalCoord1d, $(LIBMANDIR), glEvalCoord1f)
+ManPageAlias(glEvalCoord1d, $(LIBMANDIR), glEvalCoord2d)
+ManPageAlias(glEvalCoord1d, $(LIBMANDIR), glEvalCoord2f)
+ManPageAlias(glEvalCoord1d, $(LIBMANDIR), glEvalCoord1dv)
+ManPageAlias(glEvalCoord1d, $(LIBMANDIR), glEvalCoord1fv)
+ManPageAlias(glEvalCoord1d, $(LIBMANDIR), glEvalCoord2dv)
+ManPageAlias(glEvalCoord1d, $(LIBMANDIR), glEvalCoord2fv)
+
+LinkFile(glEvalMesh1.$(MANSUFFIX), evalmesh.3gl)
+ManPageAlias(glEvalMesh1, $(LIBMANDIR), glEvalMesh2)
+
+LinkFile(glEvalPoint1.$(MANSUFFIX), evalpoint.3gl)
+ManPageAlias(glEvalPoint1, $(LIBMANDIR), glEvalPoint2)
+
+LinkFile(glFeedbackBuffer.$(MANSUFFIX), feedbackbuffer.3gl)
+
+LinkFile(glFinish.$(MANSUFFIX), finish.3gl)
+
+LinkFile(glFlush.$(MANSUFFIX), flush.3gl)
+
+LinkFile(glFogf.$(MANSUFFIX), fog.3gl)
+ManPageAlias(glFogf, $(LIBMANDIR), glFogi)
+ManPageAlias(glFogf, $(LIBMANDIR), glFogfv)
+ManPageAlias(glFogf, $(LIBMANDIR), glFogiv)
+
+LinkFile(glFrontFace.$(MANSUFFIX), frontface.3gl)
+
+LinkFile(glFrustum.$(MANSUFFIX), frustum.3gl)
+
+LinkFile(glGenLists.$(MANSUFFIX), genlists.3gl)
+
+LinkFile(glGenTextures.$(MANSUFFIX), gentextures.3gl)
+
+LinkFile(glGetBooleanv.$(MANSUFFIX), get.3gl)
+ManPageAlias(glGetBooleanv, $(LIBMANDIR), glGetDoublev)
+ManPageAlias(glGetBooleanv, $(LIBMANDIR), glGetFloatv)
+ManPageAlias(glGetBooleanv, $(LIBMANDIR), glGetIntegerv)
+
+LinkFile(glGetClipPlane.$(MANSUFFIX), getclipplane.3gl)
+
+LinkFile(glGetError.$(MANSUFFIX), geterror.3gl)
+
+LinkFile(glGetLightfv.$(MANSUFFIX), getlight.3gl)
+ManPageAlias(glGetLightfv, $(LIBMANDIR), glGetLightiv)
+
+LinkFile(glGetMapdv.$(MANSUFFIX), getmap.3gl)
+ManPageAlias(glGetMapdv, $(LIBMANDIR), glGetMapfv)
+ManPageAlias(glGetMapdv, $(LIBMANDIR), glGetMapiv)
+
+LinkFile(glGetMaterialfv.$(MANSUFFIX), getmaterial.3gl)
+ManPageAlias(glGetMaterialfv, $(LIBMANDIR), glGetMaterialiv)
+
+LinkFile(glGetPixelMapfv.$(MANSUFFIX), getpixelmap.3gl)
+ManPageAlias(glGetPixelMapfv, $(LIBMANDIR), glGetPixelMapuiv)
+ManPageAlias(glGetPixelMapfv, $(LIBMANDIR), glGetPixelMapusv)
+
+LinkFile(glGetPointerv.$(MANSUFFIX), getpointerv.3gl)
+
+LinkFile(glGetPolygonStipple.$(MANSUFFIX), getpolygonstipple.3gl)
+
+LinkFile(glGetString.$(MANSUFFIX), getstring.3gl)
+
+LinkFile(glGetTexEnvfv.$(MANSUFFIX), gettexenv.3gl)
+ManPageAlias(glGetTexEnvfv, $(LIBMANDIR), glGetTexEnviv)
+
+LinkFile(glGetTexGendv.$(MANSUFFIX), gettexgen.3gl)
+ManPageAlias(glGetTexGendv, $(LIBMANDIR), glGetTexGenfv)
+ManPageAlias(glGetTexGendv, $(LIBMANDIR), glGetTexGeniv)
+
+LinkFile(glGetTexImage.$(MANSUFFIX), getteximage.3gl)
+
+LinkFile(glGetTexLevelParameterfv.$(MANSUFFIX), gettexlevelparameter.3gl)
+ManPageAlias(glGetTexLevelParameterfv, $(LIBMANDIR), glGetTexLevelParameteriv)
+
+LinkFile(glGetTexParameterfv.$(MANSUFFIX), gettexparameter.3gl)
+ManPageAlias(glGetTexParameterfv, $(LIBMANDIR), glGetTexParameteriv)
+
+LinkFile(glHint.$(MANSUFFIX), hint.3gl)
+
+LinkFile(glIndexd.$(MANSUFFIX), index.3gl)
+ManPageAlias(glIndexd, $(LIBMANDIR), glIndexf)
+ManPageAlias(glIndexd, $(LIBMANDIR), glIndexi)
+ManPageAlias(glIndexd, $(LIBMANDIR), glIndexs)
+ManPageAlias(glIndexd, $(LIBMANDIR), glIndexub)
+ManPageAlias(glIndexd, $(LIBMANDIR), glIndexdv)
+ManPageAlias(glIndexd, $(LIBMANDIR), glIndexfv)
+ManPageAlias(glIndexd, $(LIBMANDIR), glIndexiv)
+ManPageAlias(glIndexd, $(LIBMANDIR), glIndexsv)
+ManPageAlias(glIndexd, $(LIBMANDIR), glIndexubv)
+
+LinkFile(glIndexMask.$(MANSUFFIX), indexmask.3gl)
+
+LinkFile(glIndexPointer.$(MANSUFFIX), indexpointer.3gl)
+
+LinkFile(glInitNames.$(MANSUFFIX), initnames.3gl)
+
+LinkFile(glInterleavedArrays.$(MANSUFFIX), interleavedarrays.3gl)
+
+LinkFile(glIsEnabled.$(MANSUFFIX), isenabled.3gl)
+
+LinkFile(glIsList.$(MANSUFFIX), islist.3gl)
+
+LinkFile(glIsTexture.$(MANSUFFIX), istexture.3gl)
+
+LinkFile(glLightf.$(MANSUFFIX), light.3gl)
+ManPageAlias(glLightf, $(LIBMANDIR), glLighti)
+ManPageAlias(glLightf, $(LIBMANDIR), glLightfv)
+ManPageAlias(glLightf, $(LIBMANDIR), glLightiv)
+
+LinkFile(glLightModelf.$(MANSUFFIX), lightmodel.3gl)
+ManPageAlias(glLightModelf, $(LIBMANDIR), glLightModeli)
+ManPageAlias(glLightModelf, $(LIBMANDIR), glLightModelfv)
+ManPageAlias(glLightModelf, $(LIBMANDIR), glLightModeliv)
+
+LinkFile(glLineStipple.$(MANSUFFIX), linestipple.3gl)
+
+LinkFile(glLineWidth.$(MANSUFFIX), linewidth.3gl)
+
+LinkFile(glListBase.$(MANSUFFIX), listbase.3gl)
+
+LinkFile(glLoadIdentity.$(MANSUFFIX), loadidentity.3gl)
+
+LinkFile(glLoadMatrixd.$(MANSUFFIX), loadmatrix.3gl)
+ManPageAlias(glLoadMatrixd, $(LIBMANDIR), glLoadMatrixf)
+
+LinkFile(glLoadName.$(MANSUFFIX), loadname.3gl)
+
+LinkFile(glLogicOp.$(MANSUFFIX), logicop.3gl)
+
+LinkFile(glMap1d.$(MANSUFFIX), map1.3gl)
+ManPageAlias(glMap1d, $(LIBMANDIR), glMap1f)
+
+LinkFile(glMap2d.$(MANSUFFIX), map2.3gl)
+ManPageAlias(glMap2d, $(LIBMANDIR), glMap2f)
+
+LinkFile(glMapGrid1d.$(MANSUFFIX), mapgrid.3gl)
+ManPageAlias(glMapGrid1d, $(LIBMANDIR), glMapGrid1f)
+ManPageAlias(glMapGrid1d, $(LIBMANDIR), glMapGrid2d)
+ManPageAlias(glMapGrid1d, $(LIBMANDIR), glMapGrid2f)
+
+LinkFile(glMaterialf.$(MANSUFFIX), material.3gl)
+ManPageAlias(glMaterialf, $(LIBMANDIR), glMateriali)
+ManPageAlias(glMaterialf, $(LIBMANDIR), glMaterialfv)
+ManPageAlias(glMaterialf, $(LIBMANDIR), glMaterialiv)
+
+LinkFile(glMatrixMode.$(MANSUFFIX), matrixmode.3gl)
+
+LinkFile(glMultMatrixd.$(MANSUFFIX), multmatrix.3gl)
+ManPageAlias(glMultMatrixd, $(LIBMANDIR), glMultMatrixf)
+
+LinkFile(glNewList.$(MANSUFFIX), newlist.3gl)
+ManPageAlias(glNewList, $(LIBMANDIR), glEndList)
+
+LinkFile(glNormal3b.$(MANSUFFIX), normal.3gl)
+ManPageAlias(glNormal3b, $(LIBMANDIR), glNormal3d)
+ManPageAlias(glNormal3b, $(LIBMANDIR), glNormal3f)
+ManPageAlias(glNormal3b, $(LIBMANDIR), glNormal3i)
+ManPageAlias(glNormal3b, $(LIBMANDIR), glNormal3s)
+ManPageAlias(glNormal3b, $(LIBMANDIR), glNormal3bv)
+ManPageAlias(glNormal3b, $(LIBMANDIR), glNormal3dv)
+ManPageAlias(glNormal3b, $(LIBMANDIR), glNormal3fv)
+ManPageAlias(glNormal3b, $(LIBMANDIR), glNormal3iv)
+ManPageAlias(glNormal3b, $(LIBMANDIR), glNormal3sv)
+
+LinkFile(glNormalPointer.$(MANSUFFIX), normalpointer.3gl)
+
+LinkFile(glOrtho.$(MANSUFFIX), ortho.3gl)
+
+LinkFile(glPassThrough.$(MANSUFFIX), passthrough.3gl)
+
+LinkFile(glPixelMapfv.$(MANSUFFIX), pixelmap.3gl)
+ManPageAlias(glPixelMapfv, $(LIBMANDIR), glPixelMapuiv)
+ManPageAlias(glPixelMapfv, $(LIBMANDIR), glPixelMapusv)
+
+LinkFile(glPixelStoref.$(MANSUFFIX), pixelstore.3gl)
+ManPageAlias(glPixelStoref, $(LIBMANDIR), glPixelStorei)
+
+LinkFile(glPixelTransferf.$(MANSUFFIX), pixeltransfer.3gl)
+ManPageAlias(glPixelTransferf, $(LIBMANDIR), glPixelTransferi)
+
+LinkFile(glPixelZoom.$(MANSUFFIX), pixelzoom.3gl)
+
+LinkFile(glPointSize.$(MANSUFFIX), pointsize.3gl)
+
+LinkFile(glPolygonMode.$(MANSUFFIX), polygonmode.3gl)
+
+LinkFile(glPolygonOffset.$(MANSUFFIX), polygonoffset.3gl)
+
+LinkFile(glPolygonStipple.$(MANSUFFIX), polygonstipple.3gl)
+
+LinkFile(glPrioritizeTextures.$(MANSUFFIX), prioritizetextures.3gl)
+
+LinkFile(glPushAttrib.$(MANSUFFIX), pushattrib.3gl)
+ManPageAlias(glPushAttrib, $(LIBMANDIR), glPopAttrib)
+
+LinkFile(glPushClientAttrib.$(MANSUFFIX), pushclientattrib.3gl)
+ManPageAlias(glPushClientAttrib, $(LIBMANDIR), glPopClientAttrib)
+
+LinkFile(glPushMatrix.$(MANSUFFIX), pushmatrix.3gl)
+ManPageAlias(glPushMatrix, $(LIBMANDIR), glPopMatrix)
+
+LinkFile(glPushName.$(MANSUFFIX), pushname.3gl)
+ManPageAlias(glPushName, $(LIBMANDIR), glPopName)
+
+LinkFile(glRasterPos2d.$(MANSUFFIX), rasterpos.3gl)
+ManPageAlias(glRasterPos2d, $(LIBMANDIR), glRasterPos2f)
+ManPageAlias(glRasterPos2d, $(LIBMANDIR), glRasterPos2i)
+ManPageAlias(glRasterPos2d, $(LIBMANDIR), glRasterPos2s)
+ManPageAlias(glRasterPos2d, $(LIBMANDIR), glRasterPos3d)
+ManPageAlias(glRasterPos2d, $(LIBMANDIR), glRasterPos3f)
+ManPageAlias(glRasterPos2d, $(LIBMANDIR), glRasterPos3i)
+ManPageAlias(glRasterPos2d, $(LIBMANDIR), glRasterPos3s)
+ManPageAlias(glRasterPos2d, $(LIBMANDIR), glRasterPos4d)
+ManPageAlias(glRasterPos2d, $(LIBMANDIR), glRasterPos4f)
+ManPageAlias(glRasterPos2d, $(LIBMANDIR), glRasterPos4i)
+ManPageAlias(glRasterPos2d, $(LIBMANDIR), glRasterPos4s)
+ManPageAlias(glRasterPos2d, $(LIBMANDIR), glRasterPos2dv)
+ManPageAlias(glRasterPos2d, $(LIBMANDIR), glRasterPos2fv)
+ManPageAlias(glRasterPos2d, $(LIBMANDIR), glRasterPos2iv)
+ManPageAlias(glRasterPos2d, $(LIBMANDIR), glRasterPos2sv)
+ManPageAlias(glRasterPos2d, $(LIBMANDIR), glRasterPos3dv)
+ManPageAlias(glRasterPos2d, $(LIBMANDIR), glRasterPos3fv)
+ManPageAlias(glRasterPos2d, $(LIBMANDIR), glRasterPos3iv)
+ManPageAlias(glRasterPos2d, $(LIBMANDIR), glRasterPos3sv)
+ManPageAlias(glRasterPos2d, $(LIBMANDIR), glRasterPos4dv)
+ManPageAlias(glRasterPos2d, $(LIBMANDIR), glRasterPos4fv)
+ManPageAlias(glRasterPos2d, $(LIBMANDIR), glRasterPos4iv)
+ManPageAlias(glRasterPos2d, $(LIBMANDIR), glRasterPos4sv)
+
+LinkFile(glReadBuffer.$(MANSUFFIX), readbuffer.3gl)
+
+LinkFile(glReadPixels.$(MANSUFFIX), readpixels.3gl)
+
+LinkFile(glRectd.$(MANSUFFIX), rect.3gl)
+ManPageAlias(glRectd, $(LIBMANDIR), glRectf)
+ManPageAlias(glRectd, $(LIBMANDIR), glRecti)
+ManPageAlias(glRectd, $(LIBMANDIR), glRects)
+ManPageAlias(glRectd, $(LIBMANDIR), glRectdv)
+ManPageAlias(glRectd, $(LIBMANDIR), glRectfv)
+ManPageAlias(glRectd, $(LIBMANDIR), glRectiv)
+ManPageAlias(glRectd, $(LIBMANDIR), glRectsv)
+
+LinkFile(glRenderMode.$(MANSUFFIX), rendermode.3gl)
+
+LinkFile(glRotated.$(MANSUFFIX), rotate.3gl)
+ManPageAlias(glRotated, $(LIBMANDIR), glRotatef)
+
+LinkFile(glScaled.$(MANSUFFIX), scale.3gl)
+ManPageAlias(glScaled, $(LIBMANDIR), glScalef)
+
+LinkFile(glScissor.$(MANSUFFIX), scissor.3gl)
+
+LinkFile(glSelectBuffer.$(MANSUFFIX), selectbuffer.3gl)
+
+LinkFile(glShadeModel.$(MANSUFFIX), shademodel.3gl)
+
+LinkFile(glStencilFunc.$(MANSUFFIX), stencilfunc.3gl)
+
+LinkFile(glStencilMask.$(MANSUFFIX), stencilmask.3gl)
+
+LinkFile(glStencilOp.$(MANSUFFIX), stencilop.3gl)
+
+LinkFile(glTexCoord1d.$(MANSUFFIX), texcoord.3gl)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord1f)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord1i)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord1s)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord2d)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord2f)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord2i)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord2s)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord3d)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord3f)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord3i)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord3s)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord4d)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord4f)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord4i)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord4s)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord1dv)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord1fv)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord1iv)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord1sv)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord2dv)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord2fv)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord2iv)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord2sv)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord3dv)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord3fv)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord3iv)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord3sv)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord4dv)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord4fv)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord4iv)
+ManPageAlias(glTexCoord1d, $(LIBMANDIR), glTexCoord4sv)
+
+LinkFile(glTexCoordPointer.$(MANSUFFIX), texcoordpointer.3gl)
+
+LinkFile(glTexEnvf.$(MANSUFFIX), texenv.3gl)
+ManPageAlias(glTexEnvf, $(LIBMANDIR), glTexEnvi)
+ManPageAlias(glTexEnvf, $(LIBMANDIR), glTexEnvfv)
+ManPageAlias(glTexEnvf, $(LIBMANDIR), glTexEnviv)
+
+LinkFile(glTexGend.$(MANSUFFIX), texgen.3gl)
+ManPageAlias(glTexGend, $(LIBMANDIR), glTexGenf)
+ManPageAlias(glTexGend, $(LIBMANDIR), glTexGeni)
+ManPageAlias(glTexGend, $(LIBMANDIR), glTexGendv)
+ManPageAlias(glTexGend, $(LIBMANDIR), glTexGenfv)
+ManPageAlias(glTexGend, $(LIBMANDIR), glTexGeniv)
+
+LinkFile(glTexImage1D.$(MANSUFFIX), teximage1d.3gl)
+
+LinkFile(glTexImage2D.$(MANSUFFIX), teximage2d.3gl)
+
+LinkFile(glTexParameterf.$(MANSUFFIX), texparameter.3gl)
+ManPageAlias(glTexParameterf, $(LIBMANDIR), glTexParameteri)
+ManPageAlias(glTexParameterf, $(LIBMANDIR), glTexParameterfv)
+ManPageAlias(glTexParameterf, $(LIBMANDIR), glTexParameteriv)
+
+LinkFile(glTexSubImage1D.$(MANSUFFIX), texsubimage1d.3gl)
+
+LinkFile(glTexSubImage2D.$(MANSUFFIX), texsubimage2d.3gl)
+
+LinkFile(glTranslated.$(MANSUFFIX), translate.3gl)
+ManPageAlias(glTranslated, $(LIBMANDIR), glTranslatef)
+
+LinkFile(glVertex2d.$(MANSUFFIX), vertex.3gl)
+ManPageAlias(glVertex2d, $(LIBMANDIR), glVertex2f)
+ManPageAlias(glVertex2d, $(LIBMANDIR), glVertex2i)
+ManPageAlias(glVertex2d, $(LIBMANDIR), glVertex2s)
+ManPageAlias(glVertex2d, $(LIBMANDIR), glVertex3d)
+ManPageAlias(glVertex2d, $(LIBMANDIR), glVertex3f)
+ManPageAlias(glVertex2d, $(LIBMANDIR), glVertex3i)
+ManPageAlias(glVertex2d, $(LIBMANDIR), glVertex3s)
+ManPageAlias(glVertex2d, $(LIBMANDIR), glVertex4d)
+ManPageAlias(glVertex2d, $(LIBMANDIR), glVertex4f)
+ManPageAlias(glVertex2d, $(LIBMANDIR), glVertex4i)
+ManPageAlias(glVertex2d, $(LIBMANDIR), glVertex4s)
+ManPageAlias(glVertex2d, $(LIBMANDIR), glVertex2dv)
+ManPageAlias(glVertex2d, $(LIBMANDIR), glVertex2fv)
+ManPageAlias(glVertex2d, $(LIBMANDIR), glVertex2iv)
+ManPageAlias(glVertex2d, $(LIBMANDIR), glVertex2sv)
+ManPageAlias(glVertex2d, $(LIBMANDIR), glVertex3dv)
+ManPageAlias(glVertex2d, $(LIBMANDIR), glVertex3fv)
+ManPageAlias(glVertex2d, $(LIBMANDIR), glVertex3iv)
+ManPageAlias(glVertex2d, $(LIBMANDIR), glVertex3sv)
+ManPageAlias(glVertex2d, $(LIBMANDIR), glVertex4dv)
+ManPageAlias(glVertex2d, $(LIBMANDIR), glVertex4fv)
+ManPageAlias(glVertex2d, $(LIBMANDIR), glVertex4iv)
+ManPageAlias(glVertex2d, $(LIBMANDIR), glVertex4sv)
+
+LinkFile(glVertexPointer.$(MANSUFFIX), vertexpointer.3gl)
+
+LinkFile(glViewport.$(MANSUFFIX), viewport.3gl)
+

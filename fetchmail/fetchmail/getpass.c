@@ -77,7 +77,7 @@ char *prompt;
     register int c;
     FILE *fi;
     static char pbuf[INPUT_BUF_SIZE];
-    RETSIGTYPE (*sig)(int) = 0;	/* initialization pacifies -Wall */
+    SIGHANDLERTYPE sig = 0;	/* initialization pacifies -Wall */
     RETSIGTYPE sigint_handler(int);
 
     int istty = isatty(0);
@@ -103,7 +103,7 @@ char *prompt;
 
 	/* now that we have the current tty state, we can catch SIGINT and  
 	   exit gracefully */
-	sig = signal(SIGINT, sigint_handler);
+	sig = set_signal_handler(SIGINT, sigint_handler);
 
 	/* turn off echo on the tty */
 	disable_tty_echo();
@@ -129,7 +129,7 @@ char *prompt;
 	restore_tty_state();
 
 	/* restore previous state of SIGINT */
-	signal(SIGINT, sig);
+	set_signal_handler(SIGINT, sig);
     }
     if (fi != stdin)
 	fclose(fi);	/* not checking should be safe, file mode was "r" */

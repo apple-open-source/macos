@@ -1,0 +1,5 @@
+XCOMM $XFree86: xc/doc/specs/Render/Imakefile,v 1.1 2000/12/15 21:54:37 dawes Exp $
+
+InstallDoc(render-protocol,render-protocol.txt)
+
+LinkFile(render-protocol.txt,protocol)

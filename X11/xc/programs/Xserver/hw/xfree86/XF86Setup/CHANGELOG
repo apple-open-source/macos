@@ -1,0 +1,452 @@
+
+0.1	14 Dec 1995	Proof of concept test version - just to
+			  demonstrate how Tcl/Tk could be used without
+			  a dependance on wish being installed and
+			  how custom commands could be added for
+			  communication with the server extensions
+
+0.2	8 Feb 1996	First serious development version.
+			Basic structure is complete as well as part of
+			  mouse configuration.
+			Includes commands for connecting with both
+			  the XFree86-Misc and VidMode extensions.
+			Uses Tcl 7.4p3 and Tk 4.0p3 and uses the VGA16
+			  server for initial graphics mode.
+
+0.3	3 Mar 1996	Mouse configuration updated to match latest
+			  XFree86-Misc version (including ReOpen flag).
+			A few key bindings in Mouse configuration.
+			Some experimental Card configuration code.
+			Phase I now checks for Xqueue driver and asks
+			  user if they want to use it.
+			Asks for name of symlink (e.g. /dev/mouse) to
+			  real mouse device.
+			All XF86Config files include "XkbDisable"
+			Adds support of GlidePoint mouse protocol.
+			Frees memory allocated by VidMode library calls.
+			Added do/while loop command
+
+0.4	12 Mar 1996	Mouse configuration completed (includes adding
+			  more keybindings, completing help text, and
+			  finishing device symlink code).
+			Added comment to Imakefile about changing tcl
+			  and tk library names to match those on the
+			  system where it is being built
+			Added sleep, has_symlinks, link, and unlink
+			  builtins
+			Removed some debugging code that was accidentally
+			  left in 0.3
+			Move the execution of the Phase I code to
+			  after the processing of the command line
+			  arguments
+			Corrected all incorrect references to ClearCTS
+			  to be ClearRTS
+			Reset button up/down indicators when switching
+			  to Mouse configuration
+			Display message "Applying changes..." while
+			  waiting for call to XF86MiscSetMouseSettings
+			  to complete
+			Set default mouse device name values depending
+			  on selected protocol
+			Add check for OsMouse driver on SCO (and ask
+			  user if it should be used)
+			Use new allowMouseOpenFail server option
+			Rewrite xf86cards_getentry and xf86vid_getmonitor
+			  to be simpler and fix memory allocation probs.
+			Catch protocol errors when calling any of:
+			  XF86MiscSetSaver, XF86VidModeLockModeSwitch,
+			  XF86MiscSetKbdSettings, XF86VidModeSwitchMode,
+			  XF86MiscSetMouseSettings
+
+0.5	23 Mar 1996	Added combobox widget
+			Card configuration added
+			Changed names of global variables to use a
+			  (at least semi-)consistent coding standard
+			Change cursor to a watch while waiting for call
+			  to XF86MiscSetMouseSettings to complete
+			Monitor configuration added
+			Added ability to display server specific
+			  README files during Card configuration
+			Added option to the "message" procedure to
+			  just display the message without waiting
+			  for a key press.
+			Added the XFree86 logo to the intro screen
+			Improved the introductory text
+
+0.6	3 Jun 1996	Added ability to read in XF86Config file
+			Added binding to findConfigFile to return the
+			  name of the config file that the server will use
+			Use $TMPDIR, $XWINHOME, and $XF86SETUPLIB, if set
+			Moved check for the Xwinhome directory from the
+			  phase1.tcl file to the beginning of the main.c
+			  file to better check for proper installation
+			  of files
+			Added check for the existence of needed files
+			If the VGA16 server fails to start, try again
+			  with chipset "generic"
+			Improved XF86Config generation
+			Listboxes no longer export the selection,
+			  enabling the selection to remain set even
+			  after a selection is made in another listbox
+			Support for multiple cards added
+			Support for multiple monitors added
+			Warn of missing README files
+			Added interface to XKBui library
+			Added some commands for communicating with
+			  the XKB extension
+			Removed "Other" button and added "Keyboard"
+			Added checkbuttons for server flags
+			Added widgets for changing options, vram size,
+			  and max ramdac speed, if defaults read from
+			  XF86Config file
+			Final XF86Config is now copied into place
+			  (after moving the original to XF86Config.bak)
+			Moved the standard modelines and sync ranges
+			  into a separate file (mondata.tcl)
+
+0.7	22 Jun 1996	Added more XKB interface functions
+			Chosen geometry and symbol sets are now loaded
+			  into the server
+			Prepared for integration into XFree86 tree
+
+0.8	30 Jun 1996	Various Imakefile changes (David Dawes)
+(3.1.2Eb)		Fix a few problems with mouse configuration
+			  in the generated XF86Config file (e.g. don't
+			  output a "SampleRate" line when not applicable
+			  to the selected protocol)
+			When checking for a running server, don't close
+			  the opened connection, thus preventing the
+			  ugly server reset (David Dawes)
+			Fix mouse bindings in keyboard configuration
+			  listboxes that weren't properly loading
+			  the geometry and symbols
+			Modify the tkerror procedure to write a copy
+			  of the stack trace to a file and tell the
+			  user to submit a bug report
+
+0.9	7 Jul 1996	Change all "gets response" lines to "gets stdin
+(3.1.2Ec)		  response" (Michael Rohleder)
+			Add a few prototypes and casts and some other
+			  code cleanups
+			Add code in several places in tclxfconf.c
+			  to prevent derefencing of NULL pointers
+			Plug some memory leaks
+			Don't output "SampleRate", if zero
+
+0.10	13 Jul 1996	Fix two more places where a NULL pointer could
+			  be dereferenced (David Dawes)
+			Fix inconsistencies in handling of Display
+			  subsections between C and Tcl code
+			Write out Display subsections for depths > 8
+			Fix memory leak in XKB handling
+			Remove the parray proc from phase1.tcl (it was
+			  used by some debugging code in an earlier
+			  version and was accidentally left in when
+			  that code was removed)
+			Check the found dialog executable to determine
+			  if it's really the one that is wanted
+			Improved(?) handling of Modes and ModeLine
+			  entries in generated XF86Config file
+			When writing the XF86Config file, the Visual
+			  wasn't properly quoted
+			Decrease the wait between checks for the server
+			  being ready to accept connections - for:
+			Put up a "Loading..." window asap after starting
+			  the VGA16 server
+			Adjust size of widget borders and highlight
+			  thicknesses in card.tcl to make things fit
+			  better
+			Adjust border widths in keyboard.tcl and
+			  monitor.tcl to be consistent w/ card.tcl
+			Start the VGA16 server with a larger stack size
+			  limit (Matthieu Herrb reported overflows on
+			  NetBSD)
+			Modify keyboard configuration code to use XKB
+			  "rules" facilities
+			Catch attempt to backup existing config file
+			  and display message indicating the backup
+			  occurred only if successful (Michael Rohleder)
+			Make symlink from preferred server to 'X'
+			  (based on patch by Michael Rohleder)
+
+0.11	20 Jul 1996	Fix bugs in "process_running" (Harald Koenig)
+			Fix ChipSet, RamDac, and ClockChip setting
+			  for S3 server (Harald Koenig)
+			Modify main.c to enable shutdown of VGA16
+			  server before starting second server (there
+			  are now five phases)
+			Added ability to specify on the command line
+			  a script to be run
+			Added handling of standard wish arguments to
+			  main.c (some are ignored unless a script is
+			  specified)
+			Updated tclkbd.c and keyboard.tcl to match
+			  latest XKB patches
+			Added separate mouse configuration program
+			Moved non-XF86Setup specific functions to
+			  from setuplib.tcl to tcllib/misc.tcl
+			Moved some code that is used in more than one
+			  phase to setuplib.tcl
+			If startup of second server fails, it is now
+			  caught and the user is returned to phase2
+			Moved the server flags to a separate "Other"
+			  configuration screen
+			Improved "done" stuff
+			Make it compile with newer Tcl/Tk releases
+
+0.12	2 Aug 1996	Updated Imakefile
+(3.1.2Ef)		Full support for Tcl 7.5/Tk 4.1 added
+			More XKB updates (_XKB_RULES_NAMES property
+			  support)
+			XKB functions no longer use a single static
+			  xkb structure and now return a handle to the
+			  allocated structure
+			Interface to xkbui library is now a full-
+			  fledged Tk widget
+			Add function to write out all significant
+			  variables to a state file
+			Add option to read in a state file
+			After shutting down a server, exec a new copy
+			  of XF86Setup -- workaround Tk caching some
+			  info about the server, which is no longer
+			  true, because we start/stop servers behind
+			  its back
+			Only put 640x480 modelines in the config file
+			  used to start the VGA16 server
+			Renamed "message" to "mesg" to avoid conflict
+			  with the Tk message widget
+			Handle XKB rules Options - add scrollbar, if
+			  there are too many options to fit
+			Change writeXF86Config to take a filename,
+			  instead of a file handle
+			In card configuration, update the message at
+			  the bottom after clock probing is completed
+			Add -nodialog option to force plain text
+			  output
+			Add some more comments to the C code
+			Add "flush stdout" statements to flush the
+			  (Tcl 7.5) channel buffers
+			
+0.13	15 Aug 1996	Process window path names to use as prefix
+(3.1.2Eh)		  to other window paths
+			Add man pages for XF86Setup and xmseconfig
+			Imakefile updates (David Dawes)
+			Change exec of second XF86Setup to use execlp
+			  instead of execl (David Dawes)
+			Modified config file reading routines to keep
+			  all existing monitor and devices - this also
+			  eliminated a bug in handling multiple
+			  monitors/devices
+			Fixed typo in monitor sync rates (Harald Koenig)
+			Changed autorepeat timings for the scrollbar
+			  associated with the card list - scrolling
+			  takes too long with the VGA16 server
+
+0.14	16 Aug 1996	Added -notk option (when a script is specified)
+			When writing config file for VGA16 server,
+			  don't write a Virtual size
+			Use -vgamode option when writing config file
+			  used to start VGA16 server with
+			  Chipset "generic"
+			Added "lrmdups" proc to eliminate duplicate
+			  elements from a list
+			Fleshed out Chipset, RamDac, ClockChip, and
+			  Options info in carddata.tcl
+			Output error message if exec-ing second copy
+			  fails
+			Fixed bug w/ keyboard focus during monitor
+			  configuration
+			Monitor sync range canvases now handle ranges
+			  that exceed their limits
+			Fix bug in Card_clockprobe - cardDetail wasn't
+			  declared global
+			The card list can now be accessed even when
+			  the existing config file is read
+			Output "Aborted" message when abort is pressed
+
+0.15	17 Aug 1996	Added -script option to look for a file in
+(3.1.2Ei)		  the scripts directory, otherwise the PATH
+			  is searched
+			Fix typo in Mach64 RamDacs (David Dawes)
+			Fix typo in writing Virtual size (Harald Koenig)
+			Workaround bug in Tk 4.0 canvases that left
+			  stray red lines in the monitor sync range
+			  bars in certain cases
+			Use new -bestRefresh server option (David Dawes)
+			Add message line to keyboard config for
+			  "Please wait..." type messages
+			Changed mouse device entry to a combobox w/
+			  list of devices from the /dev directory
+			Use list of devices to pick a default mouse
+			  device
+
+0.16	19 Aug 1996	Improve patterns used to find available mouse
+			  devices (David Dawes)
+			Sorted lists that are going to displayed in a
+			  listbox
+			Fixed bug with mouse link not being read for
+			  the real device when reading the exiting
+			  config file
+			Real mouse device is converted to a full path
+			  if the symlink was relative
+			Fixed bug where device wasn't reopened when a
+			  new device name was specified
+			When reading the X link to find out what server
+			  to use, strip off any directory name
+			Stack size limit is now changed in main.c on
+			  OSes that support it
+			Write a 24bpp screen section to config file
+			Remove temp files when exiting normally
+			Check that the mouse link is in a directory
+			  not writeable by non-root users
+			Update selection in listboxes when the value
+			  of the entry changes
+			Change the mouse device combobox to a listbox
+			  that is always showing - this is due to
+			  problems with keybindings in comboboxes
+			  (which are very important since the mouse
+			  is probably not yet working when this list
+			  is used)
+
+0.17	23 Aug 1996	Add new C&T README to list and use the
+(3.1.2Em)		  Oak, WstDig, ati, etc. READMEs for the
+			  Mono & VGA16 servers, as well as SVGA
+			Add ProjectRoot to the list of search directories
+			Start the VGA16 server just w/ Chipset "generic"
+			Add tcl commands for changing the umask and
+			  for adding and removing directories
+			Add random function
+			Add "clock clicks" and "clock seconds" commands
+			  to Tcl 7.4 interpreters
+			Move all temp files to a randomly named subdir
+			  of a .XF86Setup* subdir
+			Place the mouse link with the rest of the
+			  temp files and then write the actual mouse
+			  device to the config file
+			Check the permissions of the temp subdirs
+			  before any write to a file
+			When writing the config file, use the link
+			  for the mouse device, except for the final
+			  config file to which the actual device is
+			  written (unless there was an existing
+			  /dev/mouse link which already pointed to
+			  the correct device - in that case write
+			  /dev/mouse as the device name)
+			If the dacspeed "Probed" button is depressed,
+			  and the user clicks on the slider, switch to
+			  using the slider value
+			Add a pretty border to the popup help windows
+			Destroy existing help popups if the user
+			  clicks on help, while one is already up
+			Don't show the mouse device entry box or
+			  device list, if the user won't be able to
+			  make any changes
+			Print messages to the text screen while in
+			  graphics mode directing them to switch
+			  to the correct VT
+			Let the user choose where to write the
+			  config file (with the existing location,
+			  as the default)
+			Reset list of clocks when a clock chip or a
+			  different card or server is selected
+			Reset mouse button canvas when a new protocol
+			  is selected
+			Change welcome screen to state that the
+			  underlined letters indicate Ctrl or Alt
+			  bindings
+			Add copyright and disclaimer notices
+			Add function to search along an axis for a
+			  focus window
+			Add keybindings for the arrow keys
+
+0.18	25 Aug 1996	Added online help text
+(3.1.2Eo)		Some fixes for mouse device name handling
+			  (David Dawes)
+			Add border to and fix the autorepeat timings for
+			  the readme display box (David Dawes)
+			Improvements to mouse device name patterns
+			  and searching (David Dawes)
+			Change default XF86Config file location to
+			  /etc (David Dawes)
+			Fixed typo that caused the rmdir command to
+			  call the MkDir function (David Dawes)
+			Fixed bug where prompt for config file name
+			  wasn't being removed after saving to the
+			  file
+			Changed "Applying" message in mouse setup to
+			  use the same line as the "Press ? or Alt..."
+			  message
+			Fixed mouse device name handling (completely?)
+			Removed clock probing from card.tcl and
+			  now read clocks from startup messages of
+			  the second server.
+			Added binding to <Return> in listboxes and
+			  improve behavior of arrow keys within
+			  listboxes
+			Set the BoardName to the name selected in the
+			  Card list.
+			Fixed bug where the additional device lines
+			  were appended to instead of replaced when
+			  a new card was picked from the list
+
+1.00	26 Aug 1996	Updated XF86Setup & xmseconfig man pages
+(3.1.2F)		Fixed some security problems with mouse
+			  device name handling
+			Fixed bug with device name handling for
+			  Xqueue and OsMouse drivers
+			Updated xmseconfig to work with new mouse
+			  device name changes
+
+1.01	30 Aug 1996	Fixed bug in setting default PS/2 device name
+			  (Thomas Mueller)
+			Fixed bug in changing stack limit (the
+			  sys/resource.h file wasn't being included)
+			Existing link to mouse device is read even if
+			  not reading existing config file
+			Recursively read the X symlink
+			Prevent ServerNumLock from being selected
+			  when writing a config file that uses XKB
+			Fixed dialog core dump due to too long of
+			  line length in VGA16 server not found mesg
+			Set keyboard focus to "Okay" button when
+			  user selects "Done"
+			Add xf86OsMouseOption() stub function to
+			  tclxfconf.c (J. Kean Johnston)
+			Add gpmdata to list of mouse device patterns
+			Improved code that creates symlink to X server
+
+1.02	2 Sep 1996	Check for existence of chosen server
+(3.1.2G)		Remove some remaining probe code
+			Fix bug with writing device name to config
+			  file when using Xqueue or OsMouse drivers
+			Add support for Alliance ProMotion driver
+			Add some partial support for the new
+			  DefaultColorDepth option
+
+1.03	27 Sep 1996	Update mouse device patterns (Thomas Mueller)
+			Added chipset "newmmio" and clockchip "cirrus"
+			  to carddata.tcl
+			Link w/ -ldl on appropriate OSes (James Hawtin,
+			  Harald Koenig)
+			    - needed when Tcl 7.5 or later is
+			    configured to support dynamic loading
+			Restructured lists in carddata.tcl in prepa-
+			  ration for restricting listboxes and the
+			  README display to only the values appropriate
+			  for the specified chipset
+			Added support for configuring "unsupported"
+			  cards
+			Fixed messages about the chosen server not
+			  being installed (they had an extra newline
+			  embedded within them)
+			Added README.Mach32 to list
+			Added support for ViRGE and DECtga servers and
+			  the Matrox SVGA driver
+			Add copyright and disclaimer to generated
+			  config file
+			Make help and README displays readonly
+			When the mouse screen is first selected, the
+			  help text pops up automagically
+			Changes to the mouse protocol cause an autoapply
+
+

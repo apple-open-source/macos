@@ -1,0 +1,25 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:18 cpqbld Exp $
+
+
+
+XCOMM $XFree86: xc/programs/xfd/Imakefile,v 1.3 2002/07/23 01:45:41 tsi Exp $
+
+#ifndef XFdUseRender
+#define XFdUseRender BuildRenderLibrary
+#endif
+
+#if XFdUseRender
+    XRENDERDEFS = -DXRENDER
+    XRENDERDEPS = XftClientDepLibs $(DEPXFTLIB) $(DEPXRENDERLIB)
+    XRENDERLIBS = XftClientLibs $(XRENDERLIB) -lm
+    XRENDERINCS = $(XFTINCLUDES) $(XRENDERINCLUDES)
+#endif
+        DEPLIBS = $(XRENDERDEPS) XawClientDepLibs XkbClientDepLibs
+LOCAL_LIBRARIES = $(XRENDERLIBS) XawClientLibs XkbClientLibs
+           SRCS = xfd.c grid.c 
+           OBJS = xfd.o grid.o 
+       INCLUDES = $(XRENDERINCS)
+        DEFINES = $(XRENDERDEFS) XkbClientDefines
+
+ComplexProgramTarget(xfd)
+InstallAppDefaults(Xfd)

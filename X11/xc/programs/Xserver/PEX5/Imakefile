@@ -1,0 +1,79 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:47:02 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/programs/Xserver/PEX5/Imakefile,v 3.14 2001/01/17 22:12:19 dawes Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+
+#define IHaveSubdirs
+
+#ifndef PexDipexCDebugFlags
+#define PexDipexCDebugFlags ServerCDebugFlags 
+#endif
+
+ CDEBUGFLAGS = PexDipexCDebugFlags
+
+#ifndef Win32Architecture
+     SUBDIRS = dipex/dispatch dipex/swap dipex/objects ddpex/mi/level1 \
+               ddpex/mi/level2 ddpex/mi/level3 ddpex/mi/level4 \
+               ddpex/mi/shared ospex
+#else
+     SUBDIRS = dipex ddpex ospex
+#endif
+
+#if DoLoadableServer
+
+MSRCS = pexmodule.c
+MOBJS = pexmodule.o
+
+SRCS = $(MSRCS)
+
+OBJS = \
+	dipex/dispatch/?*.o \
+	dipex/swap/?*.o \
+	dipex/objects/?*.o \
+	ddpex/mi/level1/?*.o \
+	ddpex/mi/level2/?*.o \
+	ddpex/mi/level3/?*.o \
+	ddpex/mi/level4/?*.o \
+	ddpex/mi/shared/?*.o \
+	ospex/?*.o \
+	$(MOBJS)
+
+DONES = \
+	dipex/dispatch/DONE \
+	dipex/swap/DONE \
+	dipex/objects/DONE \
+	ddpex/mi/level1/DONE \
+	ddpex/mi/level2/DONE \
+	ddpex/mi/level3/DONE \
+	ddpex/mi/level4/DONE \
+	ddpex/mi/shared/DONE \
+	ospex/DONE
+
+INCLUDES = -Iinclude -I$(XINCLUDESRC) -I$(SERVERSRC)/include
+
+#if HasParallelMake
+MakeMutex($(SUBDIRS) $(OBJS) $(DONES))
+#endif
+
+ModuleObjectRule()
+
+DepLibraryModuleTarget(pex5,$(SUBDIRS) $(DONES) $(MOBJS),$(OBJS))
+InstallLibraryModule(pex5,$(MODULEDIR),extensions)
+ForceSubdirs($(SUBDIRS))
+
+#else
+MakeSubdirs($(SUBDIRS)) 
+#endif
+
+DependTarget()
+
+DependSubdirs($(SUBDIRS))
+MakeLintLibSubdirs($(SUBDIRS))
+LintSubdirs($(SUBDIRS))
+
+InstallDriverSDKLibraryModule(pex5,$(DRIVERSDKMODULEDIR),extensions)

@@ -1,0 +1,125 @@
+XCOMM $XFree86: xc/programs/xedit/lisp/Imakefile,v 1.22 2002/12/14 04:41:13 dawes Exp $
+
+#include "lisp.cf"
+#include "lisp.rules"
+
+#define DoNormalLib	YES
+#define DoSharedLib	NO
+#define DoExtraLib	NO
+#define DoDebugLib	NO
+#define DoProfileLib	NO
+#define LibName		lisp
+#define LibInstall	NO
+#define LibHeaders	NO
+
+#if !HasSnprintf
+#ifndef UseInstalled
+LinkSourceFile(snprintf.c, $(LIBSRC)/misc)
+#endif
+  SNPRINTF_SRCS = snprintf.c
+  SNPRINTF_OBJS = snprintf.o
+#endif
+
+#if defined(LynxOSArchitecture) || defined(SVR3Architecture) || defined(LinuxArchitecture)
+#ifndef UseInstalled
+LinkSourceFile(realpath.c, $(TOP)/programs/xedit)
+#endif
+        RP_SRCS = realpath.c
+        RP_OBJS = realpath.o
+     RP_DEFINES = -DNEED_REALPATH
+#endif
+#if !HasStrcasecmp
+#ifndef UseInstalled
+LinkSourceFile(strcasecmp.c, $(TOP)/programs/xedit)
+#endif
+   STRCCMP_SRCS = strcasecmp.c
+   STRCCMP_OBJS = strcasecmp.o
+STRCCMP_DEFINES = -DNEED_STRCASECMP
+#endif
+#if !HasSetenv
+    SETENV_SRCS = env.c
+    SETENV_OBJS = env.o
+ SETENV_DEFINES = -DNEED_SETENV
+#endif
+       SYS_SRCS = $(RP_SRCS) $(STRCCMP_SRCS) $(SETENV_SRCS) $(SNPRINTF_SRCS)
+       SYS_OBJS = $(RP_OBJS) $(STRCCMP_OBJS) $(SETENV_OBJS) $(SNPRINTF_OBJS)
+    SYS_DEFINES = $(RP_DEFINES) $(STRCCMP_DEFINES) $(SETENV_DEFINES)
+
+#define IHaveSubdirs
+#define PassCDebugFlags CDEBUGFLAGS="$(CDEBUGFLAGS)"
+
+LIB		= LibName
+SAMP		= lsp
+SAMPSRC		= lsp.c
+SAMPOBJ		= lsp.o
+
+SUBDIRS		= mp re modules
+
+SRCS		= $(SYS_SRCS) \
+		bytecode.c \
+		core.c \
+		debugger.c \
+		format.c \
+		hash.c \
+		helper.c \
+		io.c \
+		lisp.c \
+		math.c \
+		package.c \
+		pathname.c \
+		read.c \
+		regex.c \
+		require.c \
+		string.c \
+		struct.c \
+		stream.c \
+		time.c \
+		write.c \
+		xedit.c
+OBJS		= $(SYS_OBJS) \
+		bytecode.o \
+		core.o \
+		debugger.o \
+		format.o \
+		hash.o \
+		helper.o \
+		io.o \
+		lisp.o \
+		math.o \
+		package.o \
+		pathname.o \
+		read.o \
+		regex.o \
+		require.o \
+		string.o \
+		struct.o \
+		stream.o \
+		time.o \
+		write.o \
+		xedit.o
+
+#include <Library.tmpl>
+
+AllTarget(ProgramTargetName($(SAMP)))
+
+#if BuildSharedLispModules
+CCOPTIONS	= -fpic
+DLLIB		= DlLibrary
+LOCAL_LDFLAGS	= -Xlinker -E
+SHARED_DEFINES	= -DSHARED_MODULES
+#endif
+
+        DEFINES = -DLISP $(SHARED_DEFINES) -DLISPDIR='"$(LISPDIR)"' \
+		  $(SNPRINTF_DEFS) $(SYS_DEFINES) $(SIGNAL_DEFINES)
+        DEPLIBS = mp re
+       INCLUDES = -I. -Imp -Ire -I- $(MISC_INCLUDES)
+LOCAL_LIBRARIES = -L. -llisp -Lmp -lmp -Lre -lre -lm $(DLLIB)
+
+#ifdef IHaveSubdirs
+ForceSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))
+#endif
+
+DependTarget()
+
+NormalProgramTarget($(SAMP),$(SAMPOBJ),$(DEPLIBS),$(LOCAL_LIBRARIES),)

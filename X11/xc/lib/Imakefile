@@ -1,0 +1,224 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:44:00 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/lib/Imakefile,v 3.73 2003/01/28 22:07:30 alanh Exp $
+
+#define IHaveSubdirs
+#define PassCDebugFlags
+
+#if BuildXaw6 && BuildLibraries
+XAW6LIBDIR = Xaw6
+#endif
+
+#ifndef NeedBerklib
+#define NeedBerklib NO
+#endif
+
+#if NeedBerklib
+BERKDIR = Xbsd
+#endif
+
+#if BuildXKBfilelib || BuildXKB
+XKBLIBDIR = xkbfile
+#endif
+
+#if BuildXKBuilib
+XKBUILIBDIR = xkbui
+#endif
+
+#if BuildThreadStubLibrary && BuildLibraries
+THRSTUBLIBDIR = XThrStub
+#endif
+
+#if BuildXIElib
+XIELIBDIR = XIE
+#endif
+
+#if BuildPexLib
+PEX5LIBDIR = PEX5
+#endif
+
+#if BuildXInputLib
+XINPUTLIBDIR = Xi
+#endif
+
+#if BuildScreenSaverLibrary
+SSLIBDIR = Xss
+#endif
+
+#if BuildXF86MiscLibrary
+XF86MISCLIBDIR = Xxf86misc
+#endif
+
+#if BuildXF86VidModeLibrary
+XF86VMLIBDIR = Xxf86vm
+#endif
+
+#if BuildXF86DGALibrary
+XF86DGALIBDIR = Xxf86dga
+#endif
+
+#if BuildXF86RushLibrary
+XF86RUSHLIBDIR = Xxf86rush
+#endif
+
+#if BuildXvLibrary
+XVLIBDIR = Xv
+XVMCLIBDIR = XvMC
+#endif
+
+#if BuildXineramaLibrary
+XINERAMADIR=Xinerama
+#endif
+
+#if BuildXResLibrary
+XRESLIBDIR = XRes
+#endif
+
+#if BuildGLXLibrary
+GLXLIBDIR = GL
+#endif
+
+#if BuildGLwLibrary
+GLWLIBDIR = GLw
+#endif
+
+#if BuildGLULibrary
+GLULIBDIR = GLU
+#endif
+
+#if BuildDPSLibrary
+DPSLIBDIR = dps
+#endif
+
+#if BuildDPSTkLibrary
+DPSTKLIBDIR = dpstk
+#endif
+
+#if BuildPSResLibrary
+PSRESLIBDIR = psres
+#endif
+
+#if BuildRenderLibrary
+RENDERLIBDIR = Xrender
+#endif
+
+#if BuildExpatLibrary
+EXPATBUILDDIR = expat
+#endif
+
+#if BuildFreetype2Library
+FREETYPE2BUILDDIR = freetype2
+#endif
+
+#if BuildFontconfigLibrary
+FONTCONFIGBUILDDIR = fontconfig
+#endif
+
+#if BuildXftLibrary
+XFTLIBDIR = Xft
+#endif
+
+#if BuildXft1Library
+XFT1LIBDIR = Xft1
+#endif
+
+#if BuildRandRLibrary
+RANDRLIBDIR = Xrandr
+#endif
+
+#if BuildXcursorLibrary
+XCURSORLIBDIR = Xcursor
+#endif
+
+#if BuildXTrapLibrary
+XTRAPLIBDIR = XTrap
+#endif
+
+XF86EXTLIBS = $(XF86MISCLIBDIR) $(XF86VMLIBDIR) \
+		$(XF86DGALIBDIR) $(XF86RUSHLIBDIR)
+
+#if BuildLBX
+LBXUTILDIR = lbxutil
+#endif
+
+#if (BuildLBX || GzipFontCompression) && !HasZlib
+ZLIBDIR = zlib
+#endif
+
+#if defined(XFree86Version) && !HasPosixRegex
+REGEXDIR = regex
+#endif
+
+#if BuildXAudio
+XALIBDIR = Xa
+#endif
+
+#if BuildXprintLib
+XPRINTLIBDIR = Xp
+#endif
+
+#if BuildFontCacheLib
+FONTCACHELIBDIR = Xfontcache
+#endif
+
+FONTSUBDIR = font
+
+#if BuildFontEncLib
+FONTENCSUBDIR = fontenc
+#endif
+
+#if BuildXauLib
+XAULIBDIR = Xau
+#endif
+
+#if BuildXdmcpLib
+XDMCPLIBDIR = Xdmcp
+#endif
+
+#if BuildX11Lib
+X11LIBDIR = X11
+#endif
+
+#if BuildXextLib
+XEXTLIBDIR = Xext
+#endif
+
+#if BuildLibraries
+OLDXLIBDIR = oldX
+ICELIBDIR = ICE
+SMLIBDIR = SM
+XTLIBDIR = Xt
+XMULIBDIR = Xmu
+XMUULIBDIR = Xmuu
+XPMLIBDIR = Xpm
+XAWLIBDIR = Xaw
+XTSTLIBDIR = Xtst
+FSLIBDIR = FS
+#endif
+
+
+LINTSUBDIRS = $(XAULIBDIR) $(XDMCPLIBDIR) $(THRSTUBLIBDIR) $(X11LIBDIR) \
+             $(OLDXLIBDIR) $(ICELIBDIR) $(SMLIBDIR) $(XEXTLIBDIR) $(XTLIBDIR) \
+             $(SSLIBDIR) $(XF86MISCLIBDIR) $(XF86VMLIBDIR) $(XF86DGALIBDIR) \
+             $(XF86RUSHLIBDIR) $(XMULIBDIR) $(XMUULIBDIR) $(XPMLIBDIR) \
+             $(XAW6LIBDIR) $(XAWLIBDIR) $(XIELIBDIR) $(XINPUTLIBDIR) \
+             $(XTSTLIBDIR) $(FSLIBDIR) $(PEX5LIBDIR) $(XKBLIBDIR) \
+             $(XKBUILIBDIR) $(LBXUTILDIR) $(XALIBDIR) $(XPRINTLIBDIR) \
+             $(XVLIBDIR) $(GLXLIBDIR) $(GLULIBDIR) $(GLWLIBDIR) \
+             $(DPSLIBDIR) $(DPSTKLIBDIR) $(PSRESLIBDIR) $(XINERAMADIR) \
+             $(ZLIBDIR) $(REGEXDIR) $(RENDERLIBDIR) $(FREETYPE2BUILDDIR) \
+             $(LIBXML2BUILDDIR) $(EXPATBUILDDIR) $(FONTCONFIGBUILDDIR) \
+             $(XFT1LIBDIR) $(XFTLIBDIR) $(XVMCLIBDIR) $(RANDRLIBDIR) \
+             $(XTRAPLIBDIR) $(XRESLIBDIR) $(XCURSORLIBDIR)
+
+SUBDIRS = $(BERKDIR) xtrans $(LINTSUBDIRS) $(FONTSUBDIR) $(FONTENCSUBDIR) \
+          $(FONTCACHELIBDIR)
+
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))
+MakeLintLibSubdirs($(LINTSUBDIRS))
+MakeLintSubdirs($(LINTSUBDIRS),install.ln,install.ln)
+

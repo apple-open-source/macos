@@ -1,0 +1,128 @@
+                         Information for Linux Users
+
+                        Orest Zborowski, Dirk Hohndel
+
+                                June 25, 1999
+
+1.  Linux versions on which XFree86 has been tested
+
+XFree86 has been tested with Linux version 2.0.36, 2.2.7 and several 2.3.x
+kernels.  It should work with any version since 1.0 without change.  Binaries
+both against libc5 and libc6 are available.
+
+2.  Backwards Compatibility
+
+X11R6 is considered a major update from X11R5, so the shared libraries in
+XFree86 3.1 and later are not compatible with XFree86 2.1.1 and older
+libraries. To continue to run X11R5 applications, you must keep the old
+libraries somewhere on your machine. They can be moved from /usr/X386/lib
+elsewhere, but /etc/ld.so.conf must be updated.  All X11R5 applications
+should work with the X11R6 servers without problems.
+
+X11R6.1 is yet another update to X11R6. While the minor number for some
+libraries has been increased to '1' it is believed to be fully compatible
+with X11R6 based applications.
+
+X11R6.3 is yet another update to X11R6.1. While the minor number for some
+libraries has been increased to '3' it is believed to be fully compatible
+with X11R6 based applications.
+
+Very old binaries (linked to XFree86-1.2, XFree86-1.3 or XFree86-2.0
+libraries) will continue to work, but may need an explicit symlink from
+/lib/libX{11,t,aw}.so.3 to /usr/X386/lib/libX{11,t,aw}.so.3.
+
+3.  Installing XFree86
+
+Starting with version 3.0, XFree86 is installed in /usr/X11R6.  The installa-
+tion details are provided in the RELNOTES.
+
+4.  Running XFree86
+
+XFree86 requires about 4mb of virtual memory to run, although having 16mb of
+RAM is probably the minimum comfortable configuration. A 387 coprocessor is
+helpful for 386 machines, although greater gains in interactive performance
+are obtained with an increase in physical memory.  Also, a faster graphics
+card, bus or RAM, will improve server performance.
+
+After unpacking the tar files, you need to include /usr/X11R6/lib in
+/etc/ld.so.conf (where it should already be by default) or in your
+LD_LIBRARY_PATH environment variable. Also, the configuration file
+/etc/XF86Config or /usr/X11R6/lib/X11/XF86Config must be properly filled out
+based on the host setup. Ideally this is done using XF86Setup or (if for some
+reason this doesn't work) using xf86config. If you really insist in hand-cre-
+ating your config file use XF86Config.eg as a starting point and README.Con-
+fig as guideline.  You may damage your hardware if you use a wrong XF86Config
+file, so read the docs, especially the man pages and the other README files
+in /usr/X11R6/lib/X11/doc.
+
+XFree86 has the ability to perform VT switching to and from the X server.
+When first started, XFree86 will automatically locate the first available VT
+(one that hasn't been opened by any process), and run on that VT.  If there
+isn't one available, XFree86 will terminate with an error message.  The
+server can be run on a specific VT by using the ``vt<nn>'' option, where <nn>
+is the number of an available VT (starting from 1). If you don't have a free
+VT XFree86 cannot run. Normally you can simply disable one of the getty pro-
+grams in /etc/inittab, but if this is not an option, you can increase the
+number of available VTs by increasing the value of NR_CONSOLES in
+include/linux/tty.h and recompiling the kernel.
+
+Once running inside X, switching to another VT is accomplished by pressing
+Ctrl-Alt-<Fnn> where nn is the number of the VT to switch to.  To return to
+the server, press the proper key-combination that moves you back to the VT
+that XFree86 is using: by default, this is Alt-<Fmm>, where mm is the number
+of the VT the server is running on (this number is printed when the server is
+started).  Note that this is NOT the VT from which the server was started.
+
+NOTE: you can redefine the text-mode keybindings with the `loadkeys' command
+found in the kbd-0.81.tar.gz archive (or a later version thereof).  With
+this, you can (for example) make Ctrl-Alt-<Fmm> work from text mode the same
+way it works under the XFree86 server.
+
+When the server is exited, it will return to the original VT it was started
+from, unless it dies unexpectedly, when the switch must be done manually.
+There still seem to be weird combinations of graphic cards and motherboards
+that have problems to restore the textfont when returning from XFree86 to the
+text mode. In these cases using the runx script from the svgalib distribution
+might help.
+
+The XFree86 server now queries the kernel to obtain the key binding in effect
+at startup. These bindings are either the default map in place when the ker-
+nel was compiled, or reloaded using the `loadkeys' utility. Not all keys are
+bound: kernel-specific, multiple keysym, and dead keys are not handled by the
+server. All others are translated to their X equivalents.  Note that the
+XFree86 server only allows for four modifier maps: unshifted, shifted, mod-
+eswitch unshifted and modeswitch shifted.  Depending on what the modeswitch
+key is (it is configurable in your XF86Config and defaults to Alt), XFree86
+will read those tables into its keymaps.  This means if you use certain keys,
+like left-Control, for Linux modeswitch, that will not be mappable to X.
+
+5.  Installing Xdm, the display manager
+
+Since xdm is dynamically linked, there's no issue on export restriction out-
+side US for this binary distribution of xdm: it does not contain the DES
+encryption code. So it's now included in the bin package.
+
+However the file xc/lib/Xdmcp/WrapHelp.c is not included in the XFree86-3.3
+source, so support for XDM-AUTHORIZATION-1 is not included here. You'll have
+to get WrapHelp.c and rebuild xdm after having set HasXdmAuth in
+xf86site.def.
+
+The file is available within the US; for details see ftp.x.org:/pub/R6/xdm-
+auth/README.
+
+To start the display manager, log in as root on the console and type: ``xdm
+-nodaemon''.
+
+You can start xdm automatically on bootup by disabling the console getty and
+modifying /etc/inittab. Details about this setup depend on the Linux distri-
+bution that you use, so check the documentation provided there.
+
+The xdm binary provided should run with both shadow- and non-shadow password
+systems.
+
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/Linux.sgml,v 3.14 1999/08/23 06:38:46 dawes Exp $
+
+     $XConsortium: Linux.sgml /main/6 1996/10/28 04:47:37 kaleb $
+
+
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.Linux,v 3.26 2000/03/01 01:48:05 dawes Exp $

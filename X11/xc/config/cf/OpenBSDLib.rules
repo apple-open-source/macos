@@ -1,0 +1,164 @@
+XCOMM $OpenBSD: OpenBSDLib.rules,v 1.1 2000/10/09 20:43:58 matthieu Exp $
+
+
+
+
+/*
+ * OpenBSD shared library rules
+ */
+
+XCOMM $XFree86: xc/config/cf/OpenBSDLib.rules,v 1.5 2003/02/17 21:46:44 herrb Exp $
+
+#ifndef UseElfFormat
+#define UseElfFormat NO
+#endif
+
+#ifndef HasSharedLibraries
+#define HasSharedLibraries YES
+#endif
+#ifndef ForceNormalLib
+#define ForceNormalLib YES
+#endif
+
+#ifndef BaseShLibReqs
+#define BaseShLibReqs		/* -lc implied by $(CC) */
+#endif
+
+#ifndef SharedDataSeparation
+#define SharedDataSeparation NO
+#endif
+#ifndef SharedCodeDef
+#define SharedCodeDef /**/
+#endif
+#ifndef SharedLibraryDef
+#define SharedLibraryDef /**/
+#endif
+#ifndef ShLibIncludeFile
+#define ShLibIncludeFile <OpenBSDLib.tmpl>
+#endif
+#ifndef SharedLibraryLoadFlags
+#define SharedLibraryLoadFlags -shared PositionIndependentCFlags -Wl,-rpath,$(USRLIBDIR)
+#endif
+#ifndef PositionIndependentCFlags
+#define PositionIndependentCFlags -fPIC
+#endif
+#ifndef PositionIndependentCplusplusFlags
+#define PositionIndependentCplusplusFlags -fPIC
+#endif
+#if UseElfFormat
+#ifndef ExtraLoadFlags
+#ifdef UseInstalled
+#define ExtraLoadFlags -Wl,-rpath,$(USRLIBDIRPATH)
+#else
+#define ExtraLoadFlags -Wl,-rpath,$(USRLIBDIRPATH) -Wl,-rpath-link,$(BUILDLIBDIR)
+#endif
+#endif
+#endif
+
+/*
+ * InstallSharedLibrary - generate rules to install the shared library.
+ * NOTE: file must be executable, hence "INSTBINFLAGS"
+ */
+#ifndef InstallSharedLibrary
+#define InstallSharedLibrary(libname,rev,dest)				@@\
+install:: Concat(lib,libname.so.rev) 					@@\
+	MakeDir($(DESTDIR)dest)						@@\
+	$(INSTALL) $(INSTALLFLAGS) $(INSTBINFLAGS) Concat(lib,libname.so.rev) $(DESTDIR)dest
+#endif /* InstallSharedLibrary */
+
+/*
+ * InstallSharedLibraryData - generate rules to install the shared library data
+ */
+#ifndef InstallSharedLibraryData
+#define InstallSharedLibraryData(libname,rev,dest)
+#endif /* InstallSharedLibraryData */
+
+
+/*
+ * SharedLibraryTarget - generate rules to create a shared library;
+ * build it into a different name so that we do not hose people by having
+ * the library gone for long periods.
+ */
+#ifndef SharedLibraryTarget
+#ifdef UseInstalled  
+#define LinkBuildSonameLibrary(lib) true
+#else
+#define LinkBuildSonameLibrary(lib) (RemoveFile($(BUILDLIBDIR)/lib); \
+	cd $(BUILDLIBDIR); $(LN) $(BUILDINCTOP)/$(CURRENT_DIR)/lib .)
+#endif
+
+#define SharedLibraryTarget(libname,rev,solist,down,up)			@@\
+AllTarget(Concat(lib,libname.so.rev))					@@\
+									@@\
+Concat(lib,libname.so.rev):  solist					@@\
+	$(RM) $@~							@@\
+	set -x; \							@@\
+		(cd down; $(CC) -o up/$@~ $(SHLIBLDFLAGS) -Wl,-soname,$@\ @@\
+		solist $(REQUIREDLIBS) BaseShLibReqs); 			@@\
+		LinkBuildSonameLibrary($@)				@@\
+	$(RM) $@							@@\
+	$(MV) $@~ $@							@@\
+									@@\
+clean::									@@\
+	$(RM) Concat(lib,libname.so.rev)
+
+#endif /* SharedLibraryTarget */
+
+
+/*
+ * SharedDepLibraryTarget - generate rules to create a shared library.
+ */
+#ifndef SharedDepLibraryTarget
+#define SharedDepLibraryTarget(libname,rev,deplist,solist,down,up)	@@\
+AllTarget(Concat(lib,libname.so.rev))					@@\
+									@@\
+Concat(lib,libname.so.rev):  deplist $(EXTRALIBRARYDEPS)		@@\
+	$(RM) $@~							@@\
+	(cd down; $(CC) -o up/$@~ $(SHLIBLDFLAGS) solist $(REQUIREDLIBS)) @@\
+	$(RM) $@							@@\
+	$(MV) $@~ $@							@@\
+	LinkBuildLibrary($@)						@@\
+									@@\
+clean::									@@\
+	$(RM) Concat(lib,libname.so.rev)
+
+#endif /* SharedDepLibraryTarget */
+
+#ifndef SharedDepModuleTarget
+#define SharedDepModuleTarget(name,deps,solist)				@@\
+AllTarget(name)								@@\
+									@@\
+name: deps								@@\
+	$(RM) $@~							@@\
+	$(CC) -o $@~ $(SHLIBLDFLAGS) solist $(REQUIREDLIBS)		@@\
+	$(RM) $@							@@\
+	$(MV) $@~ $@							@@\
+									@@\
+clean::									@@\
+	$(RM) name
+
+#endif /* SharedDepModuleTarget */
+
+/*
+ * SharedLibraryDataTarget - generate rules to create shlib data file;
+ */
+#ifndef SharedLibraryDataTarget
+#define SharedLibraryDataTarget(libname,rev,salist)
+#endif /* SharedLibraryTarget */
+
+/*
+ * DynamicModuleTarget - build a module to be dynamically loaded
+ */
+#ifdef DynamicModuleTarget
+#undef DynamicModuleTarget
+#define DynamicModuleTarget(module,modlist)				@@\
+AllTarget(module)							@@\
+									@@\
+module: modlist								@@\
+	RemoveFile($@)							@@\
+	$(CC) -o $@ $(SHLIBLDFLAGS) modlist				@@\
+									@@\
+clean::									@@\
+	RemoveFile(module)
+#endif /* DynamicModuleTarget */
+

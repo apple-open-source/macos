@@ -1,0 +1,115 @@
+.\" Id: dpsexec.man,v 6.1 1994/05/18 23:21:36 asente Exp $
+.\" $XFree86: xc/programs/dpsexec/dpsexec.man,v 1.1 2001/03/01 01:23:58 dawes Exp $
+.TH DPSEXEC 1 __vendorversion__
+.SH NAME
+dpsexec \- Display PostScript Executive
+
+.SH SYNOPSIS
+.B dpsexec 
+[
+.B \-display \fIname\fR
+][
+.B \-sync
+][
+.B \-backup
+][
+.B \-noexec
+][
+.B \-root
+][
+.B \-drawable \fIwindowId\fR
+][
+.B \-height \fIn\fR
+][
+.B \-width \fIn\fR
+]
+
+.SH DESCRIPTION
+.LP
+.B dpsexec
+is a Display PostScript program that
+allows the user to interact directly with the PostScript 
+interpreter through a command interface. 
+.B dpsexec 
+reads lines of text from standard input and passes each line to
+the PostScript interpreter for execution.
+It creates a window that displays the results of graphics operations as
+they are executed.
+.B dpsexec
+exits when end of file is reached on standard input, or when
+the user types "quit<return>", which executes
+the PostScript 
+.B quit
+operator.
+.LP
+By default,
+.B dpsexec
+executes the PostScript
+.B executive
+operator before it accepts any user input.
+This operator puts the PostScript interpreter in "interactive
+executive" mode so that the user can control the interpreter
+directly. 
+In this mode, the PostScript interpreter supports certain line-editing 
+functions and prompts the user when it is ready to execute more input.
+See section 2.4.4, "Using the Interpreter Interactively,"
+of the \fIPostScript Language Reference Manual, Second Edition,\fR
+for detailed information on this mode of operation. 
+
+.SH OPTIONS
+.TP
+.BI \-display " name"
+specifies the display on which to open a connection to the Display
+PostScript system. If no display is specified, the 
+DISPLAY environment variable is used.
+.TP
+.B \-sync
+establishes a synchronous connection with the specified X display.
+.TP
+.B \-backup
+uses backing store for the window in which graphics are
+displayed, if possible.  This is generally only effective with
+the DPS NX system.
+.TP
+.B \-noexec
+prevents
+.B dpsexec
+from entering "interactive executive" mode.  The primary effect
+of this option is to 
+inhibit printing the
+.B PS>
+prompt before each line of input is accepted.
+This option is useful when 
+.B dpsexec
+is run with standard input redirected from a file or a pipe.
+.TP
+.B \-root
+tells
+.B dpsexec
+to draw into the root window instead of into a window that it creates.
+.TP
+.BI \-drawable " windowId"
+tells
+.B dpsexec
+to draw into the specified window instead of into a window that it creates.
+.TP
+.BI \-height " n"
+sets the height of the created window.
+.TP
+.BI \-width " n"
+sets the width of the created window.
+
+.SH DIAGNOSTICS
+PostScript language error messages are printed to standard output.
+
+.SH AUTHOR
+Adobe Systems Incorporated
+
+.SH NOTES
+PostScript and Display PostScript are trademarks
+of Adobe Systems Incorporated which may be registered
+in certain jurisdictions.
+
+.LP
+Copyright (c) 1990-1994 Adobe Systems Incorporated.  All rights reserved.
+

@@ -1,0 +1,122 @@
+                     Information for ATI Rage 128 Users
+
+                     Precision Insight, Inc., SuSE GmbH
+
+                                13 June 2000
+
+1.  Supported Hardware
+
+   o ATI Rage 128 based cards
+
+2.  Features
+
+   o Full support (including hardware accelerated 2D drawing) for 8, 15, 16,
+     24 bit pixel depths.
+
+   o Hardware cursor support to reduce sprite flicker.
+
+   o Support for high resolution video modes up to 1800x1440 @ 70Hz.
+
+   o Support for doublescan video modes (e.g., 320x200 and 320x240).
+
+   o Support for gamma correction at all pixel depths.
+
+   o Fully programmable clock supported.
+
+   o Robust text mode restore for VT switching.
+
+3.  Technical Notes
+
+   o None
+
+4.  Reported Working Video Cards
+
+   o Rage Fury AGP 32MB
+
+   o XPERT 128 AGP 16MB
+
+   o XPERT 99 AGP 8MB
+
+5.  Configuration
+
+The driver auto-detects all device information necessary to initialize the
+card.  The only lines you need in the "Device" section of your XF86Config
+file are:
+
+            Section "Device"
+                Identifier "Rage 128"
+                Driver     "r128"
+            EndSection
+
+or let xf86config do this for you.
+
+However, if you have problems with auto-detection, you can specify:
+
+   o VideoRam - in kilobytes
+
+   o MemBase  - physical address of the linear framebuffer
+
+   o IOBase   - physical address of the memory mapped IO registers
+
+   o ChipID   - PCI DEVICE ID
+
+6.  Driver Options
+
+   o "hw_cursor" - request hardware cursor (default)
+
+   o "sw_cursor" - software cursor only
+
+   o "no_accel"  - software rendering only
+
+   o "dac_8_bit" - use color weight 888 in 8 bpp mode (default)
+
+   o "dac_6_bit" - use color weight 666 in 8 bpp mode (VGA emulation)
+
+7.  Known Limitations
+
+   o None
+
+8.  Authors
+
+The XFree86 4 driver was ported from XFree86 3.3.x and enhanced by:
+
+   o Rickard E. (Rik) Faith <faith@precisioninsight.com>
+
+   o Kevin E. Martin <kevin@precisioninsight.com>
+
+The XFree86 4 driver was funded by ATI and was donated to The XFree86 Project
+by:
+
+         Precision Insight, Inc.
+         Cedar Park, TX
+         USA
+
+The XFree86 3.3.x driver used for the port was written by:
+
+   o Rickard E. (Rik) Faith <faith@precisioninsight.com>
+
+   o Kevin E. Martin <kevin@precisioninsight.com>
+
+The XFree86 3.3.x driver was funded by ATI and was donated to The XFree86
+Project by Precision Insight, Inc.  It was based in part on an earlier driver
+that was written by:
+
+   o Alan Hourihane <alanh@fairlite.demon.co.uk>
+
+   o Dirk Hohndel <hohndel@suse.de>
+
+This early driver was funded and donated to The XFree86 Project by:
+
+         SuSE GmbH
+         Schanzaekerstr. 10
+         90443 Nuernberg
+         Germany
+
+http://www.precisioninsight.com
+
+http://www.suse.com
+
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/r128.sgml,v 1.8 2000/06/14 00:16:09 dawes Exp $
+
+
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.r128,v 1.14 2001/06/01 18:28:42 dawes Exp $

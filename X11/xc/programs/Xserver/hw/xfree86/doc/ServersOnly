@@ -1,0 +1,72 @@
+The following is a list of files/directories required when using a
+cut-down source tree to build only the X servers.  When using this
+cut-down tree, set BuildServersOnly to YES and XnestServer to NO in
+xc/config/cf/xf86site.def.
+
+xc/Imakefile
+xc/Makefile
+xc/Makefile.ini
+xc/RELNOTES.TXT
+xc/bug-report
+xc/config/
+xc/include/
+xc/lib/Imakefile
+xc/lib/X11/
+xc/lib/Xau/
+xc/lib/Xdmcp/
+xc/lib/font/
+xc/lib/xtrans/
+xc/programs/Imakefile
+xc/programs/Xserver/Xserver.man
+xc/programs/Xserver/Imakefile
+xc/programs/Xserver/Xext/
+xc/programs/Xserver/cfb/
+xc/programs/Xserver/cfb16/
+xc/programs/Xserver/cfb32/
+xc/programs/Xserver/dix/
+xc/programs/Xserver/hw/xfree86/
+xc/programs/Xserver/include/
+xc/programs/Xserver/mfb/
+xc/programs/Xserver/mi/
+xc/programs/Xserver/os/
+xc/registry
+
+To include PEX support in the server, the following directory is also required:
+
+xc/programs/Xserver/PEX
+
+To include XIE support in the server, the following directory is also required:
+
+xc/programs/Xserver/XIE
+
+
+Notes:
+
+1. the Xnest server cannot be built with this cut-down tree since it
+requires libX11.
+
+2. To get a cut-down source tree when starting form the full source tree,
+do the following:
+
+cd xc
+rm -fr doc fonts test util
+rm -fr lib/FS lib/ICE lib/PEX5 lib/SM lib/XIE
+rm -fr lib/Xaw lib/Xbsd lib/Xext lib/Xi lib/Xmu lib/Xt lib/Xtst lib/oldX
+rm -fr programs/[a-z]*
+rm -fr programs/Xserver/hw/[a-wy-z]*
+
+3. To start the build, run:
+
+  make World
+
+For some OSs you need to set BOOTSTRAPCFLAGS.  Refer to the appropriate
+OS-specific README for information about this.
+
+
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/ServersOnly,v 3.7 1996/12/23 06:45:18 dawes Exp $
+
+
+
+
+
+$XConsortium: ServersOnly /main/5 1996/02/21 17:44:35 kaleb $

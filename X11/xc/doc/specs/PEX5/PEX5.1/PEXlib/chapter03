@@ -1,0 +1,1628 @@
+\&
+.sp 1
+.ce 3
+\s+1\fBChapter 3\fP\s-1
+
+\s+1\fBLookup Tables\fP\s-1
+.sp 2
+.nr H1 3
+.nr H2 0
+.nr H3 0
+.nr H4 0
+.nr H5 0
+.na
+.LP
+.XS
+Chapter 3: Lookup Tables
+.XE
+.IN "lookup tables"
+.LP
+A lookup table is a PEX resource that allows clients
+to create tables of values for various purposes.  Lookup
+tables are used to support bundling of
+output primitive attributes as well as for storing view information,
+light source descriptions, depth-cue information, etc.
+.LP
+Most attributes are normally obtained directly from the current state
+values of the rendering pipeline.  Certain output primitive attributes (e.g.,
+line color, marker type, surface interpolation method) have a related
+attribute, an aspect source flag, that indicates whether to obtain the
+attribute's value from the current pipeline state or from a specific entry
+in a lookup (bundle) table resource.  Other attributes (e.g., viewing,
+depth-cueing parameters) are not stored as rendering pipeline state.
+Rather, these attributes are always obtained from a lookup table,
+and an index is stored as part of the rendering pipeline state to indicate
+the lookup table entry that is to be used.
+.LP
+Tables may be sparse (i.e. table indices need not be contiguous), therefore
+tables consist of index/entry pairs.
+The index is the numeric value that is used to access the data stored
+in an entry.  The range of allowable indices for each type of
+table is given in the description of each table type.
+An entry is the collection of information (or the data record) that
+is defined for each type of table.  The table descriptions in this section
+include the definition of an entry for each type of table.
+A table entry may contain one or more values, depending on the table
+type.  For instance, in the
+.PN PEXLUTMarkerBundle
+table type, each entry
+in the table consists of a marker type value, a marker scale
+value and a marker color value.
+.LP
+A lookup table may have predefined entries.  These are entries that
+are filled in automatically by the server when the table is created.
+Predefined table entries may be overwritten.  Each table also has
+a table index that is designated as the default index.
+If a specified table index is not defined, the contents
+of the default table index will be used instead.  If the contents of the entry
+for the
+default table index are not defined, then the default attribute values
+will be used.  The default index for all tables
+is index one, except for the view, depth cue, and color approximation
+tables, whose default index is index zero.
+.LP
+PEX lookup tables also support set versus realized semantics.  A lookup table
+entry may be set to a value that is not exactly representable during rendering.
+This does not mean that a lookup table entry may be set to a value that is not
+supported by the implementation, such as enumerated types.  Supported
+enumerated types are inquirable via
+.PN PEXGetEnumTypeInfo .
+However, some supported enumerated types may not be realizable,
+and so may have to be approximated during rendering.  This
+approximation is called the realized value.  Such values will be silently
+mapped to an approximation during rendering.  When retrieving entry values
+from a lookup table, applications may request the value as originally
+specified (the set value) or the value that is actually used when rendering
+(the realized value).  In many cases, the set and realized values will be the
+same, but in some cases, they may not.  All predefined entries are, by
+definition, realizable.
+.LP
+Types of Lookup Tables
+.LP
+The types of lookup tables defined are:
+.ID
+color approximation table
+color table
+depth cue table
+edge bundle table
+interior bundle table
+light table
+line bundle table
+marker bundle table
+pattern table
+text bundle table
+text font table
+view table
+.DE
+Each of these types of lookup tables is described in detail 
+in the following sections.
+.NH 2
+Color Approximation Lookup Tables
+.XS
+\*(SN Color Approximation Lookup Tables
+.XE
+.IN "color approximation table"
+.LP
+A color approximation table defines how a renderer will transform 
+rendering pipeline color values into pixel values.
+An entry in a color approximation table may be defined using
+the
+.PN PEXColorApproxEntry
+data type which consists of the following fields:
+.ID
+.fi
+type - 
+.PN PEXColorSpace
+or
+.PN PEXColorRange
+.br
+model - 
+.PN PEXColorApproxRGB ,
+.PN PEXColorApproxCIE ,
+'in +.5i
+.PN PEXColorApproxHSV ,
+.PN PEXColorApproxHLS ,
+or
+.PN PEXColorApproxYIQ
+.in -.5i
+.nf
+max1 - maximum value for first component of converted color
+max2 - maximum value for second component of converted color
+max3 - maximum value for third component of converted color
+mult1 - multiplier for positioning first component within computed pixel value
+mult2 - multiplier for positioning second component within computed pixel value
+mult3 - multiplier for positioning third component within computed pixel value
+.fi
+weight1 - weight value for first component for
+.PN PEXColorRange
+type
+.br
+weight2 - weight value for second component for
+.PN PEXColorRange
+type
+.br
+weight3 - weight value for third component for
+.PN PEXColorRange
+type
+.nf
+base_pixel - value to add to computed pixel value
+dither - hint as to whether to perform dithering
+.DE
+After a renderer has performed illumination, depth-cueing and clipping
+operations, it is left with a rendering pipeline color that must be converted
+to a displayable pixel value.  The renderer's current color approximation index
+determines which entry in the color approximation table is used to perform the
+conversion.  The rendering pipeline color value is first converted, only if
+necessary, to a color in the color space specified by the color model.  The
+type of color approximation is then applied.
+.LP
+If the type is
+.PN PEXColorSpace ,
+each component of the converted color is
+scaled by the corresponding maximum value (max1, max2, max3).  These
+are used by the client to indicate the number of entries in the
+colormap for each color axis, minus 1.  For example, to compute a pixel value
+for a 3-3-2 RGB colormap allocation, the maximum values would be 7, 7, and 3.
+The resulting color components are packed into
+a single pixel value by multiplying the first component by mult1, the second
+by mult2, the third by mult3, and then adding those three values together
+with the base pixel value.
+The weight1, weight2 and weight3 values are not used for
+.PN PEXColorSpace .
+.LP
+If the type is
+.PN PEXColorRange ,
+each component of the converted color from the
+rendering pipeline is multiplied by its corresponding weight value, after the
+weights have been normalized, and then the terms are added together to form
+a single value.   The weight values can be adjusted to allow equal weighting
+of the components (weights are all equal) or to minimize or eliminate one or
+more of the components (one or more weights equal to 0).  For instance, the
+weight values of 0.30, 0.59, 0.11 would convert an RGB value to a single-valued
+intensity according to the NTSC color standard.
+.LP
+Next, the computed value is multiplied by max1,
+which should be set to represent the number of color map entries in
+the range, minus 1.  Max2 and max3 are not used.
+The value is then replicated for each of
+the three color components, which are then multiplied by mult1, mult2 and
+mult3 respectively, and then added together with the base pixel to form the
+final pixel value.
+For instance, if an application desires to display its computed image on a
+pseudo-color display using
+gray scale, it could allocate 100 contiguous color cells in the color map, and
+set max1 to the value 99, so that intensity values would be mapped into
+the range [0,99].
+For visuals that use a single component to create a pixel
+value (e.g., PseudoColor), the application must specify the appropriate
+multipliers to select the appropriate channel (e.g. multipliers of 1.0, 0.0,
+and 0.0 could be used for a visual type of PseudoColor).
+.LP
+The use of addition rather than logical OR for composing pixel values permits
+allocations where the primary components are not allocated into distinct
+bit-planes.  Since some hardware allows a performance improvement if the
+multiplication values are powers of two,
+.PN PEXGetImpDepConstants
+can be
+called to get an indication of whether powers of two are preferred.
+.LP
+.IN "dithering"
+Dither is a hint as to whether 
+some attempt at dithering should be performed.  Whether dithering 
+is supported (and the dithering algorithm that is used) are 
+implementation-dependent.  See
+.PN PEXGetImpDepConstants .
+.LP
+The default index for color approximation tables is index zero, and index
+values may be in the range [0,65534], of which there are n definable entries
+(see
+.PN PEXGetTableInfo
+to obtain the value of n).
+.NH 2
+Color Lookup Tables
+.XS
+\*(SN Color Lookup Tables
+.XE
+.IN "color table"
+.LP
+Color lookup tables (not to be confused with X color map resources)
+are used when dereferencing indexed color values.
+All color values in a color lookup 
+table must therefore be specified as direct colors by using the
+.PN PEXColorEntry
+data type which consists of the following fields:
+.ID
+.fi
+type - 
+.PN PEXColorTypeRGB ,
+.PN PEXColorTypeCIE ,
+'in +.5i
+.PN PEXColorTypeHSV ,
+.PN PEXColorTypeHLS ,
+.PN PEXColorTypeRGB8 ,
+or
+.PN PEXColorTypeRGB16
+.in -.5i
+.nf
+value - direct color value to be used for this index
+.DE
+The default index for color tables is one, and index
+values may be in the range [0,65534], of which there are n definable entries
+(see
+.PN PEXGetTableInfo
+to obtain the value of n).
+.NH 2
+Depth Cue Lookup Tables
+.XS
+\*(SN Depth Cue Lookup Tables
+.XE
+.IN "depth cue table"
+.LP
+Depth cue tables maintain depth-cueing information.
+An entry in a depth-cue table may be defined using
+the
+.PN PEXDepthCueEntry
+data type which consists of the following fields:
+.ID
+.fi
+mode - 
+.PN PEXOn
+or
+.PN PEXOff
+.nf
+front_plane - the Z coordinate of the front reference plane
+back_plane - the Z coordinate of the back reference plane
+front_scaling - scaling factor to use at front reference plane
+back_scaling - scaling factor to use at back reference plane
+color - type and value of color to which others attenuate
+.DE
+The depth-cueing computation modifies colors according to the distance from
+the viewing position.  The depth-cue color indicates the color to which objects
+will tend when going from the front plane to the back plane.  The front and
+back scaling specify the values by which the colors will be scaled at the front
+and back depth-cueing planes.  The depth-cueing computation is performed in
+NPC space -- the front plane is specified as the distance to the front
+depth-cueing plane in NPC coordinates and the back plane is specified as the
+distance to the back depth-cuing plane in NPC coordinates.
+.LP
+The default index for depth cue tables is zero, and index
+values may be in the range [0,65534], of which there are n definable entries
+(see
+.PN PEXGetTableInfo
+to obtain the value of n).
+.NH 2
+Edge Bundle Lookup Tables
+.XS
+\*(SN Edge Bundle Lookup Tables
+.XE
+.IN "edge bundle lookup table"
+.LP
+The edge bundle lookup table maintains attributes for 
+drawing edges of surface primitives.  If the attribute source flag 
+has been appropriately set, surface edge attributes may be 
+obtained from the edge bundle table.
+An entry in an edge bundle table may be defined using
+the
+.PN PEXEdgeBundleEntry
+data type which consists of the following fields:
+.ID
+.fi
+edge_flag - 
+.PN PEXOn
+or
+.PN PEXOff
+.br
+type - 
+.PN PEXSurfaceEdgeSolid ,
+.PN PEXSurfaceEdgeDashed ,
+'in +.5i
+.PN PEXSurfaceEdgeDotted ,
+or
+.PN PEXSurfaceEdgeDashDot
+.in -.5i
+.nf
+width - scale factor applied to the nominal width of surface edges
+color - type and value of color to be used when drawing surface edges
+.DE
+The attributes stored in the edge bundle table are defined 
+and used in the same fashion as the pipeline context 
+attributes of the same name.
+.LP
+The default index for edge bundle tables is one, and index
+values may be in the range [1,65535], of which there are n definable entries
+(see
+.PN PEXGetTableInfo
+to obtain the value of n).
+.NH 2
+Interior Bundle Lookup Tables
+.XS
+\*(SN Interior Bundle Lookup Tables
+.XE
+.IN "interior bundle lookup table"
+.LP
+The interior bundle table maintains attributes for 
+drawing surface primitives.  If the attribute source flag has been 
+appropriately set, surface attributes may be obtained from the 
+interior bundle table.
+An entry in an interior bundle table may be defined using
+the
+.PN PEXInteriorBundleEntry
+data type which consists of the following fields:
+.ID
+.fi
+style - 
+.PN PEXInteriorStyleHollow ,
+.PN PEXInteriorStyleSolid ,
+'in +.5i
+.PN PEXInteriorStylePattern ,
+.PN PEXInteriorStyleHatch ,
+or
+.PN PEXInteriorStyleEmpty
+.in -.5i
+.br
+style_index - index to pattern or hatch style
+.br
+reflection_model - 
+.PN PEXReflectionNone ,
+.PN PEXReflectionAmbient ,
+'in +.5i
+.PN PEXReflectionDiffuse ,
+or
+.PN PEXReflectionSpecular
+.in -.5i
+.br
+interp_method - 
+.PN PEXSurfaceInterpNone ,
+.PN PEXSurfaceInterpColor ,
+'in +.5i
+.PN PEXSurfaceInterpDotProduct ,
+or
+.PN PEXSurfaceInterpNormal
+.in -.5i
+.nf
+bf_style - same as style, but for back-facing surfaces
+bf_style_index - same as style_index, but for back-facing surfaces
+bf_reflection_model - same as reflection_model, but for back-facing surfaces
+bf_interp_method - same as interp_method, but for back-facing surfaces
+surface_approx - method and tolerances used to approximate surface primitives
+color - type and value of color to be used when drawing surface primitives
+reflection_attr - attributes to be used when computing reflection from surface primitives
+bf_color - same as color, but for back-facing surfaces
+bf_reflection_attr - same as reflection_attr, but for back-facing surfaces
+.DE
+The attributes stored in the interior bundle table are 
+defined and used in the same fashion as the pipeline context 
+attributes of the same name.
+.LP
+The default index for interior bundle tables is one, and index
+values may be in the range [1,65535], of which there are n definable entries
+(see
+.PN PEXGetTableInfo
+to obtain the value of n).
+.NH 2
+Light Lookup Tables
+.XS
+\*(SN Light Lookup Tables
+.XE
+.IN "light lookup table'
+.LP
+A light table maintains light source definitions for use in 
+reflectance calculations.
+An entry in a light table may be defined using
+the
+.PN PEXLightEntry
+data type which consists of the following fields:
+.ID
+.fi
+type - 
+.PN PEXLightAmbient ,
+.PN PEXLightWCVector ,
+.PN PEXLightWCPoint ,
+or
+.PN PEXLightWCSpot
+.nf
+direction - direction of light source (a unit length vector which points away from the light)
+point - position of light source
+concentration - concentration exponent
+spread_angle - half-angle 
+attenuation1 - light attenuation factor 1
+attenuation2 - light attenuation factor 2
+color - type and value of color of light source
+.DE
+Light type must be one of the constants
+.PN PEXLightAmbient ,
+.PN PEXLightWCVector ,
+.PN PEXLightWCPoint ,
+.PN PEXLightWCSpot .
+A server implementation
+may not support all light types, and may define some new ones.  (See
+.PN PEXGetEnumTypeInfo .)
+Depending upon the type of light, some of the values 
+in a light table entry may be ignored.
+.LP
+An ambient light source is defined by color.  It is a non-directional light
+that affects the color of all surfaces regardless of their orientation.  Each
+ambient light causes a constant amount of intensity to be added to each point
+in the scene.
+.LP
+A world coordinate vector light source (or directional light source) is defined
+by direction and color.  This type of light is located at
+infinity so all light rays which emanate from it are parallel when they strike
+an object's surface.
+.LP
+A world coordinate point light source (or positional light source) is defined
+by color, a position in world coordinates, and attenuation.  Positional lights
+illuminate equally in all directions.  The attenuation indicates how the
+intensity of the point light source drops off as a function of distance.
+.LP
+A world coordinate spot light source simulates the behavior
+of a spotlight and is defined by direction, position, concentration, a spread
+angle, attenuation and color.  The direction and spread angle specify a cone of
+influence.  The direction vector is relative to the specified position, and the
+spread angle is the half-angle of the cone.  The contribution of the spotlight
+is zero if the point in question lies outside the cone of influence.
+.LP
+There may be a limit to the number of non-ambient lights that can be enabled
+at one time.  See
+.PN PEXGetImpDepConstants.
+.LP
+The default index for light tables is one, and index
+values may be in the range [1,65535], of which there are n definable entries
+(see
+.PN PEXGetTableInfo
+to obtain the value of n).
+.NH 2
+Line Bundle Lookup Tables
+.XS
+\*(SN Line Bundle Lookup Tables
+.XE
+.IN "line bundle lookup table"
+.LP
+Line bundle tables maintain attributes for drawing polyline 
+and curve primitives.  If the attribute source flag has been 
+appropriately set, polyline and curve attributes may be obtained from 
+a line bundle table.  An entry in a line bundle table may be defined using
+the
+.PN PEXLineBundleEntry
+data type which consists of the following fields:
+.ID
+.fi
+type - 
+.PN PEXLineTypeSolid ,
+.PN PEXLineTypeDashed ,
+'in +.5i
+.PN PEXLineTypeDotted ,
+or
+.PN PEXLineTypeDashDot
+.in -.5i
+.br
+interp_method - 
+.PN PEXPolylineInterpNone
+or
+.PN PEXPolylineInterpColor
+.nf
+curve_approx - approximation method and tolerance to be used to draw curve primitives
+width - scale factor applied to the nominal width of lines and curves
+color - type and value of color to be used when drawing lines and curves
+.DE
+The attributes stored in a line bundle table are defined and used 
+in the same way as the pipeline context attributes of the same name.
+.LP
+The default index for line bundle tables is one, and index
+values may be in the range [1,65535], of which there are n definable entries
+(see
+.PN PEXGetTableInfo
+to obtain the value of n).
+.NH 2
+Marker Bundle Lookup Tables
+.XS
+\*(SN Marker Bundle Lookup Tables
+.XE
+.IN "marker bundle lookup table"
+.LP
+Marker bundle tables maintain attributes for 
+drawing marker primitives.  If the attribute source flag has been 
+appropriately set, marker attributes may be obtained from a 
+marker bundle table.
+An entry in a marker bundle table may be defined using
+the
+.PN PEXMarkerBundleEntry
+data type which consists of the following fields:
+.ID
+.fi
+type - 
+.PN PEXMarkerDot ,
+.PN PEXMarkerCross ,
+'in +.5i
+.PN PEXMarkerAsterisk ,
+.PN PEXMarkerCircle ,
+or
+.PN PEXMarkerX
+.in -.5i
+.nf
+scale - scale factor to be applied to marker
+color - type and value of color to be used to draw markers
+.DE
+The attributes stored in a marker bundle table are defined and used 
+in the same way as the pipeline context attributes of the same name.
+.LP
+The default index for marker bundle tables is one, and index
+values may be in the range [1,65535], of which there are n definable entries
+(see
+.PN PEXGetTableInfo
+to obtain the value of n).
+.NH 2
+Pattern Lookup Tables
+.XS
+\*(SN Pattern Lookup Tables
+.XE
+.IN "pattern lookup table"
+.LP
+An entry in a pattern table may be defined using the
+.PN PEXPatternEntry
+data type which consists of the following fields:
+.ID
+color_type - type of color values
+row_count - number of rows in the colors array
+col_count - number of columns in the colors array
+colors - an array of colors defining the pattern
+.DE
+.LP
+The pattern table defines the available patterns for use when the pipeline
+interior style or back-facing interior style attribute is
+.PN PEXInteriorStylePattern .  The interior style index and back-facing
+interior style index attributes specify the table index to be used.
+The colors are stored row-major with the upper-left hand cell being the first
+in the list of colors followed by the remaining cells in the first row, then
+the second row, and so on.
+.LP
+The default index for pattern tables is one, and index values may be in
+the range [1,65535], of which there are n definable entries
+(see
+.PN PEXGetTableInfo
+to obtain the value of n).
+.NH 2
+Text Bundle Lookup Tables
+.XS
+\*(SN Text Bundle Lookup Tables
+.XE
+.IN "text bundle lookup table"
+.LP
+The text bundle lookup table maintains attributes for 
+drawing text and annotation text primitives.  If the attribute source 
+flag has been appropriately set, text and annotation text attributes 
+may be obtained from a text bundle lookup table.
+An entry in a text bundle table may be defined using
+the
+.PN PEXTextBundleEntry
+data type which consists of the following fields:
+.ID
+font_index - index of text font to be used
+.fi
+precision - 
+.PN PEXStringPrecision ,
+.PN PEXCharPrecision ,
+or
+.PN PEXStrokePrecision
+.nf
+char_expansion - horizontal character scaling factor
+char_spacing - spacing to be used between characters
+color - type and value of color to be used to draw text
+.DE
+The attributes stored in a text bundle table are defined and used 
+in the same way as the pipeline context attributes of the same name.
+.LP
+The default index for text bundle tables is one, and index
+values may be in the range [1,65535], of which there are n definable entries
+(see
+.PN PEXGetTableInfo
+to obtain the value of n).
+.NH 2
+Text Font Lookup Tables
+.XS
+\*(SN Text Font Lookup Tables
+.XE
+.IN "text font lookup table"
+.LP
+Text font tables maintain a list of PEX and X11 font groups.
+Font groups are selected using the text font index.
+Inside a font group a specific font is selected by the character set attribute
+of a mono encoding. (A mono encoding is a portion of a text string.)
+An entry in a text font lookup table may be defined using a
+.PN PEXTextFontEntry
+data type which consists of the following fields:
+.ID
+count - the number of PEX fonts in the fonts array
+fonts - a pointer to the array of font identifiers
+.DE
+The default index for text font tables is one, and index
+values may be in the range [1,65535], of which there are n definable entries
+(see
+.PN PEXGetTableInfo
+to obtain the value of n).
+.NH 2
+View Lookup Tables
+.XS
+\*(SN View Lookup Tables
+.XE
+.IN "view lookup table"
+.LP
+A view table maintains viewing information.  
+"Views" are specified as indices, which are used to identify
+the appropriate information in a view table.
+An entry in the view table may be defined using the
+.PN PEXViewEntry
+data type which consists of the following fields:
+.ID
+.fi
+clip_flags - a mask made up of
+.PN PEXClipXY ,
+.PN PEXClipBack ,
+'in +.5i
+.PN PEXClipFront ,
+.PN PEXClippingAll
+.in -.5i
+.nf
+clip_limits - endpoints of diagonal that defines clipping volume
+orientation - view orientation transformation matrix
+mapping - view mapping transformation matrix
+.DE
+The clip limits specify the minimum and maximum values of a 
+rectangular volume in normalized projection coordinates.  
+Clip flags contains three flags 
+that indicate whether to clip against the side, back, and front 
+planes of the volume specified by clip limits.
+Use the
+constants
+.PN PEXClipXY ,
+.PN PEXClipBack ,
+.PN PEXClipFront ,
+or
+.PN PEXClippingAll
+(which sets all three clipping flags) for use in constructing the value for
+clip flags.
+The actual clipping volume for each view is a rectangular parallelpiped that is
+computed by taking the intersection of the view clipping volume (determined by
+the clip limits and the clip flags) and the NPC subvolume.
+.LP
+Orientation is a transformation matrix that maps geometry in world 
+coordinates to viewing reference coordinates (also known as viewing
+coordinates).  
+Mapping is a transformation matrix that maps geometry in view 
+reference coordinates to normalized projection coordinates.  The mapping
+transformation is typically a parallel or perspective projection.
+Both of these matrices are 4-by-4 row-major matrices.  All coordinate systems
+in PEX are right-handed coordinate systems.
+.LP
+The default index for view tables is zero, and index
+values may be in the range [0,65534], of which there are n definable entries
+(see
+.PN PEXGetTableInfo
+to obtain the value of n).
+.bp
+.XS
+Function Descriptions
+.XE
+.SH
+PEXCopyLookupTable - Copy Lookup Table
+.XS
+	PEXCopyLookupTable
+.XE
+.IN "PEXCopyLookupTable" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXCopyLookupTable\^(\^Display *\fIdisplay\fP\^, PEXLookupTable \fIsrc_table\fP\^, PEXLookupTable \fIdst_table\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIsrc_table\fP 1i
+The resource identifier of the source lookup table.
+.IP \fIdst_table\fP 1i
+The resource identifier of the destination lookup table.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function copies entries from the source lookup table to
+destination lookup table, after first deleting all entries in the destination
+lookup table.  Both tables must already exist as valid
+lookup table resources.  Both must have been created for
+the same class of drawables, and both must be the same
+table type.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXLookupTable;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadMatch\fP 1i
+The specified lookup tables were not created with compatible drawables.
+.IP \fIBadPEXLookupTable\fP 1i
+A specified lookup table resource identifier is invalid, or the table type is unsupported.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreateLookupTable
+.RE
+.bp
+.SH
+PEXCreateLookupTable - Create Lookup Table
+.XS
+	PEXCreateLookupTable
+.XE
+.IN "PEXCreateLookupTable" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+PEXLookupTable PEXCreateLookupTable\^(\^Display *\fIdisplay\fP\^, Drawable \fIdrawable\fP\^, int \fItable_type\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIdrawable\fP 1i
+The resource identifier of a drawable.
+.IP \fItable_type\fP 1i
+The type of lookup table to be created (see the Description).
+.RE
+.SH
+Returns
+.RS
+.LP
+The resource identifier of the newly-created lookup table.
+.RE
+.SH
+Description
+.RS
+.LP
+This function creates a lookup table resource of the specified type and
+returns the resource identifier of the
+new lookup table.  The returned identifier is used to
+refer to the created lookup table.  The type of
+lookup table to be created must be one of the following:
+.ID
+.PN PEXLUTColorApprox
+.PN PEXLUTColor
+.PN PEXLUTDepthCue
+.PN PEXLUTEdgeBundle
+.PN PEXLUTInteriorBundle
+.PN PEXLUTLight
+.PN PEXLUTLineBundle
+.PN PEXLUTMarkerBundle
+.PN PEXLUTPattern
+.PN PEXLUTTextBundle
+.PN PEXLUTTextFont
+.PN PEXLUTView
+.DE
+The newly-created lookup table can
+only be used with drawables having the same depth and root as
+the specified drawable.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXLookupTable;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadAlloc\fP 1i
+The server failed to allocate the resource.
+.IP \fIBadDrawable\fP 1i
+The specified drawable resource identifier is invalid.
+.IP \fIBadMatch\fP 1i
+The specified drawable is unsupported.
+.IP \fIBadPEXLookupTable\fP 1i
+The specified table type is unsupported.
+.IP \fIBadValue\fP 1i
+The specified table type is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXFreeLookupTable
+.RE
+.bp
+.SH
+PEXDeleteTableEntries - Delete Lookup Table Entries
+.XS
+	PEXDeleteTableEntries
+.XE
+.IN "PEXDeleteTableEntries" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXDeleteTableEntries\^(\^Display *\fIdisplay\fP\^, PEXLookupTable \fItable\fP\^, unsigned int \fIstart\fP\^, unsigned int \fIcount\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fItable\fP 1i
+The resource identifier of the lookup table.
+.IP \fIstart\fP 1i
+The initial table entry to be deleted.
+.IP \fIcount\fP 1i
+The number of entries to be deleted.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function deletes lookup table entries from the specified lookup table,
+starting at the specified entry.
+Entries with index values between the start and
+(start + count-1), inclusive, are deleted.  Attempts to delete
+undefined entries are ignored.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXLookupTable;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXLookupTable\fP 1i
+The specified lookup table resource identifier is invalid, or the table type is unsupported.
+.IP \fIBadValue\fP 1i
+The sum of start and count is too large, or index 0 is invalid for the specified table type.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXGetTableInfo ,
+.PN PEXGetPredefinedEntries ,
+.PN PEXGetDefinedIndices
+.RE
+.bp
+.SH
+PEXFreeLookupTable - Free Lookup Table
+.XS
+	PEXFreeLookupTable
+.XE
+.IN "PEXFreeLookupTable" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXFreeLookupTable\^(\^Display *\fIdisplay\fP\^, PEXLookupTable \fItable\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fItable\fP 1i
+The resource identifier of the lookup table.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function deletes the association between the lookup table
+resource identifier
+and the lookup table.  The lookup table is freed
+when no other resource references it.
+.RE
+.SH
+Errors
+.RS
+.IP \fIBadPEXLookupTable\fP 1i
+The specified lookup table resource identifier is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreateLookupTable
+.RE
+.bp
+.SH
+PEXFreeTableEntries - Free Storage associated with Tables Entries Return Parameters
+.XS
+	PEXFreeTableEntries
+.XE
+.IN "PEXFreeTableEntries" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXFreeTableEntries\^(\^int \fItable_type\fP\^, unsigned int \fIcount\fP\^, PEXPointer \fIentries\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fItable_type\fP 1i
+The type of table entries in the array.
+.IP \fIcount\fP 1i
+The number of entries in the array.
+.IP \fIentries\fP 1i
+An array of table entries.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+.LP
+This function deallocates memory returned by
+.PN PEXGetPredefinedEntries ,
+.PN PEXGetTableEntries ,
+.PN PEXGetTableEntry
+.RE
+.SH
+Errors
+.RS
+.IP None 1i
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXGetPredefinedEntries ,
+.PN PEXGetTableEntries ,
+.PN PEXGetTableEntry
+.RE
+.bp
+.SH
+PEXGetDefinedIndices - Get Lookup Table Defined Indices
+.XS
+	PEXGetDefinedIndices
+.XE
+.IN "PEXGetDefinedIndices" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+Status PEXGetDefinedIndices\^(\^Display *\fIdisplay\fP\^, PEXLookupTable \fItable\fP\^, unsigned long *\fIcount_return\fP\^, PEXTableIndex **\fIindices_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fItable\fP 1i
+The resource identifier of the lookup table.
+.IP \fIcount_return\fP 1i
+Returns the number of returned indices.
+.IP \fIindices_return\fP 1i
+Returns an array of indices to defined table entries.
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if unsuccessful, non-zero otherwise.
+.RE
+.SH
+Description
+.RS
+.LP
+This function returns the defined indices for the specified lookup table.
+The index
+of each defined table entry is returned in a list.
+.LP
+PEXlib allocates memory for the returned indices.
+.PN XFree
+should be called to deallocate the memory.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXLookupTable;
+typedef unsigned short  PEXTableIndex;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXLookupTable\fP 1i
+The specified lookup table resource identifier is invalid, or the table type is unsupported.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreateLookupTable ,
+.PN PEXGetTableInfo
+.RE
+.bp
+.SH
+PEXGetPredefinedEntries - Get Lookup Table Predefined Indices
+.XS
+	PEXGetPredefinedEntries
+.XE
+.IN "PEXGetPredefinedEntries" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+Status PEXGetPredefinedEntries\^(\^Display *\fIdisplay\fP\^, Drawable \fIdrawable\fP\^, int \fItable_type\fP\^, unsigned int \fIstart\fP\^, unsigned int \fIcount\fP\^, PEXPointer *\fIentries_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIdrawable\fP 1i
+The resource identifier of a drawable.
+.IP \fItable_type\fP 1i
+The type of lookup table (see the Description).
+.IP \fIstart\fP 1i
+The index of the first predefined entry to be returned.
+.IP \fIcount\fP 1i
+The number of predefined entries requested.
+.IP \fIentries_return\fP 1i
+Returns an array of predefined table entries.
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if unsuccessful, non-zero otherwise.
+.RE
+.SH
+Description
+.RS
+.LP
+This function returns the predefined entries for the specified lookup
+table.
+The type must be one of the following:
+.ID
+.PN PEXLUTColorApprox
+.PN PEXLUTColor
+.PN PEXLUTDepthCue
+.PN PEXLUTEdgeBundle
+.PN PEXLUTInteriorBundle
+.PN PEXLUTLight
+.PN PEXLUTLineBundle
+.PN PEXLUTMarkerBundle
+.PN PEXLUTPattern
+.PN PEXLUTTextBundle
+.PN PEXLUTTextFont
+.PN PEXLUTView
+.DE
+Predefined entries are those automatically filled with valid data
+when a lookup table is created.
+The query is conducted based on the assumption that the
+lookup table would be used on drawables with the same root and depth as
+the specified drawable.  The function returns at most the specified number of
+entries, starting with the specified entry index.
+The number of entries requested can not be larger than the number of predefined
+entries.  Call
+.PN PEXGetTableInfo
+to determine the number of predefined entries.
+.LP
+Entries in the returned list depend on the type specified.
+See
+.PN PEXSetTableEntries
+for the structure types.
+.LP
+PEXlib allocates the memory for the returned table entries.
+.PN PEXFreeTableEntries
+should be called to deallocate the memory.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+#if NeedFunctionPrototypes
+typedef void *PEXPointer;
+#else
+typedef char *PEXPointer;
+#endif
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadDrawable\fP 1i
+The specified drawable resource identifier is invalid.
+.IP \fIBadMatch\fP 1i
+The specified drawable is unsupported.
+.IP \fIBadValue\fP 1i
+The specified table type is invalid or unsupported, start is less than the
+minimum predefined entry, the sum of start and count is greater than the
+maximum predefined entry, or index 0 is not valid for the specified table type.
+.IP \fIBadPEXLookupTable\fP 1i
+The specified table type is unsupported.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreateLookupTable ,
+.PN PEXGetTableInfo ,
+.PN PEXGetDefinedIndices ,
+.br
+.PN PEXGetTableEntry ,
+.PN PEXGetTableEntries ,
+.PN PEXSetTableEntries
+.RE
+.bp
+.SH
+PEXGetTableEntries - Get Lookup Table Entries
+.XS
+	PEXGetTableEntries
+.XE
+.IN "PEXGetTableEntries" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+Status PEXGetTableEntries\^(\^Display *\fIdisplay\fP\^, PEXLookupTable \fItable\fP\^, unsigned int \fIstart\fP\^, unsigned int \fIcount\fP\^, int \fIvalue_type\fP\^, int *\fItable_type_return\fP\^, PEXPointer *\fIentries_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fItable\fP 1i
+The resource identifier of the lookup table from which
+the table entries are to be obtained.
+.IP \fIstart\fP 1i
+The index of the first lookup table entry to be returned.
+.IP \fIcount\fP 1i
+The number of entries requested.
+.IP \fIvalue_type\fP 1i
+The type of values to return
+.Pn ( PEXSetValue
+or
+.PN PEXRealizedValue ).
+.IP \fItable_type_return\fP 1i
+Returns the type of table.
+.IP \fIentries_return\fP 1i
+Returns an array of table entries.
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if unsuccessful, non-zero otherwise.
+.RE
+.SH
+Description
+.RS
+.LP
+This function returns the values associated with a range of contiguous table
+indices, starting at the specified entry index.
+If a table entry in the requested range is
+not defined, the default entry for a table of this type is returned.
+.LP
+The type of entries in the returned list depend on the returned table type.
+See
+.PN PEXSetTableEntries
+for the structure types.
+.LP
+If the requested value type is 
+.PN PEXSetValue ,
+the values returned will be those originally set in the table entry.
+If the requested value type is 
+.PN PEXRealizedValue ,
+the values returned will be those actually used during rendering (i.e. the
+values used if the specified entry value can not be exactly matched).
+.LP
+PEXlib allocates the memory for the returned entries.
+.PN PEXFreeTableEntries
+should be called to deallocate the memory.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXLookupTable;
+.sp
+#if NeedFunctionPrototypes
+typedef void *PEXPointer;
+#else
+typedef char *PEXPointer;
+#endif
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXLookupTable\fP 1i
+The specified lookup table resource identifier is invalid, or the table type is unsupported.
+.IP \fIBadValue\fP 1i
+The sum of start and count is too large, or index 0 is invalid for the specified table type.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreateLookupTable ,
+.PN PEXGetTableInfo ,
+.PN PEXGetPredefinedEntries ,
+.br
+.PN PEXGetDefinedIndices ,
+.PN PEXGetTableEntry ,
+.PN PEXSetTableEntries
+.RE
+.bp
+.SH
+PEXGetTableEntry - Get Lookup Table Entry
+.XS
+	PEXGetTableEntry
+.XE
+.IN "PEXGetTableEntry" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+PEXPointer PEXGetTableEntry\^(\^Display *\fIdisplay\fP\^, PEXLookupTable \fItable\fP\^, unsigned int \fIindex\fP\^, int \fIvalue_type\fP\^, int *\fIstatus_return\fP\^, int *\fItable_type_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fItable\fP 1i
+The resource identifier of the lookup table.
+.IP \fIindex\fP 1i
+The index of the entry to be returned from the lookup table.
+.IP \fIvalue_type\fP 1i
+The type of values to return
+.Pn ( PEXSetValue
+or
+.PN PEXRealizedValue ).
+.IP \fIstatus_return\fP 1i
+Returns the entry status, either
+.PN PEXDefinedEntry
+if the specified lookup table entry is defined or
+.PN PEXDefaultEntry
+if it is undefined.
+.IP \fItable_type_return\fP 1i
+Returns the type of table.
+.RE
+.SH
+Returns
+.RS
+.LP
+A pointer to the lookup table entry; a null pointer if unsuccessful.
+.RE
+.SH
+Description
+.RS
+.LP
+This function returns a single entry from the specified lookup table.
+If the specified lookup table entry is defined, the defined
+entry is returned.  If the specified lookup table entry is not
+defined, the default entry for that type
+of table is returned.
+.LP
+The type of structure returned depends on the specified type.
+See
+.PN PEXSetTableEntries
+for the structure types.
+.LP
+If the requested value type is 
+.PN PEXSetValue ,
+the values returned will be those originally set in the table entry.
+If the requested value type is 
+.PN PEXRealizedValue ,
+the values returned will be those actually used during rendering (i.e. the
+values used if the specified entry value can not be exactly matched).
+.LP
+PEXlib allocates memory for the returned entry.
+.PN PEXFreeTableEntries
+should be called to deallocate the memory.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXLookupTable;
+.sp
+#if NeedFunctionPrototypes
+typedef void *PEXPointer;
+#else
+typedef char *PEXPointer;
+#endif
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXLookupTable\fP 1i
+The specified lookup table resource identifier is invalid, or the table type is unsupported.
+.IP \fIBadValue\fP 1i
+Index 0 is invalid for the specified table type.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreateLookupTable ,
+.PN PEXGetTableInfo ,
+.PN PEXGetPredefinedEntries ,
+.br
+.PN PEXGetDefinedIndices ,
+.PN PEXGetTableEntries ,
+.PN PEXSetTableEntries
+.RE
+.bp
+.SH
+PEXGetTableInfo - Get Lookup Table Information
+.XS
+	PEXGetTableInfo
+.XE
+.IN "PEXGetTableInfo" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+Status PEXGetTableInfo\^(\^Display *\fIdisplay\fP\^, Drawable \fIdrawable\fP\^, int \fItable_type\fP\^, PEXTableInfo *\fIinfo_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIdrawable\fP 1i
+The resource identifier of a drawable.
+.IP \fItable_type\fP 1i
+The type of lookup table (see the Description).
+.IP \fIinfo_return\fP 1i
+Returns the lookup table information.
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if unsuccessful, non-zero otherwise.
+.RE
+.SH
+Description
+.RS
+.LP
+This function returns information about the specified type of
+lookup table.
+The type of lookup table must be one of the following:
+.ID
+.PN PEXLUTColorApprox
+.PN PEXLUTColor
+.PN PEXLUTDepthCue
+.PN PEXLUTEdgeBundle
+.PN PEXLUTInteriorBundle
+.PN PEXLUTLight
+.PN PEXLUTLineBundle
+.PN PEXLUTMarkerBundle
+.PN PEXLUTPattern
+.PN PEXLUTTextBundle
+.PN PEXLUTTextFont
+.PN PEXLUTView
+.DE
+The returned information is based on the assumption that
+the lookup table would be used on drawables with the same root
+and depth as specified drawable.  The returned information includes the
+number of predefined table entries, the number of definable table
+entries, and the indices of the predefined minimum and maximum entries.
+Predefined entries are contiguous.  The number of definable table entries
+includes the number of predefined entries since predefined table entries can
+be redefined by the application.  All entries between the predefined minimum
+and maximum values are guaranteed to be defined initially (i.e. predefined
+entries have contiguous indices).
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef struct {
+    unsigned short      definable_entries;
+    unsigned short      predefined_count;
+    unsigned short      predefined_min;
+    unsigned short      predefined_max;
+} PEXTableInfo;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadDrawable\fP 1i
+The specified drawable resource identifier is invalid.
+.IP \fIBadMatch\fP 1i
+The specified drawable is unsupported.
+.IP \fIBadPEXLookupTable\fP 1i
+The specified table type is unsupported.
+.IP \fIBadValue\fP 1i
+The specified table type is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreateLookupTable
+.RE
+.bp
+.SH
+PEXSetTableEntries - Set Lookup Table Entries
+.XS
+	PEXSetTableEntries
+.XE
+.IN "PEXSetTableEntries" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXSetTableEntries\^(\^Display *\fIdisplay\fP\^, PEXLookupTable \fItable\fP\^, unsigned int \fIstart\fP\^, unsigned int \fIcount\fP\^, int \fItable_type\fP\^, PEXPointer \fIentries\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fItable\fP 1i
+The resource identifier of the lookup table.
+.IP \fIstart\fP 1i
+The index of the first table entry to be set.
+.IP \fIcount\fP 1i
+The number of table entries to be set.
+.IP \fItype\fP 1i
+The type of lookup table entries to be set (see the Description).
+.IP \fIentries\fP 1i
+An array of table entries.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function sets lookup table entries in the specified lookup table,
+starting at the specified entry index.
+.LP
+The entries must point to an array of structures having one of the
+following types:
+.RS
+.PN PEXTextFontEntry
+if type is
+.PN PEXLUTTextFont
+.br
+.PN PEXViewEntry
+if type is
+.PN PEXLUTView
+.br
+.PN PEXColorApproxEntry
+if type is
+.PN PEXLUTColorApprox
+.br
+.PN PEXLineBundleEntry
+if type is
+.PN PEXLUTLineBundle
+.br
+.PN PEXMarkerBundleEntry
+if type is
+.PN PEXLUTMarkerBundle
+.br
+.PN PEXTextBundleEntry
+if type is
+.PN PEXLUTTextBundle
+.br
+.PN PEXInteriorBundleEntry
+if type is
+.PN PEXLUTInteriorBundle
+.br
+.PN PEXEdgeBundleEntry
+if type is
+.PN PEXLUTEdgeBundle
+.br
+.PN PEXLightEntry
+if type is
+.PN PEXLUTLight
+.br
+.PN PEXDepthCueEntry
+if type is
+.PN PEXLUTDepthCue
+.br
+.PN PEXColorEntry
+if type is
+.PN PEXLUTColor
+.br
+.PN PEXPatternEntry
+if type is
+.PN PEXLUTPattern
+.RE
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXLookupTable;
+.sp
+#if NeedFunctionPrototypes
+typedef void *PEXPointer;
+#else
+typedef char *PEXPointer;
+#endif
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadAlloc\fP 1i
+The server failed to allocate the resource.
+.IP \fIBadPEXColorType\fP 1i
+The specified color type is invalid or unsupported.
+.IP \fIBadPEXLookupTable\fP 1i
+The specified lookup table resource identifier is invalid, or the table type is unsupported.
+.IP \fIBadValue\fP 1i
+The sum of start plus count is too large, a table entry field contains an
+invalid value, or index 0 is invalid for the specified table type.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreateLookupTable ,
+.PN PEXGetTableInfo ,
+.PN PEXGetPredefinedEntries ,
+.br
+.PN PEXGetDefinedIndices ,
+.PN PEXGetTableEntry ,
+.PN PEXGetTableEntries
+.RE
+.bp

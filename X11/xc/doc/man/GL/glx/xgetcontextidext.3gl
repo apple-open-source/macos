@@ -1,0 +1,47 @@
+'\"! eqn | mmdoc
+'\"macro stdmacro
+.ds Vn Version 1.2
+.ds Dt 6 March 1997
+.ds Re Release 1.2.0
+.ds Dp Feb 16 02:56
+.ds Dm  Feb 10 17:2
+.ds Xs 25633 3 xgetcontextidext.gl
+.TH GLXGETCONTEXTIDEXT
+.SH NAME
+glXGetContextIDEXT
+\- get the XID for a context.
+
+.SH C SPECIFICATION
+GLXContextID \f3glXGetContextIDEXT\fP(
+const GLXContext \fIctx\fP )
+.nf
+.fi
+
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+.TP \w'\f2ctx\fP\ \ 'u 
+\f2ctx\fP
+Specifies a GLX rendering context.
+
+.SH DESCRIPTION
+\f3glXGetContextIDEXT\fP returns the XID associated with a GLXContext.
+.P
+No round trip is forced to the server; unlike most X calls that
+return a value, \f3glXGetContextIDEXT\fP does not flush any pending events.
+.P
+\f3glXGetContextIDEXT\fP is part of the \f3EXT_import_context\fP extension,
+not part of the core GLX command set. If \f3GLX_EXT_import_context\fP
+is included in the string returned by \f3glXQueryExtensionsString\fP,
+when called with argument \f3GLX_EXTENSIONS\fP,
+extension \f3EXT_import_context\fP is supported.
+
+.SH ERRORS
+\f3GLXBadContext\fP is generated if \f2ctx\fP does not
+refer to a valid context.
+
+.SH SEE ALSO
+\f3glXCreateContext\fP,
+\f3glXQueryVersion\fP,
+\f3glXQueryExtensionsString\fP

@@ -1,0 +1,32 @@
+XCOMM $XFree86: xc/fonts/util/Imakefile,v 1.6 2002/11/15 02:33:09 dawes Exp $
+
+MAPFILES = \
+	map-ISO8859-1 map-ISO8859-2 map-ISO8859-3 map-ISO8859-4 map-ISO8859-5 \
+	map-ISO8859-7 map-ISO8859-8 map-ISO8859-9 map-ISO8859-10 \
+	map-ISO8859-11 map-ISO8859-13 map-ISO8859-14 map-ISO8859-15 \
+	map-ISO8859-16 map-JISX0201.1976-0 map-KOI8-R
+
+InstallMultipleFlags($(MAPFILES),$(FONTDIR)/util,$(INSTDATFLAGS))
+InstallNamedProg(ucs2any.pl,ucs2any,$(BINDIR))
+InstallManPage(ucs2any,$(MANDIR))
+InstallNamedProg(bdftruncate.pl,bdftruncate,$(BINDIR))
+InstallManPage(bdftruncate,$(MANDIR))
+
+LinkFile(map-ISO8859-1,8859-1.TXT)
+LinkFile(map-ISO8859-2,8859-2.TXT)
+LinkFile(map-ISO8859-3,8859-3.TXT)
+LinkFile(map-ISO8859-4,8859-4.TXT)
+LinkFile(map-ISO8859-5,8859-5.TXT)
+LinkFile(map-ISO8859-6,8859-6.TXT)
+LinkFile(map-ISO8859-7,8859-7.TXT)
+LinkFile(map-ISO8859-8,8859-8.TXT)
+LinkFile(map-ISO8859-9,8859-9.TXT)
+LinkFile(map-ISO8859-10,8859-10.TXT)
+LinkFile(map-ISO8859-11,8859-11.TXT)
+LinkFile(map-ISO8859-13,8859-13.TXT)
+LinkFile(map-ISO8859-14,8859-14.TXT)
+LinkFile(map-ISO8859-15,8859-15.TXT)
+LinkFile(map-ISO8859-16,8859-16.TXT)
+LinkFile(map-JISX0201.1976-0,JIS0201.TXT)
+LinkFile(map-KOI8-R,KOI8-R.TXT)
+

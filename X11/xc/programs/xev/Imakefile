@@ -1,0 +1,5 @@
+XCOMM $XConsortium: Imakefile,v 1.4 93/08/16 16:07:59 rws Exp $
+        DEPLIBS = $(DEPXONLYLIB)
+LOCAL_LIBRARIES = $(XONLYLIB)
+
+SimpleProgramTarget(xev)

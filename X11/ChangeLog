@@ -1,0 +1,2515 @@
+2003-09-12  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/X11Application.m: revert fix for
+	3363492 and add another check for RootlessKnowsWindowNumber ()
+	to fix the original bug (3420745)
+
+2003-09-10  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/bundle-main.c (sigchld_handler):
+	loop until no more zombies exist (3414442)
+
+2003-08-08  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/quartz.c,
+	xc/programs/Xserver/hw/apple/X11Application.m,
+	xc/programs/Xserver/hw/apple/X11Application.h: move calling
+	HideMenuBar and ShowMenuBar onto the main UI thread (3359753)
+
+	* xc/lib/GL/apple/dri_driver.h, xc/lib/GL/apple/dri_driver.c:
+	few more MT changes, be even more careful about when contexts
+	are updated
+
+2003-08-07  John Harper  <jsh@apple.com>
+
+	* xc/lib/GL/apple/dri_driver.h, xc/lib/GL/apple/dri_driver.c:
+	Large set of changes to make this code handle multiple threads
+	sanely. Changes include adding a mutex for each screen, and
+	only ever touching CGL contexts when we know they're bound to
+	the current thread or no thread. This involves patching gli
+	dispatch table to cause glViewport to call back into DRI code
+	so that contexts can be updated on their own thread. May be
+	occasions where glXSwapBuffers fails if no suitable context can
+	be found to issue the swap on (3340377) 
+
+	* xc/programs/Xserver/hw/apple/quartz.c: quartzServerVisible
+	variable needs to start out as false (3366845)
+
+2003-08-04  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/X11Application.m: move the call
+	to RootlessKnowsWindowNumber () into the event handler so that
+	we don't activate X on the broken menu-mouse-down event
+	(3363492)
+
+	* RELEASE-NOTES: updated to reflect that X11 is now part of the
+	OS and no longer a preview release (3361286)
+
+2003-07-29  John Harper  <jsh@apple.com>
+
+	* xc/lib/GL/glx/glxext.c (glXMakeCurrent): unlock display after
+	sending GLXMakeCurrent request when changing from indirect to
+	direct context (3351489, sent upstream via Torrey)
+
+2003-07-25  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/X11Application.m (sendEvent):
+	when in fullscreen mode, don't pass ApplicationDidReactivate
+	events through to AppKit (3341360)
+
+2003-07-23  John Harper  <jsh@apple.com>
+
+	* xc/lib/GL/apple/dri_dispatch.c (XAppleDRIGetIndirectContext):
+	make the context we allocate 1k bigger than we think it needs
+	to be, in case GL changes
+
+2003-07-22  John Harper  <jsh@apple.com>
+
+	* xc/lib/GL/apple/dri_dispatch.c (XAppleDRIGetIndirectContext):
+	allocate the CGLContext used for dispatch indirect rendering
+	ourselves, avoids ever needing to contact the window server
+	(3126715)
+
+2003-07-18  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/dri-surface.c: fixed use of
+	pixmap private index
+
+	* xc/programs/Xserver/hw/apple/quartz.c (QuartzSetFullscreen):
+	use xp_disable_hot_keys instead of CG spi (3221162)
+
+	* xc/programs/Xserver/hw/apple/rootless-screen.c,
+	xc/programs/Xserver/hw/apple/rootless-common.h,
+	xc/programs/Xserver/hw/apple/rootless-common.c: use
+	RootlessFinishedDrawing () to call new function
+	RootlessMayRedisplay (). After a certain amount of time since
+	the last update it will cause a flush (3270678)
+
+	* xc/programs/Xserver/hw/apple/rootless-screen.c: clean-up
+
+2003-07-17  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/rootless-window.c
+	(RootlessPaintWindowBackground): prevent trying to draw in
+	surfaces here
+
+	* xc/programs/Xserver/hw/apple/rootless-gc.c: call
+	RootlessFinishedDrawing at the end of each rendering primitive
+
+	* xc/programs/Xserver/hw/apple/rootless-common.h,
+	xc/programs/Xserver/hw/apple/rootless-common.c: use the
+	DRIStartDrawing functions etc to test if the drawable is a
+	surface.
+	(RootlessFinishedDrawing): new function, should be called after
+	drawing has finished
+
+	* xc/programs/Xserver/hw/apple/dristruct.h,
+	xc/programs/Xserver/hw/apple/dri-surface.h,
+	xc/programs/Xserver/hw/apple/dri-surface.c (DRIStartDrawing,
+	DRIStopDrawing, DRIDamageRegion, DRISynchronizeDrawable,
+	DRISynchronize): functions to support Xlib rendering on
+	accelerated surfaces. Only supported on 10.3, and they won't do
+	anything by default
+
+	* xc/programs/Xserver/hw/apple/dri-surface.c
+	(DRICreateSurface): support Pixmap drawables (3122756, 10.3
+	only)
+
+	* xc/programs/Xserver/hw/apple/dri-surface.c: removed check for
+	cg from SUJagGreen
+
+	* xc/programs/Xserver/GL/apple/indirect.c: support offscreen
+	drawables (by removing the code that stopped them being
+	supported, dri-surface.c does the real work) (3122756)
+
+	* xc/programs/Xserver/hw/apple/quartz.h,
+	xc/programs/Xserver/hw/apple/quartz.c,
+	xc/programs/Xserver/hw/apple/quartz-server.c,
+	xc/programs/Xserver/hw/apple/X11Application.m,
+	xc/programs/Xserver/hw/apple/X11Application.h: added xp_options
+	default, lets you pass extra init options to Xplugin
+
+	* xc/programs/Xserver/hw/apple/*: fixed gcc 3.3 warnings
+
+2003-07-16  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/x-list.c,
+	xc/programs/Xserver/hw/apple/x-list.h (x_list_pop): new
+	function
+
+	* xc/programs/Xserver/hw/apple/x-hash.c: fix gcc 3.3 warning
+
+2003-07-07  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/X11Application.m: don't pass
+	flags changed events to X11 when Appkit is active (3316333)
+
+2003-07-02  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/quartz.c (QuartzRunClient):
+	don't quote commands, it stops multi-word commands working
+
+	* xc/programs/Xserver/hw/apple/X11Controller.m: updated quit
+	alert text (3313133)
+
+	* xc/programs/Xserver/hw/apple/Xquartz.man: added more defaults
+
+	* xc/programs/Xserver/hw/apple/bundle-main.c (main): detach
+	from the controlling terminal when we have one (avoids bash
+	suspending the process when we try to launch problems!?)
+
+2003-06-24  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/applewm-impl.c
+	(ProcAppleWMSetWindowLevel): removed the code to call
+	xp_configure_window inline - it should have been removed when
+	the call to RootlessSetWindowLevel () was added!
+
+	* xc/programs/Xserver/hw/apple/quartz.c (QuartzSetFullscreen):
+	hide and show menubar when entering and leaving fullscreen
+	mode. Otherwise it steals our pointer events (3303080)
+
+2003-06-23  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/rootless-window.c: ensure that
+	window is unlocked before trying to configure/destroy it. Fixes
+	the problem where the root window can be left on top of
+	everything (3302694)
+
+2003-06-17  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/X11Controller.m (x11_help): open
+	Apple Help page, not X11 web page (3281002)
+
+2003-05-30  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/X11Controller.m,
+	xc/programs/Xserver/hw/apple/X11Controller.h,
+	xc/programs/Xserver/hw/apple/X11Application.m: changed rooted
+	mode UI per (#3221150)
+
+	* xc/programs/Xserver/hw/apple/English.lproj/main.nib/: changes
+	for above
+
+2003-05-27  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/rootless-window.c,
+	xc/programs/Xserver/hw/apple/quartz.c,
+	xc/programs/Xserver/hw/apple/darwin.c,
+	xc/programs/Xserver/hw/apple/applewmstr.h,
+	xc/programs/Xserver/hw/apple/applewm.h,
+	xc/programs/Xserver/hw/apple/applewm.c,
+	xc/programs/Xserver/hw/apple/applewm-impl.c,
+	xc/programs/Xserver/hw/apple/appledri.c,
+	xc/programs/Xserver/hw/apple/X11Controller.m,
+	xc/programs/Xserver/hw/apple/X11Application.m,
+	xc/programs/Xserver/hw/apple/Imakefile: implement and use new
+	Apple-WM extension for window manager interfacing
+
+	* xc/lib/GL/apple/appledristr.h, xc/lib/GL/apple/appledri.h,
+	xc/lib/GL/apple/appledri.c: removed all window-manager related
+	extensions
+
+2003-05-19  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/bundle-main.c: use getifaddrs ()
+	instead of gethostbyname (hostname) so that we get all AF_INET
+	addresses used by the system. Also, after receiving the
+	"something may have changed" notification, delay one second
+	before updating .Xauthority (I was seeing the wrong addresses
+	otherwise..)
+
+2003-05-16  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/English.lproj/InfoPlist.strings:
+	fixed typo in copyright string (#3260643)
+
+2003-05-14  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/bundle-main.c: clean-up
+
+2003-05-13  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/bundle-main.c: use SIGCHLD to
+	catch client/server deaths (do the reaping inside the signal
+	handler since it's safe and easiest, longjmp back to main ()
+	when both processes are dead). Use SystemConfiguration
+	framework to create a runloop source to tell us when either a
+	local ip address or hostname changes, in the callback for this,
+	delete old Xauthority entries and install new ones reflecting
+	the current configuration. All this should fix #3141699
+
+	* xc/programs/Xserver/hw/apple/X11.pbproj/project.pbxproj: link
+	X11.app against SystemConfiguration.framework
+
+2003-05-12  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/quartz-cursor.c,
+	xc/programs/Xserver/hw/apple/darwin.h,
+	xc/programs/Xserver/hw/apple/darwin.c: revised last change -
+	now install a new function DarwinEnqueuePointerEvent in the mi
+	screen funcs table. This just calls the pointer device. Then
+	remove the call to the pointer device from ProcessInputEvents
+
+	* xc/programs/Xserver/hw/apple/quartz-cursor.c: install
+	DarwinEnqueueEvent in the mipointer screen functions table.
+	This makes warping the pointer generate events correctly
+
+2003-05-09  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/bundle-main.c: added code to
+	dynamically choose an unused display number for the server
+	(#3253935). It works, though there is a race condition in the
+	unlikely event that two servers are started roughly
+	simultaneously..
+
+2003-05-08  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/English.lproj/main.nib/: added
+	"Next Window" and "Previous Window" menuitems (similar to in
+	Terminal.app)
+
+	* xc/programs/Xserver/hw/apple/X11Controller.m (next_window,
+	previous_window): new methods
+
+	* xc/lib/GL/apple/appledri.h (AppleDRINextWindow,
+	AppleDRIPreviousWindow): added
+
+	* xc/programs/Xserver/hw/apple/X11Controller.m,
+	xc/programs/Xserver/hw/apple/X11Application.m: don't crash
+	while updating window menu when some items don't have shortcuts
+	associated with them (#3210884)
+
+2003-05-07  John Harper  <jsh@apple.com>
+
+	Fixed some issues with fullscreen mode:
+
+	* xc/programs/Xserver/hw/apple/quartz.c (QuartzSetFullscreen,
+	QuartzSetRootless): disable updates while frobbing windows.
+	Also, only call QuartzUpdateScreens () if windows are left
+	visible
+
+	* xc/programs/Xserver/hw/apple/rootless-window.c: be sure to
+	remove the _NATIVE_SCREEN_ID property from windows that have no
+	physical window
+
+	* xc/programs/Xserver/hw/apple/quartz.c (QuartzAddScreen): be
+	more selective about when to remove the menubar from the
+	screen/head shapes
+
+2003-05-06  John Harper  <jsh@apple.com>
+
+	* xc/extras/freetype2/src/base/ftmac.c: merged double free fix
+	from www.freetype.org/pipermail/devel/2003-April/009062.html,
+	fixes #3246069
+
+2003-04-30  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/quartz.c
+	(addPseudoramiXScreens): start from null rect not zero rect
+	when creating screen bounds (patch from Torrey Lyons)
+
+	* xc/programs/Xserver/hw/apple/quartz.c (do_exec): force stdin
+	to /dev/null
+
+2003-04-29  John Harper  <jsh@apple.com>
+
+	Work to support key equivalents in applications menu
+	(#3132993):
+
+	* xc/programs/Xserver/hw/apple/X11Controller.m,
+	xc/programs/Xserver/hw/apple/X11Application.m: changed
+	apps-menu array format from [TITLE CMD TITLE CMD ...] to
+	[[TITLE CMD SHORTCUT] ...]. Added code to edit and use the
+	shortcuts, and to convert from the old format when necessary
+
+	* xc/programs/Xserver/hw/apple/English.lproj/main.nib/: added
+	third column to applications table
+
+2003-04-29  John Harper  <jsh@apple.com>
+
+	Work to add numeric window menu shortcuts to match the rest of
+	the system:
+
+	* xc/programs/Xserver/hw/apple/appledri.c,
+	xc/programs/Xserver/hw/apple/X11Controller.m,
+	xc/programs/Xserver/hw/apple/X11Application.m,
+	xc/programs/Xserver/hw/apple/X11Application.h: setting window
+	menu can now specify numeric shortcuts for each window
+
+	* xc/lib/GL/apple/appledri.c, xc/lib/GL/apple/appledri.h
+	(XAppleDRISetWindowMenuWithShortcuts): new function
+
+2003-04-23  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/bundle-main.c (define_named):
+	check for null h_addr before trying to copy it (may fix
+	#3231372)
+
+2003-04-18  John Harper  <jsh@apple.com>
+
+	* xc/lib/X11/lcPrTxt.c (_XTextPropertyToTextList): fixed double
+	allocation bug (already fixed in xc HEAD)
+
+	* xc/programs/Xserver/hw/apple/bundle-main.c (make_auth_keys):
+	free the display number before returning (#3232717)
+
+2003-04-17  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/x-list.c (x_list_free_1,
+	x_list_prepend): made the x-list allocator thread-safe
+
+	* xc/programs/Xserver/hw/apple/quartz.c (QuartzRunClient):
+	launch programs using "$SHELL -i -c 'PROG'" instead of "sh -c
+	PROG". This way we will load the user's environment before
+	invoking the program (meaning that e.g. fink-installed programs
+	can be put in the applications menu without their full paths)
+
+	* xc/programs/Xserver/hw/apple/darwin.c,
+	xc/programs/Xserver/hw/apple/X11Controller.m,
+	xc/programs/Xserver/hw/apple/X11Controller.h,
+	xc/programs/Xserver/hw/apple/X11Application.m,
+	xc/programs/Xserver/hw/apple/X11Application.h: when asked to
+	launch programs before the X server has finished initializing
+	itself, push the request on a queue until the X server is ready
+
+2003-04-16  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/darwin.h,
+	xc/programs/Xserver/hw/apple/darwin.c,
+	xc/programs/Xserver/hw/apple/darwin-keyboard.c,
+	xc/programs/Xserver/hw/apple/Xquartz.man,
+	xc/programs/Xserver/hw/apple/X11Application.h: added
+	-swapAltMeta option and swap_alt_meta default. When true, the
+	meaning of the Alt and Meta modifier keys are swapped
+	(#3201071)
+
+	* xc/programs/Xserver/hw/apple/X11Controller.m: removed
+	hardcoded default applications menu
+
+	* xc/programs/Xserver/hw/apple/X11Application.m (prefs_get):
+	new method for looking up preferences. If the given key doesn't
+	exist in the user's plist, look in /etc/X11/xserver/Xquartz.plist
+
+	* xc/programs/Xserver/hw/apple/X11Application.m: removed
+	BETA_VERSION_HACK
+
+2003-04-15  John Harper  <jsh@apple.com>
+
+	* xc/lib/GL/apple/dri_driver.c (XAppleDRIUseIndirectDispatch),
+	* xc/lib/GL/apple/dri_dispatch.c (XAppleDRIGetIndirectContext):
+	marked as __private_extern__
+
+	* xc/programs/Xserver/hw/apple/x-list.h,
+	xc/programs/Xserver/hw/apple/x-list.c,
+	xc/programs/Xserver/hw/apple/x-hook.h,
+	xc/programs/Xserver/hw/apple/x-hook.c,
+	xc/programs/Xserver/hw/apple/x-hash.h,
+	xc/programs/Xserver/hw/apple/x-hash.c: all exported symbols are
+	now __private_extern__ to avoid polluting global namespace
+
+2003-04-14  John Harper  <jsh@apple.com>
+
+	Work to fix #3157501 (X11.app presents quit warning even when
+	all windows closed):
+
+	* xc/programs/Xserver/hw/apple/X11Controller.m,
+	xc/programs/Xserver/hw/apple/X11Controller.h (set_can_quit):
+	new method. Value used by applicationShouldTerminate to decide
+	whether to put up a dialog or not
+
+	* xc/programs/Xserver/hw/apple/X11Application.m,
+	xc/programs/Xserver/hw/apple/X11Application.h
+	(X11ApplicationSetCanQuit): new function
+
+	* xc/programs/Xserver/hw/apple/appledri.c: implemented
+	AppleDRISetCanQuit
+
+	* xc/lib/GL/apple/appledristr.h, xc/lib/GL/apple/appledri.h,
+	xc/lib/GL/apple/appledri.c: new extension function
+	AppleDRISetCanQuit
+
+2003-04-11  John Harper  <jsh@apple.com>
+
+	* xc/lib/GL/apple/appledri.h: removed #if
+	NeedFunctionPrototypes junk
+
+	* xc/programs/Xserver/hw/apple/Imakefile: #3227677, install
+	X11.app in /Applications/Utilities, not /Applications
+
+2003-04-11  John Harper  <jsh@apple.com>
+
+	Made display-changes work better: (#3210250, #3159228)
+
+	* xc/programs/Xserver/hw/apple/rootless-window.c
+	(RootlessResizeWindow): when resizing the root window, don't
+	call down to the next ResizeWindow function. The mi/dix code
+	isn't able to resize the root window so it just returns
+	immediately. So we'll "resize" the root ourselves by updating
+	its bounds and the various regions..
+
+	* xc/programs/Xserver/hw/apple/quartz.c (QuartzUpdateScreens):
+	after resizing the root paint its background
+
+2003-04-10  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/X11Controller.m,
+	xc/programs/Xserver/hw/apple/X11Controller.h: don't try to
+	launch anything until we've finished launching - avoids trying
+	to launch the display number..
+
+	* xc/programs/Xserver/hw/apple/quartz.c,
+	xc/programs/Xserver/hw/apple/quartz.h,
+	xc/programs/Xserver/hw/apple/rootless-screen.c,
+	xc/programs/Xserver/hw/apple/bundle-main.c,
+	xc/programs/Xserver/hw/apple/X11.pbproj/project.pbxproj:
+
+	Moved all xinit code out of the X server and into the launcher
+	process where it belongs. Also, by default we now SIGTERM the X
+	server when the xinitrc script exits (typically this is when
+	the window manager exits). This is the standard xinit
+	behaviour. To get the old behaviour (not killing the server),
+	do "defaults write com.apple.x11 xinit_kills_server -boolean
+	false". This should fix #3145038
+
+2003-04-09  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/X11.pbproj/project.pbxproj:
+	claim the .x11app file extension
+
+	* xc/programs/Xserver/hw/apple/X11Controller.m: implemented
+	application:openFile: delegate method
+
+2003-04-07  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/rootless.h,
+	xc/programs/Xserver/hw/apple/rootless-window.c,
+	xc/programs/Xserver/hw/apple/rootless-screen.c,
+	xc/programs/Xserver/hw/apple/rootless-common.h,
+	xc/programs/Xserver/hw/apple/quartz.h,
+	xc/programs/Xserver/hw/apple/quartz.c,
+	xc/programs/Xserver/hw/apple/appledri.c,
+	xc/programs/Xserver/hw/apple/X11Controller.m,
+	xc/programs/Xserver/hw/apple/X11Controller.h,
+	xc/programs/Xserver/hw/apple/X11Application.m,
+	xc/programs/Xserver/hw/apple/X11Application.h: added support
+	for "rooted" operation (by ordering-in a root window beneath
+	all other X windows and using high window levels so no other
+	windows are visible). It's also possible to enable and disable
+	"rootless" operation
+
+	* xc/programs/Xserver/hw/apple/English.lproj/main.nib/: added
+	"View" menu with "Toggle Root" and "Enable Rootless" items
+
+2003-04-03  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/rootless-gc.c: only skip drawing
+	on root if it has no RootlessWindowRec structure
+
+	* xc/programs/Xserver/hw/apple/quartz-cursor.h,
+	xc/programs/Xserver/hw/apple/quartz-cursor.c
+	(QuartzIgnoreNextWarpCursor): new function
+
+	* xc/lib/GL/apple/appledri.h: define a fixed set of window
+	levels by id, not by value
+
+2003-03-28  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/rootless-window.c
+	(RootlessReorderWindow): if _APPLE_NO_ORDER_IN property is set
+	on the window, don't do anything
+
+2003-03-28  John Harper  <jsh@apple.com>
+
+	* xc/lib/GL/mesa/src/OSmesa/Imakefile: added $(XLIB) to
+	REQUIREDLIBS. This is needed to successfully link before libX11
+	is installed in /usr/X11R6
+
+2003-03-27  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/English.lproj/main.nib/: added
+	"256 colors" mode to depth control
+
+	* xc/programs/Xserver/hw/apple/darwin.c (DarwinAddScreen):
+	disable mixed truecolor/pseudocolor until I can work out how to
+	make it work when pc subwindows are inside tc top-level windows
+
+2003-03-14  John Harper  <jsh@apple.com>
+
+	* merged changes from XFree86 4.3.0. Change to disable hinting
+	has been lost, so we'll need to look at that..
+
+2003-03-17  John Harper  <jsh@apple.com>
+
+	* Released: third public beta (0.3)
+
+2003-03-10  John Harper  <jsh@apple.com>
+
+	* xc/lib/GL/apple/dri_driver.c (driCreatePixelFormat): don't
+	disable direct rendering if any pixel format can't be created,
+	only if all formats fail. This avoids disabling DRI when we
+	have a single non-rgba visual (doh)
+
+2003-03-07  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/x-list.c (list_sort_1): couple
+	of minor tweaks
+
+2003-03-06  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/X11Application.m: added hack to
+	replace "0." by "Beta" in version string in about panel
+
+2003-03-04  John Harper  <jsh@apple.com>
+
+	* xc/config/imake/imakemdep.h: add -traditional to cpp_argv on
+	__APPLE__ systems (fixes build breakage)
+
+2003-03-03  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/appledri.c
+	(ProcAppleDRISetWindowLevel): made this actually work
+
+	* xc/programs/Xserver/hw/apple/x-list.c,
+	xc/programs/Xserver/hw/apple/x-list.h (x_list_filter,
+	x_list_map): two new functions
+
+	* xc/programs/Xserver/hw/apple/x-list.c,
+	xc/programs/Xserver/hw/apple/x-list.h (x_list_sort): new
+	function, a destructive list sort (it uses merge sort, and so
+	is stable)
+
+2003-03-03  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/appledri.c,
+	xc/lib/GL/apple/appledristr.h, xc/lib/GL/apple/appledri.h,
+	xc/lib/GL/apple/appledri.c: added SetWindowLevel extension
+
+2003-03-03  John Harper  <jsh@apple.com>
+
+	Work to support eight-bit PseudoColor visuals concurrently with
+	existing TrueColor visuals. Fixes #3146168:
+
+	* xc/programs/Xserver/render/picture.c
+	(PictureCreateDefaultFormats): fixed bugs when creating
+	pseudocolor formats with large visual ids. Patch sent to Keith
+	Packard..
+
+	* xc/programs/Xserver/GL/apple/indirect.c (init_visuals): don't
+	delete non-rgb visuals. Instead just pass them through with a
+	null glX config
+
+	* xc/programs/Xserver/hw/apple/rootless-window.c: support
+	indexed windows
+
+	* xc/programs/Xserver/hw/apple/rootless-window.c
+	(RootlessFlushWindowColormap): new function
+
+	* xc/programs/Xserver/hw/apple/rootless-screen.c: wrap colormap
+	functions so we know when to update indexed windows
+
+	* xc/programs/Xserver/hw/apple/rootless-common.c
+	(RootlessDamageRegion): intersect reported region with the clip
+	of the window being drawn in. Now that xp may use client side
+	backing stores we shouldn't report modifying something that we
+	didn't actually draw in
+
+	* xc/programs/Xserver/hw/apple/rootless-common.c
+	(RootlessFlushScreenColormaps, RootlessResolveColormap): new
+	functions
+
+	* xc/programs/Xserver/hw/apple/darwin.c (DarwinAddScreen):
+	always add an eight bit PseudoColor visual
+
+	* xc/programs/Xserver/hw/apple/quartz.c (QuartzAddScreen):
+	added support for -depth 8
+
+2003-02-27  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/rootless-window.c
+	(FinishFrameResize): removed unused code
+
+2003-02-26  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/English.lproj/main.nib/: removed
+	AboutPanel, About menu item is now connected to NSApp
+	orderFrontStandardAboutPanel method
+
+	* xc/programs/Xserver/hw/apple/X11.pbproj/project.pbxproj:
+	removed CFBundleVersion string - it appeared in the About
+	panel, but was redundant. Perhaps we can use a build version.
+	Also added a NSHumanReadableCopyright string
+
+	* xc/programs/Xserver/hw/apple/X11Application.m: override
+	orderFrontStandardAboutPanel so it can create a dictionary with
+	some custom strings
+
+2003-02-25  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/English.lproj/InfoPlist.strings, 
+	* xc/programs/Xserver/hw/apple/X11.pbproj/project.pbxproj: 
+
+	bumped version to 0.3
+
+2003-02-24  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/bundle-main.c (main): fixed
+	logic that decides the exit value
+
+	* xc/programs/Xserver/hw/apple/darwin-keyboard.c
+	(DarwinKeyboardInit): load the keyboard layout seed at startup
+	to make sure it's initialized
+
+2003-02-21  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/darwin-new-keymap.c
+	(DarwinReadSystemKeymap): fixed dead key detection in KCHR
+	mode. Need to translate key down event to find if it's dead or
+	not, and if so then translate the up event to find the actual
+	character. Fixes #3172997
+
+	* xc/programs/Xserver/hw/apple/English.lproj/main.nib/:
+	connected Command-Q to quit and Command-, to preferences
+
+	* xc/programs/Xserver/hw/apple/X11Controller.m
+	(applicationShouldTerminate): before displaying the alert,
+	activate the application. Fixes #3177855
+
+2003-02-20  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/rootless-screen.c
+	(RootlessGetImage): clip input rect to bounds of the relevant
+	top-level window (XGetImage manpage states that anything
+	outside the visible region is undefined. Fixes #3177623 crash
+
+	* xc/config/cf/darwin.cf: changed APPLE_XP_ macro names to
+	XPLUGIN_, removed _INCDIR macro, replaced by XPLUGIN_INCLUDE
+	macro
+
+	* Makefile, xc/config/cf/darwinLib.tmpl,
+	xc/lib/GL/GL/Imakefile, xc/lib/GL/apple/Imakefile,
+	xc/lib/GL/apple/dri_driver.h, xc/programs/Xserver/Imakefile,
+	xc/programs/Xserver/GL/apple/Imakefile,
+	xc/programs/Xserver/fb/Imakefile,
+	xc/programs/Xserver/fb/fbblt.c,
+	xc/programs/Xserver/fb/fbpict.c,
+	xc/programs/Xserver/fb/fbsolid.c,
+	xc/programs/Xserver/hw/apple/Imakefile,
+	xc/programs/Xserver/hw/apple/dri-surface.h,
+	xc/programs/Xserver/hw/apple/quartz-cursor.c,
+	xc/programs/Xserver/hw/apple/quartz-server.c,
+	xc/programs/Xserver/hw/apple/rootless-window.c,
+	xc/programs/Xserver/hw/apple/rootless.h: updated for Xplugin
+	name changes
+
+2003-02-19  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/rootless-window.c,
+	xc/programs/Xserver/hw/apple/rootless-common.c: updated for xp
+	changes
+
+	* xc/programs/Xserver/fb/fbpict.c,
+	xc/programs/Xserver/fb/fbblt.c: changes for new xp compositing
+	code
+
+2003-02-18  John Harper  <jsh@apple.com>
+
+	* xc/lib/GL/apple/dri_driver.h, xc/lib/GL/apple/dri_driver.c:
+	added a "destroyed" bit to the drawable private data, it gets
+	set in the garbage collection function when we know the
+	drawable has gone. Then when destroying the drawable, only tell
+	the X server to destroy the physical surface if we don't think
+	it's already been destroyed. This avoids the dri client getting
+	an error (and aborting) when the X server can't find the window
+
+	* xc/lib/GL/apple/appledristr.h, xc/lib/GL/apple/appledri.h,
+	xc/lib/GL/apple/appledri.c: added a new request
+	AppleDRISetFrontProcess that brings the X server frontmost
+
+	* xc/programs/Xserver/hw/apple/appledri.c,
+	xc/programs/Xserver/hw/apple/X11Application.m,
+	xc/programs/Xserver/hw/apple/X11Application.h: implement
+	AppleDRISetFrontProcess
+
+	* xc/programs/Xserver/hw/apple/darwin.c (ProcessInputEvents):
+	moved fake button code (back) inline to this function. Split
+	the press and release parts apart so that we get the correct
+	event ordering (mod-release, button-press, button-release,
+	mod-press), #3174622. Also, don't generate the mod-press if it
+	was already physically released
+
+2003-02-17  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/rootless.h,
+	xc/programs/Xserver/hw/apple/rootless-screen.c,
+	xc/programs/Xserver/hw/apple/rootless-common.h,
+	xc/programs/Xserver/hw/apple/quartz.c:
+
+	don't let mi create the screen pixmap - it leaves us with an
+	incorrectly sized pixmap with an uninitialized data pointer!
+
+	Instead wrap CreateScreenResources and setup our own pixmap to
+	be a piece of memory the width of the screen with zero
+	rowbytes. Update this whenever the screen dimensions change.
+	Fixes #3170754
+
+	* xc/programs/Xserver/hw/apple/quartz-cursor.c
+	(QuartzWarpCursor): add in offset of given screen. Fixes
+	#3174914
+
+	* xc/programs/Xserver/fb/fbblt.c (fbBlt): when calling
+	xp_copy_bytes find the byte addresses of the src and dest, not
+	the word addresses. Fixes #3174305
+	* xc/programs/Xserver/fb/fbsolid.c (fbSolid): similar change
+
+	* xc/lib/GL/apple/dri_dispatch.h,
+	xc/lib/GL/apple/dri_dispatch.defs: added more aliases, we
+	should have all gl prefixed in XFree86 4.2 libGL now
+
+	* xc/lib/GL/apple/build-dispatch: output both internal entry
+	points and aliases for each item if necessary
+
+2003-02-14  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/rootless-window.c,
+	xc/programs/Xserver/hw/apple/rootless-common.c,
+	xc/programs/Xserver/hw/apple/quartz-server.c,
+	xc/programs/Xserver/hw/apple/quartz-cursor.c,
+	xc/programs/Xserver/hw/apple/appledri.c,
+	xc/programs/Xserver/GL/apple/indirect.c,
+	xc/lib/GL/apple/dri_driver.c: updated for xp renaming
+
+2003-02-13  John Harper  <jsh@apple.com>
+
+	* xc/lib/GL/apple/dri_dispatch.h,
+	xc/lib/GL/apple/dri_dispatch.defs (BindTextureEXT,
+	DeleteTexturesEXT): added aliases for these entry-points
+
+	* xc/lib/GL/apple/build-dispatch (strip-args): handle things
+	like "void *foo" where the '*' is immediately next to the
+	parameter name
+
+2003-02-12  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/quartz-server.c,
+	xc/programs/Xserver/hw/apple/X11Controller.m,
+	xc/programs/Xserver/hw/apple/X11Controller.h,
+	xc/programs/Xserver/hw/apple/X11Application.m,
+	xc/programs/Xserver/hw/apple/X11Application.h:
+
+	fixed termination behaviour. X11ApplicationMain and
+	X11ControllerMain no longer return, the NSApp delegate defines
+	applicationWillTerminate and does everything in there (messages
+	the X server thread to exit, then exits itself after ten
+	seconds)
+
+2003-02-11  John Harper  <jsh@apple.com>
+
+	* xc/lib/GL/apple/dri_dispatch.defs,
+	xc/lib/GL/apple/dri_dispatch.h (GetColorTableEXT,
+	GetColorTableParameterivEXT, GetColorTableParameterfvEXT):
+	commented out the definitions causing aliases to be created --
+	OpenGL.framework does define stubs for these functions, even
+	though it doesn't have dispatch table slots for them, so we
+	were shadowing their symbols causing (harmless) compiler
+	warnings
+
+2003-02-11  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/keysym2ucs.c: removed mapping
+	from keysym 0x13a4 to Unicode 0x20ac (EuroSign). As far as I
+	can tell there is no keysym 0x13a4, and it blocks the working
+	identity mapping in the reversed table
+
+	* xc/programs/Xserver/hw/apple/darwin.c (GetTimeInMillis):
+	implement this locally using Microseconds (). Avoids a kernel
+	trap to gettimeofday () for every input event we process. Note
+	that this is currently using microseconds / 1024, not 1000, so
+	we have a 2% error, but it should be good enough..
+
+	* xc/config/cf/darwin.cf: added -DDDXTIME to ServerExtraDefines
+
+2003-02-10  John Harper  <jsh@apple.com>
+
+	* Released: second public beta
+
+2003-02-04  John Harper  <jsh@apple.com>
+
+	* xc/cf/config/darwinLib.rules: added -seg_addr_table_filename
+	ld options specifying the installed location of the library
+	file (since it differs from the -install_name of the library,
+	which means prebinding doesn't work)
+
+2003-02-03  John Harper  <jsh@apple.com>
+
+	* xc/lib/GL/apple/build-dispatch,
+	xc/lib/GL/apple/dri_dispatch.defs: each entry can only have one
+	alias. If a function which doesn't have a CGL vector has an
+	alias, don't generate an EXTERN stub
+
+	* xc/lib/GL/apple/dri_dispatch.h,
+	xc/lib/GL/apple/dri_dispatch.defs: don't have any duplicate
+	entries in generated dri_dispatch.h (i.e. only set each element
+	in the CGL dispatch table zero or one times). Generate aliases
+	for the functions we were adding incorrectly
+
+	* xc/config/cf/darwinLib.tmpl: link libXfont using
+	-flat_namespace since its interface relies on clients being
+	able to override some of the functions it defines (similar to
+	the problem libXt). Pointed out by Torrey Lyons in email
+
+	* xc/programs/Xserver/hw/apple/Xquartz.man: described some more
+	options (and defaults)
+
+2003-01-31  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/English.lproj/main.nib/: text
+	changes in prefs panel
+
+	* xc/programs/Xserver/hw/apple/darwin.h,
+	xc/programs/Xserver/hw/apple/darwin.c,
+	xc/programs/Xserver/hw/apple/X11Application.m,
+	xc/programs/Xserver/hw/apple/X11Application.h: added defaults
+	for fake buttons modifier strings: fake_button2 and
+	fake_button3
+
+	* xc/programs/Xserver/hw/apple/darwin-keyboard.c: deleted some
+	NX key/modifier translation functions that are no longer used
+
+	* xc/programs/Xserver/hw/apple/darwin.c
+	(DarwinForeachLibraryFile): deleted
+
+	* xc/programs/Xserver/hw/apple/English.lproj/main.nib/: fixed
+	some typos in prefs panel
+
+2003-01-30  John Harper  <jsh@apple.com>
+
+	* xc/lib/X11/lcSjis.c, xc/lib/X11/lcJis.c, xc/lib/X11/lcEuc.c:
+	merged changes between XFree86 4.2.1.1 and HEAD. (The changes
+	that Toshimitsu Tanaka asked us to add in #3144505.) May allow
+	Japanese X11 input methods to work correctly
+
+	* xc/programs/Xserver/hw/apple/darwin.c: maintain a bitmap of
+	which keys we've told X are currently down. Use this to release
+	all non-modifier keys when X becomes inactive. Also use it to
+	keep X's and system's modifiers in sync (I had seen Caps-Lock
+	get out of sync in some circumstances with old code)
+
+	* xc/programs/Xserver/hw/apple/X11Application.m: removed
+	"saw_key_down" hack
+
+	* xc/programs/Xserver/fb/fbwindow.c,
+	xc/programs/Xserver/fb/fbfill.c,
+	xc/programs/Xserver/hw/rootless-window.c: applied Torrey's
+	patch to support x/y offsets with fbTile ()
+
+2003-01-29  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/English.lproj/InfoPlist.strings:
+	bumped version number
+
+2003-01-28  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/X11Controller.m
+	(applicationShouldTerminate): implement the NSApplication
+	delegate method. Put up an alert panel (unless no_quit_alert
+	default is true)
+
+	* xc/programs/Xserver/hw/apple/English.lproj/main.nib/: removed
+	Quit and RunProgram panels; set window auto-save names
+
+	* xc/programs/Xserver/hw/apple/X11Application.m,
+	xc/programs/Xserver/hw/apple/X11Application.h: when run for the
+	first time, check for a ~/.xinitrc file. If one exists, ask if
+	the user would like to move it aside allowing the standard
+	script to run. Fixes #3154871
+
+	* xc/programs/Xserver/hw/apple/quartz.c (xinit_callback): if
+	user has no .xinitrc, look for xinitrc in usr/X11R6/lib/xinit
+	before falling back to hardcoded programs
+
+	* xc/programs/Xserver/hw/apple/rootless-common.h,
+	xc/programs/Xserver/hw/apple/rootless-common.c:
+	SetPixmapBaseToScreen macro is now a function called
+	TranslatePixmapBase, and the meaning of the x,y arguments have
+	been negated. It also ensures 32-bit alignment of the pixmap by
+	adjusting the pointer and drawable x position as required
+
+	* xc/programs/Xserver/hw/apple/rootless-window.c: updated
+	callers of SetPixmapBaseToScreen
+
+	* xc/programs/Xserver/fb/fb.h: removed my __fbAlignBaseAddress
+	change. Use Torrey's method of enabling __fbPixOriginX and
+	fixing the alignment in the rootless code
+
+	* xc/programs/Xserver/fb/fbfill.c (fbFill): applied Torrey's
+	patch to include src[XY]off
+
+2003-01-27  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/rootless-screen.c
+	(RootlessGetImage): don't crash in fbBlt () when trying to
+	GetImage from a window that has no underlying data (e.g. the
+	root). Fixes #3147209
+
+	Work to fix #3144995 (CodeTek virtual desktop moves windows
+	without X realizing):
+
+	* xc/programs/Xserver/hw/apple/rootless-window.c,
+	xc/programs/Xserver/hw/apple/quartz.h,
+	xc/programs/Xserver/hw/apple/quartz.c,
+	xc/programs/Xserver/hw/apple/quartz-server.c: added code to
+	listen for WINDOW_MOVED events and respond by updating X's idea
+	of where the window is. Be sure never to actually move the
+	physical window in response to a WINDOW_MOVED event
+
+2003-01-27  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/bundle-main.c (main): scan argv
+	for the :N display number instead of assuming we always use
+	display :0
+
+2003-01-24  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/darwin.c (ProcessInputEvents):
+	also check for keymap update on flags-changed events
+
+	* xc/programs/Xserver/hw/apple/darwin-new-keymap.c
+	(DarwinReadSystemKeymap): when reading kchr data, only try
+	first 128 keycodes
+
+	* xc/programs/Xserver/hw/apple/darwin-new-keymap.c
+	(DarwinReadSystemKeymap): added code to recognize dead keys and
+	translate them to their dead_foo keysym
+
+	* xc/programs/Xserver/hw/apple/X11Application.m (activateX):
+	create a TSM document that supports full Unicode input, and
+	have it activated while X is active (unless using the old
+	keymapping files). Fixes the problem that the input menu only
+	displays "western-ish" scripts while X is active. Tested by
+	selecting Arabic and checking the keymap using xmodmap,
+	everything looked sane
+
+	* xc/programs/Xserver/hw/apple/darwin-new-keymap.c
+	(DarwinReadSystemKeymap): realized that when using KeyTranslate
+	to read kchr resources the returned character is in MacRoman
+	encoding, so need to convert it to Unicode. This makes French
+	character input exactly match what KeyCaps says it should be
+
+	* xc/programs/Xserver/hw/apple/X11Application.m (sendEvent): 
+	changed how app-activate events are handled. Now we never send
+	them to appkit or X, but activate X unconditionally and set
+	NSApp's bit telling it it's active
+
+	* xc/programs/Xserver/hw/apple/English.lproj/main.nib/:
+	reconnect the hide/unhide menu items to their standard outlets.
+	Mark X11Controller as the delegate of NSApp
+
+	* xc/programs/Xserver/hw/apple/X11Controller.m: when modifying
+	the window menu, replicate all changes in the dock menu
+
+	* xc/programs/Xserver/hw/apple/X11Controller.m: removed hide
+	and unhide methods, use the standard NSApplication methods now.
+	Implement applicationDidHide and applicationDidUnhide methods
+	to message the wm. Fixes all known issues regarding hiding and
+	showing (and clicking on the dock icon)
+
+2003-01-23  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/X11Controller.m (x11_help): new
+	method, opens http://www.apple.com/macosx/x11/
+
+	* xc/programs/Xserver/hw/apple/English.lproj/main.nib/: added
+	"Help/X11 Help" menu item
+
+	* xc/programs/Xserver/hw/apple/quartz-server.c,
+	xc/programs/Xserver/hw/apple/X11Controller.m,
+	xc/programs/Xserver/hw/apple/X11Controller.h,
+	xc/programs/Xserver/hw/apple/X11Application.m,
+	xc/programs/Xserver/hw/apple/X11Application.h: added code to
+	handle three new UI preferences: xauth/no-tcp options and color
+	depth
+
+	* xc/programs/Xserver/hw/apple/English.lproj/main.nib/: added
+	above mentioned UI items. (Also split the panel into three tabs
+	to accomodate them: Input, Output and Security)
+
+	* xc/programs/Xserver/hw/apple/appledri.c
+	(ProcAppleDRICreateSurface, surface_notify): pass the client
+	index to the callback, not the pointer. This allows us to be
+	safer in the callback, testing if the client still exists. We
+	also check for the clientGone bit being set, and if so, don't
+	send any events. #3154751
+
+2003-01-22  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/X11Application.m (send_nsevent):
+	ignore any key repeat or key release events unless we saw a
+	matching key down first. (Fixes the problem where using
+	Command-Q to quit an application can result in "q" events being
+	generated by X if it becomes frontmost)
+	
+2003-01-22  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/darwin-new-keymap.c
+	(DarwinSystemKeymapSeed): fixed a stupid bug which meant this
+	returned a new seed each time
+
+	* xc/programs/Xserver/hw/apple/darwin-new-keymap.c
+	(DarwinReadSystemKeymap): in KeyTranslate case, mask out all
+	but the bottom eight bits of the returned value
+
+	* xc/programs/Xserver/hw/apple/X11Application.m: added hidden
+	"depth" default to control X server color depth
+
+2003-01-21  John Harper  <jsh@apple.com>
+
+	Work to make X11 keymap follow the system keymap. Removed the
+	UI keymap item I'd added last week:
+
+	* xc/programs/Xserver/hw/apple/X11Controller.m,
+	xc/programs/Xserver/hw/apple/X11Controller.h,
+	xc/programs/Xserver/hw/apple/X11Application.m,
+	xc/programs/Xserver/hw/apple/X11Application.h: added code for
+	new sync_keymap option
+
+	* xc/programs/Xserver/hw/apple/English.lproj/main.nib/: added
+	sync_keymap checkbox
+
+	* xc/programs/Xserver/hw/apple/darwin.c: added -synckeymap and
+	+synckeymap command line options
+	(ProcessInputEvents): when needed, check if the system keymap
+	has changed each unmodified KeyPress event, and reload it if it
+	has
+
+	* xc/programs/Xserver/hw/apple/darwin-keyboard.h,
+	xc/programs/Xserver/hw/apple/darwin-keyboard.c: this now just
+	chooses whether to use an old style .keymapping file (only if
+	the user default "keymap_file" is set) or to read the system
+	keymap. Also added code to reload the keymap when requested and
+	to build the needed modifier tables from the keymap
+
+	* xc/programs/Xserver/hw/apple/darwin-new-keymap.c: new code to
+	convert the current system keyboard layout into a mapping from
+	X keycodes to X keysyms. Has to make some leaps of faith in a
+	few places to guarantee a usable map (some special keys can't
+	be deduced from the system mappings?)
+
+	* xc/programs/Xserver/hw/apple/darwin-old-keymap.c: abstracted
+	all the groty code to read .keymapping files into this separate
+	file
+
+	* xc/programs/Xserver/hw/apple/keysym2ucs.h,
+	xc/programs/Xserver/hw/apple/keysym2ucs.c: functions to convert
+	between Unicode characters and X keysyms (and back). Originally
+	by Markus G. Kuhn, source code was placed in the public domain
+
+2003-01-17  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/fb/fbsolid.c,
+	xc/programs/Xserver/fb/fbpict.c,
+	xc/programs/Xserver/fb/fbblt.c, xc/programs/Xserver/fb/fb.h:
+	include x-plugin.h only in files where it's needed, not in fb.h
+
+	* xc/programs/Xserver/hw/apple/English.lproj/main.nib/,
+	xc/programs/Xserver/hw/apple/X11.pbproj/project.pbxproj: bumped
+	version to 0.2
+
+2003-01-17  John Harper  <jsh@apple.com>
+
+	Work to add UI to set keymap default:
+
+	* xc/programs/Xserver/hw/apple/English.lproj/main.nib/: added
+	keymap combo box
+
+	* xc/programs/Xserver/hw/apple/X11Controller.m,
+	xc/programs/Xserver/hw/apple/X11Controller.h: hook up the new
+	keymap combox box
+
+	* xc/programs/Xserver/hw/apple/X11Application.m
+	(X11ApplicationSetWindowMenuCheck): don't autorelease (since we
+	don't have a pool in scope)
+
+	* xc/programs/Xserver/hw/apple/X11Application.m,
+	xc/programs/Xserver/hw/apple/X11Application.h
+	(prefs_set_string): new method
+
+	* xc/programs/Xserver/hw/apple/darwin-keyboard.c: locate the
+	keymap file in here, instead of in OsVendorInit ()
+
+	* xc/programs/Xserver/hw/apple/darwin.h,
+	 xc/programs/Xserver/hw/apple/darwin.c
+	(DarwinForeachLibraryFile): new function
+	(DarwinFindLibraryFile): made extern
+
+2003-01-16  John Harper  <jsh@apple.com>
+
+	* xc/lib/GL/apple/dri_dispatch.h,
+	xc/lib/GL/apple/dri_dispatch.defs,
+	xc/lib/GL/apple/dri_dispatch.c, xc/lib/GL/apple/build-dispatch:
+	updated again, and added the ability to create aliases if
+	native gl functions are named differently to glx functions with
+	the same semantics
+
+	* xc/lib/GL/apple/dri_dispatch.h,
+	xc/lib/GL/apple/dri_dispatch.defs,
+	xc/lib/GL/apple/dri_dispatch.c, xc/lib/GL/apple/build-dispatch:
+	generate glXXX stubs for the functions that are in a normal
+	Mesa-derived libGL, but not in OpenGL.framework. In indirect
+	mode they marshall as normal, in direct mode they are no-ops
+
+	* xc/lib/Xaw/Vendor.c: removed some meaningless changes I'd
+	made and then not reverted totally
+
+	* xc/lib/freetype2/freetype/Imakefile,
+	xc/lib/freetype2/freetype/cache/Imakefile,
+	xc/lib/freetype2/freetype/internal/Imakefile: 
+	xc/lib/freetype2/freetype/config/Imakefile: removed references
+	to InstallFreetype2Library
+
+	* xc/config/cf/X11.tmpl: removed unused InstallFreetype2Library
+	definition that I'd added
+
+	* xc/programs/Xserver/hw/apple/appledri.c,
+	xc/programs/Xserver/hw/apple/X11Controller.m,
+	xc/programs/Xserver/hw/apple/X11Controller.h,
+	xc/programs/Xserver/hw/apple/X11Application.m,
+	xc/programs/Xserver/hw/apple/X11Application.h: implemented the
+	AppleDRISetWindowMenuCheck request
+
+	* xc/lib/GL/apple/appledristr.h, xc/lib/GL/apple/appledri.h,
+	xc/lib/GL/apple/appledri.c: added AppleDRISetWindowMenuCheck
+	request, changed the names of a few constants
+
+	* xc/programs/Xserver/hw/apple/dri-surface.h,
+	xc/programs/Xserver/hw/apple/dri-surface.c: removed unused code
+
+	* xc/lib/GL/apple/dri_driver.c: added code to recreate surfaces
+	that got destroyed before we wanted (e.g. if they were
+	reparented out of a window). This doesn't work for apps that
+	don't call into glx while running (e.g. glxgears), but it's a
+	simple change and should fix most apps
+
+	* xc/lib/GL/apple/appledri.c, xc/lib/GL/apple/appledri.h
+	(XAppleDRISetSurfaceNotifyHandler): new function, sets the
+	function that will be called with AppleDRISurfaceNotify events,
+	instead of hardcoding a function name (that stops appledri.o
+	being linked in some cases)
+
+	* xc/lib/GL/apple/dri_driver.c (__driCreateScreen): when first
+	called, setup the surface notify event handler
+
+2003-01-15  John Harper  <jsh@apple.com>
+
+	* xc/lib/GL/apple/dri_driver.c (driMesaDestroyDrawable):
+	remember to tell the server to destroy the surface
+
+	* xc/programs/Xserver/hw/apple/x-hash.c (hash_table_modify):
+	fixed stupid bug
+
+	* xc/programs/Xserver/hw/apple/quartz-server.c,
+	xc/programs/Xserver/hw/apple/dristruct.h,
+	xc/programs/Xserver/hw/apple/dri-surface.h,
+	xc/programs/Xserver/hw/apple/dri-surface.c,
+	xc/programs/Xserver/hw/apple/appledri.c: listen for the new
+	surface events and propagate them to the surface creator.
+	This may involve sending them over the wire to DRI clients
+	using a new event typep
+
+	* xc/programs/Xserver/GL/apple/indirect.c,
+	xc/programs/Xserver/GL/apple/Imakefile: register for surface
+	notifications when creating surfaces, use them to invalidate
+	surfaces that disappear and update contexts pointing at
+	surfaces that changed somehow. Removed both other calls to
+	update-context
+
+	* xc/lib/GL/apple/appledristr.h, xc/lib/GL/apple/appledri.h,
+	xc/lib/GL/apple/appledri.c: handle the new SurfaceNotify event
+	type. But don't pass it up to the app, call into the DRI driver
+	code instead
+
+	* xc/lib/GL/apple/dri_driver.h, xc/lib/GL/apple/dri_driver.c:
+	handle surface notify events by invalidating or updating the
+	necessary drawable and contexts. Added more code to track where
+	contexts are bound to allow this. Removed existing calls to
+	update-context
+
+2003-01-15  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/GL/apple/indirect.c: catch when the
+	surface is destroyed abnormally and unset the surface id field
+	in the private data. That way next time attach () is called it
+	will try to recreate the surface. This fixes the problem of
+	losing surfaces when reparenting windows upwards (not for
+	direct rendering, though)
+
+	* xc/programs/Xserver/hw/apple/dristruct.h,
+	xc/programs/Xserver/hw/apple/dri-surface.h,
+	xc/programs/Xserver/hw/apple/dri-surface.c,
+	xc/programs/Xserver/hw/apple/appledri.c: DRICreateSurface and
+	DRIDestroySurface now take closures (function,data pair) to
+	call when the surface is destroyed abnormally
+
+	* xc/programs/Xserver/hw/apple/appledri.c
+	(ProcAppleDRIDisableUpdate, ProcAppleDRIReenableUpdate): use
+	_async versions of xp disable update functions
+
+	* xc/programs/Xserver/hw/apple/x-hook.h,
+	xc/programs/Xserver/hw/apple/x-hook.c: new utility class
+
+2003-01-10  John Harper  <jsh@apple.com>
+
+	* xc/lib/GL/apple/dri_driver.c (driMesaSwapBuffers):
+	* xc/programs/Xserver/GL/apple/indirect.c (glAquaSwapBuffers): 
+
+	Call xp_update_gl_context () after flushing the context. This
+	is needed in case there's only one context and it's never made
+	current again (the other place update_gl_context is called)
+
+2003-01-14  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/fb/fb.h (fbGetDrawable,
+	fbGetStipDrawable): ensure that the returned pointers are
+	always 32-bit aligned, by adjusting the base address and X
+	offset if necessary. This fixes a crash in 16-bit mode when
+	trying to access the 32 bit quantity beginning two bytes before
+	the start of the backing store
+
+	* xc/config/cf/darwinLib.rules: reverted change to make install
+	names of libraries be libfoo.X.Y.Z, now back to libfoo.X.Y. We
+	can fix the seg_addr_table later..
+
+2003-01-13  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/dix/window.c (MoveWindowInStack): fixed
+	bug in change I'd made for rootless server, only call
+	RestackWindow function vector if it's non-null
+
+	* xc/programs/Xserver/hw/apple/x-list.c,
+	xc/programs/Xserver/hw/apple/x-hash.c: added some assertions to
+	check for bad input parameters
+
+	* xc/lib/GL/apple/dri_driver.c: check that the drawHash field
+	in the screen private data is initialized before using it.
+	Fixes #3143726 (crashing while trying to look up a drawable
+	before any have been created)
+
+2003-01-10  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/darwin.c (ProcessInputEvents):
+	when receiving motion events while we're not the foreground
+	app, check if the pointer is over one of our windows. If not,
+	drop the event on the floor. Goes some way to fixing the
+	pointer tracking issues
+
+	* xc/programs/Xserver/hw/apple/rootless-window.c: removed code
+	to garbage collect unrealized windows - it breaks minimizing
+	windows to the Dock, and in a way that's non-trivial to fix.
+	And since the feature was only marginally beneficial in the
+	first place..
+
+	* xc/programs/Xserver/hw/apple/X11Application.m,
+	xc/programs/Xserver/hw/apple/X11Application.h: load
+	darwinKeymapFile variable from "keymap" key in user defaults
+
+	* xc/programs/Xserver/hw/apple/quartz.c: added code to remove
+	the menubar rect from the main screen/display
+
+2003-01-09  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/GL/apple/indirect.c (glAquaCreateContext):
+	* xc/lib/GL/apple/dri_driver.c (driCreatePixelFormat): 
+	Removed code to turn on vbl syncing of GL flushes
+
+2003-01-07  John Harper  <jsh@apple.com>
+
+	* Released: first public beta
+
+2002-12-17  John Harper  <jsh@apple.com>
+
+	* xc/lib/GL/apple/dri_dispatch.c: don't need to include
+	<OpenGL/CGLMacro.h> anymore
+
+2002-12-17  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/GL/apple/indirect.c:
+	* xc/lib/GL/apple/dri_driver.c (driCreatePixelFormat):
+
+	Set kCGLPFAAlphaSize = 1 when creating pixel formats, this will
+	give us the correct alpha size
+
+2002-12-16  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/GL/apple/indirect.c: integrated patch
+	from Geoff Stahl to create suitable glx visuals on startup,
+	instead of using the "fallback" visual configs
+
+	* xc/programs/Xserver/Imakefile: when linking Xquartz, move
+	libXQuartz.a before fb and postFb libs
+
+	* xc/lib/GL/apple/dri_driver.c (__driMesaRemoveDrawable): check
+	return from xp_bind_gl_context ()
+
+	* xc/lib/GL/apple/dri_dispatch.h, xc/lib/GL/apple/dri_dispatch.defs,
+	xc/lib/GL/apple/dri_dispatch.c, xc/lib/GL/apple/build-dispatch:
+	use offsets into the CGL dispatch table instead of referencing
+	the entry points by name. The names may (and do) change between
+	OS revisions, but the indices remain the same for binary
+	compatibility
+
+	* xc/lib/xtrans/Xtransutil.c (trans_mkdir): if __DARWIN__ is
+	defined, disable the five second pauses that happen when
+	printing a warning about the directory permissions (since our X
+	server isn't running suid, /tmp/.X11-unix will never be owned
+	by root, so we always hit a five second delay, but the warning
+	normally just goes to a log file anyway..)
+
+2002-12-13  John Harper  <jsh@apple.com>
+
+	Work to make menuitem key equivalents work under X11:
+
+	* xc/programs/Xserver/hw/apple/English.lproj/main.nib/:
+	restored most menu key equivalents, and added an "enable key
+	equivalents" preference
+
+	* xc/programs/Xserver/hw/apple/X11Controller.m: added "enable
+	key equivalents" prefs code
+
+	* xc/programs/Xserver/hw/apple/X11Controller.m (close_window:,
+	minimize_window:, zoom_window:): if X isn't active, send the
+	necessary message to the appkit key window
+
+	* xc/programs/Xserver/hw/apple/X11Application.m (sendEvent:):
+	send KeyDown events to the menubar's performKeyEquivalent
+	method if X11EnableKeyEquivalents is true. If we get a hit,
+	swallow the matching KeyUp event
+
+	* xc/programs/Xserver/hw/apple/X11Application.h: added x_active
+	method. Added X11EnableKeyEquivalents variable. Added X11App
+	variable
+
+2002-12-12  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/quartz.c (QuartzUpdateScreens):
+	fixed typo of x for y when updating screen origin
+
+	* xc/programs/Xserver/hw/apple/X11Application.m
+	(message_kit_thread): call [super dealloc]
+
+	* xc/programs/Xserver/hw/apple/x-list.h,
+	xc/programs/Xserver/hw/apple/x-list.c,
+	xc/programs/Xserver/hw/apple/x-hash.h,
+	xc/programs/Xserver/hw/apple/x-hash.c,
+	xc/programs/Xserver/hw/apple/rootless.h,
+	xc/programs/Xserver/hw/apple/rootless-window.h,
+	xc/programs/Xserver/hw/apple/rootless-window.c,
+	xc/programs/Xserver/hw/apple/rootless-screen.c,
+	xc/programs/Xserver/hw/apple/rootless-picture.c,
+	xc/programs/Xserver/hw/apple/rootless-gc.c,
+	xc/programs/Xserver/hw/apple/rootless-common.h,
+	xc/programs/Xserver/hw/apple/rootless-common.c,
+	xc/programs/Xserver/hw/apple/quartz.h,
+	xc/programs/Xserver/hw/apple/quartz.c,
+	xc/programs/Xserver/hw/apple/quartz-server.c,
+	xc/programs/Xserver/hw/apple/quartz-cursor.h,
+	xc/programs/Xserver/hw/apple/quartz-cursor.c,
+	xc/programs/Xserver/hw/apple/dristruct.h,
+	xc/programs/Xserver/hw/apple/dri.h,
+	xc/programs/Xserver/hw/apple/dri-surface.h,
+	xc/programs/Xserver/hw/apple/dri-surface.c,
+	xc/programs/Xserver/hw/apple/darwin.h,
+	xc/programs/Xserver/hw/apple/darwin.c,
+	xc/programs/Xserver/hw/apple/darwin-input.c,
+	xc/programs/Xserver/hw/apple/bundle-main.c,
+	xc/programs/Xserver/hw/apple/appledri.c,
+	xc/programs/Xserver/hw/apple/X11Controller.m,
+	xc/programs/Xserver/hw/apple/X11Controller.h,
+	xc/programs/Xserver/hw/apple/X11Application.m,
+	xc/programs/Xserver/hw/apple/X11Application.h: updated
+	copyright notices
+
+	* xc/programs/Xserver/GL/apple/indirect.c: updated copyright
+	notices
+
+	* xc/lib/GL/apple/dri_glx.h, xc/lib/GL/apple/dri_glx.c,
+	xc/lib/GL/apple/dri_driver.h, xc/lib/GL/apple/dri_driver.c,
+	xc/lib/GL/apple/dri_dispatch.defs,
+	xc/lib/GL/apple/dri_dispatch.c, xc/lib/GL/apple/build-dispatch,
+	xc/lib/GL/apple/appledristr.h, xc/lib/GL/apple/appledri.h,
+	xc/lib/GL/apple/appledri.c: updated copyright notices
+
+	* xc/lib/GL/apple/dri_dispatch.c (XAppleDRIGetIndirectContext):
+	don't crash if can't allocate a dummy CGLContextObj, print an
+	error message
+
+	* xc/programs/Xserver/hw/apple/quartz.c (QuartzUpdateScreens):
+	call DefineInitialRootWindow () to update the cursor
+	constraints among other things
+
+2002-12-10  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/dristruct.h,
+	xc/programs/Xserver/hw/apple/dri-surface.c: store the surface
+	key in the DRIDrawablePrivRec, remember to return it even when
+	we didn't just create the surface
+
+	* xc/programs/Xserver/GL/apple/indirect.c (attach): 
+	* xc/lib/GL/apple/dri_driver.c (__driMesaRemoveDrawable): only
+	update the context when we didn't bind it
+
+	* xc/programs/Xserver/GL/apple/indirect.c: record the id of
+	the bound surface in the __GLcontextRec structure. Then when
+	attaching a context to a drawable, check if it's being
+	reattached to a different surface
+
+2002-12-09  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/English.lproj/main.nib/:
+	disabled Run menu item for now, set version number in about box
+	to 0.1
+
+	* xc/lib/xaw/Vendor.c: removed the hacks to avoid generating
+	duplicate symbols, they were what was causing xterm's focus
+	model to be broken. Also, libXt is always built with
+	-flat_namespace anyway..
+
+	* xc/programs/Xserver/hw/apple/quartz.c (xinit_callback): spawn
+	an xterm process as well as the wm if no .xinitrc
+
+	* xc/programs/Xserver/GL/apple/indirect.c: fixed a couple more
+	bugs (including the stupidity that prevented more than one
+	indirect client to render correctly at once)
+
+	* xc/programs/Xserver/hw/apple/dri-surface.c
+	(DRIDestroySurface): check if the drawable private data is
+	non-null before trying to unref it
+
+2002-12-09  John Harper  <jsh@apple.com>
+
+	* xc/lib/GL/apple/appledristr.h, xc/lib/GL/apple/appledri.h,
+	xc/lib/GL/apple/appledri.c: split up ControllerNotify events
+	into three event types
+
+	* xc/programs/Xserver/hw/apple/quartz.h,
+	xc/programs/Xserver/hw/apple/quartz.c,
+	xc/programs/Xserver/hw/apple/appledri.c,
+	xc/programs/Xserver/hw/apple/X11Controller.m,
+	xc/programs/Xserver/hw/apple/X11Application.m: split up
+	ControllerNotify events into three event types
+
+	* xc/programs/Xserver/hw/apple/rootless-gc.c: arcs were broken
+
+	* xc/programs/Xserver/hw/apple/rootless-common.c: some changes
+	to how we reenable updates and reorder windows
+
+	* xc/programs/Xserver/hw/apple/dri-surface.c
+	(DRICreateSurface): fixed a bug where we could free the surface
+	but not return false when failing to initially configure a
+	surface (this meant that the freed data structure was left
+	attached to the window)
+
+2002-12-06  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/GL/apple/indirect.c:
+
+	Removed some redundant code. Remembered that we don't care
+	about window dimensions here, dri-surface.c takes care of all
+	that. Also, explicitly specify whether attaching or detaching,
+	instead of testing if the rect is empty or not. This fixes the
+	bug where glblur doesn't show up until its window is moved
+	(happens because when it's created the gl window has size 0x0)
+
+2002-12-06  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/make-seg-addr-table,
+	xc/programs/Xserver/hw/apple/seg_addr_table: deleted
+
+	* xc/programs/Xserver/hw/apple/darwin-input.c
+	(DarwinEnqueueEvent): coalesce adjacent MotionNotify events
+
+	* xc/config/cf/darwinLib.rules: -install_name should refer to
+	library with the full version number, not just the major number
+
+	* xc/config/cf/darwin.cf, xc/config/cf/darwinLib.rules
+	(DARWIN_PREBIND_FLAGS): removed
+
+	* xc/programs/Xserver/hw/apple/rootless-window.c
+	(RootlessReorderWindow): handle unrealized windows that have
+	frames; handle the window above the one being reordered having
+	a reorder pending
+
+	* xc/programs/Xserver/hw/apple/rootless-window.c
+	(RootlessUnrealizeWindow): reenable update
+
+	* xc/programs/Xserver/hw/apple/rootless-common.c
+	(RootlessDisableUpdate): don't disable update if window isn't
+	realized
+
+2002-12-06  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/rootless-window.c,
+	xc/programs/Xserver/hw/apple/rootless-common.c,
+	xc/programs/Xserver/hw/apple/quartz-cursor.c,
+	xc/programs/Xserver/hw/apple/appledri.c:
+
+	Use xp_foo_async functions where possible
+
+	* xc/programs/Xserver/hw/apple/quartz-server.c (event_handler):
+	changed type to match xp change
+
+	* xc/programs/Xserver/hw/apple/darwin-input.c: moved the calls
+	to read () and write () outside the mutex-protected sections
+
+2002-12-05  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/English.lproj/InfoPlist.strings:
+	updated short version name
+
+2002-12-04  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/X11Application.m
+	(X11ApplicationMain): disabled debugging code
+
+	* xc/programs/Xserver/hw/apple/X11Application.m (send_nsevent):
+	added code to translate NS scrollwheel events to clicks on
+	buttons 4 and 5
+
+2002-12-04  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/Imakefile: install X11.app in
+	/Applications not /usr/X11R6/Applications (unless
+	NothingOutsideProjectRoot is set)
+
+	* xc/programs/Xserver/hw/apple/rootless-window.c
+	(RootlessCollectWindows): added code to garbage collect
+	unmapped windows after they've been inactive for a minute or so
+
+2002-12-04  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/rootless-window.c,
+	xc/programs/Xserver/hw/apple/rootless-screen.c,
+	xc/programs/Xserver/hw/apple/rootless-common.c,
+	xc/programs/Xserver/hw/apple/quartz.h,
+	xc/programs/Xserver/hw/apple/quartz.c,
+	xc/programs/Xserver/hw/apple/quartz-shared.h,
+	xc/programs/Xserver/hw/apple/quartz-server.c,
+	xc/programs/Xserver/hw/apple/quartz-cursor.c,
+	xc/programs/Xserver/hw/apple/quartz-common.h,
+	xc/programs/Xserver/hw/apple/quartz-audio.c,
+	xc/programs/Xserver/hw/apple/darwin.h,
+	xc/programs/Xserver/hw/apple/darwin.c,
+	xc/programs/Xserver/hw/apple/darwin-keyboard.c,
+	xc/programs/Xserver/hw/apple/X11Controller.m,
+	xc/programs/Xserver/hw/apple/X11Application.m:
+
+	cleaned up code structure a bit
+
+2002-12-03  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/bundle-main.c: adapted large
+	chunks of code from xdm to setup Xauthority file before
+	spawning the X server, then pass "-auth FILE" to the X server.
+
+	If for some reason the Xauthority file can't be updated, then
+	the X server is started without any authentication, but with
+	the "-nolisten tcp" option. (Note that there are user defaults
+	controlling this in the com.apple.x11 plist, nolisten_tcp and
+	no_auth. The second disables auth)
+
+	* xc/programs/Xserver/hw/apple/rootless-screen.c,
+	xc/programs/Xserver/hw/apple/rootless-common.h: removed the
+	sliding flush throttle, it made some things (e.g. smooth
+	scrolling) to ugly. Now we flush in the block handler again,
+	but only if 10ms have passed since the last flush (basically
+	this means, try to flush just greater than 60Hz)
+
+	* xc/programs/Xserver/hw/apple/quartz.c (do_exec): no longer
+	redirects input or output
+
+2002-12-02  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/rootless-screen.c: reduced
+	REDISPLAY_MAX_DELAY from 40 to 30ms. (which means that we
+	should never intentionally have a frame rate less than 30fps.
+	With the max delay at 40, scrolling could look very jittery)
+
+2002-12-02  John Harper  <jsh@apple.com>
+
+	* xc/config/cf/X11.tmpl: added InstallFreetype2Library
+	definition, defaults to value BuildFreetype2Library
+
+	* xc/config/cf/darwin.cf: set InstallFreetype2Library to NO
+
+	* xc/lib/freetype2/Imakefile, freetype/Imakefile,
+	freetype/cache/Imakefile, freetype/config/Imakefile,
+	freetype/internal/Imakefile: if InstallFreetype2Library is set
+	to NO, then don't install anything
+
+2002-12-02  John Harper  <jsh@apple.com>
+
+	* xc/lib/Xft/xftglyphs.c (XftGlyphLoad): pass
+	FREETYPE_LOAD_NO_HINTING to FT_Load_Glyph (). Turns off (auto-)
+	hinter. So we're now using unhinted rendering throughout
+
+	* xc/lib/Xft/Imakefile: include frameworks necessary for
+	unshared freetype
+
+	* xc/lib/Xft/XftConfig.cpp: add /Library/Fonts and
+	/System/Library/Fonts to Xft's default font path
+
+	* xc/lib/freetype2/Imakefile: turn on use of ftmac.c code to
+	load fonts from Macintosh style font files
+
+	* xc/extras/freetype2/src/base/ftmac.c (file_spec_from_path):
+	changed to use FSPathMakeRef () then FSGetCatalogInfo ()
+	instead of constructing the FSSpec by hand (which doesn't work
+	with POSIX paths?)
+
+	* xc/extras/freetype2/include/freetype/config/ftoption.h: turn
+	off bytecode interpreter (i.e. hinting)
+
+	* xc/config/cf/darwin.cf: don't build a shared libfreetype,
+	only static, to avoid conflicting with other installations
+
+2002-12-02  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/dix/window.c,
+	xc/programs/Xserver/dix/events.c: 
+
+	if ROOTLESS is defined, XYToWindow () checks rootlessUnhittable
+	window bit, if set it will never choose that window (used to
+	avoid offscreen windows screwing up hit-testing)
+
+	Also, when configuring stacking order, always call through to
+	ddx, even if the ordering didn't change. This allows the
+	rootless code to ensure that a raised window is on top of _all_
+	windows, not just those owned by X
+
+	* xc/programs/Xserver/include/windowstr.h (WindowRec): added
+	rootlessUnhittable bit when ROOTLESS is defined
+
+2002-12-02  John Harper  <jsh@apple.com>
+
+	* xc/lib/GL/apple/appledri.h: removed BringOneToFront event,
+	added CopyToPasteboard event
+
+	* xc/programs/Xserver/hw/apple/rootless-window.c: fixed some
+	bugs, set new rootlessUnhittable bit in the dix window
+	structure when a window is offscreen
+
+	* xc/programs/Xserver/hw/apple/rootless-gc.c,
+	xc/programs/Xserver/hw/apple/rootless-window.c: don't create
+	physical windows for root windows; never try to draw on root
+	windows
+
+	* xc/programs/Xserver/hw/apple/rootless-common.h
+	(RootlessWindowRec): two new fields, is_offscreen and
+	is_obscured
+	* xc/programs/Xserver/hw/apple/rootless-window.c
+	(RootlessNativeWindowStateChanged): update new properties
+
+	* xc/programs/Xserver/hw/apple/quartz-server.c: listen for xp
+	WINDOW_STATE_CHANGED events
+
+	* xc/programs/Xserver/hw/apple/quartz-cursor.h,
+	xc/programs/Xserver/hw/apple/quartz-cursor.c,
+	xc/programs/Xserver/hw/apple/quartz.c: reload cursor when X
+	becomes active. But use different code to what XDarwin does,
+	since that didn't seem to work too well for me
+
+	* xc/programs/Xserver/hw/apple/darwin.h,
+	xc/programs/Xserver/hw/apple/darwin.c,
+	xc/programs/Xserver/hw/apple/darwin-input.c: added a new input
+	queue abstraction layer. Means we can call SetInputCheck and
+	avoid DIX polling for events when there aren't any available
+	(which totally kills performance of some x11perf NoOperation
+	benchmark)
+
+	* xc/programs/Xserver/hw/apple/darwin-keyboard.c: made
+	Left-Option key generate Alt_L keysym, not Mode_switch (will
+	this cause problems? If so we should probably put Mode_switch
+	somewhere else..)
+
+	* xc/programs/Xserver/hw/apple/X11Application.m: minor
+	activation changes
+
+	* xc/programs/Xserver/hw/apple/quartz-pasteboard.h,
+	xc/programs/Xserver/hw/apple/quartz-pasteboard.c,
+	xc/programs/Xserver/hw/apple/X11Application.m,
+	xc/programs/Xserver/hw/apple/X11Application.h: removed
+	pasteboard code, not handled by the X server any longer. Hook
+	Edit/Copy menuitem's last responder to a ControllerNotify event
+
+	* xc/programs/Xserver/hw/apple/X11Controller.m: fixed some bugs
+	in the Applications menu implementation
+
+2002-11-27  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/quartz.c,
+	xc/programs/Xserver/hw/apple/quartz-server.c,
+	xc/programs/Xserver/hw/apple/quartz-common.h,
+	xc/programs/Xserver/hw/apple/X11Controller.m,
+	xc/programs/Xserver/hw/apple/X11Controller.h,
+	xc/programs/Xserver/hw/apple/X11Application.m,
+	xc/programs/Xserver/hw/apple/X11Application.h: 
+
+	* xc/programs/Xserver/hw/apple/English.lproj/main.nib/objects.nib,
+	xc/programs/Xserver/hw/apple/English.lproj/main.nib/info.nib,
+	xc/programs/Xserver/hw/apple/English.lproj/main.nib/classes.nib: 
+
+	* xc/programs/Xserver/hw/apple/X11.pbproj/project.pbxproj: 
+
+	Working on the front-end (i.e. menubar).
+
+	Connected preferences dialog and added "use sysbeep" option.
+	Added "Applications" menu. Has an editable list of apps to run,
+	and a "Run..." item to run an arbitrary program (seems to have
+	issues the second time you open it?)
+
+	Preferences now get saved to the com.apple.x11 plist
+
+	Some improvements to the appkit vs x11 focus model
+
+	Implemented menu auto-validation protocol for X11 and Window
+	menus (greys out certain items if no client has selected our
+	ControllerNotify events)
+
+2002-11-26  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/quartz.c (quartzUseSysBeep): set
+	to true now
+
+2002-11-26  John Harper  <jsh@apple.com>
+
+	* xc/config/cf/darwin.cf: don't prebind libraries by default;
+	added APPLE_XP_LIBDIR variable
+
+	* xc/programs/Xserver/Imakefile, xc/lib/GL/GL/Imakefile: use
+	APPLE_XP_LIBDIR
+
+2002-11-26  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/X11.icns: new icon, fixes
+	#3105063
+
+	* xc/programs/Xserver/hw/apple/rootless-gc.c: updated for xp
+	changes
+
+	* xc/programs/Xserver/fb/fbsolid.c,
+	xc/programs/Xserver/fb/fbpict.c,
+	xc/programs/Xserver/fb/fbblt.c: updated for xp changes
+
+	* xc/programs/Xserver/hw/apple/rootless-window.c
+	(RootlessCopyWindow): only do xp_scroll_window () when the area
+	we're scrolling is over the threshold. (Scrolling has high
+	enough latency that it can kill our performance when moving
+	lots of little windows)
+
+2002-11-25  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/hw/apple/rootless-window.c,
+	xc/programs/Xserver/hw/apple/rootless-screen.c,
+	xc/programs/Xserver/hw/apple/rootless-common.h,
+	xc/programs/Xserver/hw/apple/rootless-common.c:
+
+	Don't redisplay everything in the block handler. The problem
+	with that is that new input often comes in before the flush
+	finishes, which means that we get blocked when locking the
+	window before drawing.
+
+	So I'm experimenting with adding a sliding delay between
+	marking a window damaged and flushing it. It definitely speeds
+	up xterm scrolling, but may make things feel a little jerky..
+
+	* xc/programs/Xserver/hw/apple/rootless-picture.c:
+
+	Added back the code to choose optimized fbComposite functions
+	for various src/dst/mask combinations (Performance totally
+	loses otherwise, and so far I've not found anything that's
+	broken. But I also added a hack to prevent fb clearing
+	destination alpha)
+
+	* xc/programs/Xserver/fb/fbpict.c
+	(fbCompositeSolidMask_nx8x8888): callout to xp_composite_bytes
+	when possible
+	(fbCompositeSrcAdd_8000x8000): be branchless, is faster
+
+	* xc/programs/Xserver/fb/fbblt.c: updated for xp changes
+
+2002-11-25  John Harper  <jsh@apple.com>
+
+	* xc/programs/Xserver/fb/fbsolid.c,
+	xc/programs/Xserver/fb/fbblt.c, xc/programs/Xserver/fb/fb.h,
+	xc/programs/Xserver/fb/Imakefile:
+
+	Use xp copy/fill functions when possible (e.g. when the alu op
+	is GXcopy, when the planemask is all ones, and when there's no
+	start/end masks)
+
+	* xc/programs/Xserver/hw/apple/rootless-gc.c:
+
+	Drawing optimizations - when we have to draw through a
+	planemask that isn't all ones (i.e. 32 bit mode), temporarily
+	set it back to all ones when we know that's safe (that way, the
+	fb code can often take a faster path)
+
+	Combining this with the above fb optimizations increases the
+	speed of many operations by a factor of two or more
+
+	* xc/programs/Xserver/hw/apple/x-list.h,
+	xc/programs/Xserver/hw/apple/x-list.c,
+	xc/programs/Xserver/hw/apple/x-hash.h,
+	xc/programs/Xserver/hw/apple/x-hash.c,
+	xc/programs/Xserver/hw/apple/seg_addr_table,
+	xc/programs/Xserver/hw/apple/rootless.h,
+	xc/programs/Xserver/hw/apple/rootless-window.h,
+	xc/programs/Xserver/hw/apple/rootless-window.c,
+	xc/programs/Xserver/hw/apple/rootless-screen.c,
+	xc/programs/Xserver/hw/apple/rootless-picture.c,
+	xc/programs/Xserver/hw/apple/rootless-common.h,
+	xc/programs/Xserver/hw/apple/rootless-common.c,
+	xc/programs/Xserver/hw/apple/rootless-aqua.h,
+	xc/programs/Xserver/hw/apple/rootless-aqua.c,
+	xc/programs/Xserver/hw/apple/quartz.h,
+	xc/programs/Xserver/hw/apple/quartz.c,
+	xc/programs/Xserver/hw/apple/quartz-shared.h,
+	xc/programs/Xserver/hw/apple/quartz-server.c,
+	xc/programs/Xserver/hw/apple/quartz-region.c,
+	xc/programs/Xserver/hw/apple/quartz-cursor.c,
+	xc/programs/Xserver/hw/apple/quartz-common.h,
+	xc/programs/Xserver/hw/apple/quartz-client.h,
+	xc/programs/Xserver/hw/apple/quartz-client.c,
+	xc/programs/Xserver/hw/apple/quartz-audio.c,
+	xc/programs/Xserver/hw/apple/pseudoramiX.h,
+	xc/programs/Xserver/hw/apple/pseudoramiX.c,
+	xc/programs/Xserver/hw/apple/make-seg-addr-table,
+	xc/programs/Xserver/hw/apple/dristruct.h,
+	xc/programs/Xserver/hw/apple/dri-surface.h,
+	xc/programs/Xserver/hw/apple/dri-surface.c,
+	xc/programs/Xserver/hw/apple/dri-frame.h,
+	xc/programs/Xserver/hw/apple/dri-frame.c,
+	xc/programs/Xserver/hw/apple/dri-decor.h,
+	xc/programs/Xserver/hw/apple/dri-decor.c,
+	xc/programs/Xserver/hw/apple/darwin.h,
+	xc/programs/Xserver/hw/apple/darwin.c,
+	xc/programs/Xserver/hw/apple/darwin-keyboard.c,
+	xc/programs/Xserver/hw/apple/aqua.h,
+	xc/programs/Xserver/hw/apple/aqua-window.c,
+	xc/programs/Xserver/hw/apple/aqua-picture.c,
+	xc/programs/Xserver/hw/apple/aqua-common.h,
+	xc/programs/Xserver/hw/apple/appledri.c,
+	xc/programs/Xserver/hw/apple/X11Controller.m,
+	xc/programs/Xserver/hw/apple/X11Controller.h,
+	xc/programs/Xserver/hw/apple/X11Application.m,
+	xc/programs/Xserver/hw/apple/Imakefile,
+	xc/programs/Xserver/hw/apple/GetThemeRGBAPixels.h,
+	xc/programs/Xserver/hw/apple/GetThemeRGBAPixels.c: 
+
+	* xc/programs/Xserver/hw/apple/English.lproj/main.nib/objects.nib,
+	xc/programs/Xserver/hw/apple/English.lproj/main.nib/info.nib,
+	xc/programs/Xserver/hw/apple/English.lproj/main.nib/classes.nib: 
+
+	Use the xp layer. Removed the rootless-aqua abstraction layer,
+	since that's all done by xp now, removed the RootlessFrameRec
+	abstraction, since it's not doing anything useful anymore
+
+	Also, listen for display change notifications and do something
+	useful afterwards. That isn't using RandR yet, instead it just
+	refreshes the pseudoramiX screen information and sends a
+	ConfigureNotify event to the root window. And it only works if
+	Xinerama is active. It may be easier to use RandR in XF 4.3
+
+	* xc/programs/Xserver/GL/apple/indirect.c,
+	xc/programs/Xserver/GL/apple/Imakefile: 
+
+	Use the xp layer
+
+	* xc/lib/GL/apple/dri_driver.h, xc/lib/GL/apple/dri_driver.c,
+	xc/lib/GL/apple/appledristr.h, xc/lib/GL/apple/appledri.h,
+	xc/lib/GL/apple/appledri.c, xc/lib/GL/apple/Imakefile: 
+
+	Use the xp layer, removed some extension functions that aren't
+	required anymore
+
+
+== programs/Xserver/hw/apple ==
+
+2002-11-22  John Harper  <jsh@apple.com>
+
+	* Imakefile: install X11.app under $(DESTDIR)
+
+2002-11-21  John Harper  <jsh@apple.com>
+
+	* rootless-gc.c (accelPolyFillRect): include window border
+	width when filling, fixes drawing glitches with twm (and other
+	window managers that don't set border width to zero)
+
+	* rootless-window.c (StartFrameResize): fixed two crashers
+	reported by Dave Zarzycki during resizing under twm. One was
+	caused by including border width twice in frame dimensions, one
+	was caused by copying the resize intersection from the
+	temporary pixmap into the destination window while the window
+	pixmap is still pointing at its previous position
+
+	* quartz.c (QuartzInitOutput): initialize
+	orig_noPanoramiXExtension when serverGeneration == 1, not 0
+
+	* X11Application.m (X11ApplicationPaste, X11ApplicationCopy):
+	create temporary autorelease pools to avoid leaking objects
+
+	* quartz.c: when xinit'ing, don't exec .xinitrc, run it with
+	the Bourne shell (which is what xinit actually does)
+
+	* quartz.c: when spawning xinit, if that fails fallback to the
+	default action (running the window manager)
+
+2002-11-20  John Harper  <jsh@apple.com>
+
+	* rootless-window.c, rootless-common.h, rootless-common.c,
+	rootless-aqua.c: fixed shape window code to pass a null shape
+	if the window isn't shaped, this makes it easier to remove the
+	clip shape from the window when necessary (and to avoid
+	creating one)
+
+	* quartz-pasteboard.h, quartz-pasteboard.c, darwin.c,
+	X11Application.m, X11Application.h: hooked up XDarwin code to
+	swap text between cocoa pasteboard and X11 CUT_BUFFER0. I think
+	we really want to proxy requests for the primary selection on
+	the fly, but this will do for now..
+
+	* X11Application.m (send_nsevent): mask out any mouse button
+	flags unless we earlier sent a matching ButtonPress event to X.
+	Also, work around bugs in appkit when we get ButtonDown but no
+	ButtonUp (e.g. when clicking on menubar)
+
+	* rootless-aqua.c: put a pthread_mutex around the window_hash
+	table, then lock when modifying it
+	(XKnowsWindowNumber): new function, called from the appkit
+	thread to check if X knows about a window, locks the mutex
+
+2002-11-19  John Harper  <jsh@apple.com>
+
+	* darwin.c (post_keypointer_event, DarwinUpdateModifiers):
+	handle caps lock separately from the other modifiers, since it
+	needs to be both pressed and released each time
+
+	* quartz.c: use public CGDirectDisplay
+
+2002-11-18  John Harper  <jsh@apple.com>
+
+	* rootless-aqua.c, quartz.c, quartz-server.c, quartz-common.h,
+	darwin.c, bundle-main.c, X11Application.m: rewrote event
+	handling code to sit on top of NSEvent directly, instead of
+	using the lower-level events. Also, convert to xEvent form
+	before sending down the pipe
+
+2002-11-18  John Harper  <jsh@apple.com>
+
+	* X11Controller.m, X11Controller.h, X11Application.m,
+	X11Application.h: lots of work to connect the ui elements.
+	Window menu now works fully (except for marking the focused
+	window, need another extension for that)
+
+	* rootless-common.c (RootlessRedisplay): enable update in all
+	windows before blocking (sometimes we'd hit the one second
+	timeout, which isn't acceptable)
+
+	* quartz.c (QuartzXServerReady): set up background event
+	handling here now (doesn't seem to work though?)
+
+	* quartz-server.c: don't use CG notifications to listen for
+	events, everything goes through [NSApplication sendEvent:] now
+
+	* darwin.c: ignore flags set to ~0 in events (means unset).
+	Handle the UI events, by sending them to whoever is selecting
+	ControllerNotify events. Don't unfocus windows when X is
+	deactivated, wm will do that
+
+	* aqua-common.h, rootless-aqua.c (AquaSetWindowShadowStyle):
+	new function
+
+	* appledri.c: Added SetWindowShadowStyle, SelectInput,
+	SetWindowMenu functions. SelectInput causes ControllerNotify
+	events to be sent
+
+	* x-list.h, x-list.c (x_list_nth): new function
+
+2002-11-15  John Harper  <jsh@apple.com>
+
+	* quartz-server.c, quartz-common.h, X11Controller.m,
+	X11Application.m, X11Application.h, Imakefile: more changes.
+	Subclass NSApplication so we catch events (currently we catch
+	too many though)
+
+	* ui-thread.c, quartz-shared.h, quartz-server.c,
+	quartz-common.h, darwin.c, X11Controller.m, X11Controller.h,
+	Imakefile, English.lproj, X11.pbproj:
+
+	Ditched the Carbon front end. Replaced it with AppKit. Hooked
+	up quit confirmation dialog using IB
+
+2002-11-15  John Harper  <jsh@apple.com>
+
+	* dri-surface.c: check for at least cg 1.157.11 before enabling
+	direct rendering
+
+	* quartz-server.c: use XDarwin's hack of running the X server
+	on the secondary thread; Carbon event loop binds itself to
+	whichever thread it's initialized on, which we have no control
+	over when prebound
+
+2002-11-15  John Harper  <jsh@apple.com>
+
+	* rootless-aqua.c: use a hash to store the window-id -> winrec
+	mapping, not a list
+
+	* x-hash.h, x-hash.c: basic hash table class
+
+2002-11-14  John Harper  <jsh@apple.com>
+
+	* ui-thread.c, rootless-window.c, rootless-screen.c, quartz.c,
+	quartz-shared.h, quartz-server.c, quartz-common.h, darwin.c,
+	bundle-main.c, Imakefile, .cvsignore, English.lproj,
+	X11.pbproj:
+
+	Created an X11.app that launches the Xquartz server with the
+	correct arguments to make it put up a menu bar (through
+	Carbon), and to do what xinit normally does
+
+	(There are still some issues still to be sorted out with this,
+	and currently none of the menubar items are connected to
+	anything)
+
+2002-11-14  John Harper  <jsh@apple.com>
+
+	* rootless-aqua.c, dri-surface.h, dri-surface.c, aqua-common.h,
+	appledri.c: added AquaGrantAccess () function. Allows
+	DRICreateSurface to give window access to the client (who must
+	now specify their connection id)
+
+2002-11-13  John Harper  <jsh@apple.com>
+
+	* rootless-aqua.c (window_notification_handler): don't respond
+	to WindowDidChangeOrder notifications, there's a danger that we
+	can trigger a feedback loop, and it doesn't really do anything
+	useful anymore anyway
+
+	* appledri.c: removed RaiseWindow extension
+
+2002-11-12  John Harper  <jsh@apple.com>
+
+	* rootless-aqua.c, dri-surface.c, dri-frame.c, aqua-common.h,
+	appledri.c: added XAppleDRIRaiseWindow for until the X server
+	knows to always raise windows. Also changed AquaGetNativeWindow
+	to take a CREATE parameter
+
+2002-11-12  John Harper  <jsh@apple.com>
+
+	* XDarwin.man: now refers to Xquartz
+
+2002-11-12  John Harper  <jsh@apple.com>
+
+	* rootless-window.h, rootless-window.c, rootless-screen.c,
+	rootless-gc.c, rootless-common.c, rootless-aqua.c, quartz.h,
+	quartz.c, quartz-server.c, quartz-region.c,
+	quartz-pasteboard.c, quartz-cursor.c, quartz-common.h,
+	quartz-client.h, quartz-client.c, quartz-audio.c, dristruct.h,
+	dri-surface.c, dri-frame.c, darwin.h, darwin.c,
+	darwin-keyboard.c, darwin-clut8.h, aqua-common.h, appledri.c,
+	Imakefile:
+
+	Gratuitous file renaming. Also removed 8bit display code since
+	we'll never use it
+
+2002-11-12  John Harper  <jsh@apple.com>
+
+	* rootlessAqua.c, dristruct.h, dri.h, dri-surface.h,
+	dri-surface.c, dri-frame.h, dri-frame.c, dri-decor.h,
+	dri-decor.c, darwin.c, aquaCommon.h, appledri.c, Imakefile,
+	.cvsignore:
+
+	Lots of changes. Moved aqua frame drawing code into AppleDRI
+	server extension. Moved DRI extension code here instead of
+	GL/apple since it makes more sense (and isn't GL specific)
+
+2002-11-11  John Harper  <jsh@apple.com>
+
+	* rootlessAqua.c, aquaCommon.h (AquaMarkUpdated): mark that a
+	window has updated its contents, and updates should be enabled
+	if they were disabled
+
+2002-11-06  John Harper  <jsh@apple.com>
+
+	* rootlessWindow.h, rootlessWindow.c, rootlessScreen.c,
+	rootlessCommon.h, rootlessAqua.c, rootless.h: 
+
+	Added code to handle ReparentWindow requests when the window
+	has a frame and isn't top-level. (Though we can only do it if
+	its new top-level parent doesn't already have a frame). we need
+	to do this in case it has surfaces attached (and thus the
+	client knows the window/surface ids, and can't let go of them)
+
+2002-11-06  John Harper  <jsh@apple.com>
+
+	Support for DRI:
+
+	* rootlessWindow.c, rootlessAqua.c, rootless.h: added
+	RealizeFrame and UnrealizeFrame function vectors. Allows the
+	frame to be created before the window is actually realized
+	(which is sometimes necessary for DRI)
+
+	* rootlessAqua.c (AquaGetNativeWindow): new function
+
+	* rootlessWindow.c (RootlessFrameForWindow): added a second
+	arg, CREATE. If set a frame will br created if none exists (but
+	it won't be ordered in)	
+
+	* darwin.c (InitOutput): call AppleDRIExtensionInit ()
+
+	* quartz.c: call DRIScreenInit () and DRIFinishScreenInit ()
+
+2002-11-04  John Harper  <jsh@apple.com>
+
+	* rootlessWindow.c: more resize work, only do partial copies
+	when top-left weighting and dimensions are changing size in
+	different directions
+
+2002-11-04  John Harper  <jsh@apple.com>
+
+	* rootlessWindow.c (StartFrameResize, FinishFrameResize):
+	optimization to avoid taking a temporary copy of the window
+	backing store. If both dimensions are either getting larger or
+	getting smaller, we can just use the window backing store as
+	the gravity repair source (currently, only if UpperLeft
+	weighting is chosen). If dimensions are getting smaller we put
+	off resizing the physical window until after gravity repair is
+	complete
+
+2002-11-01  John Harper  <jsh@apple.com>
+
+	* rootlessAqua.c (AquaDestroyFrame): don't leak memory
+
+	* rootlessWindow.c (StartFrameResize): fixed small bug in last
+	change
+
+2002-11-01  John Harper  <jsh@apple.com>
+
+	* rootlessWindow.c: don't use vm_copy () to snapshot window
+	backing store for gravity fixup (causes window server to page
+	too much when it resizes the backing store with weighting).
+	Also, try to choose a window weighting that will preserve the
+	bits of the window that aren't moving (e.g. top-left area when
+	resizing bottom-right)
+
+	* rootlessAqua.c, rootlessAqua.h (AquaStartResizeFrame): now
+	takes a WEIGHT parameter
+
+	* rootlessAqua.h, rootlessAqua.c, quartzServer.c,
+	quartzCommon.h, quartz.c, pseudoramiX.h, pseudoramiX.c,
+	darwin.c, aquaCommon.h: cleaned up screen initialization, made
+	Xinerama stuff actually (mostly?) work
+
+	* rootlessAqua.c (AquaReshapeFrame): use clip shape to
+	implement X's bounding shape (was using window shape). This is
+	probably more correct, and works better in practice
+
+2002-10-30  John Harper  <jsh@apple.com>
+
+	* rootlessAqua.c (unlock_window): only reenable updates when
+	something actually gets flushed, not just when the FLUSH
+	parameter is true (means fewer updates when resizing)
+
+2002-10-28  John Harper  <jsh@apple.com>
+
+	* rootlessWindow.c (RootlessCreateWindow): set property
+	_CG_SCREEN_ORIGIN on each root window to point to the origin of
+	the screen in global CG coordcdinates
+
+2002-10-28  John Harper  <jsh@apple.com>
+
+	* rootlessAqua.c, aquaCommon.h: removed code to read and use
+	_CG_WINDOW_HINTS property
+
+	* darwin.c (ProcessInputEvents): any time we receive a button
+	down event, set ourselves as the frontmost process. Also,
+	listen for AppActivated and AppDeactivated events (currently we
+	only do something on the latter, clearing the X key focus)
+
+	* darwin.c (post_keypointer_event): synthesize MotionNotify
+	events if the current event has a different pointer location to
+	what we last told X
+
+	* rootlessAqua.c (AquaDisplayInit): in non-Xinerama mode, fixed
+	to return the number of active displays, not the total number
+	of displays
+
+2002-10-24  John Harper  <jsh@apple.com>
+
+	* rootlessGC.c (RootlessValidateGC): added back the hack to set
+	drawable->depth to bpp (it worksaround an fb "feature")
+
+	* rootlessAqua.c (AquaScreenInit): fixed bug I introduced. Was
+	dividing bpp by 3, not the color depth
+
+2002-10-24  John Harper  <jsh@apple.com>
+
+	* quartzCursor.c: X11 ARGB cursors are premultiplied
+
+2002-10-18  John Harper  <jsh@apple.com>
+
+	* rootlessAqua.c: added code to adapt to window depth
+	mismatches
+
+	* quartz.c (QuartzProcessArgument): support -depth argument
+
+	* rootlessAqua.c (AquaScreenInit): implement the -depth option,
+	if nothing specified, defaults to depth of main display
+
+	* darwin.c: tidied up option listing
+
+	* aqua.h (AquaAlphaMask): hard code this, 32bpp -> 0xff000000,
+	everything else -> 0. Before it masked out the top four bits in
+	16bpp mode!
+
+	* rootless.h (RootlessFrameRec): don't store depth and bpp here
+
+	* rootlessWindow.c, rootlessGC.c, rootlessCommon.c: updated for
+	other changes
+
+2002-10-17  John Harper  <jsh@apple.com>
+
+	* darwin.c: rewrote event translation and mouse button faking
+	code to be more logical. Should hopefully fix the intermittent
+	modifier problems I was seeing
+
+	* quartzShared.h: removed most of the application-defined
+	events, since they weren't being used anywhere
+
+2002-10-16  John Harper  <jsh@apple.com>
+
+	* rootlessAqua.c: read and cache _CG_WINDOW_HINTS property when
+	the window is realized. Set _CG_WINDOW_PSN property as well as
+	_CG_WINDOW_ID on top-level windows
+
+	* rootlessAqua.c: use window bounds seed to try to ignore
+	move/resize notifications we already know about
+
+	* quartzCommon.h (DEFINE_ATOM_HELPER): new macro
+
+	* aquaCommon.h: define format of _CG_WINDOW_HINTS property,
+	replaces _CG_EVENT_DELEGATE
+
+	* darwin.c (ProcessInputEvents): don't need to read properties
+	anymore, data is cached in AquaWindowRec object
+
+	* fakeBoxRec.h: removed, no longer needed
+
+2002-10-15  John Harper  <jsh@apple.com>
+
+	* rootlessWindow.c, rootlessCommon.h, rootlessCommon.c,
+	rootlessAqua.c, rootless.h: use native shapes to record damaged
+	window areas instead of X11 region code. This is more efficient
+	when doing lots of updates (e.g. sampling a program that draws
+	continuously, I originally saw RootlessDamageBox () get 92
+	samples out of 500, while the new code only got 26 samples in
+	that function)
+
+2002-10-14  John Harper  <jsh@apple.com>
+
+	* rootlessAqua.c: register for window notifications, then use
+	them to sync X's model of its windows with their actual
+	configuration (since that may be changed behind its back)
+
+	* rootlessWindow.c (StartFrameResize): added ifdef'd code to
+	use vm_copy () when snapshotting window contents for gravity
+	update
+
+	* quartzServer.c (QuartzRegisterNotifyProc,
+	QuartzDispatchNotification): added a mechanism to transfer
+	notifications from the event thread to the X server thread
+
+2002-10-14  John Harper  <jsh@apple.com>
+
+	* rootlessAqua.c (AquaPolyFillRect): set alpha=255 when filling
+	in 32bpp windows. Also, handles 8bpp now
+
+2002-10-11  John Harper  <jsh@apple.com>
+
+	* darwin.c: if _CG_EVENT_DELEGATE property is set on the top
+	level X window corresponding to the native window receiving an
+	event, use it to forward the event somewhere. The event then
+	filters through the usual X mechanisms.
+
+	* rootlessAqua.c, aquaCommon.h: track all allocated windows,
+	new function AquaFindFrame () to find a window record given a
+	window id
+
+2002-10-11  John Harper  <jsh@apple.com>
+
+	* quartzServer.c (event_handler_thread): include up to 64
+	events in each write into the pipe
+
+2002-10-10  John Harper  <jsh@apple.com>
+
+	* aquaPicture.c: backported to xf-4.2. Define XC_HEAD to get
+	the old version
+
+2002-10-10  John Harper  <jsh@apple.com>
+
+	Borrowed XDirectFB code to accelerate region fills and copies:
+
+	* rootlessGC.c (RootlessPolyFillRect): integrated code to call
+	PolyFillRect when possible
+
+	* rootlessWindow.c (RootlessCopyWindow): use CopyRegion when
+	possible
+
+	* rootlessAqua.c: implemented accelerated CopyRegion and
+	PolyFillRect
+
+	* rootless.h: added CopyRegion and PolyFillRect vectors
+
+2002-10-10  John Harper  <jsh@apple.com>
+
+	* quartzCursor.c (install_cursor): added code to handle
+	LSBFirst bitmaps
+
+
+== programs/Xserver/GL/apple ==
+
+2002-11-14  John Harper  <jsh@apple.com>
+
+	* indirect.c: updated for DRICreateSurface () param change
+
+2002-11-12  John Harper  <jsh@apple.com>
+
+	* indirect.c, Imakefile: moved some files around
+
+2002-11-11  John Harper  <jsh@apple.com>
+
+	* dri.h, dri.c, appledri.c (DRIFlushSurface): new function in
+	the server extension
+
+2002-11-11  John Harper  <jsh@apple.com>
+
+	* indirect.c: more error checking of results from CGL calls,
+	other minor changes
+
+2002-11-06  John Harper  <jsh@apple.com>
+
+	* appleGlx.c: use dri.c code to create and manage surfaces.
+	(e.g. that's tied more tightly into the window's visibility,
+	and so reshapes the surface quicker, it also just avoids code
+	duplication)
+
+2002-11-06  John Harper  <jsh@apple.com>
+
+	* dristruct.h, dri.h, dri.c, appledristr.h, appledri.h,
+	appledri.c, Imakefile:
+
+	Initial server-side support for direct rendering
+
+2002-11-01  John Harper  <jsh@apple.com>
+
+	* appleGlx.c: ported from aquaGlx.c, use C[ore]GL and CG
+	surfaces directly instead of going through AGL.
+
+	Mostly works, but some of the xscreensaver demos don't appear
+	until their window is moved..
+
+
+== lib/GL/apple ==
+
+2002-11-18  John Harper  <jsh@apple.com>
+
+	* appledristr.h, appledri.h, appledri.c: menubar / UI
+	extensions. Added SetWindowShadowStyle, SelectInput,
+	SetWindowMenu functions. SelectInput causes ControllerNotify
+	events to be sent
+
+2002-11-15  John Harper  <jsh@apple.com>
+
+	* xf86drmRandom.c, xf86drmHash.c, xf86drm.h, dri_driver.c,
+	Imakefile, .cvsignore: use my x-list and x-hash data types,
+	instead of the xf86drm stuff
+
+2002-11-14  John Harper  <jsh@apple.com>
+
+	* dri_driver.c, appledristr.h, appledri.h, appledri.c:
+	XAppleDRICreateSurface () now requires the client's connection
+	id so it can grant them access to the window
+
+2002-11-13  John Harper  <jsh@apple.com>
+
+	* appledristr.h, appledri.h, appledri.c: removed RaiseWindow
+	extension, I found a better workaround
+
+2002-11-12  John Harper  <jsh@apple.com>
+
+	* appledristr.h, appledri.h, appledri.c: added
+	XAppleDRIRaiseWindow to raise a window to the top of the
+	physical stack. Hopefully this can go away if/when I fix X to
+	do this automatically
+
+2002-11-12  John Harper  <jsh@apple.com>
+
+	* appledristr.h, appledri.h, appledri.c: new extension
+	functions:
+
+	XAppleDRIDisableUpdate
+	XAppleDRIReenableUpdate
+	XAppleDRISetWindowOpaqueRect
+	XAppleDRISetWindowOpacity
+	XAppleDRIFrameGetRect
+	XAppleDRIFrameHitTest
+	XAppleDRIFrameDraw
+
+	The last three are hopefully just temporary. But for now, the
+	window manager can't draw into the windows itself
+
+2002-11-11  John Harper  <jsh@apple.com>
+
+	* dri_driver.c, appledristr.h, appledri.h, appledri.c:
+	(DRIFlushSurface): new function in the server extension
+
+2002-11-10  John Harper  <jsh@apple.com>
+
+	* dri_driver.c, build-dispatch, dri_dispatch.c: rewrote this
+	stuff again, using a totally different approach.
+
+	Now the exported glFoo () functions come from the OS X OpenGL
+	framework, meaning that we get absolutely no penalty when
+	direct rendering
+
+	When indirect rendering, we install a dummy CGLContextObj that
+	has a modified dispatch table - the stubs in this table branch
+	through the Mesa dispatch table, eventually calling the glX
+	marshallers
+
+	(right now the indirect stubs take a large chunk of text space,
+	due to how they're implemented. That should be fixable using
+	assembly language or gcc tricks if it's really a problem)
+
+	* dri_dispatch.c, dri_dispatch.h, build-dispatch: now the .h is
+	auto-generated from the .defs file, the .c file has the code
+	framework that used to also be auto-generated
+
+2002-11-06  John Harper  <jsh@apple.com>
+
+	* dri_driver.h, dri_driver.c: don't unbind contexts from their
+	surface until they're either rebound somewhere else, or
+	destroyed
+
+2002-11-06  John Harper  <jsh@apple.com>
+
+	* dri_driver.h, dri_driver.c: support visuals almost correctly.
+	We now create a pixel-format object for each visual when
+	initializing the screen, then use them when creating contexts
+	(this is how the Mesa code works)
+
+2002-11-06  John Harper  <jsh@apple.com>
+
+	* Initial client-side DRI implementation
+
+	Some things need implementing, mainly visuals
+

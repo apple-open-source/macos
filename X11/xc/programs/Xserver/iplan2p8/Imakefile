@@ -1,0 +1,6 @@
+XCOMM $XFree86: xc/programs/Xserver/iplan2p8/Imakefile,v 3.0 1996/08/18 01:55:18 dawes Exp $
+XCOMM $XConsortium: Imakefile,v 1.1 91/12/28 13:32:27 rws Exp $
+#define IPlanes	8
+#define LinkDirectory ../iplan2p4
+
+#include "../iplan2p4/Imakefile"

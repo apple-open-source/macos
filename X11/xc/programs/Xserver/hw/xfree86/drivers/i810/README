@@ -1,0 +1,110 @@
+		      Information for i810 Users
+		      i810 Driver Version 2.0.0
+
+
+1. Supported Hardware
+
+   * Intel 810 motherboards:
+	i810, 
+	i810-dc100, 
+	i810e,
+	i830m.
+
+
+2. Features
+
+   * Full support for 8, 15, 16 and 24 bit per pixel depths.
+   * Hardware cursor support to reduce sprite flicker.
+   * Hardware accelerated 2D drawing engine support for 8, 15, 16 and
+     24 bit per pixel depths.
+   * Support for high resolution video modes up to 1600x1200.
+   * Fully programmable clock supported.
+   * Robust text mode restore for VT switching.
+   * Xv surfaces for YUV Video display and scaling.
+   * XvMC hardware motion compensation for MPEG decoding.
+   * Hardware accelerated 3D for i830m
+
+3. Technical Notes
+
+   * Hardware acceleration is not possible in 32 bit per pixel depth, 
+     and this mode is not supported by this driver.
+   * Interlace modes cannot be supported.
+   * Normal use requires the agpgart.o module, included in linux kernels 
+     2.3.42 and higher.
+
+
+4. Reported Working Video Cards
+
+   * i810, i810-dc100, i810e, i815, i815e, i830m.
+
+5. Configuration
+
+   The driver auto-detects all device information necessary to
+   initialize the card.  The only lines you need in the "Device"
+   section of your XF86Config file are:
+
+       Section "Device"
+           Identifier "i810"
+	   VideoRam   16384
+       EndSection
+
+   The VideoRam option is optional and determines how much system
+   memory will be used for graphics purposes. The i810 uses system
+   memory for all graphics memory due to the shared memory nature
+   of the chipset. 16-64MB is the recommended range depending on
+   available system resources.
+
+   If you have problems with auto-detection, you can specify:
+
+       DacSpeed - in MHz
+       MemBase  - physical address of the linear framebuffer
+       IOBase   - physical address of the memory mapped IO registers
+
+
+   In order to use most resolutions, it is necessary to install the
+   'agpgart.o' module which accompanies this server.  You will probably
+   have to compile the module yourself (see the notes in the module).
+
+   Note: the i810 X server detects whether your motherboard has
+	display cache video memory.  This memory is has reduced bandwidth
+	compared to normal system memory, and isn't used by the server for
+	normal operation.  The main function of this memory is for
+	ancillary buffers (eg. z buffer) in a 3d capable server.
+
+
+   In order to make use of the XvMC extension you will need to specify:
+	Option "XvMCSurfaces" "6"
+         or
+	Option "XvMCSurfaces" "7"
+   in the device section. Note that the memory for XvMC is preallocated and
+   unavailable for general graphics use. At this time there are no generally
+   available XvMC capable Mpeg decoders.
+
+
+6. Driver Options
+
+   "no_accel"  - software rendering only
+
+
+7. Known Limitations
+
+   - No 32bpp support in this driver.
+   - Running Two Xservers on different VT's is not supported at this time.
+
+8. Author
+
+   Keith Whitwell
+   Precision Insight, Inc.
+   Cedar Park, TX
+   USA
+
+   http://www.precisioninsight.com
+
+9. Support
+
+   For detailed installation instructions and other Linux on i810
+   related matters, please consult:
+
+	http://support.intel.com/support/graphics/intel810/linuxinstal.htm
+
+$XFree86: xc/programs/Xserver/hw/xfree86/drivers/i810/README,v 1.4 2001/10/28 03:33:31 tsi Exp $

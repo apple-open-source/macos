@@ -1,0 +1,10 @@
+// Northern Sami keyboard for Finland
+// Written by Børre Gaup <boerre.gaup@pc.nu>
+// Quick usage: setxkbmap se_FI
+//
+// $XFree86: xc/programs/xkbcomp/symbols/se_FI,v 1.1 2001/11/21 21:20:55 dawes Exp $
+
+partial alphanumeric_keys 
+ xkb_symbols "basic" {
+	include "sapmi(sefi)"
+};

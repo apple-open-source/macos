@@ -1,0 +1,98 @@
+// Converted keytable file to xkb/symbols/ file
+// with mk_xkb by root@linux.chanae.stben.be Tue Sep 30 00:53:29 MET DST 1997
+
+// converted from the nl-latin.map of the Linux kbd package by
+// Pablo Saratxaga <srtxg@f2219.n293.z2.fidonet.org>
+
+default partial alphanumeric_keys
+xkb_symbols "basic" {
+
+    // Describes the differences between a very simple US/ASCII
+    // keyboard and a very simple Nederland keyboard
+
+    // Alphanumeric section
+    name[Group1]= "Nederland";
+
+    key <AE01> {	[         1,	exclam   	],
+			[ onesuperior			]	};
+    key <AE02> {	[         2,	quotedbl 	],
+			[ twosuperior			]	};
+    key <AE03> {	[         3,	numbersign	],
+			[ threesuperior			]	};
+    key <AE04> {	[         4,	dollar   	],
+			[ onequarter			]	};
+    key <AE05> {	[         5,	percent  	],
+			[ EuroSign			]	};
+    key <AE06> {	[         6,	ampersand	],
+			[ threequarters			]	};
+    key <AE07> {	[         7,	underscore	],
+			[  sterling			]	};
+    key <AE08> {	[         8,	parenleft	],
+			[ braceleft			]	};
+    key <AE09> {	[         9,	parenright	],
+			[ braceright			]	};
+    key <AE10> {	[         0,	apostrophe	]	};
+    key <AE11> {	[     slash,	question 	],
+			[ backslash			]	};
+    key <AE12> {	[    degree,	dead_tilde	],
+			[ dead_cedilla			]	};
+    key <AD03> {	[         e,	E        	],
+			[    eacute,	Eacute   	]	};
+    key <AD04> {	[         r,	R        	],
+			[ paragraph,	registered	]	};
+    key <AD05> {	[         t,	T        	],
+			[     thorn,	THORN    	]	};
+    key <AD06> {	[         y,	Y        	],
+			[ ydiaeresis,	yen      	]	};
+    key <AD07> {	[         u,	U        	],
+			[ udiaeresis,	Udiaeresis	]	};
+    key <AD08> {	[         i,	I        	],
+			[ idiaeresis,	Idiaeresis	]	};
+    key <AD09> {	[         o,	O        	],
+			[    ograve,	Ograve   	]	};
+    key <AD10> {	[         p,	P        	],
+			[ paragraph			]	};
+    key <AD11> {	[ dead_diaeresis,	dead_tilde	],
+			[ asciitilde,	asciicircum	]	};
+    key <AD12> {	[  asterisk,	bar      	]	};
+    key <AC01> {	[         a,	A        	],
+			[    aacute,	Aacute   	]	};
+    key <AC02> {	[         s,	S        	],
+			[    ssharp			]	};
+    key <AC03> {	[         d,	D        	],
+			[       eth,	ETH      	]	};
+    key <AC04> {	[         f,	F        	],
+			[ ordfeminine,	ordfeminine	]	};
+    key <AC10> {	[      plus,	plusminus	]	};
+    key <AC11> {	[ apostrophe,	grave    	],
+			[ dead_acute,	dead_grave	]	};
+    key <TLDE> {	[        at,	section  	],
+			[   notsign			]	};
+    key <BKSL> {	[      less,	greater  	]	};
+    key <AB01> {	[         z,	Z        	],
+			[ guillemotleft			]	};
+    key <AB02> {	[         x,	X        	],
+			[ guillemotright			]	};
+    key <AB03> {	[         c,	C        	],
+			[      cent,	copyright	]	};
+    key <AB06> {	[         n,	N        	],
+			[    ntilde,	Ntilde   	]	};
+    key <AB07> {	[         m,	M        	],
+			[  Greek_mu,	masculine	]	};
+    key <AB08> {	[     comma,	semicolon	],
+			[   cedilla,	guillemotleft	]	};
+    key <AB09> {	[    period,	colon    	],
+			[ periodcentered,	guillemotright	]	};
+    key <AB10> {	[     minus,	equal    	],
+			[    hyphen			]	};
+    key <LSGT> {	[ bracketleft,	bracketright	],
+			[       bar			]	};
+
+    // End alphanumeric section
+
+    // begin modifier mappings
+    modifier_map Shift  { Shift_L };
+    modifier_map Lock   { Caps_Lock };
+    modifier_map Control{ Control_L };
+    modifier_map Mod3   { Mode_switch };
+};

@@ -1,0 +1,178 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nsc/Imakefile,v 1.6 2003/02/19 10:10:49 alanh Exp $
+XCOMM Imakefile for the National Semiconductor display driver
+XCOMM that is based on the durango code.
+XCOMM
+XCOMM (c) 2000 National Semiconductor corporation
+XCOMM (c) 2000 by Juergen Schneider, Infomatec IAS GmbH
+XCOMM
+#define IHaveModules
+#include <Server.tmpl>
+
+XCOMM Turn this on for the Set-Top-Box (STB) mode which uses 
+XCOMM the NSC linux kernel frame buffer driver interface.
+
+XCOMM #define NSC_STB
+ 
+#if !defined(NSC_STB)
+DEFINES = -DOPT_ACCEL
+DURANGOSRCS = durango.c panel.c
+DURANGOOBJS = durango.o panel.o
+EXTINCLUDES = -I./gfx -I./panel
+#else
+DEFINES = -DSTB_X
+STBSRCS = nsc_galstub.c
+STBOBJS = nsc_galstub.o
+EXTINCLUDES = -I/usr/src/linux/drivers/video/nsc/gfx \
+              -I/usr/src/linux/drivers/video/nsc/panel \
+              -I/usr/src/linux/drivers/video/nsc/
+#endif
+
+#ifdef i386Architecture
+I86SRC = nsc_msr_asm.S
+I86OBJ = nsc_msr_asm.o
+#endif
+
+SRCS =  nsc_driver.c \
+		nsc_gx1_driver.c \
+		nsc_gx1_dga.c \
+		nsc_gx1_accel.c \
+		nsc_gx1_cursor.c \
+		nsc_gx1_video.c \
+		nsc_gx1_shadow.c \
+		nsc_gx2_driver.c\
+		nsc_gx2_accel.c \
+		nsc_gx2_cursor.c \
+		nsc_gx2_dga.c \
+		nsc_gx2_video.c \
+		nsc_gx2_shadow.c $(I86SRC) $(STBSRCS) $(DURANGOSRCS)
+
+OBJS =  nsc_driver.o \
+		nsc_gx1_driver.o \
+		nsc_gx1_accel.o \
+		nsc_gx1_cursor.o \
+		nsc_gx1_dga.o \
+		nsc_gx1_shadow.o \
+		nsc_gx1_video.o \
+		nsc_gx2_driver.o \
+		nsc_gx2_accel.o \
+		nsc_gx2_cursor.o \
+		nsc_gx2_dga.o \
+		nsc_gx2_video.o \
+		nsc_gx2_shadow.o $(I86OBJ) $(STBOBJS) $(DURANGOOBJS)
+
+#if defined(XF86DriverSDK)
+INCLUDES = -I. -I../../include
+#else
+INCLUDES = -I. -I$(XF86COMSRC) -I$(XF86OSSRC) -I$(SERVERSRC)/Xext \
+		-I$(SERVERSRC)/mfb -I$(SERVERSRC)/mi \
+		-I$(SERVERSRC)/cfb -I$(SERVERSRC)/fb -I$(XF86SRC)/xaa \
+		-I$(XF86SRC)/vgahw -I$(XF86SRC)/ramdac \
+		-I$(XF86SRC)/ddc -I$(XF86SRC)/i2c \
+		-I$(XF86SRC)/rac -I$(XF86SRC)/int10 \
+		-I$(XF86SRC)/xf24_32bpp -I$(FONTINCSRC) \
+		-I$(XF86SRC)/xf8_32bpp -I$(XF86SRC)/xf1bpp \
+		-I$(XF86SRC)/xf4bpp -I$(SERVERSRC)/include -I$(XINCLUDESRC) \
+		-I$(XF86SRC)/ddc -I$(XF86SRC)/i2c -I$(EXTINCSRC) $(DRIINCLUDES) \
+		-I$(XF86SRC)/shadowfb -I$(XF86SRC)/fbdevhw \
+		-I$(XTOP)/include -I$(XF86SRC)/vbe -I$(SERVERSRC)/render \
+		$(EXTINCLUDES)
+#endif
+
+
+#if MakeHasPosixVariableSubstitutions
+SubdirLibraryRule($(OBJS))
+#endif
+
+ModuleObjectRule()
+
+ObjectModuleTarget(nsc,$(OBJS))
+
+InstallObjectModule(nsc,$(MODULEDIR),drivers)
+
+#if !defined(XF86DriverSDK)
+CppManTarget(nsc,)
+InstallModuleManPage(nsc)
+#endif 
+
+DependTarget()
+
+#ifdef i386Architecture
+ObjectFromAsmSource(nsc_msr_asm,NullParameter)
+#endif
+
+InstallDriverSDKNonExecFile(Imakefile,$(DRIVERSDKDIR)/drivers/nsc)
+
+InstallDriverSDKNonExecFile(durango.c,$(DRIVERSDKDIR)/drivers/nsc)
+InstallDriverSDKNonExecFile(nsc.h,$(DRIVERSDKDIR)/drivers/nsc)
+InstallDriverSDKNonExecFile(nsc_driver.c,$(DRIVERSDKDIR)/drivers/nsc)
+InstallDriverSDKNonExecFile(nsc_fourcc.h,$(DRIVERSDKDIR)/drivers/nsc)
+InstallDriverSDKNonExecFile(nsc_galfns.c,$(DRIVERSDKDIR)/drivers/nsc)
+InstallDriverSDKNonExecFile(nsc_galstub.c,$(DRIVERSDKDIR)/drivers/nsc)
+InstallDriverSDKNonExecFile(nsc_gx1_accel.c,$(DRIVERSDKDIR)/drivers/nsc)
+InstallDriverSDKNonExecFile(nsc_gx1_cursor.c,$(DRIVERSDKDIR)/drivers/nsc)
+InstallDriverSDKNonExecFile(nsc_gx1_dga.c,$(DRIVERSDKDIR)/drivers/nsc)
+InstallDriverSDKNonExecFile(nsc_gx1_driver.c,$(DRIVERSDKDIR)/drivers/nsc)
+InstallDriverSDKNonExecFile(nsc_gx1_shadow.c,$(DRIVERSDKDIR)/drivers/nsc)
+InstallDriverSDKNonExecFile(nsc_gx1_video.c,$(DRIVERSDKDIR)/drivers/nsc)
+InstallDriverSDKNonExecFile(nsc_gx2_accel.c,$(DRIVERSDKDIR)/drivers/nsc)
+InstallDriverSDKNonExecFile(nsc_gx2_cursor.c,$(DRIVERSDKDIR)/drivers/nsc)
+InstallDriverSDKNonExecFile(nsc_gx2_dga.c,$(DRIVERSDKDIR)/drivers/nsc)
+InstallDriverSDKNonExecFile(nsc_gx2_driver.c,$(DRIVERSDKDIR)/drivers/nsc)
+InstallDriverSDKNonExecFile(nsc_gx2_shadow.c,$(DRIVERSDKDIR)/drivers/nsc)
+InstallDriverSDKNonExecFile(nsc_gx2_vga.c,$(DRIVERSDKDIR)/drivers/nsc)
+InstallDriverSDKNonExecFile(nsc_gx2_video.c,$(DRIVERSDKDIR)/drivers/nsc)
+InstallDriverSDKNonExecFile(nsc_msr_asm.S,$(DRIVERSDKDIR)/drivers/nsc)
+InstallDriverSDKNonExecFile(nsc_regacc.c,$(DRIVERSDKDIR)/drivers/nsc)
+InstallDriverSDKNonExecFile(panel.c,$(DRIVERSDKDIR)/drivers/nsc)
+InstallDriverSDKNonExecFile(gfx/disp_gu1.c,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/disp_gu2.c,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/durango.c,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/gfx_dcdr.c,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/gfx_defs.h,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/gfx_disp.c,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/gfx_i2c.c,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/gfx_init.c,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/gfx_mode.h,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/gfx_msr.c,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/gfx_regs.h,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/gfx_rndr.c,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/gfx_rtns.h,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/gfx_tv.c,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/gfx_type.h,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/gfx_vga.c,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/gfx_vid.c,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/gfx_vip.c,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/history.h,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/i2c_acc.c,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/i2c_gpio.c,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/init_gu1.c,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/init_gu2.c,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/msr_rdcl.c,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/release.txt,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/rndr_gu1.c,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/rndr_gu2.c,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/saa7114.c,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/tv_1200.c,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/tv_fs450.c,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/tv_fs450.h,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/vga_gu1.c,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/vid_1200.c,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/vid_5530.c,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/vid_rdcl.c,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(gfx/vip_1200.c,$(DRIVERSDKDIR)/drivers/nsc/gfx)
+InstallDriverSDKNonExecFile(panel/92xx.h,$(DRIVERSDKDIR)/drivers/nsc/panel)
+InstallDriverSDKNonExecFile(panel/cen9211.c,$(DRIVERSDKDIR)/drivers/nsc/panel)
+InstallDriverSDKNonExecFile(panel/cen9211.h,$(DRIVERSDKDIR)/drivers/nsc/panel)
+InstallDriverSDKNonExecFile(panel/dora9211.c,$(DRIVERSDKDIR)/drivers/nsc/panel)
+InstallDriverSDKNonExecFile(panel/dora9211.h,$(DRIVERSDKDIR)/drivers/nsc/panel)
+InstallDriverSDKNonExecFile(panel/drac9210.c,$(DRIVERSDKDIR)/drivers/nsc/panel)
+InstallDriverSDKNonExecFile(panel/drac9210.h,$(DRIVERSDKDIR)/drivers/nsc/panel)
+InstallDriverSDKNonExecFile(panel/panel.c,$(DRIVERSDKDIR)/drivers/nsc/panel)
+InstallDriverSDKNonExecFile(panel/panel.h,$(DRIVERSDKDIR)/drivers/nsc/panel)
+InstallDriverSDKNonExecFile(panel/platform.c,$(DRIVERSDKDIR)/drivers/nsc/panel)
+InstallDriverSDKNonExecFile(panel/pnl_bios.c,$(DRIVERSDKDIR)/drivers/nsc/panel)
+InstallDriverSDKNonExecFile(panel/pnl_defs.h,$(DRIVERSDKDIR)/drivers/nsc/panel)
+InstallDriverSDKNonExecFile(panel/pnl_init.c,$(DRIVERSDKDIR)/drivers/nsc/panel)
+InstallDriverSDKNonExecFile(panel/readme.txt,$(DRIVERSDKDIR)/drivers/nsc/panel)
+
+InstallDriverSDKObjectModule(nsc,$(DRIVERSDKMODULEDIR),drivers)

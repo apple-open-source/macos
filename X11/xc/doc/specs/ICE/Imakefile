@@ -1,0 +1,10 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:42:09 cpqbld Exp $
+XCOMM $XFree86: xc/doc/specs/ICE/Imakefile,v 1.3 2001/04/27 12:58:27 dawes Exp $
+
+MakeEqnDoc(ice,ice.ms)
+
+MakeEqnDoc(ICElib,ICElib.ms)
+
+InstallRoffDoc(ice)
+InstallRoffDoc(ICElib)
+

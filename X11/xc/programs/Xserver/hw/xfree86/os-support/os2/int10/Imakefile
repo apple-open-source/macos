@@ -1,0 +1,110 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/os-support/os2/int10/Imakefile,v 1.1 2000/04/05 18:13:55 dawes Exp $
+
+#define IHaveModules
+
+#include <Server.tmpl>
+
+SRCS1 = pci.c xf86int10module.c helper_exec.c helper_mem.c xf86int10.c 
+OBJS1 = pci.o xf86int10module.o helper_exec.o helper_mem.o xf86int10.o 
+
+LinkSourceFile(helper_mem.c,$(XF86SRC)/int10)
+LinkSourceFile(helper_exec.c,$(XF86SRC)/int10)
+LinkSourceFile(xf86int10.c,$(XF86SRC)/int10)
+LinkSourceFile(pci.c,$(XF86SRC)/int10)
+LinkSourceFile(xf86int10module.c,$(XF86SRC)/int10)
+LinkSourceFile(xf86x86emu.c,$(XF86SRC)/int10)
+LinkSourceFile(generic.c,$(XF86SRC)/int10)
+
+INCLUDES = -I. -I$(XF86COMSRC) -I$(XF86SRC)/int10 \
+           -I$(XF86OSSRC) \
+           -I$(SERVERSRC)/include -I$(XINCLUDESRC)
+
+DEFINES=-DHAVE_SYSV_IPC
+
+#if 0
+/* debugging stuff */
+#DEFINES =-D_PC
+#undef XF86INT10_BUILD 
+#define XF86INT10_BUILD X86EMU_GENERIC
+#define X86EMU_LIBPATH /usr/local/lib
+#endif
+
+#if defined(i386Architecture)
+DEFINES =-D_PC
+#endif
+
+/* XXX keep this temporarily for reference */
+#if 0
+#if (XF86INT10_BUILD == X86EMU_GENERIC) 
+
+SRCS = $(SRCS1) xf86x86emu.c generic.c
+OBJS = $(OBJS1) xf86x86emu.o generic.o x86emu.o
+SpecialObjectRule(pci.o, pci.c, -D_X86EMU)
+SpecialObjectRule(helper_exec.o, helper_exec.c, -D_X86EMU)
+SpecialObjectRule(xf86int10.o, xf86int10.c, -D_X86EMU -DSHOW_ALL_DEVICES)
+SpecialObjectRule(generic.o, generic.c, -D_X86EMU)
+SpecialObjectRule(xf86x86emu.o, xf86x86emu.c, -D_X86EMU)
+BuildObjectFromLibraryWithPath(X86EMU_LIBPATH,x86emu,x86emu)
+#endif
+#endif
+
+#if defined(XF86INT10_BUILD) && (XF86INT10_BUILD == X86VM)
+
+SRCS = $(SRCS1) linux.c
+OBJS = $(OBJS1) linux.o
+SpecialObjectRule(pci.o, pci.c, -D_VM86_LINUX)
+SpecialObjectRule(helper_exec.o, helper_exec.c, -D_VM86_LINUX)
+SpecialObjectRule(xf86int10.o, xf86int10.c, -D_VM86_LINUX -DSHOW_ALL_DEVICES)
+SpecialObjectRule(linux.o, linux.c, -D_VM86_LINUX -DHAVE_SYSV_IPC)
+
+#elif (XF86INT10_BUILD == X86EMU_OS)
+
+SpecialObjectRule(pci.o, pci.c, -D_X86EMU)
+SpecialObjectRule(helper_exec.o, helper_exec.c, -D_X86EMU)
+SpecialObjectRule(xf86int10.o, xf86int10.c, -D_X86EMU -DSHOW_ALL_DEVICES)
+SpecialObjectRule(linux.o, linux.c, -D_X86EMU -DHAVE_SYSV_IPC)
+
+X86TOPDIR = $(TOP)/extras/x86emu
+X86SRCDIR = $(X86TOPDIR)/src/x86emu
+X86EMUINCLUDES = -I$(X86TOPDIR)/include -I$(X86SRCDIR)
+
+# if !defined(X86EMU_LIBPATH) 
+X86EMUSRCS = debug.c decode.c fpu.c ops.c ops2.c prim_ops.c sys.c
+X86EMUOBJS = debug.o decode.o fpu.o ops.o ops2.o prim_ops.o sys.o
+
+LinkSourceFile(debug.c,$(X86SRCDIR))
+LinkSourceFile(decode.c,$(X86SRCDIR))
+LinkSourceFile(fpu.c,$(X86SRCDIR))
+LinkSourceFile(ops.c,$(X86SRCDIR))
+LinkSourceFile(ops2.c,$(X86SRCDIR))
+LinkSourceFile(prim_ops.c,$(X86SRCDIR))
+LinkSourceFile(sys.c,$(X86SRCDIR))
+# else
+BuildObjectFromLibraryWithPath(X86EMU_LIBPATH,x86emu,x86emu)
+X86EMUOBJS = x86emu.o
+# endif 
+
+SRCS = $(SRCS1) xf86x86emu.c linux.c $(X86EMUSRCS)
+OBJS = $(OBJS1) xf86x86emu.o linux.o $(X86EMUOBJS)
+
+#endif
+
+#if defined(XF86INT10_BUILD) && XF86INT10_BUILD > X86EMU_GENERIC
+
+LibraryModuleTarget(int10, $(OBJS))
+
+InstallLibraryModule(int10,$(MODULEDIR),linux)
+
+all::
+	(set -x; cd ../..; \
+	RemoveFile(LibraryTargetName(int10)); \
+	$(LN) linux/int10/LibraryTargetName(int10) . )
+
+InstallDriverSDKLibraryModule(int10,$(DRIVERSDKMODULEDIR),.)
+
+InstallDriverSDKNonExecFile(../../int10/xf86int10.h,$(DRIVERSDKINCLUDEDIR))
+
+#endif
+
+DependTarget()
+

@@ -1,0 +1,126 @@
+// $Xorg: en_US,v 1.3 2000/08/17 19:54:42 cpqbld Exp $
+// $XFree86: xc/programs/xkbcomp/symbols/en_US,v 3.6 2001/10/28 03:34:35 tsi Exp $
+
+partial hidden alphanumeric_keys 
+xkb_symbols "basic" {
+    include "us(basic)"
+    include "iso9995-3(basic)"
+};
+default 
+xkb_symbols "pc101" {
+    include  "us(pc101)"
+
+    replace key <RALT> { [ Mode_switch,  Multi_key ] };
+
+    include "iso9995-3(basic101)"
+
+    modifier_map Mod3 { Mode_switch };
+};
+xkb_symbols "pc102" {
+    include  "us(pc102)"
+
+    replace key <RALT> { [ Mode_switch,  Multi_key ] };
+
+    include "iso9995-3(basic)"
+
+    modifier_map Mod3 { Mode_switch };
+};
+xkb_symbols "pc104" {
+    include  "us(pc104)"
+
+    replace key <RALT> { [ Mode_switch ] };
+    replace key <RWIN> { [ Multi_key ] };
+
+    include "iso9995-3(basic101)"
+
+    modifier_map Mod3 { Mode_switch };
+};
+xkb_symbols "pc105" {
+    include  "us(pc105)"
+
+    replace key <RALT> { [ Mode_switch ] };
+    replace key <RWIN> { [ Multi_key ] };
+
+    include "iso9995-3(basic)"
+
+    modifier_map Mod3 { Mode_switch };
+};
+xkb_symbols "pc_universal" {
+    include  "us(pc_universal)"
+
+    replace key <RALT> { [ Mode_switch ] };
+    replace key <RWIN> { [ Multi_key ] };
+
+    include "iso9995-3(basic)"
+
+    modifier_map Mod3 { Mode_switch };
+};
+
+xkb_symbols "sun4" {
+    include "us(sun4)"
+    include "iso9995-3(basic)"
+};
+xkb_symbols "sun5" {
+    include "us(sun5)"
+    include "iso9995-3(basic)"
+};
+xkb_symbols "pc101_nodeadkeys" {
+    include  "us(pc101)"
+
+    replace key <RALT> { [ Mode_switch,  Multi_key ] };
+
+    include "iso9995-3(nodeadkeys101)"
+
+    modifier_map Mod3 { Mode_switch };
+};
+xkb_symbols "pc102_nodeadkeys" {
+    include  "us(pc102)"
+
+    replace key <RALT> { [ Mode_switch,  Multi_key ] };
+
+    include "iso9995-3(nodeadkeys)"
+
+    modifier_map Mod3 { Mode_switch };
+};
+
+xkb_symbols "pc104_nodeadkeys" {
+    include  "us(pc104)"
+
+    replace key <RALT> { [ Mode_switch ] };
+    replace key <RWIN> { [ Multi_key ] };
+
+    include "iso9995-3(nodeadkeys101)"
+
+    modifier_map Mod3 { Mode_switch };
+};
+
+xkb_symbols "pc105_nodeadkeys" {
+    include  "us(pc105)"
+
+    replace key <RALT> { [ Mode_switch ] };
+    replace key <RWIN> { [ Multi_key ] };
+
+    include "iso9995-3(nodeadkeys101)"
+
+    modifier_map Mod3 { Mode_switch };
+};
+
+xkb_symbols "pc_universal_nodeadkeys" {
+    include  "us(pc_universal)"
+
+    replace key <RALT> { [ Mode_switch ] };
+    replace key <RWIN> { [ Multi_key ] };
+
+    include "iso9995-3(nodeadkeys101)"
+
+    modifier_map Mod3 { Mode_switch };
+};
+
+xkb_symbols "sun4_nodeadkeys" {
+    include "us(sun4)"
+    include "iso9995-3(nodeadkeys)"
+};
+xkb_symbols "sun5_nodeadkeys" {
+    include "us(sun5)"
+    include "iso9995-3(nodeadkeys)"
+};

@@ -1,0 +1,37 @@
+XCOMM
+XCOMM This is an Imakefile for the cg6 driver.
+XCOMM
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/drivers/suncg6/Imakefile,v 1.4 2001/05/16 06:48:11 keithp Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+
+SRCS = cg6_driver.c cg6_cursor.c
+OBJS = cg6_driver.o cg6_cursor.o
+
+#if defined(XF86DriverSDK)
+INCLUDES = -I. -I../../include
+#else
+INCLUDES = -I. -I$(XF86COMSRC) -I$(XF86OSSRC) \
+           -I$(SERVERSRC)/fb -I$(SERVERSRC)/mi \
+           -I$(SERVERSRC)/Xext -I$(SERVERSRC)/render \
+	   -I$(XF86SRC)/ramdac \
+           -I$(FONTINCSRC) -I$(SERVERSRC)/include -I$(XINCLUDESRC) \
+	   -I$(EXTINCSRC)
+#endif
+
+#if MakeHasPosixVariableSubstitutions
+SubdirLibraryRule($(OBJS))
+#endif
+
+ModuleObjectRule()
+
+ObjectModuleTarget(suncg6,$(OBJS))
+
+InstallObjectModule(suncg6,$(MODULEDIR),drivers)
+
+#if !defined(XF86DriverSDK)
+InstallModuleManPage(suncg6)
+#endif
+
+DependTarget()

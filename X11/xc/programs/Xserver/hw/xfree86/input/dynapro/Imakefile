@@ -1,0 +1,30 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/input/dynapro/Imakefile,v 1.5 2002/10/16 01:47:02 dawes Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+
+SRCS = xf86Dyna.c
+OBJS = xf86Dyna.o
+
+DRIVER = dynapro
+
+INCLUDES = -I. -I$(XF86COMSRC) -I$(XF86SRC)/loader -I$(XF86OSSRC) \
+			-I$(SERVERSRC)/include -I$(XINCLUDESRC) -I$(EXTINCSRC)
+
+#if MakeHasPosixVariableSubstitutions
+SubdirLibraryRule($(OBJS))
+#endif
+
+ModuleObjectRule()
+
+ObjectModuleTarget($(DRIVER),$(OBJS))
+
+InstallObjectModule($(DRIVER),$(MODULEDIR),input)
+
+#if !defined(XF86DriverSDK)
+InstallModuleManPage($(DRIVER))
+#endif
+
+DependTarget()
+
+InstallDriverSDKObjectModule($(DRIVER),$(DRIVERSDKMODULEDIR),input)

@@ -1,0 +1,107 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:45:53 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/lib/Xi/Imakefile,v 1.5 2002/10/16 00:37:28 dawes Exp $
+
+#define DoNormalLib NormalLibXi
+#define DoSharedLib SharedLibXi
+#define DoExtraLib SharedLibXi
+#define DoDebugLib DebugLibXi
+#define DoProfileLib ProfileLibXi
+#define LibName Xi
+#define SoRev SOXINPUTREV
+#define LibHeaders NO
+
+#include <Threads.tmpl>
+
+#ifdef SharedXiReqs
+REQUIREDLIBS = SharedXiReqs
+#endif
+
+#if Malloc0ReturnsNull
+ALLOC_DEFINES = -DMALLOC_0_RETURNS_NULL
+#endif
+
+ DEFINES = $(ALLOC_DEFINES)
+SRCS = XAllowDv.c \
+		  XChgDCtl.c \
+		  XChgFCtl.c \
+		  XChgKbd.c \
+		  XChgKMap.c \
+		  XChgPnt.c \
+		  XChgProp.c \
+		  XCloseDev.c \
+		  XDevBell.c \
+		  XExtToWire.c \
+		  XGetBMap.c \
+		  XGetDCtl.c \
+		  XGetFCtl.c \
+		  XGetKMap.c \
+		  XGetMMap.c \
+		  XGetProp.c \
+		  XGetVers.c \
+		  XGMotion.c \
+		  XGrabDev.c \
+		  XGrDvBut.c \
+		  XGrDvKey.c \
+		  XGtFocus.c \
+		  XGtSelect.c \
+		  XListDev.c \
+		  XOpenDev.c \
+		  XQueryDv.c \
+		  XSelect.c \
+		  XSetBMap.c \
+		  XSetDVal.c \
+		  XSetMMap.c \
+		  XSetMode.c \
+		  XSndExEv.c \
+		  XStFocus.c \
+		  XUngrDev.c \
+		  XUngrDvB.c \
+		  XUngrDvK.c \
+		  XExtInt.c 
+OBJS = XAllowDv.o \
+		  XChgDCtl.o \
+		  XChgFCtl.o \
+		  XChgKbd.o \
+		  XChgKMap.o \
+		  XChgPnt.o \
+		  XChgProp.o \
+		  XCloseDev.o \
+		  XDevBell.o \
+		  XExtToWire.o \
+		  XGetBMap.o \
+		  XGetDCtl.o \
+		  XGetFCtl.o \
+		  XGetKMap.o \
+		  XGetMMap.o \
+		  XGetProp.o \
+		  XGetVers.o \
+		  XGMotion.o \
+		  XGrabDev.o \
+		  XGrDvBut.o \
+		  XGrDvKey.o \
+		  XGtFocus.o \
+		  XGtSelect.o \
+		  XListDev.o \
+		  XOpenDev.o \
+		  XQueryDv.o \
+		  XSelect.o \
+		  XSetBMap.o \
+		  XSetDVal.o \
+		  XSetMMap.o \
+		  XSetMode.o \
+		  XSndExEv.o \
+		  XStFocus.o \
+		  XUngrDev.o \
+		  XUngrDvB.o \
+		  XUngrDvK.o \
+		  XExtInt.o 
+
+       LINTLIBS = $(LINTXLIB) $(LINTXEXT)
+
+#include <Library.tmpl>
+
+DependTarget()

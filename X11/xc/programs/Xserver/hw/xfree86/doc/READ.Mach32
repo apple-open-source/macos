@@ -1,0 +1,166 @@
+                          Notes for Mach32 X Server
+
+                        Bryan Feir (jenora@istar.ca)
+
+                                 2 July 1997
+
+1.  Supported Cards, RAMDACs, and Bits Per Pixel
+
+The base support in the Mach32 X server is for 8 bpp, with a dot clock of up
+to 80 MHz.  At present 15/16 bpp is supported on only three of the many RAM-
+DACs; however those three cover the most commonly sold cards.
+
+      RAMDAC      Max Dot Clock   BPP   Max Resolution   Video RAM Required
+     --------     -------------   ---   --------------   ------------------
+     Default           80MHz       8      1280x1024i            2Mb
+     Default           80MHz       8      1024x768              1Mb
+
+     ATI68875         135MHz       8      1280x1024             2Mb
+     ATI68875          80MHz      16      1024x768              2Mb
+
+     AT&T20C49x        80MHz       8      1024x768              1Mb
+     AT&T20C49x        40MHz      16       800x600              2Mb
+
+     BT481             80MHz       8      1024x768              1Mb
+     BT481             40MHz      16       800x600              2Mb
+
+The RAMDAC is reported when you run the Mach32 X server with the "-probeonly"
+command line option, or can be specified in the XF86Config file.
+
+The ATI68875 (or the TLC34075) is used on the Graphics Ultra + and the Graph-
+ics Ultra Pro.  The Brooktree 481 is used on most Graphics Wonder cards.  The
+AT&T20C491 is used on many of the OEM cards that are built into component
+systems.
+
+The BIOS detection unfortunately lumps the BT481 and the AT&T20C49x together,
+while they require different configuration controls in 16 bit mode.  Super-
+Probe can tell the difference, and will report which it finds.  In the server
+itself, the BT481 is considered the default value.  If you have an AT&TC49x
+RAMDAC on your card you will have to include the Ramdac entry in the XF86Con-
+fig file as below.
+
+2.  XF86Config options
+
+Several options are supported in the "Device" section for the Mach32 X
+server.  Most of them should be auto-detected if needed, but a few may need
+to be deliberately set.  For example, the "Clocks" entry should almost cer-
+tainly be set after first running the server with the -probeonly option, so
+as to avoid the probe in later runs.
+
+      Option "composite"
+            This option will set the composite sync for monitors that require
+            this.
+
+      Option "dac_8_bit"
+            This option enables 8 bits per RGB value.  Note this option does
+            not work with all RAMDACs, and is not considered supported by the
+            Mach32 itself.
+
+      Option "ast_mach32"
+            This option sets some special handling for the AST version of the
+            Mach32 card that comes soldered in to some of their motherboards.
+            This card will lock up without this option.
+
+      Option "intel_gx"
+            This option sets the memory aperture address to the hardwired
+            value for the Intel GX Pro.  It is equivalent to setting Membase
+            to 0x78000000.
+
+      Option "no_linear"
+            This option disables the use of the linear mapped framebuffer.
+            This should be auto-detected.
+
+      Option "sw_cursor"
+            This option allows you to use the software cursor instead of the
+            hardware cursor.
+
+      MemBase baseaddress
+            This entry specifies the video memory aperture address.  Normally
+            the aperture address is automatically determined, but on some
+            VESA Local Bus systems the address chosen will not work.  If the
+            Mach32 X server is dying with a seg. fault, then try setting the
+            aperture address to another location.
+
+      Clocks clock ...
+            This entry gives the clock rates for the server to use.
+
+      Ramdac "type"
+            This entry specifies the RAMDAC type.  The following values are
+            valid for type:
+
+               o ati68830
+
+               o sc11483
+
+               o sc11486
+
+               o sc11488
+
+               o ims_g173
+
+               o mu9c4870
+
+               o ati68875*
+
+               o bt885
+
+               o tlc34075*
+
+               o bt476
+
+               o bt478
+
+               o inmos176
+
+               o inmos178
+
+               o bt481*
+
+               o bt482
+
+               o ims_g174
+
+               o mu9c1880
+
+               o mu9c4910
+
+               o sc15025
+
+               o sc15026
+
+               o att20c490*
+
+               o ati68860
+
+               o stg1700
+
+               o sc15021
+
+               o stg1702
+
+               o att21c498
+
+            Only the ones marked with [*] have an effect yet.
+
+3.  Known Problems and Bug Reports
+
+There are several known problems with the current version of the Mach32 X
+server.  They include:
+
+   o Not all RAMDACs are supported at higher colour ranges, and not all that
+     are can be detected properly.  In fact most of the RAMDAC values above
+     have no effect except to block higher bit modes.
+
+   o Sixteen bit character support (e.g., Chinese and Japanese character
+     sets) has been known to lose parts of characters.  While this should be
+     fixed, if it occurs try running the server with Option "no_linear".
+
+Bug reports should be sent to XFree86@XFree86.org or posted to the comp.win-
+dows.x.i386unix newsgroup.
+
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/Mach32.sgml,v 3.7 1997/07/10 08:17:25 hohndel Exp $
+
+     $XConsortium: Mach32.sgml /main/4 1996/10/28 04:47:43 kaleb $
+
+
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/READ.Mach32,v 3.11 1999/04/15 03:34:46 dawes Exp $

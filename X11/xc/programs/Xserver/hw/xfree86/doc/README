@@ -1,0 +1,158 @@
+                        README for XFree86[tm] 4.3.0
+
+                          The XFree86 Project, Inc
+
+                              26 February 2003
+
+                                  Abstract
+
+     XFree86 is an Open Source version of the X Window System that sup-
+     ports many UNIX(R) and UNIX-like operating systems (such as Linux,
+     FreeBSD, NetBSD, OpenBSD and Solaris x86) on Intel and other plat-
+     forms.  This version is compatible with X11R6.6.
+
+1.  What is XFree86 4.3.0?
+
+XFree86 4.3.0 is the sixth full release in the XFree86 4.x series.
+
+XFree86 4.x is the current XFree86 release series.  The first release in this
+series was in early 2000.  The core of XFree86 4.x is a modular X server.
+The 4.3.0 version is a new release that includes additional hardware support,
+functional enhancements and bug fixes.  Specific release enhancements can be
+viewed in the Release Notes.
+
+Most modern PC video hardware is supported in XFree86 4.3.0, and most PC
+video hardware that isn't supported explicitly can be used with the "vesa"
+driver.  The Driver Status document has a summary of what hardware is sup-
+ported in 4.3.0 compared with the old 3.3.x (3.3.6) series.  It is a good
+idea to check there before upgrading if you are currently running 3.3.6 with
+older hardware.
+
+XFree86 is produced by The XFree86 Project, Inc, which is a group of mostly
+volunteer independent developers.  XFree86 is a non-commercial organisation,
+and would not be viable without the invaluable development contributions of
+volunteers.  This release is dedicated to all who have supported and con-
+tributed to XFree86 over the last eleven years.
+
+2.  Pointers to additional information
+
+The documentation for this release can be found online at the XFree86 web
+site <URL:http://www.xfree86.org/4.3.0/>.  Documentation for the latest
+release version can always be found here <URL:http://www.xfree86.org/cur-
+rent/>, and documentation for the latest pre-release snapshot can be found
+here <URL:http://www.xfree86.org/snapshot/>.  Checking those last two links
+is a good way of finding out the latest versions available from XFree86.
+
+Information about binary distributions and the attendant installation
+instructions can be found in the Installation Document.
+
+Copyright and Licensing information for this release and all XFree86 releases
+can be found in the License Document.
+
+The XFree86 version numbering system (including historical information) can
+be found in the Versions Document.
+
+Additional information may be available at the XFree86 web site
+<URL:http://www.xfree86.org/>, and pointers to other information are avail-
+able at the XFree86 support page <URL:http://www.xfree86.org/support.html>.
+
+3.  The Public Mailing Lists
+
+3.1  CVS Commit
+
+For those who want to see what has been committed recently to our CVS reposi-
+tory this is the list that will show you those updates.  This list is updated
+dynamically every time the repository is updated after the the commit hap-
+pens.
+
+3.2  Devel
+
+This list is available for discussions about XFree86 development and for fol-
+lowing up well-defined bug reports.  Many experienced XFree86 developers are
+present on this list.
+
+3.3  XFree86
+
+This list is available for any discussions and questions related to XFree86.
+Support related questions should be sent here.  Many experienced XFree86
+developers monitor this list.
+
+4.  Contributing to XFree86
+
+If you have any new work or enhancements/bug fixes for existing work, please
+submit them to <fixes@XFree86.org>.  This will ensure that they are included
+in future releases.  For new work, it's usually a good idea to discuss it
+first on the <devel@XFree86.org> list.
+
+5.  How to get XFree86 4.3.0
+
+XFree86 4.3.0 can be found at the XFree86 ftp server
+<URL:ftp://ftp.xfree86.org/pub/XFree86/4.3.0/>, and at mirrors of this
+server.  Information about obtaining and installing binary distributions of
+this release can be found in the Installation Document.  Information about
+obtaining the release in source form is given below.
+
+The source for version 4.3.0 is split into seven tarballs: X430src-1.tgz,
+X430src-2.tgz, X430src-3.tgz, X430src-4.tgz, X430src-5.tgz, X430src-6.tgz and
+X430src-7.tgz.  The first three contain everything except the fonts and gen-
+eral X11 documentation.  Those three are sufficient for building XFree86 if
+you already have a set of fonts.  The fourth and fifth contain the fonts.
+The sixth contains the source for the general X11 documentation.  The seventh
+contains the general X11 documentation in hardcopy format.
+
+A source patch relative to version 4.2.0 is also available.  Because of its
+size, it is split into four parts.  The patch files are 4.2.0-4.3.0.diff1.gz,
+4.2.0-4.3.0.diff2.gz, 4.2.0-4.3.0.diff3.gz and 4.2.0-4.3.0.diff4.gz.  There
+is also a tarball that contains some files that have components that can't be
+included in a diff.  It is 4.3.0.tgz.  These patches should be applied to a
+clean 4.2.0 source tree, working from the directory containing the xc/ direc-
+tory.  The patches should be applied by running:
+
+     gzip -d < 4.2.0-4.3.0.diff1.gz | patch -p0 -E
+     gzip -d < 4.2.0-4.3.0.diff2.gz | patch -p0 -E
+     gzip -d < 4.2.0-4.3.0.diff3.gz | patch -p0 -E
+     gzip -d < 4.2.0-4.3.0.diff4.gz | patch -p0 -E
+
+     rm -f xc/doc/hardcopy/Xext/mit-shm.PS.gz
+     rm -f xc/doc/hardcopy/saver/saver.PS.gz
+     rm -fr xc/fonts/scaled/Ethiopic
+     rm -fr xc/fonts/scaled/Meltho
+     rm -fr xc/programs/Xserver/hw/darwin/bundle
+     rm -f xc/programs/Xserver/hw/hp/input/drivers/XHPKeymaps
+     rm -f xc/programs/Xserver/hw/hp/ngle/ngledoblt.o.8.07
+     rm -f xc/programs/Xserver/hw/xwin/X.ico
+     rm -fr xc/programs/xcursorgen/redglass
+     rm -fr xc/programs/xcursorgen/whiteglass
+     touch xc/extras/Mesa/src/Trace/tr_attrib.c
+     touch xc/lib/fontconfig/NEWS
+
+     gzip -d < 4.3.0.tgz | tar vxf -
+
+To format the XFree86 documentation use the latest version of our doctools
+package available from the XFree86 CVS repository's "doctools" module, and
+from our ftp site <URL:ftp://ftp.xfree86.org/pub/XFree86/misc/doc-
+tools-1.3.1.tgz>.
+
+The XFree86 source code for this and all releases/snapshots as well as devel-
+opment versions can also be accessed via the XFree86 CVS repository.  Infor-
+mation about accessing this can be found at the CVS page
+<URL:http://www.xfree86.org/cvs/> on our web site.  It's also possible to
+browse the XFree86 CVS repository at our CVSWeb server
+<URL:http://cvsweb.xfree86.org/>.  The CVS tag for this version is
+"xf-4_3_0".  The CVS tag for the stable branch for this release is
+"xf-4_3-branch".  To check out the latest development version, don't specify
+any tag.
+
+6.  Reporting Bugs
+
+Bugs should be reported to <XFree86@XFree86.org>.  Before reporting bugs,
+please check the XFree86 server log file, which can be found at
+/var/log/XFree86.0.log on most platforms.  If you can't resolve the problem
+yourself, send the entire log file with your bug report but not the operating
+system core dump.  Do not edit  the log file as our developers use it to
+reproduce and debug your problem.
+
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/README.sgml,v 3.134 2003/02/27 01:19:32 dawes Exp $
+
+
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README,v 3.129 2003/02/27 02:16:18 dawes Exp $

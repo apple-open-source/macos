@@ -38,14 +38,9 @@ protocol or authentication mode is added.
 If you want to hack on this code, a list of known bugs and to-do items
 can be found in the file todo.html.
 
-You can easily fetch the latest version of fetchmail via FTP from the
-following FTP directory:
+You can get the code from the fetchmail home page:
 
-	ftp://ftp.ccil.org/pub/esr/fetchmail
-
-Or you can get it from the fetchmail home page:
-
-	http://www.tuxedo.org/~esr/fetchmail
+	http://www.catb.org/~esr/fetchmail
 
 Enjoy!
 

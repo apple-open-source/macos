@@ -1,0 +1,76 @@
+XCOMM $Xorg: bsdLib.tmpl,v 1.3 2000/08/17 19:41:47 cpqbld Exp $
+XCOMM $XFree86: xc/config/cf/bsdLib.tmpl,v 3.12 2003/01/12 02:44:25 dawes Exp $
+
+/*
+ * NetBSD/FreeBSD/OpenBSD shared library template
+ */
+
+#if !UseElfFormat
+
+#ifndef SharedXtReqs
+#define SharedXtReqs /**/
+#endif
+#ifndef SharedXawReqs
+#define SharedXawReqs /**/
+#endif
+#ifndef SharedXmuReqs
+# if !defined(Mc68020Architecture) || !defined(OpenBSDArchitecture)
+#  define SharedXmuReqs $(LDPRELIBS) $(XTOOLONLYLIB) $(XONLYLIB)
+# else
+   /* At least the hp300 and the sun3 OpenBSD ports need that */
+#  define SharedXmuReqs $(LDPRELIBS) $(XTOOLLIB) $(EXTENSIONLIB) $(XONLYLIB)
+# endif
+#endif
+
+#else /* UseElfFormat */
+
+/*
+ * NetBSD/FreeBSD/OpenBSD (ELF) shared library template
+ * Cloned from Linux ELF rules, but with a minor number.
+ */
+
+#ifndef FixupLibReferences
+#define FixupLibReferences()						@@\
+XMULIBONLY = -lXmu							@@\
+XMULIB = $(XMULIBONLY) $(XTOOLLIB) $(XLIB)
+#endif
+
+#ifndef XawClientLibs
+#define XawClientLibs $(XAWLIB) $(XMULIBONLY) $(XTOOLLIB) $(XPMLIB) $(XLIB)
+#endif
+
+#define CplusplusLibC
+
+/* Allow for libpthread, as overridden by OS definitions */
+#if !defined(SharedX11Reqs)
+#define SharedX11Reqs
+#endif
+#define SharedOldXReqs	$(LDPRELIBS) $(XLIBONLY)
+#ifndef SharedXtReqs
+#define SharedXtReqs	$(LDPRELIBS) $(XLIBONLY) $(SMLIB) $(ICELIB)
+#endif
+#define SharedXawReqs	$(LDPRELIBS) $(XMULIB) $(XTOOLLIB) $(XPMLIB) $(XLIB)
+#define SharedXaw6Reqs	$(LDPRELIBS) $(XMULIB) $(XTOOLLIB) $(XLIB)
+#define SharedXmuReqs	$(LDPRELIBS) $(XTOOLLIB) $(XLIB)
+#define SharedXmuuReqs	$(LDPRELIB) $(XTOOLLIB) $(XLIB)
+#define SharedXextReqs	$(LDPRELIBS) $(XLIBONLY)
+#define SharedXiReqs	$(LDPRELIBS) $(XLIB)
+#define SharedXpReqs	$(LDPRELIB) $(XAUTHLIB) $(EXTENSIONLIB) $(XLIBONLY)
+#define SharedXpmReqs   $(LDPRELIB) $(XLIB)
+#define SharedPexReqs	$(LDPRELIBS) $(XLIBONLY) MathLibrary
+#define SharedXrandrReqs  $(LDPRELIB) $(XRENDERLIB) $(XLIB)
+#define SharedXrenderReqs $(LDPRELIB) $(EXTENSIONLIB) $(XLIB)
+#define SharedXssReqs	$(LDPRELIB) $(XLIB) $(EXTENSIONLIB) $(XTOOLLIB)
+#define SharedXtstReqs	$(LDPRELIBS) $(XLIB)
+#define SharedXieReqs	$(LDPRELIBS) $(XLIBONLY)
+#define SharedXvReqs	$(LDPRELIB) $(XLIB)
+#define SharedSMReqs	$(LDPRELIBS) $(ICELIB)
+#define SharedGLReqs	$(LDPRELIBS) $(XLIB) -lc
+#define SharedGLUReqs	$(LDPRELIB) $(XLIB) $(GLXLIB)
+#define SharedXcursorReqs   $(LDPRELIB) $(XRENDERLIB) $(XLIB)
+
+#define SharedDPSReqs	$(LDPRELIB) $(SMLIB) $(ICELIB) $(XTOOLLIB) $(XLIB)
+#define SharedDPSTKReqs	$(LDPRELIB) $(SMLIB) $(ICELIB) $(XTOOLLIB) $(DPSLIB) $(XLIB)
+#define SharedpsresReqs	$(LDPRELIB) $(SMLIB) $(ICELIB) $(XTOOLLIB) $(XLIB)
+
+#endif /* UseElfFormat */

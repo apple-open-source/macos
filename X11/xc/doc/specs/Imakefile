@@ -1,0 +1,22 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:42:06 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/doc/specs/Imakefile,v 1.8 2002/01/16 18:36:00 dawes Exp $
+
+#define IHaveSubdirs
+#define PassCDebugFlags
+
+#if defined(SpecsDocDirs) && !BuildAllSpecsDocs
+SUBDIRS = SpecsDocDirs
+#else
+SUBDIRS = BDF CTEXT FSProtocol GL ICCCM ICE /*PEX5*/ PM Render SM X11 XDMCP \
+	  XIM XLFD XProtocol Xaw Xext Xi Xmu Xserver Xt Xv XvMC \
+          i18n programs rstart xfs xterm xtrans
+#endif
+
+all::
+
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))

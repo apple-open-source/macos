@@ -1,0 +1,8 @@
+      DEFINES = -DXENVIRONMENT
+      DEPLIBS =
+
+SRCS = makepsres.c
+
+OBJS = makepsres.o
+
+ComplexProgramTarget(makepsres)

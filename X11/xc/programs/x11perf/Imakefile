@@ -1,0 +1,65 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:08 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/programs/x11perf/Imakefile,v 3.10 2002/11/14 21:01:21 tsi Exp $
+
+#ifndef X11perfcompLib
+#define X11perfcompLib $(LIBDIR)/x11perfcomp
+#endif
+
+#if HasShm
+        SHMDEFS = -DMITSHM
+#endif
+#if BuildRenderLibrary
+    XRENDERDEFS = -DXRENDER
+    XRENDERDEPS = $(DEPXRENDERLIB)
+    XRENDERLIBS = $(XRENDERLIB)
+    XRENDERINCS = $(XRENDERINCLUDES)
+#endif
+#if BuildXftLibrary
+        XFTDEFS = -DXFT
+        XFTDEPS = XftClientDepLibs $(DEPXRENDERLIB)
+        XFTLIBS = XftClientLibs $(XRENDERLIB)
+        XFTINCS = $(XFTINCLUDES)
+#endif
+        DEFINES = $(SIGNAL_DEFINES) $(SHMDEFS) $(XFTDEFS) $(XRENDERDEFS)
+       INCLUDES = $(XFTINCS) $(XRENDERINCS)
+        PERFLIB = X11perfcompLib
+        HEADERS = x11perf.h bitmaps.h
+           SRCS = x11perf.c bitmaps.c do_tests.c \
+		  do_simple.c do_rects.c do_valgc.c \
+		  do_lines.c do_segs.c \
+		  do_dots.c do_windows.c do_movewin.c do_text.c \
+		  do_blt.c do_arcs.c \
+		  do_tris.c do_complex.c do_traps.c
+           OBJS = x11perf.o bitmaps.o do_tests.o \
+		  do_simple.o do_rects.o do_valgc.o \
+		  do_lines.o do_segs.o \
+		  do_dots.o do_windows.o do_movewin.o do_text.o \
+		  do_blt.o do_arcs.o \
+		  do_tris.o do_complex.o do_traps.o
+LOCAL_LIBRARIES = $(XFTLIBS) $(XRENDERLIBS) $(XMUULIB) $(XLIB)
+        DEPLIBS = $(XFTDEPS) $(XRENDERDEPS) $(DEPXMUULIB) $(DEPXLIB)
+  SYS_LIBRARIES = MathLibrary
+
+#ifdef cygwinArchitecture
+#if UseCygIPC
+EXTRA_LIBRARIES = -lcygipc
+#endif
+#endif
+
+ComplexProgramTarget(x11perf)
+
+all:: x11perfcomp
+
+CppScriptTarget(x11perfcomp,x11pcomp.cpp,-DLIBPATH=$(PERFLIB),$(ICONFIGFILE))
+
+InstallNamedProg(x11perfcomp,x11perfcomp,$(BINDIR))
+InstallNamedProg(fillblnk.sh,fillblnk,$(PERFLIB))
+InstallNamedProg(perfboth.sh,perfboth,$(PERFLIB))
+InstallNamedProg(perfratio.sh,perfratio,$(PERFLIB))
+InstallNamedProg(Xmark.sh,Xmark,$(BINDIR))
+InstallManPage(Xmark,$(MANDIR))
+InstallManPageLong(x11pcomp,$(MANDIR),x11perfcomp)

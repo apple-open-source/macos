@@ -1,0 +1,387 @@
+                        Mach64 X Server Release Notes
+
+                     Kevin E. Martin (martin@cs.unc.edu)
+
+                                1999 June 28
+
+1.  Supported Cards, RAMDACs, and Bits Per Pixel
+
+The Mach64 X server supports 8bpp with a dot clock up to 80MHz on all Mach64
+based cards.  On most cards, higher dot clocks and additional depths are
+available (see the table below).  What determines this support is the RAMDAC
+on your card.
+
+      RAMDAC      Max Dot Clock   BPP   Max Resolution   Video RAM Required
+     --------     -------------   ---   --------------   ------------------
+     ATI68860         135MHz       8      1280x1024             2Mb
+     ATI68860         135MHz      16      1280x1024             4Mb
+     ATI68860          80MHz      32       1024x768             4Mb
+
+     ATI68875          80MHz      32       1024x768             4Mb
+
+     CH8398           135MHz       8      1280x1024             2Mb
+     CH8398            80MHz      16       1024x768             2Mb
+     CH8398            40MHz      32        800x600             2Mb
+
+     STG1702          135MHz       8      1280x1024             2Mb
+     STG1702           80MHz      16       1024x768             2Mb
+     STG1702           50MHz      32        800x600             2Mb
+
+     STG1703          135MHz       8      1280x1024             2Mb
+     STG1703           80MHz      16       1024x768             2Mb
+     STG1703           50MHz      32        800x600             2Mb
+
+     AT&T20C408       135MHz       8      1280x1024             2Mb
+     AT&T20C408        80MHz      16       1024x768             2Mb
+     AT&T20C408        40MHz      32        800x600             2Mb
+
+     3D Rage II       170MHz       8      1600x1200             4Mb
+     3D Rage II       170MHz      16      1600x1200             4Mb
+     3D Rage II       170MHz      32       1024x768             4Mb
+
+     3D Rage II+DVD   200MHz       8      1600x1200             4Mb
+     3D Rage II+DVD   200MHz      16      1600x1200             4Mb
+     3D Rage II+DVD   200MHz      32       1024x768             4Mb
+
+     Rage Pro         230MHz       8      1600x1200             8Mb
+     Rage Pro         230MHz      16      1600x1200             8Mb
+     Rage Pro         230MHz      32      1600x1200             8Mb
+
+     Internal         135MHz       8      1280x1024             2Mb
+     Internal          80MHz      16       1024x768             2Mb
+     Internal          40MHz      32        800x600             2Mb
+
+     IBM RGB514       220MHz       8      1600x1200             2Mb
+     IBM RGB514       220MHz      16      1600x1200             4Mb
+     IBM RGB514       135MHz      32       1024x768             4Mb
+
+     All Others[*]     80MHz       8      1280x1024             2Mb
+
+[*] - The dot clocks are limited to 80MHz and the bpp is limited to 8.
+
+The table above specifies the maximum resolution and the video memory
+required to run this maximum resolution.  Smaller resolutions will require
+less video memory.
+
+The RAMDAC is reported when you run the Mach64 X server with the "-probeonly"
+command line option.  The RAMDAC reported should be correct for all Mach64
+cards.  It can also be specified in the XF86Config file, but this is not rec-
+ommended unless the RAMDAC reported in the probeonly output is incorrect.
+Before specifying the RAMDAC in your XF86Config file visually verify which
+RAMDAC is on your Mach64 card.  If the RAMDAC reported in the probeonly out-
+put is definitely different than what you see on the card, then check to see
+if you have a RAMDAC specified in your XF86Config file.  If you do, comment
+this line out and re-run the Mach64 X server with the "-probeonly".  If it
+still reports the incorrect RAMDAC, please send in a bug report to
+XFree86@XFree86.Org.
+
+The ATI68860 RAMDACs are usually found on ATI Graphics Pro Turbo and ATI Win-
+Turbo cards.  The IBM RGB514 RAMDAC is found on the ATI Graphics Pro Turbo
+1600 card.  The other RAMDACs are usually found on ATI Graphics Xpression,
+ATI Video Xpression and ATI 3d Xpression cards.  Mach64 CT, ET, VT, VT3, VT4,
+LT, GT (3D Rage), 3D Rage II, 3D Rage IIC, 3D Rage II+DVD, Rage Pro, and Rage
+LT Pro chips have an "Internal" RAMDAC (i.e., it is built into the Mach64
+chip).
+
+As advertised, Mach64 graphics cards can use a special 24bpp mode (packed
+pixel mode), but this is not currently supported in the Mach64 X server.
+This will be added in the next major release.
+
+The Mach64 X server requires the video memory aperture to function properly.
+This means that ISA Mach64 cards in systems with more than 12Mb of main mem-
+ory will not work.  If you have a PCI based Mach64 card or a VLB based Mach64
+card, then the Mach64 X server will work with any amount of main memory.
+
+Accelerated doublescan modes are supported on VT, VT3, VT4, LT, GT, Rage II,
+Rage IIC, Rage II+DVD, Rage Pro and Rage LT Pro based Mach64 cards.  Mach64
+cards with other chips cannot handle accelerated double scan modes due to a
+hardware limitation.  Non-accelerated doublescan modes should work with the
+ATI driver in the SVGA X server for all Mach64 cards.
+
+2.  Optimizing the speed of the Mach64 X server
+
+To maximize the speed of the Mach64 X server, I suggest that you use the fol-
+lowing maximum resolutions.  This will allow room for the font and pixmap
+caches and a hardware cursor.
+
+     Max Resolution   BPP   Video RAM
+     --------------   ---   ---------
+       1600x1200       8       8Mb
+       1600x1200      16       8Mb
+       1280x1024      32       8Mb
+
+       1280x1024       8       4Mb
+       1280x1024      16       4Mb
+        1024x767      32       4Mb
+
+       1280x1024       8       2Mb
+        1024x767      16       2Mb
+         800x600[*]   32       2Mb
+
+        1024x767       8       1Mb
+         800x600[*]   16       1Mb
+
+[*] - With a 2MB video card, the only way to use the font and pixmap caches
+is to have a virtual resolution of 1024x480 with a 640x480 mode.  I suggest
+using 800x600 to maximize your screen size at the cost of the speed gained
+from the caches.  The same argument can be made for 1MB video cards running
+in 16bpp mode.  Note that it is not possible to run in 32bpp mode with 1MB of
+video memory.
+
+Technical explanation for the above suggestions: The Mach64 X server uses a
+font and pixmap cache that is only available at a screen width of 1024 or
+greater.  This restriction will be removed in a future version of the X
+server.  To obtain the best performance from your video card, you need to
+make sure that there is enough room off-screen for the caches (at least
+1024x256).  In addition to the cache, the Mach64 uses memory mapped registers
+which are mapped to the last 1024 bytes of the memory aperture.  This takes
+away another line from video memory.  Thus, you need at least a video memory
+area of 1024x257.
+
+3.  XF86Config options
+
+Several options are supported in the "Device" section for the Mach64 X
+server.  By default, the Mach64 X server will determine the RAMDAC type from
+the BIOS.  If you wish to override the default RAMDAC type (not recommended
+unless the BIOS incorrectly reports your RAMDAC type), you can specify the
+RAMDAC type in the XF86Config file with the "Ramdac" entry.  The Mach64 X
+server will also program the clocks based on the clock chip read from the
+BIOS.  If you wish to override the default clock chip type (not recommended
+unless the BIOS incorrectly reports your clock chip type), you may specify
+the clock chip in the XF86Config file with the "ClockChip" entry.  If, how-
+ever, you wish to use the preprogrammed clocks, you can turn off the clock
+programming with the "no_program_clocks" option.  In this case, the Mach64 X
+server reads the Clocks from the BIOS.  The "Clocks" lines in the XF86Config
+file are normally ignored by the Mach64 X server unless the "no_bios_clocks"
+option is given.  Note on newer Mach64 cards (CT, ET, VT, GT, 3D Rage II, 3D
+Rage II+DVD and Rage Pro) the "Ramdac", "ClockChip" and "Clocks" lines have
+no meaning and should not be included in your XF86Config file.
+
+      Option "sw_cursor"
+            This option allows you to use the software cursor instead of the
+            hardware cursor.
+
+      Option "hw_cursor"
+            This option turns on the hardware cursor.  This should not be
+            necessary since the hardware cursor is used by default unless the
+            "sw_cursor" option is specified.
+
+      Option "composite"
+            This option will set the composite sync for monitors that require
+            this.
+
+      Option "dac_8_bit"
+            This option enables 8 bits per RGB value.  Note that this does
+            not work with the Chrontel 8398 RAMDAC.  This options is not nec-
+            essary since 8 bits per RGB value is the default for the Mach64 X
+            server for all Mach64 cards except those with the Chrontel 8398
+            RAMDAC.
+
+      Option "dac_6_bit"
+            This option enables 6 bits per RGB value.
+
+      Option "override_bios"
+            This option allows you to specify a video mode that the video
+            card's BIOS believes to be illegal.  Some BIOSs have incorrect
+            maximum resolution and/or dot clock limitations.  Use this option
+            with extreme care.  It is possible to specify a video mode that
+            can damage your card or monitor.
+
+      Option "no_block_write"
+            This option allows you to turn off block write mode.  Block write
+            mode only works on certain types of VRAM cards.  This option has
+            no effect on DRAM based cards.  If you see noise on the screen
+            that can be captured via xmag, then it is probably a problem with
+            block write mode being turned on when it should not.  This
+            ``noise'' usually looks like bits of windows/menus repeated on
+            the screen.
+
+      Option "block_write"
+            This option allows you to turn on block write mode.  Block write
+            mode only works on certain types of VRAM cards, and this option
+            has no effect on DRAM based cards.  If you want to override the
+            probed default, you can use this option.  Note that this may
+            result in ``noise'' appearing on the screen.
+
+      Option "power_saver"
+            This option allows the server to use the power saving features of
+            certain "green" monitors instead of blanking when the screen
+            saver is activated.  This option is still experimental.
+
+      Option "no_program_clocks"
+            This option allows you to disable the clock programming.  Nor-
+            mally the Mach64 server will program the clocks based on the
+            clock chip type unless this option is given.  With this option,
+            the clocks are either read from the BIOS or, if the
+            "no_bios_clocks" option is set, set from the Clocks line.
+
+      Option "no_bios_clocks"
+            This option allows you to override the clocks read from the video
+            card's BIOS and use the clocks specified in the Clocks line in
+            your XF86Config file.  Normally the Mach64 server will ignore
+            both the BIOS clocks and the clocks specified in the Clocks line
+            unless the "no_program_clocks" options is set (see above).
+
+      Option "no_font_cache"
+            This option allows you to disable the font cache.  By default the
+            font cache is turned on if the horizontal resolution is 1024 pix-
+            els or greater and there is enough off-screen video memory to
+            hold the cache.
+
+      Option "no_pixmap_cache"
+            This option allows you to disable the pixmap cache.  By default
+            the pixmap cache is turned on if the horizontal resolution is
+            1024 pixels or greater and there is enough off-screen video mem-
+            ory to hold the cache.
+
+      Option "fifo_conservative"
+            This option allows you to use a more conservative display fifo
+            value.  If you are experiencing snow or vertical banding on the
+            screen, try adding this option to see if it fixes the problem.
+
+      MemBase baseaddress
+            This entry specifies the video memory aperture address.  By
+            default the aperture address is automatically determined and this
+            option should not be necessary.  If the Mach64 X server is dying
+            with a seg. fault, then the memory aperture might not be cor-
+            rectly determined.  To fix this try setting the aperture address
+            to another location.
+
+      ClockChip "type"
+            This entry specifies the clock chip type.  The following values
+            are valid for type:
+
+               o ati18818
+
+               o att20c408
+
+               o ch8398
+
+               o ibm_rgb514
+
+               o ics2595
+
+               o stg1703
+
+      Ramdac "type"
+            This entry specifies the RAMDAC type.  The following values are
+            valid for type:
+
+               o ati68860
+
+               o ati68860b
+
+               o ati68860c
+
+               o ati68875
+
+               o att20c408
+
+               o ch8398
+
+               o ibm_rgb514
+
+               o internal
+
+               o stg1702
+
+               o stg1703
+
+               o tlc34075
+
+      DacSpeed "MHz"
+            This entry allows you to override the default maximum dot clock.
+            Use this option with extreme caution.  If you specify a MHz value
+            too large for your card, you can damage it.
+
+4.  Enhancements for this release
+
+With this release, the following enhancements have been made:
+
+   o Proper identification of all current Mach64 chips
+
+   o Support for VT4 and Rage IIC based cards
+
+   o Improved timing calculation for video FIFOs
+
+   o Fixed timing bug in font code
+
+   o Fixed VGA font restoration bug when exiting the X server
+
+5.  Cards known to work with this release
+
+The following is a list of cards that have been tested with this release.
+Many other cards should work including All-In-Wonder and All-In-Wonder Pro
+cards as well as motherboards with Mach64, 3D Rage II and Rage Pro included
+on them.  If you have a new card that does not appear to work, see the Known
+Problems and Bug Reports section below.
+
+     ATI Xpert@Play 98       4MB  3D Rage Pro     (AGP)
+     ATI Xpert 98            4MB  3D Rage Pro     (PCI)
+     ATI Xpert XL            4MB  3D Rage Pro     (AGP)
+     ATI Rage IIC            4MB  3D Rage IIC     (AGP)
+     ATI Xpert@Play          8MB  3D Rage Pro     (AGP/PCI)
+     ATI Xpert@Work          2MB  3D Rage Pro     (PCI)
+     ATI Pro Turbo+PC2TV     4MB  3D Rage II+DVD  (rev 154)
+     ATI 3D Xpression+       4MB  3D Rage II      (GT-B, SGRAM, rev 65)
+     ATI 3D Xpression+       2MB  3D Rage II      (GT-B, SDRAM, rev 65)
+     ATI 3D Xpression        2MB  3D Rage         (GT-A, rev 72)
+     ATI Video Xpression+    2MB  Mach64 VT-A3    (rev 8)
+     ATI Video Xpression     2MB  Mach64 VT-A4    (rev 72)
+     ATI Graphics Xpression  2MB  Mach64 CT       (rev 9)
+     ATI Graphics Xpression  2MB  Mach64 CT-C     (rev 65)
+     ATI Graphics Xpression  2MB  Mach64 CT-D     (rev 10)
+     ATI Graphics Xpression  2MB  Mach64 GX       (rev 1) with Chrontel8398 RAMDAC
+     ATI Graphics Pro Turbo  2MB  Mach64 GX       (rev 0) with 68860-B RAMDAC
+     ATI Graphics Pro Turbo  2MB  Mach64 CX       (rev 1) with AT&T20C408 RAMDAC
+     ATI WinTurbo            2MB  Mach64 GX       (rev 1) with 68860-C RAMDAC
+
+6.  Known Problems and Bug Reports
+
+There are several known problems with the current version of the Mach64 X
+server.  They include:
+
+   o Gamma correction is not currently supported.  It will be supported in a
+     future release.
+
+   o Screen blanking in 16bpp and 32bpp modes on certain Mach64 CT cards does
+     not work.
+
+   o In doublescan modes, only the top half of the hardware cursor is dis-
+     played.  The hardware cursor works fine in all other modes.
+
+   o With high refresh rates on certain cards (VT-A3 and CT-D) noise can
+     become a problem in 32bpp mode.  This usually only happens with refresh
+     rates of 85Hz or greater and can be fixed by using a lower refresh rate
+     (e.g., 72Hz or 75Hz).
+
+   o ISA cards with more than 12Mb of main memory cannot use the server due
+     to the requirement of a video memory aperture.  This a major project.
+
+If you are experiencing problems, first check to make sure that you have the
+very latest available release (including beta releases).  ATI releases new
+cards throughout the year.  Each of these new cards require additional pro-
+gramming to support the new Mach64 chips, RAMDACs and clock chips that appear
+on them.  The most recent release is most likely to support your video card.
+
+Second, please check the RELNOTES and README files (as well as the other doc-
+umentation available with the release).  Third, make sure you do not have any
+Ramdac, ClockChip or Clocks lines in your XF86Config file (all of these are
+automatically detected by the Mach64 X server).  The "Device" section should
+only contain the Identifier, VendorName and BoardName.  All other options
+should be automatically detected.
+
+If you are still experiencing problems, please send e-mail to
+XFree86@XFree86.org or post to the comp.windows.x.i386unix newsgroup.
+
+Please do NOT send e-mail to me since the developers who answer e-mail sent
+to XFree86@XFree86.org are better able to answer most questions and I would
+like to spend my minimal free time working on new enhancements to the X
+server.  Thanks!
+
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/Mach64.sgml,v 3.16 1999/08/23 06:38:48 dawes Exp $
+
+     $XConsortium: Mach64.sgml /main/8 1996/10/28 05:23:52 kaleb $
+
+
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/READ.Mach64,v 3.13 1999/08/23 07:03:40 dawes Exp $

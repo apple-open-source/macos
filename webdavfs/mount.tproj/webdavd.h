@@ -36,7 +36,7 @@
  *
  *	@(#)webdavd.h	8.1 (Berkeley) 6/5/93
  *
- * $Id: webdavd.h,v 1.19 2003/09/12 01:12:59 lutherj Exp $
+ * $Id: webdavd.h,v 1.19.12.1 2003/11/01 00:00:18 lutherj Exp $
  */
 
 #include <sys/cdefs.h>
@@ -311,3 +311,4 @@ extern off_t webdav_first_read_len;
 extern char *gUserAgentHeader;
 extern uid_t process_uid;
 extern int gSuppressAllUI;
+extern char webdavcache_path[MAXPATHLEN];

@@ -1,0 +1,111 @@
+_C_ License Applicability. Except to the extent portions of this file are
+_C_ made subject to an alternative license as permitted in the SGI Free
+_C_ Software License B, Version 1.1 (the "License"), the contents of this
+_C_ file are subject only to the provisions of the License. You may not use
+_C_ this file except in compliance with the License. You may obtain a copy
+_C_ of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+_C_ Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+_C_ 
+_C_ http://oss.sgi.com/projects/FreeB
+_C_ 
+_C_ Note that, as provided in the License, the Software is distributed on an
+_C_ "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+_C_ DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+_C_ CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+_C_ PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+_C_ 
+_C_ Original Code. The Original Code is: OpenGL Sample Implementation,
+_C_ Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+_C_ Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+_C_ Copyright in any portions created by third parties is as indicated
+_C_ elsewhere herein. All Rights Reserved.
+_C_ 
+_C_ Additional Notice Provisions: The application programming interfaces
+_C_ established by SGI in conjunction with the Original Code are The
+_C_ OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+_C_ April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+_C_ 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+_C_ Window System(R) (Version 1.3), released October 19, 1998. This software
+_C_ was created using the OpenGL(R) version 1.2.1 Sample Implementation
+_C_ published by SGI, but has not been independently verified as being
+_C_ compliant with the OpenGL(R) version 1.2.1 Specification.
+_C_
+_C_ The first character in this file must be an '_'!
+_C_ Anything on a line after _C_ is ignored
+_define(_filters,eqn|tbl)_C_
+_header(PushClientAttrib,push and pop the client attribute stack)
+_names(PushClientAttrib)
+.SH PARAMETERS
+_phead(_param1)
+Specifies a mask that indicates which attributes to save.  Values for
+_param1 are listed below.
+_names(PopClientAttrib)
+.SH DESCRIPTION
+_cmnd takes one argument,
+a mask that indicates which groups of client-state variables
+to save on the client attribute stack. 
+Symbolic constants are used to set bits in the mask.
+_param1(1)
+is typically constructed by OR'ing several of these constants together.
+The special mask
+_const(CLIENT_ALL_ATTRIB_BITS)
+can be used to save all stackable client state.
+.P
+The symbolic mask constants and their associated GL client state are as follows
+(the second column lists which attributes are saved):
+.P
+_const(CLIENT_PIXEL_STORE_BIT)	Pixel storage modes
+.br
+_const(CLIENT_VERTEX_ARRAY_BIT)	Vertex arrays (and enables)
+.P
+_cmnd(PopClientAttrib) restores the values of the client-state variables 
+saved with the last _cmnd(PushClientAttrib).
+Those not saved are left unchanged.
+.P
+It is an error to push attributes onto a full client attribute stack,
+or to pop attributes off an empty stack.
+In either case, the error flag is set,
+and no other change is made to GL state.
+.P
+Initially, the client attribute stack is empty.
+.SH NOTES
+_cmnd is available only if the GL version is 1.1 or greater.
+.P
+Not all values for GL client state can be saved on the attribute stack.
+For example, select and feedback state cannot be saved.
+.P
+The depth of the attribute stack depends on the implementation,
+but it must be at least 16.
+.P 
+Use _cmnd(PushAttrib) and _cmnd(PopAttrib) to push and restore
+state which is kept on the server. Only pixel storage modes and
+vertex array state may be pushed and popped with 
+_cmnd(PushClientAttrib) and _cmnd(PopClientAttrib).
+.P
+When the _arbstring(multitexture) extension is supported, pushing and
+popping client vertex array state apples to all supported texture units, 
+and the active client texture state.
+.SH ERRORS
+_const(STACK_OVERFLOW) is generated if _cmnd(PushClientAttrib) is called while
+the attribute stack is full.
+.P
+_const(STACK_UNDERFLOW) is generated if _cmnd(PopClientAttrib) is called while
+the attribute stack is empty.
+.SH ASSOCIATED GETS 
+_cmnd(Get) with argument _const(ATTRIB_STACK_DEPTH)
+.br
+_cmnd(Get) with argument _const(MAX_CLIENT_ATTRIB_STACK_DEPTH) 
+.SH SEE ALSO
+_cmnd(ColorPointer),
+_cmnd(DisableClientState),
+_cmnd(EdgeFlagPointer),
+_cmnd(EnableClientState),
+_cmnd(Get),
+_cmnd(GetError),
+_cmnd(IndexPointer),
+_cmnd(NormalPointer),
+_cmnd(NewList),
+_cmnd(PixelStore),
+_cmnd(PushAttrib),
+_cmnd(TexCoordPointer),
+_cmnd(VertexPointer)

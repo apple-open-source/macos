@@ -1,0 +1,175 @@
+_C_ License Applicability. Except to the extent portions of this file are
+_C_ made subject to an alternative license as permitted in the SGI Free
+_C_ Software License B, Version 1.1 (the "License"), the contents of this
+_C_ file are subject only to the provisions of the License. You may not use
+_C_ this file except in compliance with the License. You may obtain a copy
+_C_ of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+_C_ Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+_C_ 
+_C_ http://oss.sgi.com/projects/FreeB
+_C_ 
+_C_ Note that, as provided in the License, the Software is distributed on an
+_C_ "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+_C_ DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+_C_ CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+_C_ PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+_C_ 
+_C_ Original Code. The Original Code is: OpenGL Sample Implementation,
+_C_ Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+_C_ Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+_C_ Copyright in any portions created by third parties is as indicated
+_C_ elsewhere herein. All Rights Reserved.
+_C_ 
+_C_ Additional Notice Provisions: The application programming interfaces
+_C_ established by SGI in conjunction with the Original Code are The
+_C_ OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+_C_ April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+_C_ 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+_C_ Window System(R) (Version 1.3), released October 19, 1998. This software
+_C_ was created using the OpenGL(R) version 1.2.1 Sample Implementation
+_C_ published by SGI, but has not been independently verified as being
+_C_ compliant with the OpenGL(R) version 1.2.1 Specification.
+_C_
+_C_ $Date$ $Revision$
+_C_ The first character in this file must be an '_'!
+_C_ Anything on a line after _C_ is ignored
+_define(_filters,eqn)_C_
+_C_      eqn is automatically replaced with neqn for nroff
+_header(ScaleImage, scale an image to an arbitrary size)
+_names(ScaleImage)
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+_phead(_param1)
+Specifies the format of the pixel data.
+The following symbolic values are valid:
+_const(COLOR_INDEX),
+_const(STENCIL_INDEX),
+_const(DEPTH_COMPONENT),
+_const(RED),
+_const(GREEN),
+_const(BLUE),
+_const(ALPHA),
+_const(RGB),
+_const(RGBA),
+_const(BGR),
+_const(BGRA),
+_const(LUMINANCE), and
+_const(LUMINANCE_ALPHA).
+_phead(_param2 _param3)
+Specify in pixels the width and height, respectively, of the source image.
+_phead(_param4)
+Specifies the data type for _param5. Must be one of
+_const(UNSIGNED_BYTE),
+_const(BYTE),
+_const(BITMAP),
+_const(UNSIGNED_SHORT),
+_const(SHORT),
+_const(UNSIGNED_INT),
+_const(INT), 
+_const(FLOAT), 
+_const(UNSIGNED_BYTE_3_3_2),
+_const(UNSIGNED_BYTE_2_3_3_REV),
+_const(UNSIGNED_SHORT_5_6_5),
+_const(UNSIGNED_SHORT_5_6_5_REV),
+_const(UNSIGNED_SHORT_4_4_4_4),
+_const(UNSIGNED_SHORT_4_4_4_4_REV),
+_const(UNSIGNED_SHORT_5_5_5_1),
+_const(UNSIGNED_SHORT_1_5_5_5_REV),
+_const(UNSIGNED_INT_8_8_8_8),
+_const(UNSIGNED_INT_8_8_8_8_REV),
+_const(UNSIGNED_INT_10_10_10_2), and
+_const(UNSIGNED_INT_2_10_10_10_REV).
+_phead(_param5)
+Specifies a pointer to the source image.
+_phead(_param6 _param7)
+Specify the width and height, respectively, in pixels of the destination image.
+_phead(_param8)
+Specifies the data type for _param9. Must be one of
+_const(UNSIGNED_BYTE),
+_const(BYTE),
+_const(BITMAP),
+_const(UNSIGNED_SHORT),
+_const(SHORT),
+_const(UNSIGNED_INT),
+_const(INT), 
+_const(FLOAT),
+_const(UNSIGNED_BYTE_3_3_2),
+_const(UNSIGNED_BYTE_2_3_3_REV),
+_const(UNSIGNED_SHORT_5_6_5),
+_const(UNSIGNED_SHORT_5_6_5_REV),
+_const(UNSIGNED_SHORT_4_4_4_4),
+_const(UNSIGNED_SHORT_4_4_4_4_REV),
+_const(UNSIGNED_SHORT_5_5_5_1),
+_const(UNSIGNED_SHORT_1_5_5_5_REV),
+_const(UNSIGNED_INT_8_8_8_8),
+_const(UNSIGNED_INT_8_8_8_8_REV),
+_const(UNSIGNED_INT_10_10_10_2), or
+_const(UNSIGNED_INT_2_10_10_10_REV).
+_phead(_param9)
+Specifies a pointer to the destination image.
+.SH DESCRIPTION
+_cmnd scales a pixel image using the appropriate pixel store modes to 
+unpack data from the source image and pack data into the destination image.
+.P
+When shrinking an image, _cmnd uses a box filter to sample the source image
+and create pixels for the destination image.  When magnifying an image,
+the pixels from the source image are linearly interpolated to create the
+destination image.
+.P
+A return value of zero indicates success, otherwise a GLU error code is returned (see _cmnd(ErrorString)).
+.P
+See the _glcmnd(ReadPixels) reference page for a description of
+the acceptable values for the _param1, _param4, and _param8 parameters.
+.SH NOTES
+Formats _const(BGR), and _const(BGRA), and types 
+_const(UNSIGNED_BYTE_3_3_2),
+_const(UNSIGNED_BYTE_2_3_3_REV),
+_const(UNSIGNED_SHORT_5_6_5),
+_const(UNSIGNED_SHORT_5_6_5_REV),
+_const(UNSIGNED_SHORT_4_4_4_4),
+_const(UNSIGNED_SHORT_4_4_4_4_REV),
+_const(UNSIGNED_SHORT_5_5_5_1),
+_const(UNSIGNED_SHORT_1_5_5_5_REV),
+_const(UNSIGNED_INT_8_8_8_8),
+_const(UNSIGNED_INT_8_8_8_8_REV),
+_const(UNSIGNED_INT_10_10_10_2), and
+_const(UNSIGNED_INT_2_10_10_10_REV) are only available if the GL version 
+is 1.2 or greater.
+.SH ERRORS
+_gluconst(INVALID_VALUE) is returned if _param2, _param3, _param6, or _param7
+is negative.
+.P
+_gluconst(INVALID_ENUM) is returned if _param1, _param4, or _param8 is not
+legal.
+.P
+_gluconst(INVALID_OPERATION) is returned if _param4 or _param8 is 
+_const(UNSIGNED_BYTE_3_3_2) or _const(UNSIGNED_BYTE_2_3_3_REV) 
+and _param1 is not _const(RGB).
+.P
+_gluconst(INVALID_OPERATION) is returned if _param4 or _param8 is 
+_const(UNSIGNED_SHORT_5_6_5) or _const(UNSIGNED_SHORT_5_6_5_REV) 
+and _param1 is not _const(RGB).
+.P
+_gluconst(INVALID_OPERATION) is returned if _param4 or _param8 is
+_const(UNSIGNED_SHORT_4_4_4_4) or _const(UNSIGNED_SHORT_4_4_4_4_REV) 
+and _param1 is neither _const(RGBA) nor _const(BGRA).
+.P
+_gluconst(INVALID_OPERATION) is returned if _param4 or _param8 is
+_const(UNSIGNED_SHORT_5_5_5_1) or _const(UNSIGNED_SHORT_1_5_5_5_REV)
+and _param1 is neither _const(RGBA) nor _const(BGRA).
+.P
+_gluconst(INVALID_OPERATION) is returned if _param4 or _param8 is
+_const(UNSIGNED_INT_8_8_8_8) or _const(UNSIGNED_INT_8_8_8_8_REV) 
+and _param1 is neither _const(RGBA) nor _const(BGRA).
+.P
+_gluconst(INVALID_OPERATION) is returned if _param4 or _param8 is
+_const(UNSIGNED_INT_10_10_10_2) or _const(UNSIGNED_INT_2_10_10_10_REV)
+and _param1 is neither _const(RGBA) nor _const(BGRA).
+.SH SEE ALSO
+_glcmnd(DrawPixels), _glcmnd(ReadPixels), _cmnd(Build1DMipmaps), _cmnd(Build2DMipmaps), 
+_cmnd(Build3DMipmaps), 
+.BR
+_cmnd(ErrorString)
+

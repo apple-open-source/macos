@@ -1,0 +1,12 @@
+XCOMM $XFree86: xc/programs/xrandr/Imakefile,v 1.4 2002/09/29 23:39:47 keithp Exp $
+
+DEFINES=$(RANDRDEFINES)
+DEPLIBS=$(DEPXRANDRLIB) $(DEPXLIB)
+LOCAL_LIBRARIES=$(XRANDRLIB) $(XRENDERLIB) $(XLIB)
+
+SRCS=xrandr.c
+OBJS=xrandr.o
+
+ComplexProgramTarget(xrandr)
+LinkBuildBinary(ProgramTargetName(xrandr))
+

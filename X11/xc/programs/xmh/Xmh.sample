@@ -1,0 +1,108 @@
+
+!	Examples of customizing xmh with resource specifications.
+!	These can be copied to your private X resource file or to
+!	a private Xmh application defaults file.
+
+
+
+!	To create command buttons in the middle of the main window:
+
+Xmh*CommandButtonCount:		8
+
+Xmh*commandBox.button1.label:	inc
+Xmh*commandBox.button1.translations: #override\
+	<Btn1Down>,<Btn1Up>: XmhIncorporateNewMail() unset()
+
+Xmh*commandBox.button2.label:	compose
+Xmh*commandBox.button2.translations: #override\
+	<Btn1Down>,<Btn1Up>: XmhComposeMessage() unset()
+
+Xmh*commandBox.button3.label:	next
+Xmh*commandBox.button3.translations: #override\
+	<Btn1Down>,<Btn1Up>: XmhViewNextMessage() unset()
+
+Xmh*commandBox.button4.label:	prev
+Xmh*commandBox.button4.translations: #override\
+	<Btn1Down>,<Btn1Up>: XmhViewPreviousMessage() unset()
+
+Xmh*commandBox.button5.label:	commit
+Xmh*commandBox.button5.translations: #override\
+	<Btn1Down>,<Btn1Up>: XmhCommitChanges() unset()
+
+Xmh*commandBox.button6.label:	delete
+Xmh*commandBox.button6.translations: #override\
+	<Btn1Down>,<Btn1Up>: XmhMarkDelete() unset()
+
+Xmh*commandBox.button7.label:	move
+Xmh*commandBox.button7.translations: #override\
+	<Btn1Down>,<Btn1Up>: XmhMarkMove() unset()
+
+Xmh*commandBox.button8.label:	reply to viewed msg
+Xmh*commandBox.button8.translations: #override\
+	<Btn1Down>,<Btn1Up>: XmhViewReply() unset()
+
+
+!	To use popup menus on the title bars of the main window,
+!	have them popup with the pointer over the previously selected item,
+!	and not be clipped by the screen boundary:
+
+Xmh*stickyMenu:	True
+Xmh*messageMenu.MenuOnScreen: True
+
+Xmh*folderTitlebar.translations: #override\n\
+<BtnDown>: XawPositionSimpleMenu(folderMenu)MenuPopup(folderMenu)\n
+ 
+Xmh*tocTitlebar.translations: #override\n\
+<Btn2Down>: XawPositionSimpleMenu(messageMenu)MenuPopup(messageMenu)\n\
+<BtnDown>: XawPositionSimpleMenu(tocMenu)MenuPopup(tocMenu)\n
+
+Xmh.Paned.viewTitlebar.translations: #override\n\
+<Btn2Down>: XawPositionSimpleMenu(sequenceMenu)MenuPopup(sequenceMenu)\n\
+<BtnDown>: XawPositionSimpleMenu(viewMenu)MenuPopup(viewMenu)\n
+
+
+! To redefine the accelerator bindings to exclude modifier keys,
+! and add a translation for Compose Message:
+
+Xmh*tocMenu.accelerators: #override\n\
+	!:<Key>I:	XmhIncorporateNewMail()\n\
+	!:<Key>C: 	XmhCommitChanges()\n\
+	!:<Key>R:	XmhForceRescan()\n\
+	!:<Key>P:	XmhPackFolder()\n\
+	!:<Key>S:	XmhSortFolder()\n
+Xmh*messageMenu.accelerators: #override\n\
+	!:<Key>M:	XmhComposeMessage()\n\
+	!<Key>space:    XmhViewNextMessage()\n\
+	!:<Key>c:	XmhMarkCopy()\n\
+	!:<Key>d:	XmhMarkDelete()\n\
+	!:<Key>f:	XmhForward()\n\
+	!:<Key>m:	XmhMarkMove()\n\
+	!:<Key>n:	XmhViewNextMessage()\n\
+	!:<Key>p:	XmhViewPreviousMessage()\n\
+	!:<Key>r:	XmhReply()\n\
+	!:<Key>u:	XmhUnmark()\n
+
+
+!	Here is an example of some miscellaneous accelerators:
+!	("clients/xmh" is a subfolder; it must be existing.)
+
+Xmh*toc.accelerators: #override\n\
+	<Key>F1:	XmhOpenFolder(inbox)XmhOpenSequence(all)\n\
+	<Key>F2:	XmhOpenFolder(drafts)\n\
+	<Key>F3:	XmhOpenFolder(clients/xmh)\n\
+	<Key>F4:	XmhViewInNewWindow()\n\
+	<Key>F5:	XmhPickMessages()\n
+
+
+!	Define Meta-S in the Compose window to do a send and close.
+
+Xmh*comp.translations: #override\n\
+	!:Meta<Key>S:	XmhSend()XmhCloseView()
+
+
+
+
+
+
+
+

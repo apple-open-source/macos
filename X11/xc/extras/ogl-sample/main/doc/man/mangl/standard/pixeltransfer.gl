@@ -1,0 +1,446 @@
+_C_ License Applicability. Except to the extent portions of this file are
+_C_ made subject to an alternative license as permitted in the SGI Free
+_C_ Software License B, Version 1.1 (the "License"), the contents of this
+_C_ file are subject only to the provisions of the License. You may not use
+_C_ this file except in compliance with the License. You may obtain a copy
+_C_ of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+_C_ Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+_C_ 
+_C_ http://oss.sgi.com/projects/FreeB
+_C_ 
+_C_ Note that, as provided in the License, the Software is distributed on an
+_C_ "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+_C_ DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+_C_ CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+_C_ PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+_C_ 
+_C_ Original Code. The Original Code is: OpenGL Sample Implementation,
+_C_ Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+_C_ Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+_C_ Copyright in any portions created by third parties is as indicated
+_C_ elsewhere herein. All Rights Reserved.
+_C_ 
+_C_ Additional Notice Provisions: The application programming interfaces
+_C_ established by SGI in conjunction with the Original Code are The
+_C_ OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+_C_ April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+_C_ 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+_C_ Window System(R) (Version 1.3), released October 19, 1998. This software
+_C_ was created using the OpenGL(R) version 1.2.1 Sample Implementation
+_C_ published by SGI, but has not been independently verified as being
+_C_ compliant with the OpenGL(R) version 1.2.1 Specification.
+_C_
+_C_ The first character in this file must be an '_'!
+_C_ Anything on a line after _C_ is ignored
+_define(_filters,tbl|eqn)_C_
+_C_      eqn is automatically replaced with neqn for nroff
+_header(PixelTransfer, set pixel transfer modes)
+_names(PixelTransfer,[fi])
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+_phead(_param1)
+Specifies the symbolic name of the pixel transfer parameter to be set.
+Must be one of the following:
+_const(MAP_COLOR),
+_const(MAP_STENCIL),
+_const(INDEX_SHIFT),
+_const(INDEX_OFFSET),
+_const(RED_SCALE),
+_const(RED_BIAS),
+_const(GREEN_SCALE),
+_const(GREEN_BIAS),
+_const(BLUE_SCALE),
+_const(BLUE_BIAS),
+_const(ALPHA_SCALE),
+_const(ALPHA_BIAS),
+_const(DEPTH_SCALE), or
+_const(DEPTH_BIAS).
+.IP
+Additionally, if the _arbstring(imaging) extension is supported, the
+following symbolic names are accepted:
+_const(POST_COLOR_MATRIX_RED_SCALE),
+_const(POST_COLOR_MATRIX_GREEN_SCALE),
+_const(POST_COLOR_MATRIX_BLUE_SCALE),
+_const(POST_COLOR_MATRIX_ALPHA_SCALE),
+_const(POST_COLOR_MATRIX_RED_BIAS),
+_const(POST_COLOR_MATRIX_GREEN_BIAS),
+_const(POST_COLOR_MATRIX_BLUE_BIAS),
+_const(POST_COLOR_MATRIX_ALPHA_BIAS),
+_const(POST_CONVOLUTION_RED_SCALE),
+_const(POST_CONVOLUTION_GREEN_SCALE),
+_const(POST_CONVOLUTION_BLUE_SCALE),
+_const(POST_CONVOLUTION_ALPHA_SCALE),
+_const(POST_CONVOLUTION_RED_BIAS),
+_const(POST_CONVOLUTION_GREEN_BIAS),
+_const(POST_CONVOLUTION_BLUE_BIAS), and
+_const(POST_CONVOLUTION_ALPHA_BIAS).
+_phead(_param2)
+Specifies the value that _param1 is set to.
+.SH DESCRIPTION
+_cmnd sets pixel transfer modes that affect the operation of subsequent
+_cmnd(CopyPixels),
+_cmnd(CopyTexImage1D),
+_cmnd(CopyTexImage2D),
+_cmnd(CopyTexSubImage1D),
+_cmnd(CopyTexSubImage2D),
+_cmnd(CopyTexSubImage3D),
+_cmnd(DrawPixels),
+_cmnd(ReadPixels),
+_cmnd(TexImage1D),
+_cmnd(TexImage2D),
+_cmnd(TexImage3D),
+_cmnd(TexSubImage1D),
+_cmnd(TexSubImage2D), and
+_cmnd(TexSubImage3D) commands.
+Additionally, if the _arbstring(imaging) subset is supported, the
+routines
+_cmnd(ColorTable),
+_cmnd(ColorSubTable),
+_cmnd(ConvolutionFilter1D),
+_cmnd(ConvolutionFilter2D),
+_cmnd(Histogram),
+_cmnd(Minmax), and
+_cmnd(SeparableFilter2D) are also affected.
+The algorithms that are specified by pixel transfer modes operate on
+pixels after they are read from the frame buffer
+(_cmnd(CopyPixels)
+_cmnd(CopyTexImage1D),
+_cmnd(CopyTexImage2D),
+_cmnd(CopyTexSubImage1D),
+_cmnd(CopyTexSubImage2D),
+_cmnd(CopyTexSubImage3D), and
+_cmnd(ReadPixels)),
+or unpacked from client memory
+(_cmnd(DrawPixels), _cmnd(TexImage1D), _cmnd(TexImage2D), _cmnd(TexImage3D),
+_cmnd(TexSubImage1D), _cmnd(TexSubImage2D), and _cmnd(TexSubImage3D)). 
+Pixel transfer operations happen in the same order,
+and in the same manner,
+regardless of the command that resulted in the pixel operation.
+Pixel storage modes
+(see _cmnd(PixelStore))
+control the unpacking of pixels being read from client memory,
+and the packing of pixels being written back into client memory.
+.P
+Pixel transfer operations handle four fundamental pixel types:
+\f2color\fP,
+\f2color index\fP,
+\f2depth\fP, and
+\f2stencil\fP.
+\f2Color\fP pixels consist of four floating-point values
+with unspecified mantissa and exponent sizes,
+scaled such that 0 represents zero intensity
+and 1 represents full intensity.
+\f2Color indices\fP comprise a single fixed-point value,
+with unspecified precision to the right of the binary point.
+\f2Depth\fP pixels comprise a single floating-point value,
+with unspecified mantissa and exponent sizes,
+scaled such that 0.0 represents the minimum depth buffer value,
+and 1.0 represents the maximum depth buffer value.
+Finally,
+\f2stencil\fP pixels comprise a single fixed-point value,
+with unspecified precision to the right of the binary point.
+.BP
+.P
+The pixel transfer operations performed on the four basic pixel types are 
+as follows:
+.TP 12
+Color
+Each of the four color components is multiplied by a scale factor,
+then added to a bias factor.
+That is,
+the red component is multiplied by _const(RED_SCALE),
+then added to _const(RED_BIAS);
+the green component is multiplied by _const(GREEN_SCALE),
+then added to _const(GREEN_BIAS);
+the blue component is multiplied by _const(BLUE_SCALE),
+then added to _const(BLUE_BIAS); and
+the alpha component is multiplied by _const(ALPHA_SCALE),
+then added to _const(ALPHA_BIAS).
+After all four color components are scaled and biased,
+each is clamped to the range [0,1].
+All color, scale, and bias values are specified with _cmnd.
+.IP
+If _const(MAP_COLOR) is true,
+each color component is scaled by the size of the corresponding
+color-to-color map,
+then replaced by the contents of that map indexed by the scaled component.
+That is,
+the red component is scaled by _const(PIXEL_MAP_R_TO_R_SIZE),
+then replaced by the contents of _const(PIXEL_MAP_R_TO_R) indexed by itself.
+The green component is scaled by _const(PIXEL_MAP_G_TO_G_SIZE),
+then replaced by the contents of _const(PIXEL_MAP_G_TO_G) indexed by itself.
+The blue component is scaled by _const(PIXEL_MAP_B_TO_B_SIZE),
+then replaced by the contents of _const(PIXEL_MAP_B_TO_B) indexed by itself.
+And
+the alpha component is scaled by _const(PIXEL_MAP_A_TO_A_SIZE),
+then replaced by the contents of _const(PIXEL_MAP_A_TO_A) indexed by itself.
+All components taken from the maps are then clamped to the range [0,1].
+_const(MAP_COLOR) is specified with _cmnd.
+The contents of the various maps are specified with _cmnd(PixelMap).
+.IP
+If the _arbstring(imaging) extension is supported, each of the four
+color components may be scaled and biased after tranformation by the
+color matrix.  
+That is,
+the red component is multiplied by _const(POST_COLOR_MATRIX_RED_SCALE),
+then added to _const(POST_COLOR_MATRIX_RED_BIAS);
+the green component is multiplied by _const(POST_COLOR_MATRIX_GREEN_SCALE),
+then added to _const(POST_COLOR_MATRIX_GREEN_BIAS);
+the blue component is multiplied by _const(POST_COLOR_MATRIX_BLUE_SCALE),
+then added to _const(POST_COLOR_MATRIX_BLUE_BIAS); and
+the alpha component is multiplied by _const(POST_COLOR_MATRIX_ALPHA_SCALE),
+then added to _const(POST_COLOR_MATRIX_ALPHA_BIAS).
+After all four color components are scaled and biased,
+each is clamped to the range [0,1].
+.IP
+Similiarly, if the _arbstring(imaging) extension is supported, each of
+the four color components may be scaled and biased after processing by
+the enabled convolution filter.
+That is,
+the red component is multiplied by _const(POST_CONVOLUTION_RED_SCALE),
+then added to _const(POST_CONVOLUTION_RED_BIAS);
+the green component is multiplied by _const(POST_CONVOLUTION_GREEN_SCALE),
+then added to _const(POST_CONVOLUTION_GREEN_BIAS);
+the blue component is multiplied by _const(POST_CONVOLUTION_BLUE_SCALE),
+then added to _const(POST_CONVOLUTION_BLUE_BIAS); and
+the alpha component is multiplied by _const(POST_CONVOLUTION_ALPHA_SCALE),
+then added to _const(POST_CONVOLUTION_ALPHA_BIAS).
+After all four color components are scaled and biased,
+each is clamped to the range [0,1].
+.TP
+Color index
+Each color index is shifted left by _const(INDEX_SHIFT) bits; any bits
+beyond the number of fraction bits carried
+by the fixed-point index are filled with zeros.
+If _const(INDEX_SHIFT) is negative,
+the shift is to the right,
+again zero filled.
+Then _const(INDEX_OFFSET) is added to the index.
+_const(INDEX_SHIFT) and _const(INDEX_OFFSET) are specified with 
+.br
+_cmnd.
+.IP
+From this point, operation diverges depending on the required format of
+the resulting pixels.
+If the resulting pixels are to be written to a color index buffer,
+or if they are being read back to client memory in _const(COLOR_INDEX) format,
+the pixels continue to be treated as indices.
+If _const(MAP_COLOR) is true,
+each index is masked by $2 sup n ~-~ 1$,
+where $n$ is _const(PIXEL_MAP_I_TO_I_SIZE),
+then replaced by the contents of _const(PIXEL_MAP_I_TO_I) indexed by the
+masked value.
+_const(MAP_COLOR) is specified with _cmnd.
+The contents of the index map is specified with _cmnd(PixelMap).
+.IP
+If the resulting pixels are to be written to an RGBA color buffer,
+or if they are read back to client memory in a format other than
+_const(COLOR_INDEX),
+the pixels are converted from indices to colors by referencing the
+four maps
+_const(PIXEL_MAP_I_TO_R),
+_const(PIXEL_MAP_I_TO_G),
+_const(PIXEL_MAP_I_TO_B), and
+_const(PIXEL_MAP_I_TO_A).
+Before being dereferenced,
+the index is masked by $2 sup n ~-~ 1$,
+where $n$ is
+_const(PIXEL_MAP_I_TO_R_SIZE) for the red map,
+_const(PIXEL_MAP_I_TO_G_SIZE) for the green map,
+_const(PIXEL_MAP_I_TO_B_SIZE) for the blue map, and
+_const(PIXEL_MAP_I_TO_A_SIZE) for the alpha map.
+All components taken from the maps are then clamped to the range [0,1].
+The contents of the four maps is specified with _cmnd(PixelMap).
+.TP
+Depth
+Each depth value is multiplied by _const(DEPTH_SCALE),
+added to _const(DEPTH_BIAS),
+then clamped to the range [0,1].
+.TP
+Stencil
+Each index is shifted _const(INDEX_SHIFT) bits just as a color index is,
+then added to _const(INDEX_OFFSET).
+If _const(MAP_STENCIL) is true,
+each index is masked by $2 sup n ~-~ 1$,
+where $n$ is _const(PIXEL_MAP_S_TO_S_SIZE),
+then replaced by the contents of _const(PIXEL_MAP_S_TO_S) indexed by the
+masked value.
+.P
+The following table gives the type,
+initial value,
+and range of valid values for each of the pixel transfer parameters
+that are set with _cmnd.
+.sp
+
+.TS
+center tab(:);
+lb cb cb cb
+l c c c.
+_
+_param1:Type:Initial Value:Valid Range
+_
+_const(MAP_COLOR):boolean:false:true/false
+_const(MAP_STENCIL):boolean:false:true/false
+_const(INDEX_SHIFT):integer:0:(-\(if,\(if)
+_const(INDEX_OFFSET):integer:0:(-\(if,\(if)
+_const(RED_SCALE):float:1:(-\(if,\(if)
+_const(GREEN_SCALE):float:1:(-\(if,\(if)
+_const(BLUE_SCALE):float:1:(-\(if,\(if)
+_const(ALPHA_SCALE):float:1:(-\(if,\(if)
+_const(DEPTH_SCALE):float:1:(-\(if,\(if)
+_const(RED_BIAS):float:0:(-\(if,\(if)
+_const(GREEN_BIAS):float:0:(-\(if,\(if)
+_const(BLUE_BIAS):float:0:(-\(if,\(if)
+_const(ALPHA_BIAS):float:0:(-\(if,\(if)
+_const(DEPTH_BIAS):float:0:(-\(if,\(if)
+_const(POST_COLOR_MATRIX_RED_SCALE):float:1:(-\(if,\(if)
+_const(POST_COLOR_MATRIX_GREEN_SCALE):float:1:(-\(if,\(if)
+_const(POST_COLOR_MATRIX_BLUE_SCALE):float:1:(-\(if,\(if)
+_const(POST_COLOR_MATRIX_ALPHA_SCALE):float:1:(-\(if,\(if)
+_const(POST_COLOR_MATRIX_RED_BIAS):float:0:(-\(if,\(if)
+_const(POST_COLOR_MATRIX_GREEN_BIAS):float:0:(-\(if,\(if)
+_const(POST_COLOR_MATRIX_BLUE_BIAS):float:0:(-\(if,\(if)
+_const(POST_COLOR_MATRIX_ALPHA_BIAS):float:0:(-\(if,\(if)
+_const(POST_CONVOLUTION_RED_SCALE):float:1:(-\(if,\(if)
+_const(POST_CONVOLUTION_GREEN_SCALE):float:1:(-\(if,\(if)
+_const(POST_CONVOLUTION_BLUE_SCALE):float:1:(-\(if,\(if)
+_const(POST_CONVOLUTION_ALPHA_SCALE):float:1:(-\(if,\(if)
+_const(POST_CONVOLUTION_RED_BIAS):float:0:(-\(if,\(if)
+_const(POST_CONVOLUTION_GREEN_BIAS):float:0:(-\(if,\(if)
+_const(POST_CONVOLUTION_BLUE_BIAS):float:0:(-\(if,\(if)
+_const(POST_CONVOLUTION_ALPHA_BIAS):float:0:(-\(if,\(if)
+_
+.TE
+
+.sp
+_cmnd(PixelTransferf) can be used to set any pixel transfer parameter.
+If the parameter type is boolean,
+0 implies false and any other value implies true.
+If _param1 is an integer parameter,
+_param2 is rounded to the nearest integer.
+.P
+Likewise,
+_cmnd(PixelTransferi) can be used to set any of the
+pixel transfer parameters.
+Boolean parameters are set to false if _param2 is 0 and to true otherwise.
+_param2 is converted to floating point before being assigned to real-valued parameters.
+.SH NOTES
+If a
+_cmnd(ColorTable),
+_cmnd(ColorSubTable),
+_cmnd(ConvolutionFilter1D),
+_cmnd(ConvolutionFilter2D),
+_cmnd(CopyPixels),
+_cmnd(CopyTexImage1D),
+_cmnd(CopyTexImage2D),
+_cmnd(CopyTexSubImage1D),
+_cmnd(CopyTexSubImage2D),
+_cmnd(CopyTexSubImage3D),
+_cmnd(DrawPixels),
+_cmnd(ReadPixels),
+_cmnd(SeparableFilter2D),
+_cmnd(TexImage1D),
+_cmnd(TexImage2D),
+_cmnd(TexImage3D),
+_cmnd(TexSubImage1D),
+_cmnd(TexSubImage2D), or
+_cmnd(TexSubImage3D).
+command is placed in a display list
+(see _cmnd(NewList) and _cmnd(CallList)),
+the pixel transfer mode settings in effect when the display list is
+.I executed
+are the ones that are used.
+They may be different from the settings when the command was compiled
+into the display list.
+.SH ERRORS
+_const(INVALID_ENUM) is generated if _param1 is not an accepted value.
+.P
+_const(INVALID_OPERATION) is generated if _cmnd
+is executed between the execution of _cmnd(Begin)
+and the corresponding execution of _cmnd(End).
+.SH ASSOCIATED GETS
+_cmnd(Get) with argument _const(MAP_COLOR)
+.br
+_cmnd(Get) with argument _const(MAP_STENCIL)
+.br
+_cmnd(Get) with argument _const(INDEX_SHIFT)
+.br
+_cmnd(Get) with argument _const(INDEX_OFFSET)
+.br
+_cmnd(Get) with argument _const(RED_SCALE)
+.br
+_cmnd(Get) with argument _const(RED_BIAS)
+.br
+_cmnd(Get) with argument _const(GREEN_SCALE)
+.br
+_cmnd(Get) with argument _const(GREEN_BIAS)
+.br
+_cmnd(Get) with argument _const(BLUE_SCALE)
+.br
+_cmnd(Get) with argument _const(BLUE_BIAS)
+.br
+_cmnd(Get) with argument _const(ALPHA_SCALE)
+.br
+_cmnd(Get) with argument _const(ALPHA_BIAS)
+.br
+_cmnd(Get) with argument _const(DEPTH_SCALE)
+.br
+_cmnd(Get) with argument _const(DEPTH_BIAS)
+.br
+_cmnd(Get) with argument _const(POST_COLOR_MATRIX_RED_SCALE)
+.br
+_cmnd(Get) with argument _const(POST_COLOR_MATRIX_RED_BIAS)
+.br
+_cmnd(Get) with argument _const(POST_COLOR_MATRIX_GREEN_SCALE)
+.br
+_cmnd(Get) with argument _const(POST_COLOR_MATRIX_GREEN_BIAS)
+.br
+_cmnd(Get) with argument _const(POST_COLOR_MATRIX_BLUE_SCALE)
+.br
+_cmnd(Get) with argument _const(POST_COLOR_MATRIX_BLUE_BIAS)
+.br
+_cmnd(Get) with argument _const(POST_COLOR_MATRIX_ALPHA_SCALE)
+.br
+_cmnd(Get) with argument _const(POST_COLOR_MATRIX_ALPHA_BIAS)
+.br
+_cmnd(Get) with argument _const(POST_CONVOLUTION_RED_SCALE)
+.br
+_cmnd(Get) with argument _const(POST_CONVOLUTION_RED_BIAS)
+.br
+_cmnd(Get) with argument _const(POST_CONVOLUTION_GREEN_SCALE)
+.br
+_cmnd(Get) with argument _const(POST_CONVOLUTION_GREEN_BIAS)
+.br
+_cmnd(Get) with argument _const(POST_CONVOLUTION_BLUE_SCALE)
+.br
+_cmnd(Get) with argument _const(POST_CONVOLUTION_BLUE_BIAS)
+.br
+_cmnd(Get) with argument _const(POST_CONVOLUTION_ALPHA_SCALE)
+.br
+_cmnd(Get) with argument _const(POST_CONVOLUTION_ALPHA_BIAS)
+.SH SEE ALSO
+_cmnd(CallList),
+_cmnd(ColorTable),
+_cmnd(ColorSubTable),
+_cmnd(ConvolutionFilter1D),
+_cmnd(ConvolutionFilter2D),
+_cmnd(CopyPixels),
+_cmnd(CopyTexImage1D),
+_cmnd(CopyTexImage2D),
+_cmnd(CopyTexSubImage1D),
+_cmnd(CopyTexSubImage2D),
+_cmnd(CopyTexSubImage3D),
+_cmnd(DrawPixels),
+_cmnd(NewList),
+_cmnd(PixelMap),
+_cmnd(PixelStore),
+_cmnd(PixelZoom),
+_cmnd(ReadPixels),
+_cmnd(TexImage1D),
+_cmnd(TexImage2D),
+_cmnd(TexImage3D),
+_cmnd(TexSubImage1D),
+_cmnd(TexSubImage2D),
+_cmnd(TexSubImage3D)

@@ -1,0 +1,183 @@
+_C_ License Applicability. Except to the extent portions of this file are
+_C_ made subject to an alternative license as permitted in the SGI Free
+_C_ Software License B, Version 1.1 (the "License"), the contents of this
+_C_ file are subject only to the provisions of the License. You may not use
+_C_ this file except in compliance with the License. You may obtain a copy
+_C_ of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+_C_ Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+_C_ 
+_C_ http://oss.sgi.com/projects/FreeB
+_C_ 
+_C_ Note that, as provided in the License, the Software is distributed on an
+_C_ "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+_C_ DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+_C_ CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+_C_ PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+_C_ 
+_C_ Original Code. The Original Code is: OpenGL Sample Implementation,
+_C_ Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+_C_ Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+_C_ Copyright in any portions created by third parties is as indicated
+_C_ elsewhere herein. All Rights Reserved.
+_C_ 
+_C_ Additional Notice Provisions: The application programming interfaces
+_C_ established by SGI in conjunction with the Original Code are The
+_C_ OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+_C_ April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+_C_ 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+_C_ Window System(R) (Version 1.3), released October 19, 1998. This software
+_C_ was created using the OpenGL(R) version 1.2.1 Sample Implementation
+_C_ published by SGI, but has not been independently verified as being
+_C_ compliant with the OpenGL(R) version 1.2.1 Specification.
+_C_
+_C_ The first character in this file must be an '_'!
+_C_ Anything on a line after _C_ is ignored
+_define(_filters,tbl|eqn)_C_
+_C_      eqn is automatically replaced with neqn for nroff
+_header(TexEnv, set texture environment parameters)
+_names(TexEnv,[fi])
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+_phead(_param1)
+Specifies a texture environment.
+Must be _const(TEXTURE_ENV).
+_phead(_param2)
+Specifies the symbolic name of a single-valued texture environment parameter.
+Must be _const(TEXTURE_ENV_MODE).
+_phead(_param3)
+Specifies a single symbolic constant, one of _const(MODULATE), 
+_const(DECAL), _const(BLEND), or _const(REPLACE).
+_names(TexEnv,[fi]v)
+.SH PARAMETERS
+_phead(_param1)
+Specifies a texture environment.
+Must be _const(TEXTURE_ENV).
+_phead(_param2)
+Specifies the symbolic name of a texture environment parameter.
+Accepted values are _const(TEXTURE_ENV_MODE) and _const(TEXTURE_ENV_COLOR).
+_phead(_param3)
+Specifies a pointer to a parameter array that contains
+either a single symbolic constant or an RGBA color.
+.SH DESCRIPTION
+A texture environment specifies how texture values are interpreted
+when a fragment is textured.
+_param1 must be _const(TEXTURE_ENV).
+_param2 can be either _const(TEXTURE_ENV_MODE) or _const(TEXTURE_ENV_COLOR).
+.P
+If _param2 is _const(TEXTURE_ENV_MODE),
+then _param3 is (or points to) the symbolic name of a texture function.
+Four texture functions may be specified:
+_const(MODULATE), 
+_const(DECAL), 
+_const(BLEND), and
+_const(REPLACE).
+.P
+A texture function acts on the fragment to be textured using
+the texture image value that applies to the fragment
+(see _cmnd(TexParameter))
+and produces an RGBA color for that fragment.
+The following table shows how the RGBA color is produced for each
+of the three texture functions that can be chosen.
+$C$ is a triple of color values (RGB) and $A$ is the associated alpha value.
+RGBA values extracted from a texture image are in the range [0,1].
+The subscript $f$ refers to the incoming fragment,
+the subscript $t$ to the texture image,
+the subscript $c$ to the texture environment color,
+and subscript $v$ indicates a value produced by the texture function.
+.P
+A texture image can have up to four components per texture element
+(see _cmnd(TexImage1D), _cmnd(TexImage2D), _cmnd(TexImage3D),
+_cmnd(CopyTexImage1D), and _cmnd(CopyTexImage2D)). 
+In a one-component image,
+$L sub t$ indicates that single component.
+A two-component image uses $L sub t$ and $A sub t$.
+A three-component image has only a color value, $C sub t$.
+A four-component image has both a color value $C sub t$
+and an alpha value $A sub t$.
+.sp
+.ne
+.TS
+center tab(:) ;
+cb cb s s s
+ci c c c c
+c c c c c.
+_
+Base internal:Texture functions       
+format:_const(MODULATE):_const(DECAL):_const(BLEND):_const(REPLACE)
+_
+_const(ALPHA):$C sub v ~=~ C sub f$:undefined:$C sub v ~=~  C sub f$:$C sub v ~=~ C sub f$
+\^ :$A sub v ~=~ A sub f A sub t$:\^:$A sub v ~=~ A sub f$:$A sub v ~=~ A sub t$
+_
+_const(LUMINANCE):$C sub v ~=~ L sub t C sub f$:undefined:$C sub v ~=~ ( 1 - L sub t ) C sub f$:$C sub v ~=~ L sub t$
+: : :$+ L sub t C sub c$:
+1: $A sub v ~=~ A sub f$:\^: $A sub v ~=~ A sub f$:$A sub v ~=~ A sub f$
+_
+_const(LUMINANCE):$C sub v ~=~ L sub t C sub f$:undefined:$C sub v ~=~ ( 1 - L sub t ) C sub f $:$C sub v ~=~ L sub t$
+\\f3_ALPHA\fP: : : $+ L sub t C sub c$
+2:$A sub v ~=~ A sub t A sub f$:\^:$A sub v ~=~ A sub t A sub f$:$A sub v ~=~ A sub t$
+_
+_const(INTENSITY):$C sub v ~=~ C sub f I sub t$:undefined:$C sub v ~=~ ( 1 - I sub t ) C sub f$ :$C sub v ~=~ I sub t$
+: : :$+ I sub t C sub c$
+c\^ :$A sub v ~=~ A sub f I sub t$:\^:$A sub v ~=~ ( 1 - I sub t ) A sub f $:$A sub v ~=~ I sub t$
+: : :$+ I sub t A sub c$:
+_
+_const(RGB):$C sub v ~=~ C sub t C sub f$:$C sub v ~=~ C sub t$:$C sub v ~=~ (1 - C sub t) C sub f $:$C sub v ~=~ C sub t$
+: : : $+ C sub t C sub c$
+3:$A sub v ~=~ A sub f$:$A sub v ~=~ A sub f$:$A sub v ~=~ A sub f$:$A sub v ~=~ A sub f$
+_
+_const(RGBA):$C sub v ~=~ C sub t C sub f$:$C sub v ~=~ ( 1 - A sub t ) C sub f $:$C sub v ~=~ (1 - C sub t) C sub f $:$C sub v ~=~ C sub t$
+: :$+ A sub t C sub t$: $+ C sub t C sub c$
+4:$A sub v ~=~ A sub t A sub f$:$A sub v ~=~ A sub f$:$A sub v ~=~ A sub t A sub f$:$A sub v ~=~ A sub t$
+_
+.TE
+.bp
+If _param2 is _const(TEXTURE_ENV_COLOR),
+_param3 is a pointer to an array that holds an RGBA color consisting of four
+values.
+Integer color components are interpreted linearly such that the most
+positive integer maps to 1.0,
+and the most negative integer maps to -1.0.
+The values are clamped to the range [0,1] when they are specified.
+$C sub c$ takes these four values.
+.P
+_const(TEXTURE_ENV_MODE) defaults to _const(MODULATE) and
+_const(TEXTURE_ENV_COLOR) defaults to (0, 0, 0, 0).
+.SH NOTES
+_const(REPLACE) may only be used if the GL version is 1.1 or greater.
+.P
+Internal formats other than 1, 2, 3, or 4 may only be used if the GL
+version is 1.1 or greater.
+.P
+When the _arbstring(multitexture) extension is supported, _cmnd controls 
+the texture environment for the current active texture unit, selected by 
+_cmnd(ActiveTextureARB).
+.sh ERRORS
+_const(INVALID_ENUM) is generated when _param1 or _param2 is not
+one of the accepted defined values,
+or when _param3 should have a defined constant value
+(based on the value of _param2)
+and does not.
+.P
+_const(INVALID_OPERATION) is generated if _cmnd
+is executed between the execution of _cmnd(Begin)
+and the corresponding execution of _cmnd(End).
+.SH ASSOCIATED GETS
+_cmnd(GetTexEnv)
+.SH SEE ALSO
+_cmnd(ActiveTextureARB),
+_cmnd(CopyPixels),
+_cmnd(CopyTexImage1D),
+_cmnd(CopyTexImage2D),
+_cmnd(CopyTexSubImage1D),
+_cmnd(CopyTexSubImage2D),
+_cmnd(CopyTexSubImage3D),
+_cmnd(TexImage1D),
+_cmnd(TexImage2D),
+_cmnd(TexImage3D),
+_cmnd(TexParameter),
+_cmnd(TexSubImage1D),
+_cmnd(TexSubImage2D),
+_cmnd(TexSubImage3D)
+

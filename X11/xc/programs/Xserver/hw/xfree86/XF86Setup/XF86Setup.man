@@ -1,0 +1,107 @@
+.\" $XConsortium: XF86Setup.man /main/3 1996/12/09 17:37:49 kaleb $
+.\" $XFree86: xc/programs/Xserver/hw/xfree86/XF86Setup/XF86Setup.man,v 3.6 2002/10/12 16:06:43 herrb Exp $
+.TH XF86Setup 1 __vendorversion__
+.SH NAME
+XF86Setup - Graphical configuration utility for XFree86
+.SH SYNOPSIS
+.B XF86Setup
+[ -sync ] [ -name \fIappname\fP ] [ -nodialog ] [ -- \fIarg\fP ...]
+.LP
+.B XF86Setup
+[ -sync ] [ -name \fIappname\fP ] [ -script ]
+[ -display \fIdisplay\fP ] [ -geometry \fIgeometry\fP ]
+\fIfilename\fP [ [ -- ] \fIarg\fP ... ]
+.SH DESCRIPTION
+.I XF86Setup
+is normally used to either perform the initial setup of the XFree86
+X servers or to make adjustments to the existing configuration.
+.PP
+When used to initially configure the XFree86 servers, it will
+start the VGA 16 server and then allow configuration settings to be
+entered.  Once that is completed the appropriate server for the
+hardware will be started and the configuration settings will be
+saved.
+.PP
+For a more complete description see the \fIQuick-Start Guide to
+XFree86 Setup\fP.
+.PP
+When run from within an already running server environment (e.g.
+from an xterm window),
+.I XF86Setup
+can be used to make adjustments to the current server configuration.
+.PP
+Note that when the existing XF86Config file is read, it is used to
+set the default values for various settings, but the complete contents
+of the existing file are not preserved.  For example, when the new
+XF86Config file is written, it will \fInot\fP contain any additional
+comment lines from the original file.
+.PP
+When a filename is specified, it is interpreted as a script file
+containing Tcl/Tk commands to run.  If the filename contains a slash,
+it is assumed that it specifies the path to the file to execute,
+otherwise the file is searched for in the user's PATH, unless the
+\fB-script\fP option is given, in which case, it is expected to
+exist in the \fIscripts\fP subdirectory of the
+\fIXF86Setup\fP library directory.
+.PP
+The result is entirely dependant on the contents of the file.
+
+.SH ARGUMENTS
+.TP 14
+.B -sync
+Turn on synchronization for all communication with an X server.
+.TP 14
+.BI -name " appname"
+Use \fIappname\fP as the window name.
+.TP 14
+.BI -display " display"
+Specify the display to talk to.
+.TP 14
+.B -nodialog
+Do not use the Dialog program for text mode user interaction.
+Normally \fIXF86Setup\fP will use the Dialog program, if it is
+found in the user's PATH, otherwise a simple text interface is used.
+.TP 14
+.BI -geometry " geomspec"
+Specify the initial geometry for the window.
+.TP 14
+.BI -script
+Look for the specified filename in the \fIscripts\fP directory,
+instead of searching the user's PATH (if the filename doesn't
+specify a path).
+.SH ENVIRONMENT
+.TP 14
+.B PATH
+Used to search for the location of the Dialog program
+.TP 14
+.B XWINHOME
+If set, indicates the parent directory of X bin and lib directories.
+.TP 14
+.B XF86SETUPLIB
+If set, overrides the default location of the library directory
+(normally __projectroot__/lib/X11/XF86Setup).
+.TP 14
+.B TMPDIR
+Directory in which to store temporary files (defaults to /tmp)
+.SH FILES
+.I __projectroot__/lib/X11/XF86Config
+.br
+or
+.I /etc/XF86Config
+.RS 14
+Can optionally be read to set default values
+for configuration settings
+.RE
+.SH "SEE ALSO"
+\fIQuick-Start Guide to XFree86 Setup\fP
+.br
+Xserver(1), XFree86(1), XF86Config(4/5), xvidtune(1), xdm(1),
+xf86config(1), xinit(1), XF86Misc(3), XF86VidMode(3),
+xmseconfig(1), dialog(1)
+.SH AUTHOR
+.PP
+Joe Moss, \fIjoe@XFree86.org\fP
+.SH BUGS
+Does not support all possible configurations, for example,
+graphics tablets must be configured by editing the XF86Config
+file manually.

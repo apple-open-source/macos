@@ -1,0 +1,54 @@
+XCOMM $XFree86: xc/lib/GL/dri/Imakefile,v 1.9 2001/04/03 02:29:32 dawes Exp $
+
+#include <Threads.tmpl>
+
+#define DoNormalLib (NormalLibGlx || SharedLibGlxWithoutPIC)
+#define DoSharedLib (SharedLibGlx && !SharedLibGlxWithoutPIC)
+#define DoExtraLib SharedLibGlx
+#define DoDebugLib DebugLibGlx
+#define DoProfileLib ProfileLibGlx
+
+LinkSourceFile(x-list.c,$(SERVERSRC)/hw/apple)
+LinkSourceFile(x-list.h,$(SERVERSRC)/hw/apple)
+LinkSourceFile(x-hash.c,$(SERVERSRC)/hw/apple)
+LinkSourceFile(x-hash.h,$(SERVERSRC)/hw/apple)
+
+#if Malloc0ReturnsNull
+ALLOC_DEFINES = -DMALLOC_0_RETURNS_NULL
+#endif
+
+#if !GlxUseSGISI
+     DRI_SRCS = dri_glx.c dri_driver.c dri_dispatch.c x-hash.c x-list.c
+     DRI_OBJS = dri_glx.o dri_driver.o dri_dispatch.o x-hash.o x-list.o
+     DRI_INCS = -I. -I$(GLXLIBSRC)/glx -I$(INCLUDESRC) -I$(INCLUDESRC)/GL \
+		-I$(XINCLUDESRC) -I$(SERVERSRC)/GL/dri \
+		-I$(MESASRCDIR)/include -I$(MESASRCDIR)/src
+#endif
+
+#if GlxBuiltInTdfx
+    TDFX_DEFS = -DUSE_TDFX
+#endif
+
+AS := /System/Library/Frameworks/ApplicationServices.framework
+
+      DEFINES = $(ALLOC_DEFINES) GlxDefines $(TDFX_DEFS) $(GLX_DEFS) -DXP_NO_X_HEADERS=1
+     INCLUDES = -I$(XLIBSRC) -I$(EXTINCSRC) $(DRI_INCS) \
+		-F$(AS)/Frameworks $(XPLUGIN_INCLUDE)
+         SRCS = appledri.c $(DRI_SRCS)
+         OBJS = appledri.o  $(DRI_OBJS)
+
+/* We won't require this to run when building normally, just for updating.
+   Also, don't give it any dependences so make doesn't attempt to rebuild
+   it if the dates get screwed up. (It actually depends on build-dispatch
+   and dri_dispatch.defs) */
+dri_dispatch.h :
+	./build-dispatch <dri_dispatch.defs >$@
+
+#include <Library.tmpl>
+
+LibraryObjectRule()
+
+SubdirLibraryRule($(OBJS))
+NormalLintTarget($(SRCS))
+
+DependTarget()

@@ -1,0 +1,559 @@
+_C_ License Applicability. Except to the extent portions of this file are
+_C_ made subject to an alternative license as permitted in the SGI Free
+_C_ Software License B, Version 1.1 (the "License"), the contents of this
+_C_ file are subject only to the provisions of the License. You may not use
+_C_ this file except in compliance with the License. You may obtain a copy
+_C_ of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+_C_ Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+_C_ 
+_C_ http://oss.sgi.com/projects/FreeB
+_C_ 
+_C_ Note that, as provided in the License, the Software is distributed on an
+_C_ "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+_C_ DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+_C_ CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+_C_ PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+_C_ 
+_C_ Original Code. The Original Code is: OpenGL Sample Implementation,
+_C_ Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+_C_ Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+_C_ Copyright in any portions created by third parties is as indicated
+_C_ elsewhere herein. All Rights Reserved.
+_C_ 
+_C_ Additional Notice Provisions: The application programming interfaces
+_C_ established by SGI in conjunction with the Original Code are The
+_C_ OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+_C_ April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+_C_ 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+_C_ Window System(R) (Version 1.3), released October 19, 1998. This software
+_C_ was created using the OpenGL(R) version 1.2.1 Sample Implementation
+_C_ published by SGI, but has not been independently verified as being
+_C_ compliant with the OpenGL(R) version 1.2.1 Specification.
+_C_
+_C_ The first character in this file must be an '_'!
+_C_ Anything on a line after _C_ is ignored
+_define(_filters,tbl|eqn)_C_
+_C_      eqn is automatically replaced with neqn for nroff
+_header(DrawPixels,write a block of pixels to the frame buffer)
+_names(DrawPixels)
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+_phead(_param1 _param2)
+Specify the dimensions of the pixel rectangle to be written
+into the frame buffer.
+_phead(_param3)
+Specifies the format of the pixel data.
+Symbolic constants
+_const(COLOR_INDEX),
+_const(STENCIL_INDEX),
+_const(DEPTH_COMPONENT),
+_const(RGB),
+_const(BGR),
+_const(RGBA),
+_const(BGRA),
+_C_ _const(ABGR_EXT),
+_const(RED),
+_const(GREEN),
+_const(BLUE),
+_const(ALPHA),
+_const(LUMINANCE), and
+_const(LUMINANCE_ALPHA) are accepted.
+_phead(_param4)
+Specifies the data type for _param5.
+Symbolic constants
+_const(UNSIGNED_BYTE),
+_const(BYTE),
+_const(BITMAP),
+_const(UNSIGNED_SHORT),
+_const(SHORT),
+_const(UNSIGNED_INT),
+_const(INT),
+_const(FLOAT),
+_const(UNSIGNED_BYTE_3_3_2),
+_const(UNSIGNED_BYTE_2_3_3_REV),
+_const(UNSIGNED_SHORT_5_6_5),
+_const(UNSIGNED_SHORT_5_6_5_REV),
+_const(UNSIGNED_SHORT_4_4_4_4),
+_const(UNSIGNED_SHORT_4_4_4_4_REV),
+_const(UNSIGNED_SHORT_5_5_5_1),
+_const(UNSIGNED_SHORT_1_5_5_5_REV),
+_const(UNSIGNED_INT_8_8_8_8),
+_const(UNSIGNED_INT_8_8_8_8_REV),
+_const(UNSIGNED_INT_10_10_10_2), and
+_const(UNSIGNED_INT_2_10_10_10_REV)
+are accepted.
+_phead(_param5)
+Specifies a pointer to the pixel data.
+.SH DESCRIPTION
+_cmnd reads pixel data from memory and writes it into the frame buffer
+.br
+relative to the current raster position, provided that the raster
+position is valid.  Use 
+.br
+_cmnd(RasterPos) to set the current raster position; use
+_cmnd(Get) with argument _const(CURRENT_RASTER_POSITION_VALID)
+to determine if the specified raster position is valid, and 
+_cmnd(Get) with argument _const(CURRENT_RASTER_POSITION)
+to query the raster position.
+.P
+Several parameters define the encoding of pixel data in memory
+and control the processing of the pixel data
+before it is placed in the frame buffer.
+These parameters are set with four commands:
+_cmnd(PixelStore),
+_cmnd(PixelTransfer),
+_cmnd(PixelMap), and _cmnd(PixelZoom).
+This reference page describes the effects on _cmnd of many,
+but not all, of the parameters specified by these four commands.
+.P
+Data is read from _param5 as a sequence of signed or unsigned bytes,
+signed or unsigned shorts, signed or unsigned integers, or
+single-precision floating-point values, depending on _param4.  
+When _param4 is one of _const(UNSIGNED_BYTE), _const(BYTE),
+_const(UNSIGNED_SHORT), _const(SHORT), _const(UNSIGNED_INT),
+_const(INT), or _const(FLOAT) each of these bytes, shorts, integers, or
+floating-point values is interpreted as one color or depth component, or
+one index, depending on _param3.
+When _param4 is one of _const(UNSIGNED_BYTE_3_3_2),
+_const(UNSIGNED_SHORT_5_6_5), _const(UNSIGNED_SHORT_4_4_4_4),
+_const(UNSIGNED_SHORT_5_5_5_1), _const(UNSIGNED_INT_8_8_8_8),
+_const(UNSIGNED_INT_10_10_10_2), each unsigned value is interpreted as
+containing all the components for a single pixel, with the color
+components arranged according to _param3.
+When _param4 is one of _const(UNSIGNED_BYTE_2_3_3_REV),
+_const(UNSIGNED_SHORT_5_6_5_REV), _const(UNSIGNED_SHORT_4_4_4_4_REV),
+_const(UNSIGNED_SHORT_1_5_5_5_REV), _const(UNSIGNED_INT_8_8_8_8_REV),
+_const(UNSIGNED_INT_2_10_10_10_REV), each unsigned value is interpreted
+as containing all color components, specified by _param3, for a single
+pixel in a reversed order. Indices are always treated individually.
+Color components are treated as groups of one, two, three, or four
+values, again based on _param3. Both individual indices and groups of
+components are referred to as pixels.
+If _param4 is _const(BITMAP), the data must be unsigned bytes, and
+_param3 must be either _const(COLOR_INDEX) or _const(STENCIL_INDEX).
+Each unsigned byte is treated as eight 1-bit pixels, with bit ordering
+determined by _const(UNPACK_LSB_FIRST) (see _cmnd(PixelStore)).
+.P
+_param1$~ times ~$_param2 pixels are read from memory,
+starting at location _param5.
+By default, these pixels are taken from adjacent memory locations,
+except that after all _param1 pixels are read,
+the read pointer is advanced to the next four-byte boundary.
+The four-byte row alignment is specified by _cmnd(PixelStore) with
+argument _const(UNPACK_ALIGNMENT),
+and it can be set to one, two, four, or eight bytes.
+Other pixel store parameters specify different read pointer advancements,
+both before the first pixel is read
+and after all _param1 pixels are read.
+See the _cmnd(PixelStore) reference page for details on these options.
+.P
+The _param1$~ times ~$_param2 pixels that are read from memory are
+each operated on in the same way,
+based on the values of several parameters specified by _cmnd(PixelTransfer)
+and _cmnd(PixelMap).
+The details of these operations,
+as well as the target buffer into which the pixels are drawn,
+are specific to the format of the pixels,
+as specified by _param3.
+_param3 can assume one of 13 symbolic values:
+.TP 10
+_const(COLOR_INDEX)
+Each pixel is a single value,
+a color index.
+It is converted to fixed-point format,
+with an unspecified number of bits to the right of the binary point,
+regardless of the memory data type.
+Floating-point values convert to true fixed-point values.
+Signed and unsigned integer data is converted with all fraction bits
+set to 0.
+Bitmap data convert to either 0 or 1.
+.IP
+Each fixed-point index is then shifted left by _const(INDEX_SHIFT) bits
+and added to _const(INDEX_OFFSET).
+If _const(INDEX_SHIFT) is negative,
+the shift is to the right.
+In either case, zero bits fill otherwise unspecified bit locations in the
+result.
+.IP
+If the GL is in RGBA mode,
+the resulting index is converted to an RGBA pixel 
+with the help of the _const(PIXEL_MAP_I_TO_R), 
+_const(PIXEL_MAP_I_TO_G),
+_const(PIXEL_MAP_I_TO_B),
+and _const(PIXEL_MAP_I_TO_A) tables.
+If the GL is in color index mode,
+and if _const(MAP_COLOR) is true,
+the index is replaced with the value that it references in lookup table
+_const(PIXEL_MAP_I_TO_I).
+Whether the lookup replacement of the index is done or not,
+the integer part of the index is then ANDed with $2 sup b -1$,
+where $b$ is the number of bits in a color index buffer.
+.BP
+.IP
+The GL then converts the resulting indices or RGBA colors to fragments
+by attaching the current raster position \f2z\fP coordinate and
+texture coordinates to each pixel,
+then assigning $x$ and $y$ window coordinates to the $n$th fragment such that
+.sp
+.RS
+.ce
+$x sub n ~=~ x sub r ~+~ n ~ roman mod ~ _eqnparam1$ 
+.sp 
+.ce
+$y sub n ~=~ y sub r ~+~ \(lf n ^/^ _eqnparam1 ~ \(rf$
+.ce 0
+.sp
+.RE
+.IP
+where ($x sub r , y sub r$) is the current raster position.
+These pixel fragments are then treated just like the fragments generated by
+rasterizing points, lines, or polygons.
+Texture mapping,
+fog,
+and all the fragment operations are applied before the fragments are written
+to the frame buffer.
+.TP
+_const(STENCIL_INDEX)
+Each pixel is a single value,
+a stencil index.
+It is converted to fixed-point format,
+with an unspecified number of bits to the right of the binary point,
+regardless of the memory data type.
+Floating-point values convert to true fixed-point values.
+Signed and unsigned integer data is converted with all fraction bits
+set to 0.
+Bitmap data convert to either 0 or 1.
+.IP
+Each fixed-point index is then shifted left by _const(INDEX_SHIFT) bits,
+and added to _const(INDEX_OFFSET).
+If _const(INDEX_SHIFT) is negative,
+the shift is to the right.
+In either case, zero bits fill otherwise unspecified bit locations in the
+result.
+If _const(MAP_STENCIL) is true,
+the index is replaced with the value that it references in lookup table
+_const(PIXEL_MAP_S_TO_S).
+Whether the lookup replacement of the index is done or not,
+the integer part of the index is then ANDed with $2 sup b -1$,
+where $b$ is the number of bits in the stencil buffer.
+The resulting stencil indices are then written to the stencil buffer
+such that the $n$th index is written to location
+.P
+.RS
+.ce
+$x sub n ~=~ x sub r ~+~ n ~ roman mod ~ _eqnparam1$ 
+.sp
+.ce
+$y sub n ~=~ y sub r ~+~ \(lf ~ n / _eqnparam1 ~ \(rf$
+.fi
+.sp
+.RE
+.IP
+where ($x sub r , y sub r$) is the current raster position.
+Only the pixel ownership test,
+the scissor test,
+and the stencil writemask affect these write operations.
+.TP
+_const(DEPTH_COMPONENT)
+Each pixel is a single-depth component.
+Floating-point data is converted directly to an internal floating-point
+format with unspecified precision.
+Signed integer data is mapped linearly to the internal floating-point
+format such that the most positive representable integer value maps to 1.0,
+and the most negative representable value maps to \-1.0.
+Unsigned integer data is mapped similarly:
+the largest integer value maps to 1.0,
+and 0 maps to 0.0.
+The resulting floating-point depth value is then multiplied
+by _const(DEPTH_SCALE) and added to _const(DEPTH_BIAS).
+The result is clamped to the range [0,1].
+.IP
+The GL then converts the resulting depth components to fragments
+by attaching the current raster position color or color index and
+texture coordinates to each pixel,
+then assigning $x$ and $y$ window coordinates to the $n$th fragment such that
+.P
+.RS
+.ce
+$x sub n ~=~ x sub r ~+~ n ~ roman mod ~ _eqnparam1$ 
+.sp
+.ce
+$y sub n ~=~ y sub r ~+~ \(lf ~ n / _eqnparam1 ~ \(rf$
+.ce 0
+.sp
+.RE
+.IP
+where ($x sub r , y sub r$) is the current raster position.
+These pixel fragments are then treated just like the fragments generated by
+rasterizing points, lines, or polygons.
+Texture mapping,
+fog,
+and all the fragment operations are applied before the fragments are written
+to the frame buffer.
+.TP
+_const(RGBA)
+.TP
+_const(BGRA)
+_C_ .TP
+_C_ const(ABGR_EXT)
+Each pixel is a four-component group: for _const(RGBA), the red
+component is first, followed by green, followed by blue, followed by 
+alpha; for _const(BGRA) the order is blue, green, red and then alpha.
+_C_; for _const(ABGR_EXT) the order is alpha, blue, green, and then red.
+Floating-point values are converted directly to an internal floating-point
+format with unspecified precision.
+Signed integer values are mapped linearly to the internal floating-point
+format such that the most positive representable integer value maps to 1.0,
+and the most negative representable value maps to \-1.0. (Note that
+this mapping does not convert 0 precisely to 0.0.)
+Unsigned integer data is mapped similarly:
+the largest integer value maps to 1.0,
+and 0 maps to 0.0.
+The resulting floating-point color values are then multiplied
+by _const(c_SCALE) and added to _const(c_BIAS),
+where \f2c\fP is RED, GREEN, BLUE, and ALPHA
+for the respective color components.
+The results are clamped to the range [0,1].
+.IP
+If _const(MAP_COLOR) is true,
+each color component is scaled by the size of lookup table
+_const(PIXEL_MAP_c_TO_c),
+then replaced by the value that it references in that table.
+\f2c\fP is R, G, B, or A respectively.
+.BP
+.IP
+The GL then converts the resulting RGBA colors to fragments
+by attaching the current raster position \f2z\fP coordinate and
+texture coordinates to each pixel,
+then assigning $x$ and $y$ window coordinates to the $n$th fragment such that
+.P
+.RS
+.ce
+$x sub n ~=~ x sub r ~+~ n ~ roman mod ~ _eqnparam1$ 
+.sp
+.ce
+$y sub n ~=~ y sub r ~+~ \(lf ~ n / _eqnparam1 ~ \(rf$
+.ce 0
+.sp
+.RE
+.IP
+where ($x sub r , y sub r$) is the current raster position.
+These pixel fragments are then treated just like the fragments generated by
+rasterizing points, lines, or polygons.
+Texture mapping,
+fog,
+and all the fragment operations are applied before the fragments are written
+to the frame buffer.
+.TP
+_const(RED)
+Each pixel is a single red component.
+This component is converted to the internal floating-point format in
+the same way the red component of an RGBA pixel is. It is
+then converted to an RGBA pixel with green and blue set to 0,
+and alpha set to 1.
+After this conversion, the pixel is treated as if it had been read
+as an RGBA pixel.
+.TP
+_const(GREEN)
+Each pixel is a single green component.
+This component is converted to the internal floating-point format in
+the same way the green component of an RGBA pixel is.
+It is then converted to an RGBA pixel with red and blue set to 0,
+and alpha set to 1.
+After this conversion, the pixel is treated as if it had been read
+as an RGBA pixel.
+.TP
+_const(BLUE)
+Each pixel is a single blue component.
+This component is converted to the internal floating-point format in
+the same way the blue component of an RGBA pixel is.
+It is then converted to an RGBA pixel with red and green set to 0,
+and alpha set to 1.
+After this conversion, the pixel is treated as if it had been read
+as an RGBA pixel.
+.TP
+_const(ALPHA)
+Each pixel is a single alpha component.
+This component is converted to the internal floating-point format in
+the same way the alpha component of an RGBA pixel is.
+It is then converted to an RGBA pixel with red, green, and blue set to 0.
+After this conversion, the pixel is treated as if it had been read
+as an RGBA pixel.
+.BP
+.TP
+_const(RGB)
+.TP
+_const(BGR)
+Each pixel is a three-component group:
+red first, followed by green, followed by blue; for _const(BGR), the
+first component is blue, followed by green and then red.
+Each component is converted to the internal floating-point format in
+the same way the red, green, and blue components of an RGBA pixel are.
+The color triple is converted to an RGBA pixel with alpha set to 1.
+After this conversion, the pixel is treated as if it had been read
+as an RGBA pixel.
+.TP
+_const(LUMINANCE)
+Each pixel is a single luminance component.
+This component is converted to the internal floating-point format in
+the same way the red component of an RGBA pixel is.
+It is then converted to an RGBA pixel with red, green, and blue set to the
+converted luminance value,
+and alpha set to 1.
+After this conversion, the pixel is treated as if it had been read
+as an RGBA pixel.
+.TP
+_const(LUMINANCE_ALPHA)
+Each pixel is a two-component group:
+luminance first, followed by alpha.
+The two components are converted to the internal floating-point format in
+the same way the red component of an RGBA pixel is.
+They are then converted to an RGBA pixel with red, green, and blue set to the
+converted luminance value,
+and alpha set to the converted alpha value.
+After this conversion, the pixel is treated as if it had been read
+as an RGBA pixel.
+.P
+The following table summarizes the meaning of the valid constants for the
+\f2type\fP parameter:
+.sp 2
+.TS
+center;
+lb lb
+l l.
+_
+Type	Corresponding Type
+_
+_const(UNSIGNED_BYTE)	unsigned 8-bit integer
+_const(BYTE)	signed 8-bit integer
+_const(BITMAP)	single bits in unsigned 8-bit integers
+_const(UNSIGNED_SHORT)	unsigned 16-bit integer
+_const(SHORT)	signed 16-bit integer
+_const(UNSIGNED_INT)	unsigned 32-bit integer
+_const(INT)	32-bit integer
+_const(FLOAT)	single-precision floating-point
+_const(UNSIGNED_BYTE_3_3_2)	unsigned 8-bit integer 	
+_const(UNSIGNED_BYTE_2_3_3_REV)	unsigned 8-bit integer with reversed component ordering
+_const(UNSIGNED_SHORT_5_6_5)	unsigned 16-bit integer
+_const(UNSIGNED_SHORT_5_6_5_REV)	unsigned 16-bit integer with reversed component ordering
+_const(UNSIGNED_SHORT_4_4_4_4)	unsigned 16-bit integer
+_const(UNSIGNED_SHORT_4_4_4_4_REV)	unsigned 16-bit integer with reversed component ordering
+_const(UNSIGNED_SHORT_5_5_5_1)	unsigned 16-bit integer
+_const(UNSIGNED_SHORT_1_5_5_5_REV)	unsigned 16-bit integer with reversed component ordering
+_const(UNSIGNED_INT_8_8_8_8)	unsigned 32-bit integer
+_const(UNSIGNED_INT_8_8_8_8_REV)	unsigned 32-bit integer with reversed component ordering
+_const(UNSIGNED_INT_10_10_10_2)	unsigned 32-bit integer
+_const(UNSIGNED_INT_2_10_10_10_REV)	unsigned 32-bit integer with reversed component ordering
+_
+.TE
+.sp
+.BP
+.P
+The rasterization described so far assumes pixel zoom factors of 1.
+If 
+.br
+_cmnd(PixelZoom) is used to change the $x$ and $y$ pixel zoom factors,
+pixels are converted to fragments as follows.
+If ($x sub r$, $y sub r$) is the current raster position,
+and a given pixel is in the $n$th column and $m$th row
+of the pixel rectangle,
+then fragments are generated for pixels whose centers are in the rectangle
+with corners at
+.sp
+.RS
+.ce
+($x sub r ~+~ zoom sub x^ n$, $y sub r ~+~ zoom sub y^ m$) 
+.sp
+.ce
+($x sub r ~+~ zoom sub x^ (n ~+~ 1)$, $y sub r ~+~ zoom sub y^ ( m ~+~ 1 )$)
+.ce 0
+.sp
+.RE
+.P
+where $zoom sub x$ is the value of _const(ZOOM_X) and 
+$zoom sub y$ is the value of _const(ZOOM_Y).
+.SH NOTES
+_const(BGR) and _const(BGRA) are only valid for _param3 if the GL
+version is 1.2 or greater.
+.P
+_const(UNSIGNED_BYTE_3_3_2),
+_const(UNSIGNED_BYTE_2_3_3_REV),
+_const(UNSIGNED_SHORT_5_6_5),
+_const(UNSIGNED_SHORT_5_6_5_REV),
+_const(UNSIGNED_SHORT_4_4_4_4),
+_const(UNSIGNED_SHORT_4_4_4_4_REV),
+_const(UNSIGNED_SHORT_5_5_5_1),
+_const(UNSIGNED_SHORT_1_5_5_5_REV),
+_const(UNSIGNED_INT_8_8_8_8),
+_const(UNSIGNED_INT_8_8_8_8_REV),
+_const(UNSIGNED_INT_10_10_10_2), and
+_const(UNSIGNED_INT_2_10_10_10_REV) are only valid for _param4 if the
+GL version is 1.2 or greater.
+.SH ERRORS
+_const(INVALID_VALUE) is generated if either _param1 or _param2 is negative.
+.P
+_const(INVALID_ENUM) is generated if _param3 or _param4 is not one of
+the accepted values.
+.P
+_const(INVALID_OPERATION) is generated if _param3 is
+_const(RED),
+_const(GREEN),
+_const(BLUE),
+_const(ALPHA),
+_const(RGB),
+_const(RGBA),
+_const(BGR),
+_const(BGRA),
+_C_ _const(ABGR_EXT),
+_const(LUMINANCE),
+or
+_const(LUMINANCE_ALPHA),
+and the GL is in color index mode.
+.P
+_const(INVALID_ENUM) is generated if _param4 is _const(BITMAP) and
+_param3 is not either _const(COLOR_INDEX) or _const(STENCIL_INDEX).
+.P
+_const(INVALID_OPERATION) is generated if _param3 is _const(STENCIL_INDEX)
+and there is no stencil buffer.
+.P
+_const(INVALID_OPERATION) is generated if _cmnd
+is executed between the execution of _cmnd(Begin)
+and the corresponding execution of _cmnd(End).
+.P
+_const(INVALID_OPERATION) is generated if _param3 is one
+_const(UNSIGNED_BYTE_3_3_2),
+_const(UNSIGNED_BYTE_2_3_3_REV),
+_const(UNSIGNED_SHORT_5_6_5), of
+_const(UNSIGNED_SHORT_5_6_5_REV)
+and _param3 is not _const(RGB).
+.P
+_const(INVALID_OPERATION) is generated if _param3 is one of
+_const(UNSIGNED_SHORT_4_4_4_4),
+_const(UNSIGNED_SHORT_4_4_4_4_REV),
+_const(UNSIGNED_SHORT_5_5_5_1),
+_const(UNSIGNED_SHORT_1_5_5_5_REV),
+_const(UNSIGNED_INT_8_8_8_8),
+_const(UNSIGNED_INT_8_8_8_8_REV),
+_const(UNSIGNED_INT_10_10_10_2), or
+_const(UNSIGNED_INT_2_10_10_10_REV)
+and _param3 is neither _const(RGBA) nor _const(BGRA).
+.SH ASSOCIATED GETS
+_cmnd(Get) with argument _const(CURRENT_RASTER_POSITION)
+.br
+_cmnd(Get) with argument _const(CURRENT_RASTER_POSITION_VALID)
+.SH SEE ALSO
+_cmnd(AlphaFunc),
+_cmnd(BlendFunc),
+_cmnd(CopyPixels),
+_cmnd(DepthFunc),
+_cmnd(LogicOp),
+_cmnd(PixelMap),
+_cmnd(PixelStore),
+_cmnd(PixelTransfer),
+_cmnd(PixelZoom),
+_cmnd(RasterPos),
+_cmnd(ReadPixels),
+_cmnd(Scissor),
+_cmnd(StencilFunc)

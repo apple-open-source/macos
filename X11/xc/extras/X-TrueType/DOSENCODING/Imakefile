@@ -1,0 +1,9 @@
+/* code converter: DOSENCODING */
+
+#define ModuleName DOSENCODING
+SRCS = DOSENCODINGtoUCS2.c main.c
+OBJS = DOSENCODINGtoUCS2.o main.o
+
+#include <xttMod.tmpl>
+
+/* end of file */

@@ -1,0 +1,2614 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE xkbConfigRegistry SYSTEM "xkb.dtd">
+<xkbConfigRegistry>
+  <modelList>
+    <model>
+      <configItem>
+        <name>pc101</name>
+        <description>Generic 101-key PC</description>
+        <description xml:lang="bg">Стандартна 101 клавишна PC клавиатура</description>
+        <description xml:lang="ru">Обычный 101-клавишный PC</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>pc102</name>
+        <description>Generic 102-key (Intl) PC</description>
+        <description xml:lang="bg">Стандартна 102 клавишна PC клавиатура</description>
+        <description xml:lang="ru">Обычный 102-клавишный PC</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>pc104</name>
+        <description>Generic 104-key PC</description>
+        <description xml:lang="bg">Стандартна 104 клавишна PC клавиатура</description>
+        <description xml:lang="ru">Обычный 104-клавишный PC</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>pc105</name>
+        <description>Generic 105-key (Intl) PC</description>
+        <description xml:lang="bg">Стандартна 105 клавишна PC клавиатура</description>
+        <description xml:lang="ru">Обычный 105-клавишный (инт.) РС</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>dell101</name>
+        <description>Dell 101-key PC</description>
+        <description xml:lang="bg">101 клавишна PC клавиатура на Dell</description>
+        <description xml:lang="ru">Dell 101-клавишный PC</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>everex</name>
+        <description>Everex STEPnote</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>flexpro</name>
+        <description>Keytronic FlexPro</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>microsoft</name>
+        <description>Microsoft Natural</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>omnikey101</name>
+        <description>Northgate OmniKey 101</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>winbook</name>
+        <description>Winbook Model XP5</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>jp106</name>
+        <description>Japanese 106-key</description>
+        <description xml:lang="bg">японска 106 клавишна</description>
+        <description xml:lang="ru">Японская 106-клавишная</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>pc98</name>
+        <description>PC-98xx Series</description>
+        <description xml:lang="bg">PC-98xx серии</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>abnt2</name>
+        <description>Brazilian ABNT2</description>
+        <description xml:lang="bg">бразилска ABNT2</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>airkey</name>
+        <description>Acer AirKey V</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>acpi</name>
+        <description>ACPI Standard</description>
+        <description xml:lang="ru">Стандартная ACPI</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>scorpius</name>
+        <description>Advance Scorpius KI</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>brother</name>
+        <description>Brother Internet Keyboard</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>btc5113rf</name>
+        <description>BTC 5113RF Multimedia</description>
+        <description xml:lang="ru">BTC 5113RF мультимедия</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>btc5126t</name>
+        <description>BTC 5126T</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>btc9000</name>
+        <description>BTC 9000</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>btc9000a</name>
+        <description>BTC 9000A</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>cherryblue</name>
+        <description>Cherry Blue Line CyBo@rd</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>cherrybluea</name>
+        <description>Cherry Blue Line CyBo@rd (alternate option)</description>
+        <description xml:lang="ru">Cherry Blue Line CyBo@rd (альтернативный вариант)</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>chicony</name>
+        <description>Chicony Internet Keyboard</description>
+        <description xml:lang="bg">Интернет клавиатура на Chicony</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>chicony9885</name>
+        <description>Chicony KB-9885</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>compaqeak8</name>
+        <description>Compaq Easy Access Keyboard</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>compaqik7</name>
+        <description>Compaq Internet Keyboard (7 keys)</description>
+        <description xml:lang="ru">Compaq Internet Keyboard (7 клавиш)</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>compaqik13</name>
+        <description>Compaq Internet Keyboard (13 keys)</description>
+        <description xml:lang="ru">Compaq Internet Keyboard (13 клавиш)</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>compaqik18</name>
+        <description>Compaq Internet Keyboard (18 keys)</description>
+        <description xml:lang="ru">Compaq Internet Keyboard (18 клавиш)</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>armada</name>
+        <description>Laptop/notebook Compaq (eg. Armada) Laptop Keyboard</description>
+        <description xml:lang="ru">Клавиатура для компьютеров Compaq (например Armada)</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>presario</name>
+        <description>Laptop/notebook Compaq (eg. Presario) Internet Keyboard</description>
+        <description xml:lang="ru">&quot;Интернет&quot; клавиатура для компьютеров Compaq (например Presario)</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>ipaq</name>
+        <description>Compaq iPaq Keyboard</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>dell</name>
+        <description>Dell</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>inspiron</name>
+        <description>Laptop/notebook Dell Inspiron 8xxx</description>
+        <description xml:lang="ru">Настольная/портативная для Dell Inspiron 8xxx</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>dexxa</name>
+        <description>Dexxa Wireless Desktop Keyboard</description>
+        <description xml:lang="ru">Dexxa Wireless Desktop Keyboard</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>diamond</name>
+        <description>Diamond 9801 / 9802 series</description>
+        <description xml:lang="ru">Модели Diamond 9801/9802</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>ennyah_dkb1008</name>
+        <description>Ennyah DKB-1008</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>genius</name>
+        <description>Genius Comfy KB-16M / Genius MM Keyboard KWD-910</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>hpi6</name>
+        <description>Hewlett-Packard Internet Keyboard</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>hp2501</name>
+        <description>Hewlett-Packard SK-2501 Multimedia Keyboard</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>hp2505</name>
+        <description>Hewlett-Packard SK-2505 Internet Keyboard</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>hpxe3gc</name>
+        <description>Hewlett-Packard Omnibook XE3 GC</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>hpxe3gf</name>
+        <description>Hewlett-Packard Omnibook XE3 GF</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>hpxt1000</name>
+        <description>Hewlett-Packard Omnibook XT1000</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>hpzt11xx</name>
+        <description>Hewlett-Packard Pavilion ZT11xx</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>hp500fa</name>
+        <description>Hewlett-Packard Omnibook 500 FA</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>honeywell_euroboard</name>
+        <description>Honeywell Euroboard</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>rapidaccess</name>
+        <description>IBM Rapid Access</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>rapidaccess2</name>
+        <description>IBM Rapid Access II</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>rapidaccess2a</name>
+        <description>IBM Rapid Access II (alternate option)</description>
+        <description xml:lang="ru">IBM Rapid Access II (альтернативный вариант)</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>ltcd</name>
+        <description>Logitech Cordless Desktop</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>logicdit</name>
+        <description>Logitech Cordless Desktop iTouch</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>logicdp</name>
+        <description>Logitech Cordless Desktop Pro</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>logicdpa</name>
+        <description>Logitech Cordless Desktop Pro (alternate option)</description>
+        <description xml:lang="ru">Logitech Cordless Desktop Pro (альтернативный вариант)</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>logicdpa2</name>
+        <description>Logitech Cordless Desktop Pro (alternate option2)</description>
+        <description xml:lang="ru">Logitech Cordless Desktop Pro (альтернативный вариант 2)</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>logicdo</name>
+        <description>Logitech Cordless Desktop Optical</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>logicfn</name>
+        <description>Logitech Cordless Freedom/Desktop Navigator</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>logicdn</name>
+        <description>Logitech Cordless Desktop Navigator</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>logidak</name>
+        <description>Logitech Deluxe Access Keyboard</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>logiik</name>
+        <description>Logitech Internet Keyboard</description>
+        <description xml:lang="bg">Logitech Интернет клавиатура</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>itouch</name>
+        <description>Logitech iTouch</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>logiitc</name>
+        <description>Logitech iTouch Cordless Keyboard (model Y-RB6)</description>
+        <description xml:lang="ru">Logitech iTouch Cordless Keyboard (модель Y-RB6)</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>logiik</name>
+        <description>Logitech Internet Keyboard</description>
+        <description xml:lang="bg">Logitech Интернет клавиатура</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>logiink</name>
+        <description>Logitech Internet Navigator Keyboard</description>
+        <description xml:lang="bg">Logitech клавиатура за Интернет навигация</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>itouchin</name>
+        <description>Logitech iTouch keyboard Internet Navigator</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>mx1998</name>
+        <description>Memorex MX1998</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>mx2500</name>
+        <description>Memorex MX2500 EZ-Access Keyboard</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>mx2750</name>
+        <description>Memorex MX2750</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>microsoftinet</name>
+        <description>Microsoft Internet Keyboard</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>microsoftpro</name>
+        <description>Microsoft Natural Keyboard Pro / Microsoft Internet Keyboard Pro</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>microsoftprose</name>
+        <description>Microsoft Internet Keyboard Pro, Swedish</description>
+        <description xml:lang="ru">Microsoft Internet Keyboard Pro, шведская</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>microsoftoffice</name>
+        <description>Microsoft Office Keyboard</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>oretec</name>
+        <description>Oretec MCK-800 MM/Internet keyboard</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>propeller</name>
+        <description>Propeller Voyager (KTEZ-1000)</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>qtronix</name>
+        <description>QTronix Scorpius 98N+</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>samsung4500</name>
+        <description>Samsung SDM 4500P</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>samsung4510</name>
+        <description>Samsung SDM 4510P</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>sk1300</name>
+        <description>SK-1300</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>sk2500</name>
+        <description>SK-2500</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>sk6200</name>
+        <description>SK-6200</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>sk7100</name>
+        <description>SK-7100</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>sven</name>
+        <description>SVEN Ergonomic 2500</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>symplon</name>
+        <description>Symplon PaceBook (tablet PC)</description>
+        <description xml:lang="ru">Symplon PaceBook (карманный ПК)</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>toshiba_s3000</name>
+        <description>Toshiba Satellite S3000</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>trust</name>
+        <description>Trust Wireless Keyboard Classic</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>trustda</name>
+        <description>Trust Direct Access Keyboard</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>yahoo</name>
+        <description>Yahoo! Internet Keyboard</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>macintosh</name>
+        <description>macintosh     -  No decription</description>
+        <description xml:lang="bg">macintosh - без описание</description>
+        <description xml:lang="ru">Macintosh</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>macintosh_old</name>
+        <description>macintosh_old -  No decription</description>
+        <description xml:lang="bg">macintosh_old - без описание</description>
+        <description xml:lang="ru">Старая Macintosh</description>
+      </configItem>
+    </model>
+    <model>
+      <configItem>
+        <name>powerpcps2</name>
+        <description>powerpcps2    -  No decription</description>
+        <description xml:lang="bg">powerpcps2 - без описание</description>
+        <description xml:lang="ru">PowerPC PS/2</description>
+      </configItem>
+    </model>
+  </modelList>
+  <layoutList>
+    <layout>
+      <configItem>
+        <name>us</name>
+        <description>U.S. English</description>
+        <description xml:lang="bg">американска английска</description>
+        <description xml:lang="ru">Английская (США)</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>en_US</name>
+        <description>U.S. English w/ ISO9995-3</description>
+        <description xml:lang="bg">американска английска с ISO9995-3</description>
+        <description xml:lang="ru">Английская (США) с ISO9995-3</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>nodeadkeys</name>
+            <description>Eliminate dead keys</description>
+            <description xml:lang="bg">Изключи специалните клавиши (dead keys)</description>
+            <description xml:lang="ru">Исключить специальные клавиши (dead keys)</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>us_intl</name>
+        <description>U.S. English w/ deadkeys</description>
+        <description xml:lang="bg">американска английска със специални клавиши </description>
+        <description xml:lang="ru">Английская (США) со специальными клавишами (dead keys)</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>al</name>
+        <description>Albanian</description>
+        <description xml:lang="bg">албанска</description>
+        <description xml:lang="ru">Албанская</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>ar</name>
+        <description>Arabic</description>
+        <description xml:lang="bg">арабска</description>
+        <description xml:lang="ru">Арабская</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>azerty</name>
+            <description>ar(azerty) -  No decription</description>
+            <description xml:lang="bg">ar(azerty) - без описание</description>
+            <description xml:lang="ru">azerty</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>azerty_digits</name>
+            <description>ar(azerty_digits) -  No decription</description>
+            <description xml:lang="bg">ar(azerty_digits) - без описание</description>
+            <description xml:lang="ru">azerty, цифры</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>digits</name>
+            <description>ar(digits) -  No decription</description>
+            <description xml:lang="bg">ar(digits) - без описание</description>
+            <description xml:lang="ru">с цифрами</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>qwerty</name>
+            <description>ar(qwerty) -  No decription</description>
+            <description xml:lang="bg">ar(qwerty) - без описание</description>
+            <description xml:lang="ru">qwerty</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>qwerty_digits</name>
+            <description>ar(qwerty_digits) -  No decription</description>
+            <description xml:lang="bg">ar(qwerty_digits) - без описание</description>
+            <description xml:lang="ru">qwerty, цифры</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>am</name>
+        <description>Armenian</description>
+        <description xml:lang="bg">арменска</description>
+        <description xml:lang="ru">Армянская</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>az</name>
+        <description>Azerbaijani</description>
+        <description xml:lang="ru">Азербайджанская</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>cyrillic</name>
+            <description>az(cyrillic) -  No decription</description>
+            <description xml:lang="bg">az(cyrillic) - без описание</description>
+            <description xml:lang="ru">кириллица</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>latin</name>
+            <description>az(latin) -  No decription</description>
+            <description xml:lang="bg">az(latin) - без описание</description>
+            <description xml:lang="ru">латиница</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>by</name>
+        <description>Belarusian</description>
+        <description xml:lang="bg">беларуска</description>
+        <description xml:lang="ru">Белорусская</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>winkeys</name>
+            <description>by(winkeys) -  No decription</description>
+            <description xml:lang="bg">by(winkeys) - без описание</description>
+            <description xml:lang="ru">Microsoft</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>be</name>
+        <description>Belgian</description>
+        <description xml:lang="bg">белгийска</description>
+        <description xml:lang="ru">Бельгийская</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>Sundeadkeys</name>
+            <description>be(Sundeadkeys) -  No decription</description>
+            <description xml:lang="bg">be(Sundeadkeys) - без описание</description>
+            <description xml:lang="ru">Sundeadkeys</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>iso-alternate</name>
+            <description>be(iso-alternate) -  No decription</description>
+            <description xml:lang="bg">be(iso-alternate) - без описание</description>
+            <description xml:lang="ru">альтернативная iso</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>nodeadkeys</name>
+            <description>Eliminate dead keys</description>
+            <description xml:lang="bg">Изключи специалните клавиши (dead keys)</description>
+            <description xml:lang="ru">Исключить специальные клавиши (dead keys)</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>ben</name>
+        <description>Bengali</description>
+        <description xml:lang="bg">бенгалска</description>
+        <description xml:lang="ru">Бенгальская</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>bs</name>
+        <description>Bosnian</description>
+        <description xml:lang="ru">Боснийская</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>br</name>
+        <description>Brazilian</description>
+        <description xml:lang="bg">бразилска</description>
+        <description xml:lang="ru">Бразильская</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>abnt2</name>
+            <description>br(abnt2) -  No decription</description>
+            <description xml:lang="ru">ABNT2</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>nodeadkeys</name>
+            <description>Eliminate dead keys</description>
+            <description xml:lang="bg">Изключи специалните клавиши (dead keys)</description>
+            <description xml:lang="ru">Исключить специальные клавиши (dead keys)</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>bg</name>
+        <description>Bulgarian</description>
+        <description xml:lang="bg">българска</description>
+        <description xml:lang="ru">Болгарская</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>phonetic</name>
+            <description>bg(phonetic) -  No decription</description>
+            <description xml:lang="bg">bg(phonetic) - без описание</description>
+            <description xml:lang="ru">фонетическая</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>mm</name>
+        <description>Burmese</description>
+        <description xml:lang="bg">бирманска</description>
+        <description xml:lang="ru">Бирманская</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>ca</name>
+        <description>Canadian</description>
+        <description xml:lang="bg">канадска</description>
+        <description xml:lang="ru">Канадская</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>alternate</name>
+            <description>ca(alternate) -  No decription</description>
+            <description xml:lang="bg">ca(alternate) - без описание</description>
+            <description xml:lang="ru">альтернативная</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>nodeadkeys</name>
+            <description>Eliminate dead keys</description>
+            <description xml:lang="bg">Изключи специалните клавиши (dead keys)</description>
+            <description xml:lang="ru">Исключить специальные клавиши (dead keys)</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>sundeadkeys</name>
+            <description>ca(sundeadkeys) -  No decription</description>
+            <description xml:lang="bg">ca(sundeadkeys) - без описание</description>
+            <description xml:lang="ru">sundeadkeys</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>ca_enhanced</name>
+        <description>French Canadian</description>
+        <description xml:lang="ru">Французская Канадская</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>Sundeadkeys</name>
+            <description>ca_enhanced(Sundeadkeys) -  No decription</description>
+            <description xml:lang="bg">ca_enhanced(Sundeadkeys) - без описание</description>
+            <description xml:lang="ru">Sundeadkeys</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>basic</name>
+            <description>ca_enhanced(basic) -  No decription</description>
+            <description xml:lang="bg">ca_enhanced(basic) - без описание</description>
+            <description xml:lang="ru">простая</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>hr</name>
+        <description>Croatian</description>
+        <description xml:lang="bg">хърватска</description>
+        <description xml:lang="ru">Хорватская</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>cz</name>
+        <description>Czech</description>
+        <description xml:lang="bg">чехшка</description>
+        <description xml:lang="ru">Чешская</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>basic</name>
+            <description>cz(basic) -  No decription</description>
+            <description xml:lang="bg">cz(basic) - без описание</description>
+            <description xml:lang="ru">простая</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>bksl</name>
+            <description>cz(bksl) -  No decription</description>
+            <description xml:lang="bg">cz(bksl) - без описание</description>
+            <description xml:lang="ru">bksl</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>cz_qwerty</name>
+        <description>Czech (qwerty)</description>
+        <description xml:lang="bg">чешка (qwerty)</description>
+        <description xml:lang="ru">Чешская (qwerty)</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>basic</name>
+            <description>cz_qwerty(basic) -  No decription</description>
+            <description xml:lang="bg">cz_qwerty(basic) - без описание</description>
+            <description xml:lang="ru">простая qwerty</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>bksl</name>
+            <description>cz_qwerty(bksl) -  No decription</description>
+            <description xml:lang="ru">bksl qwerty</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>dk</name>
+        <description>Danish</description>
+        <description xml:lang="bg">датска</description>
+        <description xml:lang="ru">Датская</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>nodeadkeys</name>
+            <description>Eliminate dead keys</description>
+            <description xml:lang="bg">Изключи специалните клавиши (dead keys)</description>
+            <description xml:lang="ru">Исключить специальные клавиши (dead keys)</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>nl</name>
+        <description>Dutch</description>
+        <description xml:lang="bg">холандска</description>
+        <description xml:lang="ru">Голландская</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>dvorak</name>
+        <description>Dvorak</description>
+        <description xml:lang="bg">Дворак</description>
+        <description xml:lang="ru">Дворак</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>no</name>
+            <description>dvorak(no) -  No decription</description>
+            <description xml:lang="bg">dvorak(no) - без описание</description>
+            <description xml:lang="ru">Норвегия</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>se</name>
+            <description>dvorak(se) -  No decription</description>
+            <description xml:lang="ru">Швеция SE</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>sv</name>
+            <description>dvorak(sv) -  No decription</description>
+            <description xml:lang="ru">Швеция SV</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>ee</name>
+        <description>Estonian</description>
+        <description xml:lang="bg">естонска</description>
+        <description xml:lang="ru">Эстонская</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>nodeadkeys</name>
+            <description>Eliminate dead keys</description>
+            <description xml:lang="bg">Изключи специалните клавиши (dead keys)</description>
+            <description xml:lang="ru">Исключить специальные клавиши (dead keys)</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>ir</name>
+        <description>Iranian</description>
+        <description xml:lang="ru">Фарси</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>fi</name>
+        <description>Finnish</description>
+        <description xml:lang="bg">финландска</description>
+        <description xml:lang="ru">Финская</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>basic</name>
+            <description>fi(basic) -  No decription</description>
+            <description xml:lang="bg">fi(basic) - без описание</description>
+            <description xml:lang="ru">простая</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>fr</name>
+        <description>French</description>
+        <description xml:lang="bg">френска</description>
+        <description xml:lang="ru">Французская</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>Sundeadkeys</name>
+            <description>fr(Sundeadkeys) -  No decription</description>
+            <description xml:lang="bg">fr(Sundeadkeys) - без описание</description>
+            <description xml:lang="ru">Sundeadkeys</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>nodeadkeys</name>
+            <description>Eliminate dead keys</description>
+            <description xml:lang="bg">Изключи специалните клавиши (dead keys)</description>
+            <description xml:lang="ru">Исключить специальные клавиши (dead keys)</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>fr-latin9</name>
+        <description>French (alternative)</description>
+        <description xml:lang="ru">Французская (альтернативная)</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>Sundeadkeys</name>
+            <description>fr-latin9(Sundeadkeys) -  No decription</description>
+            <description xml:lang="ru">Latin9, Sundeadkeys</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>nodeadkeys</name>
+            <description>Eliminate dead keys</description>
+            <description xml:lang="bg">Изключи специалните клавиши (dead keys)</description>
+            <description xml:lang="ru">Исключить специальные клавиши (dead keys)</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>ge_la</name>
+        <description>Georgian (latin)</description>
+        <description xml:lang="bg">грузинска (латинска)</description>
+        <description xml:lang="ru">Грузинская &quot;латинская&quot;</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>ge_ru</name>
+        <description>Georgian (russian)</description>
+        <description xml:lang="bg">грузинска (руска)</description>
+        <description xml:lang="ru">Грузинская &quot;русская&quot;</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>de</name>
+        <description>German</description>
+        <description xml:lang="bg">немска</description>
+        <description xml:lang="ru">Немецкая</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>basic</name>
+            <description>de(basic) -  No decription</description>
+            <description xml:lang="ru">простая</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>deadacute</name>
+            <description>de(deadacute) -  No decription</description>
+            <description xml:lang="bg">de(deadacute) - без описание</description>
+            <description xml:lang="ru">deadacute</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>deadgraveacute</name>
+            <description>de(deadgraveacute) -  No decription</description>
+            <description xml:lang="bg">de(deadgraveacute) - без описание</description>
+            <description xml:lang="ru">deadgraveacute</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>nodeadkeys</name>
+            <description>Eliminate dead keys</description>
+            <description xml:lang="bg">Изключи специалните клавиши (dead keys)</description>
+            <description xml:lang="ru">Исключить специальные клавиши (dead keys)</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>el</name>
+        <description>Greek</description>
+        <description xml:lang="bg">гръцка</description>
+        <description xml:lang="ru">Греческая</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>extended</name>
+            <description>el(extended) -  No decription</description>
+            <description xml:lang="ru">Расширенная</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>nodeadkeys</name>
+            <description>Eliminate dead keys</description>
+            <description xml:lang="bg">Изключи специалните клавиши (dead keys)</description>
+            <description xml:lang="ru">Исключить специальные клавиши (dead keys)</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>polytonic</name>
+            <description>el(polytonic) -  No decription</description>
+            <description xml:lang="ru">Политоническая</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>guj</name>
+        <description>Gujarati</description>
+        <description xml:lang="bg">гуджарати</description>
+        <description xml:lang="ru">Гуджарати</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>gur</name>
+        <description>Gurmukhi</description>
+        <description xml:lang="bg">гурмуки</description>
+        <description xml:lang="ru">Гурмукхи</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>dev</name>
+        <description>Hindi</description>
+        <description xml:lang="bg">хинди</description>
+        <description xml:lang="ru">Хинди</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>hu</name>
+        <description>Hungarian</description>
+        <description xml:lang="bg">унгарска</description>
+        <description xml:lang="ru">Венгерская</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>Sundeadkeys</name>
+            <description>hu(Sundeadkeys) -  No decription</description>
+            <description xml:lang="bg">hu(Sundeadkeys) - без описание</description>
+            <description xml:lang="ru">Sundeadkeys</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>l2_101_qwerty_comma</name>
+            <description>hu(l2_101_qwerty_comma) -  No decription</description>
+            <description xml:lang="bg">hu(l2_101_qwerty_comma) - без описание</description>
+            <description xml:lang="ru">Latin2 pc101, qwerty, запятая</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>l2_101_qwerty_dot</name>
+            <description>hu(l2_101_qwerty_dot) -  No decription</description>
+            <description xml:lang="bg">hu(l2_101_qwerty_dot) - без описание</description>
+            <description xml:lang="ru">Latin2 pc101, qwerty, точка</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>l2_101_qwertz_comma</name>
+            <description>hu(l2_101_qwertz_comma) -  No decription</description>
+            <description xml:lang="bg">hu(l2_101_qwertz_comma) - без описание</description>
+            <description xml:lang="ru">Latin2 pc101, qwertz, запятая</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>l2_101_qwertz_dot</name>
+            <description>hu(l2_101_qwertz_dot) -  No decription</description>
+            <description xml:lang="bg">hu(l2_101_qwertz_dot) - без описание</description>
+            <description xml:lang="ru">Latin2 pc101, qwertz, точка</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>l2_102_qwerty_comma</name>
+            <description>hu(l2_102_qwerty_comma) -  No decription</description>
+            <description xml:lang="bg">hu(l2_102_qwerty_comma) - без описание</description>
+            <description xml:lang="ru">Latin2 pc102, qwerty, запятая</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>l2_102_qwerty_dot</name>
+            <description>hu(l2_102_qwerty_dot) -  No decription</description>
+            <description xml:lang="bg">hu(l2_102_qwerty_dot) - без описание</description>
+            <description xml:lang="ru">Latin2 pc102, qwerty, точка</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>l2_102_qwertz_comma</name>
+            <description>hu(l2_102_qwertz_comma) -  No decription</description>
+            <description xml:lang="bg">hu(l2_102_qwertz_comma) - без описание</description>
+            <description xml:lang="ru">Latin2 pc102, qwertz, запятая</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>l2_102_qwertz_dot</name>
+            <description>hu(l2_102_qwertz_dot) -  No decription</description>
+            <description xml:lang="bg">hu(l2_102_qwertz_dot) - без описание</description>
+            <description xml:lang="ru">Latin2 pc102, qwertz, точка</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>nodeadkeys</name>
+            <description>Eliminate dead keys</description>
+            <description xml:lang="bg">Изключи специалните клавиши (dead keys)</description>
+            <description xml:lang="ru">Исключить специальные клавиши (dead keys)</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>standard</name>
+            <description>hu(standard) -  No decription</description>
+            <description xml:lang="bg">hu(standard) - без описание</description>
+            <description xml:lang="ru">стандартная</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>uni_101_qwerty_comma</name>
+            <description>hu(uni_101_qwerty_comma) -  No decription</description>
+            <description xml:lang="bg">hu(uni_101_qwerty_comma) - без описание</description>
+            <description xml:lang="ru">Unicode pc101, qwerty, запятая</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>uni_101_qwerty_dot</name>
+            <description>hu(uni_101_qwerty_dot) -  No decription</description>
+            <description xml:lang="bg">hu(uni_101_qwerty_dot) - без описание</description>
+            <description xml:lang="ru">Unicode pc101, qwerty, точка</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>uni_101_qwertz_comma</name>
+            <description>hu(uni_101_qwertz_comma) -  No decription</description>
+            <description xml:lang="bg">hu(uni_101_qwertz_comma) - без описание</description>
+            <description xml:lang="ru">Unicode pc101, qwertz, запятая</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>uni_101_qwertz_dot</name>
+            <description>hu(uni_101_qwertz_dot) -  No decription</description>
+            <description xml:lang="bg">hu(uni_101_qwertz_dot) - без описание</description>
+            <description xml:lang="ru">Unicode pc101, qwertz, точка</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>uni_102_qwerty_comma</name>
+            <description>hu(uni_102_qwerty_comma) -  No decription</description>
+            <description xml:lang="bg">hu(uni_102_qwerty_comma) - без описание</description>
+            <description xml:lang="ru">Unicode pc102, qwerty, запятая</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>uni_102_qwerty_dot</name>
+            <description>hu(uni_102_qwerty_dot) -  No decription</description>
+            <description xml:lang="bg">hu(uni_102_qwerty_dot) - без описание</description>
+            <description xml:lang="ru">Unicode pc102, qwerty, точка</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>uni_102_qwertz_comma</name>
+            <description>hu(uni_102_qwertz_comma) -  No decription</description>
+            <description xml:lang="bg">hu(uni_102_qwertz_comma) - без описание</description>
+            <description xml:lang="ru">Unicode pc102, qwertz, запятая</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>uni_102_qwertz_dot</name>
+            <description>hu(uni_102_qwertz_dot) -  No decription</description>
+            <description xml:lang="bg">hu(uni_102_qwertz_dot) - без описание</description>
+            <description xml:lang="ru">Unicode pc102, qwertz, точка</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>hu_qwerty</name>
+        <description>Hungarian (qwerty)</description>
+        <description xml:lang="ru">Венгерская (qwerty)</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>is</name>
+        <description>Icelandic</description>
+        <description xml:lang="bg">исландска</description>
+        <description xml:lang="ru">Исландская</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>Sundeadkeys</name>
+            <description>is(Sundeadkeys) -  No decription</description>
+            <description xml:lang="ru">Sundeadkeys</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>nodeadkeys</name>
+            <description>Eliminate dead keys</description>
+            <description xml:lang="bg">Изключи специалните клавиши (dead keys)</description>
+            <description xml:lang="ru">Исключить специальные клавиши (dead keys)</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>iu</name>
+        <description>Inuktitut</description>
+        <description xml:lang="bg">ескимоска</description>
+        <description xml:lang="ru">Иннуитская</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>il</name>
+        <description>Israeli</description>
+        <description xml:lang="bg">израелска</description>
+        <description xml:lang="ru">Иврит</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>lyx</name>
+            <description>il(lyx) -  No decription</description>
+            <description xml:lang="ru">lyx</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>si1452</name>
+            <description>il(si1452) -  No decription</description>
+            <description xml:lang="ru">sil1452</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>it</name>
+        <description>Italian</description>
+        <description xml:lang="bg">италианска</description>
+        <description xml:lang="ru">Итальянская</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>nodeadkeys</name>
+            <description>Eliminate dead keys</description>
+            <description xml:lang="bg">Изключи специалните клавиши (dead keys)</description>
+            <description xml:lang="ru">Исключить специальные клавиши (dead keys)</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>jp</name>
+        <description>Japanese</description>
+        <description xml:lang="bg">японска</description>
+        <description xml:lang="ru">Японская</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>kan</name>
+        <description>Kannada</description>
+        <description xml:lang="ru">Канадская</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>lo</name>
+        <description>Lao</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>la</name>
+        <description>Latin America</description>
+        <description xml:lang="bg">латиноамериканска</description>
+        <description xml:lang="ru">Латиноамериканская</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>Sundeadkeys</name>
+            <description>la(Sundeadkeys) -  No decription</description>
+            <description xml:lang="bg">la(Sundeadkeys) - без описание</description>
+            <description xml:lang="ru">Sundeadkeys</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>nodeadkeys</name>
+            <description>Eliminate dead keys</description>
+            <description xml:lang="bg">Изключи специалните клавиши (dead keys)</description>
+            <description xml:lang="ru">Исключить специальные клавиши (dead keys)</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>lt</name>
+        <description>Lithuanian qwerty &quot;numeric&quot;</description>
+        <description xml:lang="bg">литовска &quot;цифрова&quot; qwerty</description>
+        <description xml:lang="ru">Литовская &quot;Балтийская&quot; qwerty</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>lt_std</name>
+            <description>lt(lt_std) -  No decription</description>
+            <description xml:lang="ru">стандартная</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>lt_us</name>
+            <description>lt(lt_us) -  No decription</description>
+            <description xml:lang="ru">американская</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>lt_std</name>
+        <description>Lithuanian azerty standard</description>
+        <description xml:lang="bg">литовска стандартна azerty</description>
+        <description xml:lang="ru">Литовская стандартная azerty</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>Sundeadkeys</name>
+            <description>lt_std(Sundeadkeys) -  No decription</description>
+            <description xml:lang="bg">lt_std(Sundeadkeys) - без описание</description>
+            <description xml:lang="ru">Sundeadkeys</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>nodeadkeys</name>
+            <description>Eliminate dead keys</description>
+            <description xml:lang="bg">Изключи специалните клавиши (dead keys)</description>
+            <description xml:lang="ru">Исключить специальные клавиши (dead keys)</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>lv</name>
+        <description>Latvian</description>
+        <description xml:lang="bg">латвийска</description>
+        <description xml:lang="ru">Латышская</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>mk</name>
+        <description>Macedonian</description>
+        <description xml:lang="bg">македонска</description>
+        <description xml:lang="ru">Македонская</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>pc104</name>
+            <description>mk(pc104) -  No decription</description>
+            <description xml:lang="bg">mk(pc104) - без описание</description>
+            <description xml:lang="ru">pc104</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>ml</name>
+        <description>Malayalam</description>
+        <description xml:lang="ru">Малайская</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>mt</name>
+        <description>Maltese</description>
+        <description xml:lang="bg">малтийска</description>
+        <description xml:lang="ru">Мальтийская</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>mt_us</name>
+        <description>Maltese (US layout)</description>
+        <description xml:lang="bg">малтийска (американска подредба)</description>
+        <description xml:lang="ru">Мальтийская (Американская раскладка)</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>mn</name>
+        <description>Mongolian</description>
+        <description xml:lang="ru">Монгольская</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>no</name>
+        <description>Norwegian</description>
+        <description xml:lang="bg">норвежка</description>
+        <description xml:lang="ru">Норвежская</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>basic</name>
+            <description>no(basic) -  No decription</description>
+            <description xml:lang="bg">no(basic) - без описание</description>
+            <description xml:lang="ru">простая</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>nodeadkeys</name>
+            <description>Eliminate dead keys</description>
+            <description xml:lang="bg">Изключи специалните клавиши (dead keys)</description>
+            <description xml:lang="ru">Исключить специальные клавиши (dead keys)</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>ogham</name>
+        <description>Ogham</description>
+        <description xml:lang="ru">Огхам (древнеирланская)</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>IS434</name>
+            <description>ogham(IS434) -  No decription</description>
+            <description xml:lang="ru">IS434</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>IS434laptop</name>
+            <description>ogham(IS434laptop) -  No decription</description>
+            <description xml:lang="ru">IS434 для настольных ПК</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>laptop</name>
+            <description>ogham(laptop) -  No decription</description>
+            <description xml:lang="ru">для настольных ПК</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>ori</name>
+        <description>Oriya</description>
+        <description xml:lang="ru">Орийя</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>pl</name>
+        <description>Polish</description>
+        <description xml:lang="bg">полска</description>
+        <description xml:lang="ru">Польская</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>pl2</name>
+        <description>Polish (qwertz)</description>
+        <description xml:lang="bg">полска (qwertz)</description>
+        <description xml:lang="ru">Польская (qwertz)</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>pt</name>
+        <description>Portuguese</description>
+        <description xml:lang="bg">португалска</description>
+        <description xml:lang="ru">Португальская</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>Sundeadkeys</name>
+            <description>pt(Sundeadkeys) -  No decription</description>
+            <description xml:lang="bg">pt(Sundeadkeys) - без описание</description>
+            <description xml:lang="ru">Sundeadkeys</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>nodeadkeys</name>
+            <description>Eliminate dead keys</description>
+            <description xml:lang="bg">Изключи специалните клавиши (dead keys)</description>
+            <description xml:lang="ru">Исключить специальные клавиши (dead keys)</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>ro</name>
+        <description>Romanian</description>
+        <description xml:lang="bg">румънска</description>
+        <description xml:lang="ru">Румынская</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>ru</name>
+        <description>Russian</description>
+        <description xml:lang="bg">руска</description>
+        <description xml:lang="ru">Русская</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>phonetic</name>
+            <description>ru(phonetic) -  No decription</description>
+            <description xml:lang="bg">ru(phonetic) - без описание</description>
+            <description xml:lang="ru">фонетическая</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>typewriter</name>
+            <description>ru(typewriter) -  No decription</description>
+            <description xml:lang="bg">ru(typewriter) - без описание</description>
+            <description xml:lang="ru">&quot;Печатная машинка&quot;</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>winkeys</name>
+            <description>ru(winkeys) -  No decription</description>
+            <description xml:lang="bg">ru(winkeys) - без описание</description>
+            <description xml:lang="ru">Microsoft</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>ru_yawerty</name>
+        <description>Russian (cyrillic phonetic)</description>
+        <description xml:lang="bg">руска (фонетична кирилица)</description>
+        <description xml:lang="ru">Русская (кириллица, фонетическая)</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>se_FI</name>
+        <description>Northern Saami (Finland)</description>
+        <description xml:lang="bg">северносамска (Финландия)</description>
+        <description xml:lang="ru">Саамская (Финляндия)</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>se_NO</name>
+        <description>Northern Saami (Norway)</description>
+        <description xml:lang="bg">северносамска (Норвегия)</description>
+        <description xml:lang="ru">Саамская (Норвегия)</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>se_SE</name>
+        <description>Northern Saami (Sweden)</description>
+        <description xml:lang="bg">северносамска (Швеция)</description>
+        <description xml:lang="ru">Саамская (Швеция)</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>sr</name>
+        <description>Serbian</description>
+        <description xml:lang="bg">сръбска</description>
+        <description xml:lang="ru">Сербская</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>si</name>
+        <description>Slovenian</description>
+        <description xml:lang="bg">словенска</description>
+        <description xml:lang="ru">Словенская</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>sk</name>
+        <description>Slovak</description>
+        <description xml:lang="bg">словашка</description>
+        <description xml:lang="ru">Словацкая</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>basic</name>
+            <description>sk(basic) -  No decription</description>
+            <description xml:lang="bg">sk(basic) - без описание</description>
+            <description xml:lang="ru">простая</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>bksl</name>
+            <description>sk(bksl) -  No decription</description>
+            <description xml:lang="ru">bksl</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>sk_qwerty</name>
+        <description>Slovak (qwerty)</description>
+        <description xml:lang="bg">словашка (qwerty)</description>
+        <description xml:lang="ru">Словацкая (qwerty)</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>basic</name>
+            <description>sk_qwerty(basic) -  No decription</description>
+            <description xml:lang="bg">sk_qwerty(basic) - без описание</description>
+            <description xml:lang="ru">простая-qwerty</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>bksl</name>
+            <description>sk_qwerty(bksl) -  No decription</description>
+            <description xml:lang="ru">bksl-qwerty</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>es</name>
+        <description>Spanish</description>
+        <description xml:lang="bg">испанска</description>
+        <description xml:lang="ru">Испанская</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>Sundeadkeys</name>
+            <description>es(Sundeadkeys) -  No decription</description>
+            <description xml:lang="bg">es(Sundeadkeys) - без описание</description>
+            <description xml:lang="ru">Sundeadkeys</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>nodeadkeys</name>
+            <description>Eliminate dead keys</description>
+            <description xml:lang="bg">Изключи специалните клавиши (dead keys)</description>
+            <description xml:lang="ru">Исключить специальные клавиши (dead keys)</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>se</name>
+        <description>Swedish</description>
+        <description xml:lang="bg">шведска</description>
+        <description xml:lang="ru">Шведская</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>basic</name>
+            <description>se(basic) -  No decription</description>
+            <description xml:lang="bg">se(basic) - без описание</description>
+            <description xml:lang="ru">простая</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>nodeadkeys</name>
+            <description>Eliminate dead keys</description>
+            <description xml:lang="bg">Изключи специалните клавиши (dead keys)</description>
+            <description xml:lang="ru">Исключить специальные клавиши (dead keys)</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>fr_CH</name>
+        <description>Swiss French</description>
+        <description xml:lang="bg">швейцарска френска</description>
+        <description xml:lang="ru">Французская (Швейцария)</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>Sundeadkeys</name>
+            <description>fr_CH(Sundeadkeys) -  No decription</description>
+            <description xml:lang="bg">fr_CH(Sundeadkeys) - без описание</description>
+            <description xml:lang="ru">Sundeadkeys</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>nodeadkeys</name>
+            <description>Eliminate dead keys</description>
+            <description xml:lang="bg">Изключи специалните клавиши (dead keys)</description>
+            <description xml:lang="ru">Исключить специальные клавиши (dead keys)</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>de_CH</name>
+        <description>Swiss German</description>
+        <description xml:lang="bg">швейцарска немска</description>
+        <description xml:lang="ru">Немецкая (Швейцария)</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>Sundeadkeys</name>
+            <description>de_CH(Sundeadkeys) -  No decription</description>
+            <description xml:lang="bg">de_CH(Sundeadkeys) - без описание</description>
+            <description xml:lang="ru">Sundeadkeys</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>nodeadkeys</name>
+            <description>Eliminate dead keys</description>
+            <description xml:lang="bg">Изключи специалните клавиши (dead keys)</description>
+            <description xml:lang="ru">Исключить специальные клавиши (dead keys)</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>syr</name>
+        <description>Syriac</description>
+        <description xml:lang="ru">Сирийская</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>tj</name>
+        <description>Tajik</description>
+        <description xml:lang="bg">таджикска</description>
+        <description xml:lang="ru">Таджикская</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>tml</name>
+        <description>Tamil</description>
+        <description xml:lang="bg">тамилска</description>
+        <description xml:lang="ru">Тамильская</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>tel</name>
+        <description>Telugu</description>
+        <description xml:lang="ru">Телугу</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>th</name>
+        <description>Thai</description>
+        <description xml:lang="bg">тайландска</description>
+        <description xml:lang="ru">Таиландская</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>tr</name>
+        <description>Turkish </description>
+        <description xml:lang="bg">турска</description>
+        <description xml:lang="ru">Турецкая</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>tr_f</name>
+            <description>Turkish (F)</description>
+            <description xml:lang="bg">турска (F)</description>
+            <description xml:lang="ru">Турецкая (F)</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>ua</name>
+        <description>Ukrainian </description>
+        <description xml:lang="bg">украинска</description>
+        <description xml:lang="ru">Украинская</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>phonetic</name>
+            <description>ua(phonetic) -  No decription</description>
+            <description xml:lang="bg">ua(phonetic) - без описание</description>
+            <description xml:lang="ru">фонетическая</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>typewriter</name>
+            <description>ua(typewriter) -  No decription</description>
+            <description xml:lang="bg">ua(typewriter) - без описание</description>
+            <description xml:lang="ru">&quot;Печатная машинка&quot;</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>winkeys</name>
+            <description>ua(winkeys) -  No decription</description>
+            <description xml:lang="bg">ua(winkeys) - без описание</description>
+            <description xml:lang="ru">Microsoft</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>gb</name>
+        <description>United Kingdom</description>
+        <description xml:lang="bg">британска</description>
+        <description xml:lang="ru">Английская (Великобритания)</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>vn</name>
+        <description>Vietnamese</description>
+        <description xml:lang="bg">виетнамска</description>
+        <description xml:lang="ru">Вьетнамская</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>yu</name>
+        <description>Yugoslavian</description>
+        <description xml:lang="bg">югославска</description>
+        <description xml:lang="ru">Югославская</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>nec/jp</name>
+        <description>PC-98xx Series</description>
+        <description xml:lang="bg">PC-98xx серии</description>
+        <description xml:lang="ru">PC-98xx</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>ie</name>
+        <description>ie            -  No decription</description>
+        <description xml:lang="ru">Ирландская</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>CloGaelach</name>
+            <description>ie(CloGaelach) -  No decription</description>
+            <description xml:lang="ru">CloGaelach</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>CloGaelachLaptop</name>
+            <description>ie(CloGaelachLaptop) -  No decription</description>
+            <description xml:lang="ru">CloGaelach для настольных ПК</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>UnicodeExpert</name>
+            <description>ie(UnicodeExpert) -  No decription</description>
+            <description xml:lang="ru">уникод</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>laptop</name>
+            <description>ie(laptop) -  No decription</description>
+            <description xml:lang="ru">для настольных ПК</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+    <layout>
+      <configItem>
+        <name>il_phonetic</name>
+        <description>il_phonetic   -  No decription</description>
+        <description xml:lang="bg">il_phonetic - без описание</description>
+        <description xml:lang="ru">Иврит, фонетическая</description>
+      </configItem>
+      <variantList/>
+    </layout>
+    <layout>
+      <configItem>
+        <name>sapmi</name>
+        <description>sapmi         -  No decription</description>
+        <description xml:lang="bg">sapmi - без описание</description>
+        <description xml:lang="ru">Саамская</description>
+      </configItem>
+      <variantList>
+        <variant>
+          <configItem>
+            <name>basic</name>
+            <description>sapmi(basic) -  No decription</description>
+            <description xml:lang="bg">sapmi(basic) - без описание</description>
+            <description xml:lang="ru">простая</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>nodeadkeys</name>
+            <description>Eliminate dead keys</description>
+            <description xml:lang="bg">Изключи специалните клавиши (dead keys)</description>
+            <description xml:lang="ru">Исключить специальные клавиши (dead keys)</description>
+          </configItem>
+        </variant>
+        <variant>
+          <configItem>
+            <name>sefi</name>
+            <description>sapmi(sefi) -  No decription</description>
+            <description xml:lang="bg">sapmi(sefi) - без описание</description>
+            <description xml:lang="ru">шведско-финская</description>
+          </configItem>
+        </variant>
+      </variantList>
+    </layout>
+  </layoutList>
+  <optionList>
+    <group allowMultipleSelection="true">
+      <configItem>
+        <name>grp</name>
+        <description>Group Shift/Lock behavior</description>
+        <description xml:lang="bg">Функции на клавишите Shift/Lock</description>
+        <description xml:lang="ru">Функция смены раскладки</description>
+      </configItem>
+      <option>
+        <configItem>
+          <name>grp:switch</name>
+          <description>R-Alt switches group while pressed</description>
+          <description xml:lang="bg">Десният Alt сменя групата докато е натиснат</description>
+          <description xml:lang="ru">Правая клавиша Alt переключает группу на время нажатия</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>grp:lwin_switch</name>
+          <description>Left Win-key switches group while pressed</description>
+          <description xml:lang="bg">Левият Win клавиш сменя групата докато е натиснат</description>
+          <description xml:lang="ru">Левая клавиша Win переключает группу на время нажатия</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>grp:rwin_switch</name>
+          <description>Right Win-key switches group while pressed</description>
+          <description xml:lang="bg">Десният Win сменя групата докато е натиснат</description>
+          <description xml:lang="ru">Правая клавиша Win переключает группу на время нажатия</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>grp:win_switch</name>
+          <description>Both Win-keys switch group while pressed</description>
+          <description xml:lang="bg">Двата Win-а заедно сменят групата докато са натиснати</description>
+          <description xml:lang="ru">Две клавиши Win переключает группу на время нажатия</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>grp:toggle</name>
+          <description>Right Alt key changes group</description>
+          <description xml:lang="bg">Десният Alt сменя групата</description>
+          <description xml:lang="ru">Правая клавиша Alt меняет группу</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>grp:lalt_toggle</name>
+          <description>Left Alt key changes group</description>
+          <description xml:lang="ru">Левая клавиша Alt меняет группу</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>grp:caps_toggle</name>
+          <description>Caps Lock key changes group</description>
+          <description xml:lang="bg">Caps Lock сменя групата</description>
+          <description xml:lang="ru">Клавиша Caps Lock меняет группу</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>grp:shift_toggle</name>
+          <description>Both Shift keys together change group</description>
+          <description xml:lang="bg">Двата Shift-а заедно сменят групата</description>
+          <description xml:lang="ru">Две клавиши Shift вместе меняют группу</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>grp:alts_toggle</name>
+          <description>Both Alt keys together change group</description>
+          <description xml:lang="ru">Две клавиши Alt вместе меняют группу</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>grp:ctrls_toggle</name>
+          <description>Both Ctrl keys together change group</description>
+          <description xml:lang="ru">Две клавиши Ctrl вместе меняют группу</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>grp:ctrl_shift_toggle</name>
+          <description>Control+Shift changes group</description>
+          <description xml:lang="bg">Control+Shift сменя групата</description>
+          <description xml:lang="ru">Control+Shift меняют группу</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>grp:ctrl_alt_toggle</name>
+          <description>Alt+Control changes group</description>
+          <description xml:lang="bg">Alt+Control сменя групата</description>
+          <description xml:lang="ru">Alt+Control меняют группу</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>grp:alt_shift_toggle</name>
+          <description>Alt+Shift changes group</description>
+          <description xml:lang="bg">Alt+Shift сменя групата</description>
+          <description xml:lang="ru">Alt+Shift меняют группу</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>grp:menu_toggle</name>
+          <description>Menu key changes group</description>
+          <description xml:lang="bg">Menu клавишът сменя групата</description>
+          <description xml:lang="ru">Клавиша Menu меняет группу</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>grp:lwin_toggle</name>
+          <description>Left Win-key changes group</description>
+          <description xml:lang="bg">Левият Win клавиш сменя групата</description>
+          <description xml:lang="ru">Левая клавиша Win меняет группу</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>grp:rwin_toggle</name>
+          <description>Right Win-key changes group</description>
+          <description xml:lang="bg">Десният Win сменя групата</description>
+          <description xml:lang="ru">Правая клавиша Win меняет группу</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>grp:lshift_toggle</name>
+          <description>Left Shift key changes group</description>
+          <description xml:lang="ru">Левая клавиша Shift меняет группу</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>grp:rshift_toggle</name>
+          <description>Right Shift key changes group</description>
+          <description xml:lang="ru">Правая клавиша Shift меняет группу</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>grp:lctrl_toggle</name>
+          <description>Left Ctrl key changes group</description>
+          <description xml:lang="ru">Левая клавиша Ctrl меняет группу</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>grp:rctrl_toggle</name>
+          <description>Right Ctrl key changes group</description>
+          <description xml:lang="ru">Правая клавиша Ctrl меняет группу</description>
+        </configItem>
+      </option>
+    </group>
+    <group allowMultipleSelection="true">
+      <configItem>
+        <name>lv3</name>
+        <description>Third level choosers</description>
+        <description xml:lang="bg">Избор на третата група</description>
+        <description xml:lang="ru">Выбор 3-го уровня</description>
+      </configItem>
+      <option>
+        <configItem>
+          <name>lv3:switch</name>
+          <description>Press Right Control to choose 3rd level</description>
+          <description xml:lang="bg">Десният Control избира третата група</description>
+          <description xml:lang="ru">Выбор 3-го уровня нажатием правой клавиши Control</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>lv3:menu_switch</name>
+          <description>Press Menu key to choose 3rd level</description>
+          <description xml:lang="bg">Menu избира третата група</description>
+          <description xml:lang="ru">Выбор 3-го уровня нажатием клавиши Menu</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>lv3:win_switch</name>
+          <description>Press any of Win-keys to choose 3rd level</description>
+          <description xml:lang="bg">Двата Win клавиша избират третата група</description>
+          <description xml:lang="ru">Выбор 3-го уровня нажатием любой клавиши Win</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>lv3:lwin_switch</name>
+          <description>Press Left Win-key to choose 3rd level</description>
+          <description xml:lang="bg">Левият Win клавиш избира третата група</description>
+          <description xml:lang="ru">Выбор 3-го уровня нажатием левой клавиши Win</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>lv3:rwin_switch</name>
+          <description>Press Right Win-key to choose 3rd level</description>
+          <description xml:lang="bg">Десният Win избира третата група</description>
+          <description xml:lang="ru">Выбор 3-го уровня нажатием правой клавиши Win</description>
+        </configItem>
+      </option>
+    </group>
+    <group allowMultipleSelection="false">
+      <configItem>
+        <name>ctrl</name>
+        <description>Control Key Position</description>
+        <description xml:lang="bg">Положение на клавиша Control</description>
+        <description xml:lang="ru">Положение клавиши Control</description>
+      </configItem>
+      <option>
+        <configItem>
+          <name>ctrl:nocaps</name>
+          <description>Make CapsLock an additional Control</description>
+          <description xml:lang="bg">Caps Lock да функционира като Control</description>
+          <description xml:lang="ru">Использовать CapsLock как дополнительную клавишу Control</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>ctrl:swapcaps</name>
+          <description>Swap Control and Caps Lock</description>
+          <description xml:lang="bg">Размени Control и Caps Lock</description>
+          <description xml:lang="ru">Поменять местами клавиши Control и Caps Lock</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>ctrl:ctrl_ac</name>
+          <description>Control key at left of 'A'</description>
+          <description xml:lang="bg">Control е вляво от &apos;A&apos;</description>
+          <description xml:lang="ru">Клавиша Control слева от &apos;Ф&apos;</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>ctrl:ctrl_aa</name>
+          <description>Control key at bottom left</description>
+          <description xml:lang="bg">Control е долу вляво</description>
+          <description xml:lang="ru">Клавиша Control снизу слева</description>
+        </configItem>
+      </option>
+    </group>
+    <group allowMultipleSelection="true">
+      <configItem>
+        <name>grp_led</name>
+        <description>Use keyboard LED to show alternative group</description>
+        <description xml:lang="bg">Използвай клавиатурен индикатор за указване на алтернативна група</description>
+        <description xml:lang="ru">Использование клавиатурных индикаторов для отображения доп. групп</description>
+      </configItem>
+      <option>
+        <configItem>
+          <name>grp_led:num</name>
+          <description>Num_Lock LED shows alternative group</description>
+          <description xml:lang="bg">Индикаторът на Num_Lock указва алтернативната група</description>
+          <description xml:lang="ru">Индикатор Num Lock отображает доп. группу</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>grp_led:caps</name>
+          <description>Caps_Lock LED shows alternative group</description>
+          <description xml:lang="bg">Индикаторът на Caps_Lock показва алтернативната група</description>
+          <description xml:lang="ru">Индикатор Caps Lock отображает доп. группу</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>grp_led:scroll</name>
+          <description>Scroll_Lock LED shows alternative group</description>
+          <description xml:lang="bg">Индикаторът на Scroll_Lock указва смяната на групата</description>
+          <description xml:lang="ru">Индикатор Scroll Lock отображает доп. группу</description>
+        </configItem>
+      </option>
+    </group>
+    <group allowMultipleSelection="false">
+      <configItem>
+        <name>caps</name>
+        <description>CapsLock key behavior</description>
+        <description xml:lang="bg">Поведение на Caps Lock</description>
+        <description xml:lang="ru">Клавиша Caps Lock</description>
+      </configItem>
+      <option>
+        <configItem>
+          <name>caps:internal</name>
+          <description>Uses internal capitalization. Shift cancels Caps.</description>
+          <description xml:lang="bg">Използва вътрешна промяна на регистъра. Shift отменя Caps.</description>
+          <description xml:lang="ru">Включает внутреннюю капитализацию. Shift отменяет Caps.</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>caps:internal_nocancel</name>
+          <description>Uses internal capitalization. Shift doesn't cancel Caps.</description>
+          <description xml:lang="ru">Включает внутреннюю капитализацию. Shift не отменяет Caps.</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>caps:shift</name>
+          <description>Acts as Shift with locking. Shift cancels Caps.</description>
+          <description xml:lang="bg">Работи като Shift със заключване. Shift отменя CapsLock.</description>
+          <description xml:lang="ru">Действует как Shift с блокировкой. Shift отменяет Caps.</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>caps:shift_nocancel</name>
+          <description>Acts as Shift with locking. Shift doesn't cancel Caps.</description>
+          <description xml:lang="bg">Работи като Shift със заключване. Shift не отменя CapsLock.</description>
+          <description xml:lang="ru">Действует как Shift с блокировкой. Shift не отменяет Caps.</description>
+        </configItem>
+      </option>
+    </group>
+    <group allowMultipleSelection="false">
+      <configItem>
+        <name>altwin</name>
+        <description>Alt/Win key behavior</description>
+        <description xml:lang="bg">Функцията на Alt/Win</description>
+        <description xml:lang="ru">Клавиши Alt/Win</description>
+      </configItem>
+      <option>
+        <configItem>
+          <name>altwin:menu</name>
+          <description>Add the standard behavior to Menu key.</description>
+          <description xml:lang="bg">Добавя стандартното поведение на клавиша Menu.</description>
+          <description xml:lang="ru">Добавить стандартную функцию клавиши Menu</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>altwin:meta_alt</name>
+          <description>Alt and Meta on the Alt keys (default).</description>
+          <description xml:lang="bg">Alt и Meta на Alt клавиша (по подразбиране)</description>
+          <description xml:lang="ru">Alt и Meta на клавишах Alt (по умолчанию)</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>altwin:meta_win</name>
+          <description>Meta is mapped to the Win-keys.</description>
+          <description xml:lang="bg">Win клавишите фунцкионират като Meta</description>
+          <description xml:lang="ru">Мета соответствует клавишам Win</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>altwin:left_meta_win</name>
+          <description>Meta is mapped to the left Win-key.</description>
+          <description xml:lang="bg">Левият Win клавиш функционира като Meta</description>
+          <description xml:lang="ru">Meta соответствует левой клавише Win</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>altwin:meta_super</name>
+          <description>Super is mapped to the Win-keys (default).</description>
+          <description xml:lang="bg">Win клавишите функционират като Super</description>
+          <description xml:lang="ru">Super соответствует клавишам Win (по умолчанию)</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>altwin:meta_hyper</name>
+          <description>Hyper is mapped to the Win-keys.</description>
+          <description xml:lang="bg">Hyper съответства на клавишите Win</description>
+          <description xml:lang="ru">Hyper соответствует клавишам Win</description>
+        </configItem>
+      </option>
+    </group>
+    <group allowMultipleSelection="true">
+      <configItem>
+        <name>compose</name>
+        <description> </description>
+      </configItem>
+      <option>
+        <configItem>
+          <name>compose:ralt</name>
+          <description>Right Alt is Compose</description>
+          <description xml:lang="bg">Десният Alt фунцкионира като Compose</description>
+          <description xml:lang="ru">Правая клавиша Alt соответствует клавише Alt</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>compose:rwin</name>
+          <description>Right Win-key is Compose</description>
+          <description xml:lang="bg">Десният Win фунцкионира като Compose</description>
+          <description xml:lang="ru">Правая клавиша Win соответствует клавише Compose</description>
+        </configItem>
+      </option>
+      <option>
+        <configItem>
+          <name>compose:menu</name>
+          <description>Menu is Compose</description>
+          <description xml:lang="bg">Клавиша Menu фунцкионира като Compose</description>
+          <description xml:lang="ru">Клавиша Menu соответствует клавише Compose</description>
+        </configItem>
+      </option>
+    </group>
+  </optionList>
+</xkbConfigRegistry>

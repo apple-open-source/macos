@@ -1,0 +1,56 @@
+.\" $XConsortium: xmseconfig.man /main/3 1996/12/09 17:42:35 kaleb $
+.\"
+.\"
+.\"
+.\"
+.\"
+.\" $XFree86: xc/programs/Xserver/hw/xfree86/XF86Setup/scripts/xmseconfig.man,v 3.6 2002/10/12 16:06:43 herrb Exp $
+.TH xmseconfig 1 __vendorversion__
+.SH NAME
+xmseconfig - Graphical mouse configuration utility
+.SH SYNOPSIS
+.B xmseconfig
+[ -sync ] [ -display \fIdisplay\fP ] [ -geometry \fIgeometry\fP ]
+.SH DESCRIPTION
+.I xmseconfig
+enables the user to make changes to the server's mouse configuration.
+Changes apply only to the currently running server and are not saved
+to a configuration file as they are with \fBXF86Setup\fP.
+.SH ARGUMENTS
+.TP 14
+.B -sync
+Turn on synchronization for all communication with an X server.
+.TP 14
+.BI -display " display"
+Specify the display to talk to.
+.TP 14
+.BI -geometry " geomspec"
+Specify the initial geometry for the window.
+.SH ENVIRONMENT
+.TP 14
+.B XWINHOME
+If set, indicates the parent directory of X bin and lib directories.
+.TP 14
+.B XF86SETUPLIB
+If set, overrides the default location of the library directory
+(normally __projectroot__/lib/X11/XF86Setup).
+.SH FILES
+.I __projectroot__/lib/X11/XF86Config
+.br
+or
+.I /etc/XF86Config
+.RS 14
+Used to determine the link to the mouse device
+.RE
+.SH "SEE ALSO"
+\fIQuick-Start Guide to XFree86 Setup\fP
+.br
+XF86Setup(1), XFree86(1), XF86Config(4/5),
+xf86config(1), XF86Misc(3)
+.SH AUTHOR
+.PP
+Joe Moss, \fIjoe@XFree86.org\fP
+.SH NOTES
+If the program is unable to read the mouse configuration from
+the existing XF86Config file or if the user is not the superuser,
+changes to the mouse device are disallowed.

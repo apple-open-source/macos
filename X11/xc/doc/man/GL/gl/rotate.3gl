@@ -1,0 +1,110 @@
+'\" e
+'\"! eqn | mmdoc
+'\"macro stdmacro
+.ds Vn Version 1.2
+.ds Dt 24 September 1999
+.ds Re Release 1.2.1
+.ds Dp Jan 14 18:30
+.ds Dm 01 rotate.gl
+.ds Xs 52762 5 rotate.gl
+.TH GLROTATE 3G
+.SH NAME
+.B "glRotated, glRotatef
+\- multiply the current matrix by a rotation matrix
+
+.SH C SPECIFICATION
+void \f3glRotated\fP(
+GLdouble \fIangle\fP,
+.nf
+.ta \w'\f3void \fPglRotated( 'u
+	GLdouble \fIx\fP,
+	GLdouble \fIy\fP,
+	GLdouble \fIz\fP )
+.fi
+void \f3glRotatef\fP(
+GLfloat \fIangle\fP,
+.nf
+.ta \w'\f3void \fPglRotatef( 'u
+	GLfloat \fIx\fP,
+	GLfloat \fIy\fP,
+	GLfloat \fIz\fP )
+.fi
+
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+.TP \w'\f2angle\fP\ \ 'u 
+\f2angle\fP
+Specifies the angle of rotation, in degrees.
+.TP
+\f2x\fP, \f2y\fP, \f2z\fP
+Specify the \f2x\fP, \f2y\fP, and \f2z\fP coordinates of a vector, respectively. 
+.SH DESCRIPTION
+\%\f3glRotate\fP produces a rotation of \f2angle\fP degrees around 
+the vector $("x", "y", "z")$.
+The current matrix (see \%\f3glMatrixMode\fP) is multiplied by a rotation 
+matrix with the product
+replacing the current matrix, as if \%\f3glMultMatrix\fP were called
+with the following matrix as its argument:
+.P
+.ce
+.EQ 
+left ( ~ down 20 matrix {
+ ccol { 
+   "x" sup 2 (1 ^-^ c)~+~ c above
+   "y" "x" (1 ^-^ c)~+~ "z" s above
+   "x" "z" (1 ^-^ c)~-~"y" s above
+   ~0 
+ } 
+ ccol {
+   ~~ "x" "y" (1 ^-^ c)~-~"z" s above
+   ~~ "y" sup 2 (1 ^-^ c)~+~ c above
+   ~~ "y" "z" (1 ^-^ c)~+~ "x" s above
+   ~~ ~0
+ } 
+ ccol {
+   ~~ "x" "z" (1 ^-^ c)~+~ "y" s above
+   ~~ "y" "z" (1 ^-^ c)~-~ "x" s above
+   ~~ "z" sup 2 (1 ^-^ c) ~+~  c above
+   ~~ ~0
+ } 
+ ccol { ~0 above ~0 above ~0 above ~1}
+} ~~ right )
+.EN
+.P
+.sp
+Where $c ~=~ cos ("angle")$, $s ~=~ sin ("angle")$, and 
+$||(~"x", "y", "z"~)|| ~=~ 1$ (if not, the GL 
+will normalize this vector).
+.sp
+.sp
+.P
+If the matrix mode is either \%\f3GL_MODELVIEW\fP or \%\f3GL_PROJECTION\fP,
+all objects drawn after \%\f3glRotate\fP is called are rotated.
+Use \%\f3glPushMatrix\fP and \%\f3glPopMatrix\fP to save and restore
+the unrotated coordinate system.
+.SH NOTES
+This rotation follows the right-hand rule, so
+if the vector $("x", "y", "z")$ points toward the
+user, the rotation will be counterclockwise.
+.SH ERRORS
+\%\f3GL_INVALID_OPERATION\fP is generated if \%\f3glRotate\fP
+is executed between the execution of \%\f3glBegin\fP
+and the corresponding execution of \%\f3glEnd\fP.
+.SH ASSOCIATED GETS
+\%\f3glGet\fP with argument \%\f3GL_MATRIX_MODE\fP
+.br
+\%\f3glGet\fP with argument \%\f3GL_COLOR_MATRIX\fP
+.br
+\%\f3glGet\fP with argument \%\f3GL_MODELVIEW_MATRIX\fP
+.br
+\%\f3glGet\fP with argument \%\f3GL_PROJECTION_MATRIX\fP
+.br
+\%\f3glGet\fP with argument \%\f3GL_TEXTURE_MATRIX\fP
+.SH SEE ALSO
+\%\f3glMatrixMode(3G)\fP,
+\%\f3glMultMatrix(3G)\fP,
+\%\f3glPushMatrix(3G)\fP,
+\%\f3glScale(3G)\fP,
+\%\f3glTranslate(3G)\fP

@@ -1,0 +1,1225 @@
+<!DOCTYPE linuxdoc PUBLIC "-//XFree86//DTD linuxdoc//EN" [
+<!ENTITY % defs SYSTEM "defs.ent"> %defs;
+]>
+
+<article>
+
+<title>Release Notes for XFree86&trade; &relvers;
+<author>The XFree86 Project, Inc
+<date>26 February 2003
+
+<ident>
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/RELNOTES.sgml,v 1.81 2003/02/27 00:45:05 dawes Exp $
+</ident>
+
+<abstract>
+
+This document contains some information about features present
+in XFree86 &relvers; and their status.
+
+</abstract>
+
+<toc>
+
+<p>
+
+<sect>Introduction to the 4.x Release Series
+<p>
+XFree86 4.0 was the first official release of the new XFree86 4 series.
+<![ %updaterel [
+XFree86 &relvers; is the &whichupdaterel; update to &fullrelvers;, which
+is the latest full release in that series.
+]]>
+<![ %fullrel [
+The current release (&relvers;) is the latest in that series.
+]]>
+XFree86
+4 represents a significant redesign of the XFree86 X server.  Not all
+of the hardware drivers from 3.3.x have been ported to 4.x yet, but
+conversely, 4.x has support for a lot of hardware that is not supported
+in 3.3.x.  Our <htmlurl name="Driver Status document" url="Status.html">
+summarizes how the hardware driver support compares between &legacyvers;
+and &relvers;.  Please check there first before downloading &relvers;.
+
+The 4.0.1 release introduced a new graphical configuration tool,
+"<tt>xf86cfg</tt>", and a text mode interface was added to it for the
+4.0.2 release.  It is the preferred configuration tool provided by with
+XFree86.  The trusty old text-based tool "<tt>xf86config</tt>" can also
+be used for generating X server config files.  In addition to these
+tools, the XFree86 server has some built in capabilities for generating
+a base config file.  This works well for most hardware, and in most
+cases is the easiest way to get an initial config file.  To try it out,
+just run (as root):
+
+<tscreen><verb>
+XFree86 -configure
+</verb></tscreen>
+
+Each of these configuration options will give you a reasonable starting
+point for a suitable configuration file.  We've put some effort into
+documenting the &relvers; config file format, and you can find that
+information in the <htmlurl name="XF86Config manual page"
+url="XF86Config.5.html">.  Check there and the driver-specific manual
+pages and the related documentation for further information.  References
+to this driver-specific information can be found in the <ref id="drivertables"
+name="tables below">.
+
+We have plans to make the configuration file optional in a future release.
+The XFree86 server is close to being able to automatically determine
+a complete base configuration for most popular hardware configurations.
+
+Before you go to download and install the binary distributions for
+this release, please have a quick read through the <htmlurl
+name="Installation Document" url="Install.html">.  It may save you some
+time and help you figure out which of the binary releases you need.
+
+<![ %updaterel [
+The next sections describe what has changed in the update release(s)
+as well as what is new in the latest full release (&fullrelvers;).
+]]>
+<![ %fullrel [
+The next section describes what is new in the latest version (&relvers;)
+compared with the previous full release (&prevfullrelvers).
+]]>
+The other sections below describe some of the new features and changes
+between 3.3.x and 4.0.  There are lot's of new features, and we definitely
+don't have enough space to cover them all here.
+
+</sect>
+
+<![ %updaterel [
+<sect>Summary of updates in &relvers;.
+<p>
+
+</sect>
+]]>
+
+<sect>Summary of new features in &fullrelvers;.
+
+<sect1>Video Driver Enhancements
+
+<p>
+<itemize>
+<item> ATI Radeon 9x00 2D support added, and 3D support added for the
+	Radeon 8500, 9000, 9100, and M9.  The 3D support for the Radeon
+	now includes hardware TCL.
+
+<item> Support added to the i810 driver for Intel 845G, 852GM, 855GM
+	and 865G integrated graphics chipsets, including 2D, 3D (DRI)
+	and XVideo.  Support for the 830M has been improved, and XVideo
+	support added.
+
+<item> National Semiconductor SC1x00, GX1, and GX2 chipset support added
+	with the "nsc" driver.
+
+<item> Support added for the NVIDIA nForce2 integrated graphics, GeForce 4,
+	and GeForce FX.
+
+<item> Major SiS driver updates for some of the latest chipsets.  Unfortunately
+	the SiS 3D driver has had to be disabled because no one has yet
+	taken up the challenge to port it to Mesa 4.x.
+
+<item> The s3virge driver now has support for double scan modes on the DX
+	(with XVideo disabled).
+	
+<item> Updates to the savage driver, including fixing problems with the
+	TwisterK, and problems with incorrect memory size detection.
+
+<item> 2D acceleration added for the Trident CyberBladeXP/Ai1 chipsets.
+
+<item> Support for big endian architectures has been added to the C&amp;T
+	driver.
+
+<item> Various updates and bug fixes have been made to most other drivers.
+
+</itemize>
+
+<sect1>Input Driver Enhancements
+
+<p>
+<itemize>
+<item> The mouse driver now has automatic protocol detection for PS/2 mice.
+
+<item> Several new input drivers have been added, including tek4957,
+	jamstudio (js_x), fpit, palmax, and ur98 (Linux only).
+</itemize>
+
+<sect1>X Server and Extension Updates
+
+<p>
+<itemize>
+<item> Support for the RandR extension has been partially integrated
+	into the XFree86 server, providing support for resizing the root
+	window at run-time.
+
+<item> The Mesa version used for OpenGL&reg; 1.3 and DRI 
+	driver support has been updated to 4.0.4.
+
+<item> The XFree86 server's hot keys (including those for switching
+	modes and virtual terminals) can now be configured via XKB.
+	Previously they were hard coded.  An X server configuration
+	option has been added to allow the VT switching hot keys to be
+	disabled.
+
+</itemize>
+
+<sect1>Client and Library Updates
+
+<p>
+<itemize>
+<item> An Xcursor library providing support for alpha blended (ARGB)
+	and animated cursors.  Two Xcursor themes are provided (redglass
+	and whiteglass), as well as the default "core" theme (the traditional
+	cursors).
+
+<item> Xterm updated to patch level 173, including the following bugfixes:
+	<itemize>
+	<item> Fix two infinite loops (special cases of mouse hilite tracking,
+		DECUDK parsing).
+	<item> Make repainting of the 256-color example work properly.
+	<item> Modify parser tables to improve detection of malformed
+		control sequences, making xterm behave more like a real
+		DEC terminal.
+	<item> Fix a problem with the blinking cursor which occasionally caused
+		xterm to pause until a key was pressed.
+	<item> Fix improper parsing of multiple items in the ttyModes resource.
+
+	</itemize>
+	and the following improvements:
+	<itemize>
+	<item> Modify xterm to invoke luit.
+	<item> Add simple session management client capabilities.
+	<item> Add a modifyCursorKeys resource to control how the shift- and
+		similar modifiers are used to make a cursor escape sequence.
+	<item> Check if the printerCommand resource string is empty,
+		and use this to allow the user to disable printer function.
+	<item> Sort the options list which is displayed in help- and
+		syntax-messages at runtime to simplify maintenance.
+	</itemize>
+
+</itemize>
+
+<sect1>I18N and Font Updates
+
+<p>
+<itemize>
+<item> FreeType2 updated to version 2.1.1.
+
+<item> The "freetype" X server font backend has undergone a partial rewrite.
+	The new version is based on FreeType 2, and handles TrueType
+	(including OpenType/TTF), OpenType/CFF and Type 1 fonts.  The old
+	"type1" backend is now deprecated, and is only used for CIDFonts
+	by default.
+
+<item> A new utility called "mkfontscale", which builds fonts.scale files,
+	has been added.
+
+<item> The Xft library has undergone a major restructuring, and is now
+	split into fontconfig (which deals with font discovery and
+	configuration and is independent from X), and Xft itself (which
+	uses fontconfig and deals with font rasterisation and rendering.
+	The format of the Xft font configuration files has changed in
+	an incompatible manner.
+
+<item> Support has been added to the Xft library to do rendering with the
+	core X11 protocol.  This allows clients using this library to
+	render to X servers that don't have support for the RENDER extension.
+
+<item> There has been a significant reworking of the XKB support to allow
+	multi-layout configurations.  Multi-layout configurations provide
+	a flexible way of supporting multiple language layouts and switching
+	between them.
+
+</itemize>
+
+<sect1>OS Support Updates
+
+<p>
+<itemize>
+<item> Updates for Darwin/Mac OS X, including:
+	<itemize>
+	<item> Indirect GLX acceleration added.
+	<item> Smaller memory footprint and faster 2-D drawing in rootless
+		mode.
+	<item> Full screen mode now uses shadowfb for much faster 2-D drawing.
+	<item> Native fonts can be used on MacOS X.
+	</itemize>
+
+<item> Various Cygwin support updates, including an experimental rootless
+	X server for Cygwin/XFree86.
+
+<item> AMD x86-64 support (primarily for Linux so far) has been added.
+
+<item> Support added for OpenBSD/sparc64.
+
+<item> Major OS/2 support updates.
+
+<item> Major SCO OpenServer updates.
+
+<item> Multi-head support has been added for 460GX-based Itanium systems,
+	and for ZX1-based Itanium2 systems.
+
+<item> Experimental support for SunOS/Solaris on UltraSPARC systems.
+
+
+</itemize>
+
+A more complete list of changes can be found in the CHANGELOG that is
+part of the XFree86 source tree.  It can also be viewed online at our
+<url name="CVSweb server"
+url="http://cvsweb.xfree86.org/cvsweb/xc/programs/Xserver/hw/xfree86/CHANGELOG?rev=HEAD">.
+
+<!--
+<sect>Summary of new features in &prevrelvers;.
+<p>
+-->
+
+<sect>Drivers<label id="drivertables">
+<p>
+
+<sect1>Video Drivers
+<p>
+
+XFree86 &relvers; includes the following video drivers:
+
+<table border=1 align="center">
+<tabular ca="|l|l|l|">
+   <tabrow>Driver Name<colsep>Description<colsep>Further Information</tabrow>
+   <hline>
+   <tabrow><tt>apm</tt><colsep>Alliance Pro Motion<colsep><htmlurl
+		name="README.apm" url="apm.html"></tabrow>
+   <tabrow><tt>ark</tt><colsep>Ark Logic<colsep>&nbsp;</tabrow>
+   <tabrow><tt>ati</tt><colsep>ATI<colsep><htmlurl
+		name="README.ati" url="ati.html">, <htmlurl
+		name="README.r128" url="r128.html">, <htmlurl
+		name="r128(4)" url="r128.4.html">, <htmlurl
+		name="radeon(4)" url="radeon.4.html"></tabrow>
+   <tabrow><tt>chips</tt><colsep>Chips &amp; Technologies<colsep><htmlurl
+		name="README.chips" url="chips.html">, <htmlurl
+		name="chips(4)" url="chips.4.html"></tabrow>
+   <tabrow><tt>cirrus</tt><colsep>Cirrus Logic<colsep>&nbsp;</tabrow>
+   <tabrow><tt>cyrix</tt> (*)<colsep>Cyrix MediaGX<colsep><htmlurl
+		name="README.cyrix" url="cyrix.html"></tabrow>
+   <tabrow><tt>fbdev</tt><colsep>Linux framebuffer device<colsep><htmlurl
+		name="fbdev(4)" url="fbdev.4.html"></tabrow>
+   <tabrow><tt>glide</tt><colsep>Glide2x (3Dfx)<colsep><htmlurl
+		name="glide(4)" url="glide.4.html"></tabrow>
+   <tabrow><tt>glint</tt><colsep>3Dlabs, TI<colsep><htmlurl
+		name="glint(4)" url="glint.4.html"></tabrow>
+   <tabrow><tt>i128</tt><colsep>Number Nine<colsep><htmlurl
+		name="README.I128" url="I128.html">, <htmlurl
+		name="i128(4)" url="i128.4.html"></tabrow>
+   <tabrow><tt>i740</tt><colsep>Intel i740<colsep><htmlurl
+		name="README.i740" url="i740.html"></tabrow>
+   <tabrow><tt>i810</tt><colsep>Intel i8xx<colsep><htmlurl
+		name="README.i810" url="i810.html">, <htmlurl
+		name="i810(4)" url="i810.4.html"></tabrow>
+   <tabrow><tt>imstt</tt><colsep>Integrated Micro Solns<colsep>&nbsp;</tabrow>
+   <tabrow><tt>mga</tt><colsep>Matrox<colsep><htmlurl
+		name="mga(4)" url="mga.4.html"></tabrow>
+   <tabrow><tt>neomagic</tt><colsep>NeoMagic<colsep><htmlurl
+		name="neomagic(4)" url="neomagic.4.html"></tabrow>
+   <tabrow><tt>newport</tt> (-)<colsep>SGI Newport<colsep><htmlurl
+		name="README.newport" url="newport.html">, <htmlurl
+		name="newport(4)" url="newport.4.html"></tabrow>
+   <tabrow><tt>nsc</tt><colsep>National Semiconductor<colsep><htmlurl
+		name="nsc(4)" url="nsc.4.html"></tabrow>
+   <tabrow><tt>nv</tt><colsep>NVIDIA<colsep><htmlurl
+		name="nv(4)" url="nv.4.html"></tabrow>
+   <tabrow><tt>rendition</tt><colsep>Rendition<colsep><htmlurl
+		name="README.rendition" url="rendition.html">, <htmlurl
+		name="rendition(4)" url="rendition.4.html"></tabrow>
+   <tabrow><tt>s3</tt><colsep>S3 (not ViRGE or Savage)<colsep>&nbsp;</tabrow>
+   <tabrow><tt>s3virge</tt><colsep>S3 ViRGE<colsep><htmlurl
+		name="README.s3virge" url="s3virge.html">, <htmlurl
+		name="s3virge(4)" url="s3virge.4.html"></tabrow>
+   <tabrow><tt>savage</tt><colsep>S3 Savage<colsep><htmlurl
+		name="savage(4)" url="savage.4.html"></tabrow>
+   <tabrow><tt>siliconmotion</tt><colsep>Silicon Motion<colsep><htmlurl
+		name="siliconmotion(4)" url="siliconmotion.4.html"></tabrow>
+   <tabrow><tt>sis</tt><colsep>SiS<colsep><htmlurl
+		name="README.SiS" url="SiS.html">, <htmlurl
+		name="sis(4)" url="sis.4.html"></tabrow>
+   <tabrow><tt>sunbw2</tt> (+)<colsep>Sun bw2<colsep>&nbsp;</tabrow>
+   <tabrow><tt>suncg14</tt> (+)<colsep>Sun cg14<colsep>&nbsp;</tabrow>
+   <tabrow><tt>suncg3</tt> (+)<colsep>Sun cg3<colsep>&nbsp;</tabrow>
+   <tabrow><tt>suncg6</tt> (+)<colsep>Sun GX and Turbo GX<colsep>&nbsp;</tabrow>
+   <tabrow><tt>sunffb</tt> (+)<colsep>Sun Creator/3D, Elite 3D<colsep>&nbsp;</tabrow>
+   <tabrow><tt>sunleo</tt> (+)<colsep>Sun Leo (ZX)<colsep>&nbsp;</tabrow>
+   <tabrow><tt>suntcx</tt> (+)<colsep>Sun TCX<colsep>&nbsp;</tabrow>
+   <tabrow><tt>tdfx</tt><colsep>3Dfx<colsep><htmlurl
+		name="tdfx(4)" url="tdfx.4.html"></tabrow>
+   <tabrow><tt>tga</tt><colsep>DEC TGA<colsep><htmlurl
+		name="README.DECtga" url="DECtga.html"></tabrow>
+   <tabrow><tt>trident</tt><colsep>Trident<colsep><htmlurl
+		name="trident(4)" url="trident.4.html"></tabrow>
+   <tabrow><tt>tseng</tt><colsep>Tseng Labs<colsep>&nbsp;</tabrow>
+   <tabrow><tt>vesa</tt><colsep>VESA<colsep><htmlurl
+		name="vesa(4)" url="vesa.4.html"></tabrow>
+   <tabrow><tt>vga</tt><colsep>Generic VGA<colsep><htmlurl
+		name="vga(4)" url="vga.4.html"></tabrow>
+   <tabrow><tt>vmware</tt><colsep>VMWare guest OS<colsep><htmlurl
+		name="vmware(4)" url="vmware.4.html"></tabrow>
+</tabular>
+</table>
+
+Drivers marked with (*) are present in a preliminary form in this release,
+but are not complete and/or stable yet.
+<p>
+
+Drivers marked with (+) are for Linux/Sparc only.
+<p>
+
+Drivers marked with (-) are for Linux/mips only.
+<p>
+
+Darwin/Mac OS X uses IOKit drivers and does not use the module loader drivers
+listed above. Further information can be found in
+<htmlurl name="README.Darwin" url="Darwin.html">.
+
+XFree86 &relvers; includes the following input drivers:
+
+<sect1>Input Drivers
+<p>
+
+<table border=1 align="center">
+<tabular ca="|l|l|l|">
+   <tabrow>Driver Name<colsep>Description<colsep>Further Information</tabrow>
+   <hline>
+<!--
+   <tabrow><tt>acecad</tt><colsep>AceCad<colsep>&nbsp;</tabrow>
+-->
+   <tabrow><tt>calcomp</tt><colsep>Calcomp<colsep>&nbsp;</tabrow>
+   <tabrow><tt>citron</tt><colsep>Citron<colsep><htmlurl
+		name="citron(4)" url="citron.4.html"></tabrow>
+   <tabrow><tt>digitaledge</tt><colsep>DigitalEdge<colsep>&nbsp;</tabrow>
+   <tabrow><tt>dmc</tt><colsep>DMC<colsep><htmlurl
+		name="dmc(4)" url="dmc.4.html"></tabrow>
+   <tabrow><tt>dynapro</tt><colsep>Dynapro<colsep>&nbsp;</tabrow>
+   <tabrow><tt>elographics</tt><colsep>EloGraphics<colsep>&nbsp;</tabrow>
+   <tabrow><tt>elographics</tt><colsep>EloGraphics<colsep>&nbsp;</tabrow>
+   <tabrow><tt>fpit</tt><colsep>Fujitsu Stylistic Tablet PCs<colsep><htmlurl
+		name="fpit(4)" url="fpit.4.html"></tabrow>
+   <tabrow><tt>hyperpen</tt><colsep>HyperPen<colsep>&nbsp;</tabrow>
+   <tabrow><tt>js_x</tt><colsep>JamStudio pentablet<colsep><htmlurl
+		name="js_x(4)" url="js_x.4.html"></tabrow>
+   <tabrow><tt>kbd</tt><colsep>generic keyboards (alternate)<colsep><htmlurl
+		name="kbd(4)" url="kbd.4.html"></tabrow>
+   <tabrow><tt>keyboard</tt><colsep>generic keyboards<colsep><htmlurl
+		name="keyboard(4)" url="keyboard.4.html"></tabrow>
+   <tabrow><tt>microtouch</tt><colsep>MicroTouch<colsep>&nbsp;</tabrow>
+   <tabrow><tt>mouse</tt><colsep>most mouse devices<colsep><htmlurl
+		name="mouse(4)" url="mouse.4.html"></tabrow>
+   <tabrow><tt>mutouch</tt><colsep>MicroTouch<colsep>&nbsp;</tabrow>
+   <tabrow><tt>palmax</tt><colsep>Palmax PD1000/PD1100<colsep><htmlurl
+		name="palmax(4)" url="palmax.4.html"></tabrow>
+   <tabrow><tt>penmount</tt><colsep>PenMount<colsep>&nbsp;</tabrow>
+   <tabrow><tt>spaceorb</tt><colsep>SpaceOrb<colsep>&nbsp;</tabrow>
+   <tabrow><tt>summa</tt><colsep>SummaGraphics<colsep>&nbsp;</tabrow>
+   <tabrow><tt>tek4957</tt><colsep>Tektronix 4957 tablet<colsep><htmlurl
+		name="tek4957(4)" url="tek4957.4.html"></tabrow>
+   <tabrow><tt>ur98(*)</tt><colsep>Union Reality UR-F98 headtracker<colsep><htmlurl
+		name="ur98(4)" url="ur98.4.html"></tabrow>
+   <tabrow><tt>void</tt><colsep>dummy device<colsep><htmlurl
+		name="void(4)" url="void.4.html"></tabrow>
+   <tabrow><tt>wacom</tt><colsep>Wacom tablets<colsep><htmlurl
+		name="wacom(4)" url="wacom.4.html"></tabrow>
+</tabular>
+</table>
+
+Drivers marked with (*) are available for Linux only.
+
+<sect>Overview of XFree86 4.x.
+<p>
+Unlike XFree86 3.3.x where there are multiple X server binaries, each
+of which drive different hardware, XFree86 &relvers; has a single X
+server binary called <tt>XFree86</tt>.  This binary can either have one
+or more video drivers linked in statically, or, more usually, dynamically
+load the video drivers and other modules that are needed.
+
+XFree86 &relvers; has X server support for most UNIX(R) and UNIX-like
+operating systems on Intel/x86 platforms, plus support for Linux on
+Alpha, PowerPC, IA-64, Sparc, and Mips platforms, and for Darwin on PowerPC.
+Work on support for additional architectures and operating systems is
+in progress, and is planned for future releases.
+
+<sect1>Loader and Modules
+<p>
+The XFree86 X server has a built-in run-time loader, donated by <url
+name="Metro Link" url="http://www.metrolink.com">.  This loader can load
+normal object files and libraries in most of the commonly used formats.
+Since the loader doesn't rely on an operating system's native dynamic
+loader support, it works on platforms that don't provide this feature,
+and makes it possible for the modules to be operating system independent
+(although not, of course, independent of CPU architecture).  This means
+that a module compiled on Linux/x86 can be loaded by an
+X server running on Solaris/x86, or FreeBSD, or even OS/2.  
+<p>
+One of the
+main benefits of this loader is that when modules are updated, they do not need
+to be recompiled for every different operating system.  In the future
+we plan to take advantage of this to provide more frequent driver module 
+updates in between major releases.
+
+The loader in version &relvers; has support for Intel (x86), Alpha and
+PowerPC platforms.  It also has preliminary support for Sparc platforms.
+
+The X server makes use of modules for video drivers, X server extensions,
+font rasterisers, input device drivers, framebuffer layers (like mfb,
+cfb, etc), and internal components used by some drivers (like XAA),
+
+The module interfaces (API and ABI) used in this release is still subject
+to change without notice.  While we will attempt to provide backward
+compatibility for the module interfaces as of the 4.0 release (meaning
+that 4.0 modules will work with future core X server binaries), we cannot
+guarantee this. 
+
+<bf>Note about module security</bf>
+<quote><p>
+	The XFree86 X server runs with root privileges, i.e. 
+	the X server loadable modules also run with these privileges.
+	For this reason we recommend that all users be careful to only
+	use loadable modules from reliable sources,  otherwise the
+        introduction of viruses and contaminated code can occur and wreak
+         havoc on your system.  We hope to have a
+	mechanism for signing/verifying the modules that we provide
+	available in a future release.
+
+</quote>
+
+<sect1>Configuration File <label id="config">
+<p>
+
+The X server configuration file format has been extended to handle some
+of the new functionality.  The <tt>xf86config</tt> utility can be used
+to generate a basic config file, that may require some manual editing.
+The X server also has preliminary support for generating a basic config
+file.  This is done by running (as root) "<tt>XFree86 -configure</tt>".
+Alternatively, the sample config file <tt>XF86Config.eg</tt> that is
+installed in <tt>/usr/X11R6/lib/X11</tt> may be used as a starting point.
+The <tt>xf86cfg</tt> utility can also be used to create a new configuration
+file or to edit an existing one.
+The <tt>XF86Setup</tt> utility is currently not usable, but work is
+continuing in this area.
+
+The main changes are covered here, but please refer to the <htmlurl
+name="XF86Config(5)" url="XF86Config.5.html">
+manual page for more comprehensive information:
+
+<itemize>
+  <item>The Module section is used to load server extension modules and
+	font modules, but not XInput drivers.  The <tt>.so</tt> suffix
+	should no longer be specified with module names.  Options may
+	be supplied for modules by loading the module via a SubSection
+	instead of the usual Load keyword.  The <tt>bitmap</tt> module
+	is the only font module that is loaded by default.  No server
+	extensions are loaded by default, but some are built-in to the
+	server.  It is strongly recommended that the extension module
+	containing a range of small miscellaneous extensions (<tt>extmod</tt>)
+	be loaded because some commonly used things won't work correctly
+	without it.  The following example shows how to load all the server
+	extensions plus the Type1 and TrueType fonts support, and a
+	commented example that shows how to pass options to an extension
+	(this one is for loading the misc extensions (<tt>extmod</tt>)
+	with the XFree86-VidModeExtension disabled):
+
+<quote><verb>
+Section "Module"
+
+    Load "dbe"
+    Load "record"
+    Load "glx"
+    Load "extmod"
+
+    Load "type1"
+    Load "freetype"
+
+  # SubSection "extmod"
+  #     Option "Omit XFree86-VidModeExtension"
+  # EndSubSection
+
+EndSection
+</verb></quote>
+
+  <item>Option flags have been extended and are now used more widely in the
+	config file.  Options flags come in two main types.  The first type
+	is exactly like the old form:
+
+<quote><verb>
+    Option "name"
+</verb></quote>
+
+	where the option just has a name specified.  The name is case
+	insensitive, and white space and underscore characters are ignored.
+	The second type consists of a name and a value:
+
+<quote><verb>
+    Option "name" "value"
+</verb></quote>
+
+	The value is passed transparently as a string to the code that
+	uses the option.  Common value formats are integer, boolean,
+	real, string and frequency.  The following boolean option values
+	are recognised as meaning TRUE: <tt>"true"</tt>, <tt>"yes"</tt>,
+	<tt>"on"</tt>, <tt>"1"</tt>, and no value.  The values recognised
+	as FALSE are <tt>"false"</tt>, <tt>"no"</tt>, <tt>"off"</tt>,
+	<tt>"0"</tt>.  In addition to this, <tt>"no"</tt> may be prepended
+	to the <em>name</em> of a boolean option to indicate that it is
+	false.  Frequency options can have the strings <tt>Hz</tt>,
+	<tt>kHz</tt>, or <tt>MHz</tt> appended to the numerical value
+	specified.
+
+	Note: the value must always be enclosed in double quotes
+	(<tt>"</tt>), even when it is numerical.
+
+  <item>The ServerFlags section now accepts its parameters as Options
+	instead of as special keywords.  The older keyword format is
+	still recognised for compatibility purposes, but is deprecated
+	and support for it will likely be dropped in a future release.
+	The DPMS and screen save timeout values are now specified in the
+	ServerFlags section rather than elsewhere (because they are global
+	parameters, not screen-specific).  This example shows the defaults
+	for these:
+
+<quote><verb>
+    Option "blank time"    "10"
+    Option "standby time"  "20"
+    Option "suspend time"  "30"
+    Option "off time"      "40"
+</verb></quote>
+
+	The new option <tt>AllowDeactivateGrabs</tt> allows deactivating
+	any active grab with the key sequence <tt>Ctrl+Alt+Keypad-Divide</tt>
+	and the new option <tt>AllowClosedownGrabs</tt> allows closing the
+	connection to the grabbing client with the key sequence
+	<tt>Ctrl+Alt+Keypad-Multiply</tt>. Note that these options are off
+	by default as they allow users to remove the grab used by screen
+	saver/locker programs.
+
+  <item>The Keyboard, Pointer and XInput sections have been replaced by a
+	more general InputDevice section.  The old Keyboard and Pointer
+	sections are still recognised for compatibility purposes, but
+	they are discommended and support for them may be dropped in future
+	releases.  The old XInput sections are no longer recognised.
+	The keywords from the old sections are expressed as Options in
+	the InputDevice sections.  The following example shows typical
+	InputDevice sections for the core mouse and keyboard.
+
+<quote><verb>
+Section "InputDevice"
+    Identifier  "Keyboard 1"
+    Driver      "keyboard"
+    Option      "AutoRepeat" "500 5"
+    Option      "XkbModel"   "pc104"
+    Option      "XkbLayout"  "us"
+EndSection
+
+Section "InputDevice"
+    Identifier  "Mouse 1"
+    Driver      "mouse"
+    Option      "Protocol"   "PS/2"
+    Option      "Device"     "/dev/mouse"
+    Option	"SampleRate" "80"
+EndSection
+</verb></quote>
+
+  <item>The Monitor section is mostly unchanged.  The main difference is
+	that a set of VESA modes is defined internally in the server,
+	and so for most monitors, it isn't necessary to specify any modes
+	explicitly in the Monitor section.  There is also a new Modes section
+	that can be used to define a set of modes separately from the
+	Monitor section, and the Monitor section may "include" them
+	with the "<tt>UseModes</tt>" keyword.  The Monitor section may also
+	include Options.  Options that are monitor-specific, like the
+	<tt>"DPMS"</tt> and <tt>"Sync on Green"</tt> options are best
+	specified in the Monitor sections.
+
+  <item>The Device sections are mostly unchanged.  The main difference
+	is the new (and mandatory) Driver keyword that specifies which
+	video driver should be loaded to drive the video card.  Another
+	difference is the BusID keyword that is used to specify which of
+	possibly multiple video cards the Device section is for.  The
+	following is an example for a Matrox card:
+
+<quote><verb>
+Section "Device"
+    Identifier "MGA 1"
+    Driver     "mga"
+    BusID      "PCI:1:0:0"
+EndSection
+</verb></quote>
+
+  <item>The Screen sections are mostly unchanged.  The old Driver keyword
+	is no longer used, and a mandatory Identifier keyword has been
+	added.  The DefaultColorDepth keyword has been renamed to
+	DefaultDepth.
+
+  <item>A new section called ServerLayout has been added to allow the
+	layout of the screens and the selection of input devices to be
+	specified.  The ServerLayout sections may also include options
+	that are normally found in the ServerFlags section.  Multiple
+	ServerLayout sections may be present, and selected from the command
+	line.  The following example shows a ServerLayout section for a
+	dual-headed configuration with two Matrox cards, and two mice:
+
+<quote><verb>
+Section "ServerLayout"
+    Identifier  "Layout 1"
+    Screen      "MGA 1"
+    Screen      "MGA 2" RightOf "MGA 1"
+    InputDevice "Keyboard 1" "CoreKeyboard"
+    InputDevice "Mouse 1"    "CorePointer"
+    InputDevice "Mouse 2"    "SendCoreEvents"
+    Option      "BlankTime"  "5"
+EndSection
+</verb></quote>
+
+See the <htmlurl name="XF86Config(5)" url="XF86Config.5.html"> man page
+for a more detailed explanation of the format of the new ServerLayout
+section.
+
+
+</itemize>
+
+The config file search patch has been extended, with the directories
+<tt>/etc/X11</tt> and <tt>/usr/X11R6/etc/X11</tt> being added.  The full
+search path details are documented in the XF86Config manual page.
+
+
+<sect1>Command Line Options
+<p>
+
+The following new X server command line options have been added:
+
+<quote><p>
+
+<tt>-depth</tt> <it>n</it>
+<quote><p>
+	This specifies the colour depth that the server is running at.
+	The default is 8 for most drivers.  Most drivers support the
+	values 8, 15, 16 and 24.  Some drivers also support the values
+	1 and 4.  Some drivers may also support other depths.  Note that
+	the depth is different from the ``bpp'' that was specified with
+	previous versions.  The depth is the number of bits in each
+	pixel that are significant in determining the pixel's value.
+	The bpp is the total size occupied by each pixel, including bits
+	that are not used.  The old <tt>-bpp</tt> option is no longer
+	recognised because it isn't a good way of specifying the server
+	behaviour.
+
+</quote>
+
+<tt>-fbbpp</tt> <it>n</it>
+<quote><p>
+	This specifies the bpp format to use for the framebuffer.  This
+	may be used in 24-bit mode to force a framebuffer format that is
+	different from what the driver chooses by default.  In most cases
+	there should be no need to use this option.
+
+</quote>
+
+<tt>-pixmap24</tt>
+<quote><p>
+	This specifies that the client-side pixmap format should be the
+	packed 24-bit format that was often used by the 3.3.x servers.
+	The default is the more common 32-bit format.  There should normally
+	be no need to use this option.
+
+</quote>
+
+<tt>-pixmap32</tt>
+<quote><p>
+	This specifies that the client-side pixmap format should be the
+	sparse 32-bit format.  This is the default, so there should
+	normally be no need to use this option.
+
+</quote>
+
+<tt>-layout</tt> <it>name</it>
+<quote><p>
+	This specifies which ServerLayout section in the config file to
+	use.  When this option is not specified, the first ServerLayout
+	section is used.  When there is no ServerLayout section, the
+	first Screen section is used.
+
+</quote>
+
+<tt>-screen</tt> <it>name</it>
+<quote><p>
+	This specifies which Screen section in the config file to
+	use.  When this option is not specified, the first ServerLayout
+	section is used.  When there is no ServerLayout section, the
+	first Screen section is used.
+
+</quote>
+
+<tt>-keyboard</tt> <it>name</it>
+<quote><p>
+	This specifies which InputDevice section in the config file to
+	use for the core keyboard.  This option may be used in conjunction
+	with the <tt>-screen</tt> option.
+
+</quote>
+
+<tt>-pointer</tt> <it>name</it>
+<quote><p>
+	This specifies which InputDevice section in the config file to
+	use for the core pointer.  This option may be used in conjunction
+	with the <tt>-screen</tt> option.
+
+</quote>
+
+<tt>-modulepath</tt> <it>path</it>
+<quote><p>
+	This specifies the module search path.  The path should be a
+	comma-separated list of absolute directory paths to search for
+	server modules.  When specified here, it overrides the value
+	specified in the config file.  This option is only available
+	when the server is started by the <tt>root</tt> user.
+
+</quote>
+
+<tt>-logfile</tt> <it>file</it>
+<quote><p>
+	This specifies the log file name.  When specified here, it
+	overrides the default value.  This option is only available when
+	the server is started by the <tt>root</tt> user.
+
+</quote>
+
+<tt>-scanpci</tt>
+<quote><p>
+	This specifies that the <tt>scanpci</tt> module should be loaded and
+	executed.  This does a scan of the PCI bus.
+
+</quote>
+
+<tt>-logverbose</tt> [<it>n</it>]
+<quote><p>
+	This options specifies the verbosity level to use for the log file.
+	The default is 3.
+
+</quote>
+
+</quote>
+
+The following X server command line options have been changed since 3.3.x:
+
+<quote><p>
+
+<tt>-verbose</tt> [<it>n</it>]
+<quote><p>
+	This option specifies the verbosity level to use for the server
+	messages that get written to stderr.  It may be specified multiple
+	times to increase the verbosity level (as with 3.3.x), or the
+	verbosity level may be specified explicitly as a number.  The
+	default verbosity level is 0.
+
+</quote>
+
+<tt>-xf86config</tt> <it>filename</it>
+<quote><p>
+	This option has been extended to allow non-root users to specify
+	a relative config file name.  The config file search path will be
+	used to locate the file in this case.  This makes it possible for
+	users to choose from multiple config files that the the sysadmin
+	has provided.
+
+</quote>
+
+
+</quote>
+
+A more complete list of XFree86 X server command line options can be found
+in the <htmlurl name="XFree86(1)" url="XFree86.1.html"> manual page.
+
+<sect1>XAA
+<p>
+
+The XFree86 Acceleration Architecture (XAA) has been completely rewritten
+from scratch for XFree86 4.x.  Most drivers implement acceleration by
+making use of the XAA module.
+
+<sect1>Multi-head
+<p>
+Some multi-head configurations are supported in XFree86 4.x, primarily
+with multiple PCI/AGP cards.  However, this is an area that is still
+being worked on, and we expect that the range of configurations for which
+it works well will increase in future releases.  A configuration that
+is known to work well in most cases is multiple (supported) Matrox cards.
+
+One of the main problems is with drivers not sufficiently initialising
+cards that were not initialised at boot time.  This has been improved
+somewhat with the INT10 support that is used by most drivers (which
+allows secondary card to be "soft-booted", but in some cases there are
+other issues that still need to be resolved.  Some combinations can be
+made to work better by changing which card is the primary card (either
+by using a different PCI slot, or by changing the system BIOS's preference
+for the primary card).
+
+<sect1>Xinerama
+<p>
+Xinerama is an X server extension that allows multiple physical screens
+to behave as a single screen.  With traditional multi-head in X11,
+windows cannot span or cross physical screens.  Xinerama removes this
+limitation.  Xinerama does, however, require that the physical screens
+all have the same root depth, so it isn't possible, for example, to use
+an 8-bit screen together with a 16-bit screen in Xinerama mode.
+
+Xinerama is not enabled by default, and can be enabled with the
+<tt>+xinerama</tt> command line option for the X server.
+
+Xinerama was included with X11R6.4.  The version included in XFree86 4.x
+was completely rewritten for improved performance and correctness.
+
+Known problems:
+<itemize>
+  <item>Most window managers are not Xinerama-aware, and so some
+	operations like window placement and resizing might not behave
+	in an ideal way.  This is an issue that needs to be dealt with
+	in the individual window managers, and isn't specifically an
+	XFree86 problem.
+
+</itemize>
+
+<sect1>DGA version 2
+<p>
+
+DGA 2.0 is included in &relvers;, but is not implemented by all drivers.
+Preliminary documentation for the client libraries can be found in the
+<tt>README.DGA</tt> document.  A good degree of backwards compatibility
+with version 1.0 is provided.
+
+
+<sect1>DDC
+<p>
+The VESA(R) Display Data Channel (DDC&trade;) standard allows the monitor
+to tell the video card (or on some cases the computer directly) about
+itself; particularly the supported screen resolutions and refresh rates.
+
+Partial or complete DDC support is available in most of the video drivers.
+DDC is enabled by default, but can be disabled with a "Device" section
+entry:  <tt>Option "NoDDC"</tt>.  We have support for DDC versions 1
+and 2; these can be disabled independently with <tt>Option "NoDDC1"</tt>
+and <tt>Option "NoDDC2"</tt>.
+
+At startup the server prints out DDC information from the display, and
+can use this information to set or warn about monitor sync limits (but
+not modelines yet).  For some drivers, the X server's new
+<tt>-configure</tt> option uses the DDC information when generating the
+config file.
+
+<sect2>Changed behavior caused by DDC.
+<p>
+Several drivers uses DDC information to
+set the screen size and pitch.  This can be overridden by explicitly
+resetting it to the and non-DDC default value 75 with the <tt>-dpi
+75</tt> command line option for the X server, or by specifying appropriate
+screen dimensions with the "DisplaySize" keyword in the "Monitor" section
+of the config file.
+
+
+<sect1>GLX and the Direct Rendering Infrastructure (DRI)
+<p>
+
+<url name="Precision Insight" url="http://www.precisioninsight.com">
+was provided with funding and support from <url name="Red Hat"
+url="http://www.redhat.com">, <url name="SGI" url="http://www.sgi.com">,
+<url name="3Dfx" url="http://www.3dfx.com">, <url name="Intel"
+url="http://www.intel.com">, <url name="ATI" url="http://www.ati.com">,
+and <url name="Matrox" url="http://www.matrox.com"> to integrate the GLX
+extension for 3D rendering in an X11 window.  The 3D core rendering
+component is the <url name="Mesa" url="http://www.mesa3d.org"> library.
+SGI has released the sources to the GLX extension framework under an
+open license, which essentially provides the glue between the 3D
+library and this windowing system.  Precision Insight has integrated
+these components into the XFree86 X Server and added a Direct Rendering
+Infrastructure (DRI).  Direct Rendering provides a highly optimized
+path for sending 3D data directly to the graphics hardware.  This
+release provides a complete implementation of direct rendering support
+for the 3Dfx Banshee, Voodoo3 and Voodoo5 graphics cards, as well as
+the Intel i810/i815 cards, ATI Rage 128, and Matrox G400.
+Updated information on DRI
+compatible drivers can be found at the <url name="DRI Project"
+url="http://dri.sourceforge.net"> on <url name="SourceForge"
+url="http://www.sourceforge.net">.
+
+<sect1>XVideo Extension (Xv)
+<p>
+
+The XVideo extension is supported in XFree86 4.x.
+An XvQueryPortAttributes function has been added as well as
+support for XvImages.  XvImages are XImages in alternate color spaces 
+such as YUV and can be passed to the server through shared memory
+segments.  This allows clients to display YUV data with high quality
+hardware scaling and filtering.
+
+<sect1>X Rendering Extension (Render) <label id="render">
+<p>
+
+The X Rendering extension provides a 2D rendering model that more
+closely matches application demands and hardware capabilities.  It provides
+a rendering model derived from Plan 9 based on Porter/Duff image
+composition rather than binary raster operations.
+
+<p>
+Using simple compositing operators provided by most hardware, Render
+can draw anti-aliased text and geometric objects as well as perform 
+translucent image overlays and other image operations not possible with 
+the core X rendering system.
+
+<p>
+XFree86 &relvers; provides a partial implementation of Render sufficient 
+for drawing anti-aliased text and image composition.  Still to be 
+implemented are geometric primitives and affine transformation of images.
+
+<p>
+Unlike the core protocol, Render provides no font support for applications,
+rather it allows applications to upload glyphs for display on the screen.
+This allows the client greater control over text rendering and complete
+access to the available font information while still providing hardware
+acceleration.  The Xft library provides font access for
+Render applications.
+
+<sect2>The Xft Library
+<p>
+
+On the client side, the Xft library provides access to fonts for
+applications using the FreeType library, version 2.  FreeType currently
+supports Type1 and TrueType font files, a future release is expected to 
+support BDF and PCF files as well, so Render applications will have access 
+to the complete range of fonts available to core applications.  One 
+important thing to note is that Xft uses the vertical size of the monitor 
+to compute accurate pixel sizes for provided point sizes; if your monitor 
+doesn't provide accurate information via DDC, you may want to add that 
+information to <tt>XF86Config</tt>.
+
+<p>
+
+To allow a graceful transition for applications moving from core text
+rendering to the Render extension, Xft can use either core fonts or FreeType
+and the Render extension for text.  By default, Xft is configured to support
+both core fonts and FreeType fonts using the supplied version of FreeType
+2.  See the section on FreeType support in Xft for instructions on
+configuring XFree86 to use an existing FreeType installation.
+
+<p>
+The Xft library uses a configuration file, <tt>XftConfig</tt>, which
+contains information about which directories contain font files and also
+provides a sophisticated font aliasing mechanism.  Documentation for that
+file is included in the <htmlurl name="Xft(3)" url="Xft.3.man"> man page.
+
+</sect2>
+<sect2>FreeType support in Xft
+<p>
+
+XFree86 &relvers; includes sources for FreeType version 2.1.1, and, by
+default, they are built and installed automatically.
+
+</sect2>
+
+<sect2>Application Support For Anti-Aliased Text
+<p>
+
+Only three applications have been modified in XFree86 &relvers; to work 
+with the Render extension and the Xft and FreeType libraries to provide 
+anti-aliased text.  Xterm, xditview and x11perf.  Migration of other 
+applications may occur in future releases.
+
+<p>
+By default, xterm uses core fonts through the standard core API.  It has
+a command line option and associated resource to direct it to use
+Xft instead:
+<itemize>
+  <item><tt>-fa</tt> family / <tt>.VT100.faceName:</tt> family.  Selects the 
+	font family to use.
+</itemize>
+
+<p>
+Xditview will use Xft instead of the core API by default.  X11perf 
+includes tests to measure the performance of text rendered in three ways, 
+anti-aliased, anti-aliased with sub-pixel sampling and regular chunky 
+text, but through the Render extension, a path which is currently somewhat
+slower than core text.
+</sect2>
+
+<sect1>Other extensions
+<p>
+
+The XFree86-Misc extension has not been fully ported to the new server
+architecture yet.  This should be completed in a future release.
+
+The XFree86-VidModeExtension extension has been updated, and mostly
+ported to the new server architecture.  The area of mode validation
+needs further work, and the extension should be used with care.  This
+extension has support for changing the gamma setting at run-time, for
+modes where this is possible.  The <tt>xgamma</tt> utility makes
+use of this feature.  Compatibility with the 3.3.x version of the
+extension is provided.  The missing parts of this extension and some
+new features should be completed in a future release.
+
+
+<!--
+<sect>X libraries and clients
+<p>
+-->
+
+<sect1>xedit
+<p>
+
+Xedit has several new features, including:
+<itemize>
+  <item>An embedded lisp interpreter that allows easier extension of the editor.
+  <item>Several new syntax highlight modes, and indentation rules for C and Lisp.
+  <item>Flexible search/replace interface that allows regex matches.
+  <item>Please refer to <tt><htmlurl name="xedit(1)" url="xedit.1.html"></tt>
+	for more details.
+</itemize>
+
+<!--
+<sect>Fonts and Internationalisation
+<p>
+-->
+
+<sect1>Font support
+<p>
+
+Details about the font support in XFree86 4.x can be found
+in the <htmlurl name="README.fonts" url="fonts.html"> document.
+
+<sect1>TrueType support
+<p>
+
+XFree86 4.x comes with two TrueType backends, known as
+`xfsft' (the <tt>"freetype"</tt> module) and `X-TrueType' (the
+<tt>"xtt"</tt> module).  Both of these backends are based on the FreeType
+library.
+
+<sect1>CID font support
+<p>
+
+Support for CID-keyed fonts is included in XFree86 4.x.
+The CID-keyed font format was designed by <url name="Adobe Systems"
+url="http://www.adobe.com"> for fonts with large character sets.  The
+CID-keyed font support in XFree86 was donated by <url name="SGI"
+url="http://www.sgi.com">.  See the <htmlurl name="LICENSE"
+url="LICENSE.html"> document for a copy of the CID Font Code Public
+License.
+
+<sect1>Internationalisation of the scalable font backends
+<p>
+
+XFree86 4.x has a ``fontenc'' layer to allow the scalable font backends
+to use a common method of font re-encoding.  This re-encoding makes it
+possible to uses fonts in encodings other than their their native
+encoding.  This layer is used by the Type1 and Speedo backends and the
+`xfsft' version of the TrueType backend.  The `X-TrueType' version of
+the TrueType backend uses a different re-encoding method based on loadable
+encoding modules.
+
+<sect1>Large font optimisation
+<p>
+
+The glyph metrics array, which all the X clients using a particular font
+have access to, is placed in shared memory, so as to reduce redundant
+memory consumption.  For non-local clients, the glyph metrics array is
+transmitted in a compressed format.
+
+<sect1>Unicode/ISO 10646 support
+<p>
+What is included in 4.x:
+
+<itemize>
+  <item>All ``-misc-fixed-*'' BDF fonts are now available in the
+        ISO10646-1 encoding and cover at least the 614 characters
+        found in ISO 8859-{1-5,7-10,14,15}, CP1252, and MES-1. The
+        non-bold fonts also cover all Windows Glyph List 4 (WGL4)
+        characters, including those found in all 8-bit MS-DOS/Windows
+        code pages. The 8-bit variants of the ``-misc-fixed-*'' BDF
+        fonts (ISO8859-1, ISO8859-2, KOI8-R, etc.) have all been
+        automatically generated from the new ISO10646-1 master fonts.
+
+  <item>Some ``-misc-fixed-*'' BDF ISO10646-1 fonts now cover a
+        comprehensive Unicode repertoire of over 3000 characters
+        including all Latin, Greek, Cyrillic, Armenian, Gregorian,
+        Hebrew, IPA, and APL characters, plus numerous scientific,
+	typographic, technical, and backwards-compatibility
+        symbols. Some of these fonts also cover Arabic, Ethiopian,
+        Thai, Han/Kanji, Hangul, full ISO 8859, and more. For the 6x13
+        font there is now a 12x13ja Kanji extension and for the 9x18
+        font there is a 18x18ja Kanji/Han/Hangul extension, which
+        covers all ISO-2022-JP-2 (RFC 1554) characters. The 9x18 font
+        can also be used to implement simple combining characters by
+        accent overstriking. For more information, read Markus Kuhn's
+        <url name="UTF-8 and Unicode FAQ"
+        url="http://www.cl.cam.ac.uk/~mgk25/unicode.html">.
+
+  <item>Mark Leisher's ClearlyU proportional font (similar to Computer
+	Modern).
+
+  <item>ISO 10646/Unicode UTF-8 Level 1 support added to xterm
+	(enabled with the <tt>-u8</tt> option).
+
+  <item>Both the xfsft (the <tt>"freetype"</tt> module) and the X-TrueType
+	(the <tt>"xtt"</tt> module) TrueType font backends support
+	Unicode-encoded fonts.
+
+</itemize>
+
+<sect1>Luxi fonts from Bigelow and Holmes <label id="luxi">
+<p>
+
+XFree86 now includes the ``Luxi'' family of Type&nbsp;1 fonts and TrueType
+fonts.  This family consists of the fonts ``Luxi&nbsp;Serif'',
+``Luxi&nbsp;Sans'' and ``Luxi&nbsp;Mono'' in Roman, oblique, bold and
+bold oblique variants.  The TrueType version have glyphs covering the
+basic ASCII Unicode range, the Latin&nbsp;1 range, as well as the
+<it/Extended Latin/ range and some additional punctuation characters.
+In particular, these fonts include all the glyphs needed for ISO&nbsp;8859
+parts 1, 2, 3, 4, 9, 13 and 15, as well as all the glyphs in the Adobe
+Standard encoding and the Windows 3.1  character set.
+
+The glyph coverage of the Type&nbsp;1 versions is somewhat reduced,
+and only covers ISO&nbsp;8859 parts 1, 2 and 15 as well as the Adobe
+Standard encoding.
+
+The Luxi fonts are original designs by Kris Holmes and Charles Bigelow
+from Bigelow and Holmes Inc., who developed the Luxi typeface designs
+in Ikarus digital format.  URW++ Design and Development GmbH converted
+the Ikarus format fonts to TrueType and Type&nbsp;1 font programs and
+implemented the grid-fitting "hints" and kerning tables in the Luxi
+fonts.
+
+The license terms for the Luxi fonts are included in the file
+`<tt/COPYRIGHT.BH/', as well as in the <htmlurl
+name="License document" url="LICENSE.html">.  For further information,
+please contact
+<email>design@bigelowandholmes.com</email> or
+<email>info@urwpp.de</email>, or consult the
+<url name="URW++ web site" url="http://www.urwpp.de">.
+
+
+<!--
+<sect>Miscellaneous
+<p>
+-->
+
+<sect1>Directory rearrangements
+<p>
+
+Some changes to the installed XFree86 directory structure have been
+implemented for 4.x.
+One important
+change is a modified search path for the X
+server's <tt>XF86Config</tt> file.  The details of this can be found
+in the XF86Config manual page.  The other main change is moving
+most of the run-time configuration files to <tt>/etc/X11</tt>, with
+symbolic links in the old <tt>/usr/X11R6/lib/X11</tt> location pointing
+to the new location.  Some run-time generated files are now located
+under the appropriate subdirectories of <tt>/var</tt>, again with the
+relevant symbolic links in the old location.
+
+
+
+
+</article>

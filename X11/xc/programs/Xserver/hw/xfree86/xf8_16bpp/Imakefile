@@ -1,0 +1,33 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/xf8_16bpp/Imakefile,v 1.3 1999/08/14 10:50:17 dawes Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+
+
+#if DoLoadableServer
+XFMODSRC = cfb8_16module.c
+XFMODOBJ = cfb8_16module.o
+#endif
+
+SRCS = 	cfbscrinit.c cfbwindow.c $(XFMODSRC)
+
+OBJS = 	cfbscrinit.o cfbwindow.o $(XFMODOBJ) 
+
+INCLUDES = -I. -I$(XF86SRC)/xf1bpp -I$(SERVERSRC)/mfb \
+        -I$(SERVERSRC)/cfb -I$(SERVERSRC)/mi -I$(SERVERSRC)/include \
+        -I$(XF86OSSRC) -I$(XF86COMSRC) \
+        -I$(FONTINCSRC) -I$(XINCLUDESRC)
+
+
+ModuleObjectRule()
+LibraryModuleTarget(xf8_16bpp,$(OBJS))
+LintLibraryTarget(xf8_16bpp,$(SRCS))
+NormalLintTarget($(LINTDEFS) $(SRCS))
+
+InstallLibraryModule(xf8_16bpp,$(MODULEDIR),.)
+
+DependTarget()
+
+InstallDriverSDKLibraryModule(xf8_16bpp,$(DRIVERSDKMODULEDIR),.)
+
+InstallDriverSDKNonExecFile(cfb8_16.h,$(DRIVERSDKINCLUDEDIR))

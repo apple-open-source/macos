@@ -1,0 +1,144 @@
+# Sample rcfile for Sjeng 10.0
+#
+# First number is size of hash table (transposition table) 
+# An entry is about 16 bytes, and there are three tables, 
+# so the total hash size is the number below times 48.
+# Normal, Bughouse, Crazyhouse, Losers
+#
+100000
+#
+# Evaluation cache entries
+# An entry is normally about 8 bytes
+# Normal, Bughouse, Crazyhouse, Losers
+#
+4000
+#
+# Proofnumber search buffer
+# In suicide/giveaway and losers Sjeng uses proofnumbersearch instead 
+# of the more common alpha-beta search. If the buffer is filled
+# Sjeng will have to stop searching. Make this a large
+# number if you will play suicide or losers at slow timecontrols.
+# You can safely set this to 0 if you do not play suicide/giveaway
+# or losers.
+# Each entry is about 28 bytes.
+# Suicide/Giveaway and Losers only
+#
+500000
+#
+# Kingsafety scalefactor (range 0<->2.5)
+# This controls how much emphasis Sjeng will
+# put on kingattacks vs material gain.
+# The eval can be completely finetuned below.
+# Crazyhouse/bughouse only
+#
+1.0
+#
+# Development scaling (1=enabled/0=disabled)
+# Sjeng will put less emphasis on trying to
+# get pieces on good squares if it does not
+# have much material in hand.
+# Crazyhouse/bughouse only
+1
+#
+# Razor drop moves (1=enabled/0=disabled)
+# Sjeng will look less deep at
+# drop moves that seem passive.
+# Crazyhouse/bughouse only
+1
+#
+# Cut drop moves (1=enabled/0=disabled)
+# Sjeng will try to avoid looking at drop moves 
+# where the dropped piece can be captured immediately.
+# EXPERIMENTAL
+# Crazyhouse/bughouse only
+1
+#
+# Book learning
+# Sjeng will adjust the openings it plays
+# depending on the outcome of the game.
+# All variants
+1
+#
+# Futility pruning/Limited Razoring (1=enabled/0=disabled)
+# Sjeng will try to avoid looking at positions
+# where it is materially lost, or will look at
+# them less deeply.
+# All variants
+1
+#
+# One-reply extension (1=enabled/0=disabeled)
+# Sjeng will loop deeper at very forcing lines.
+# This can cause Sjeng to see some tactics faster,
+# but it may reduce overall search depth.
+# Normal/Crazyhouse/Bughouse
+1
+#
+# Recapture extension (1=enabled/0=disabled)
+# Sjeng will treat a recapture like a forced move.
+# Normal/Crazyhouse/Bughouse
+1
+#
+# Use Smarteval (1=enabled/0=disabled)
+# This enables the use of an evalution 
+# which can detect some typical threats,
+# but which will also slow the search down.
+# Crazyhouse and Bughouse only
+1
+#
+# Use Attackeval (1=enabled/0=disabled)
+# Sjeng will do a full calculation of
+# which squares near the king are threatened.
+# This will increase its awareness of 
+# kingsafety, but will also cause it
+# to search slower, and hence look less deeply.
+# Crazyhouse and Bughouse only
+1
+#
+# Kingsafety (Crazyhouse/Bughouse only)
+#
+# The following tables are the 'tropisms'. 
+# They are basically bonusses for having pieces
+# close to the opposing king. The closer our
+# pieces are, the better. First number is a 
+# maximum distance of 1 file/rank. Second 2 etc...
+#
+# Pawn tropisms
+40 20 10 3 1 1 0
+# Bishop tropisms
+50 25 15 5 2 2 2 
+# Knight tropisms
+50 70 35 10 2 1 0 
+# Rook tropisms
+50 40 15 5 1 1 0 
+# Queen tropisms
+100 60 20 5 2 0 0 
+#
+#
+# KingAttacks table  (Crazyhouse/Bughouse only)
+#
+# The following table is used to give penalties
+# depending on the number of squares around our
+# king that are attacked, taking into account
+# the pieces in our opponents hand.
+#
+# It is only used if AttackEval is also enabled
+#
+#
+# Columns are the number of squares that are attacked.
+# Rows are the number of points in the opponents hand.
+#
+-5    5  10  15  50  80 150 150 150 
+-5   15  20  25  70 150 200 200 200 
+-5   15  30  30 100 200 300 300 300   
+-10  20  40  40 100 200 300 300 400  
+-10  30  50  80 150 300 400 400 500  
+-10  35  60 100 200 250 400 400 500  
+-10  40  70 110 210 300 500 500 600  
+-10  45  75 125 215 300 500 600 700  
+-10  60  90 130 240 350 500 600 700  
+-15  60  95 145 260 350 500 600 700   
+-15  60 100 150 270 350 500 600 700   
+-15  60 110 160 280 400 600 700 800 
+-20  70 115 165 290 400 600 700 800 
+-20  80 120 170 300 450 700 800 900 
+-20  80 125 175 310 450 700 800 900

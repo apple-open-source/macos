@@ -1,0 +1,30 @@
+.\" $XFree86: xc/programs/glxgears/glxgears.man,v 1.1 2001/04/02 21:12:11 dawes Exp $
+.\"
+.TH GLXGEARS 1 __vendorversion__
+.SH NAME
+glxgears \- GLX version of the infamous "gears" GL demo.
+.SH SYNOPSIS
+.B "glxgears"
+[\-info]
+[\-display \fIdisplayname\fP]
+.SH DESCRIPTION
+.PP
+.I glxgears
+is a GLX demo that draws three rotating gears, and prints out framerate
+information to stdout.
+Command line options include:
+.TP 8
+.B \-info
+Print out GL implementation information before running the demo.
+.TP 8
+.BI "\-display " displayname
+Specify the display to query.
+.SH ENVIRONMENT
+.PP
+.TP 8
+.B DISPLAY
+To get the default host, display number, and screen.
+.SH "SEE ALSO"
+glxinfo(1)
+.SH AUTHOR
+Ported to straight GLX by Brian Paul.

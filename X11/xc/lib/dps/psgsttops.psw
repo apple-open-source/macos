@@ -1,0 +1,213 @@
+/* psgsttops.psw
+ *
+ * (c) Copyright 1988-1994 Adobe Systems Incorporated.
+ * All rights reserved.
+ * 
+ * Permission to use, copy, modify, distribute, and sublicense this software
+ * and its documentation for any purpose and without fee is hereby granted,
+ * provided that the above copyright notices appear in all copies and that
+ * both those copyright notices and this permission notice appear in
+ * supporting documentation and that the name of Adobe Systems Incorporated
+ * not be used in advertising or publicity pertaining to distribution of the
+ * software without specific, written prior permission.  No trademark license
+ * to use the Adobe trademarks is hereby granted.  If the Adobe trademark
+ * "Display PostScript"(tm) is used to describe this software, its
+ * functionality or for any other purpose, such use shall be limited to a
+ * statement that this software works in conjunction with the Display
+ * PostScript system.  Proper trademark attribution to reflect Adobe's
+ * ownership of the trademark shall be given whenever any such reference to
+ * the Display PostScript system is made.
+ * 
+ * ADOBE MAKES NO REPRESENTATIONS ABOUT THE SUITABILITY OF THE SOFTWARE FOR
+ * ANY PURPOSE.  IT IS PROVIDED "AS IS" WITHOUT EXPRESS OR IMPLIED WARRANTY.
+ * ADOBE DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL
+ * IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NON- INFRINGEMENT OF THIRD PARTY RIGHTS.  IN NO EVENT SHALL ADOBE BE LIABLE
+ * TO YOU OR ANY OTHER PARTY FOR ANY SPECIAL, INDIRECT, OR CONSEQUENTIAL
+ * DAMAGES OR ANY DAMAGES WHATSOEVER WHETHER IN AN ACTION OF CONTRACT,
+ * NEGLIGENCE, STRICT LIABILITY OR ANY OTHER ACTION ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.  ADOBE WILL NOT
+ * PROVIDE ANY TRAINING OR OTHER SUPPORT FOR THE SOFTWARE.
+ * 
+ * Adobe, PostScript, and Display PostScript are trademarks of Adobe Systems
+ * Incorporated which may be registered in certain jurisdictions
+ * 
+ * Author:  Adobe Systems Incorporated
+ */
+
+defineps PSconcat(float m[6])
+	m concat
+endps
+
+defineps PScurrentdash()
+	currentdash 
+endps
+
+defineps PScurrentflat( | float *flatness)
+	currentflat flatness 
+endps
+
+defineps PScurrentgray( | float *gray)
+	currentgray gray 
+endps
+
+defineps PScurrentgstate(userobject gst)
+	gst currentgstate 
+endps
+
+defineps PScurrenthalftone()
+	currenthalftone 
+endps
+
+defineps PScurrenthalftonephase( | float *x, *y)
+	currenthalftonephase y x 
+endps
+
+defineps PScurrenthsbcolor( | float *h, *s, *b)
+	currenthsbcolor b s h 
+endps
+
+defineps PScurrentlinecap( | int *linecap)
+	currentlinecap linecap 
+endps
+
+defineps PScurrentlinejoin( | int *linejoin)
+	currentlinejoin linejoin 
+endps
+
+defineps PScurrentlinewidth( | float *width)
+	currentlinewidth width 
+endps
+
+defineps PScurrentmatrix()
+	currentmatrix 
+endps
+
+defineps PScurrentmiterlimit( | float *limit)
+	currentmiterlimit limit 
+endps
+
+defineps PScurrentpoint( | float *x, *y)
+	currentpoint y x 
+endps
+
+defineps PScurrentrgbcolor( | float *r, *g, *b)
+	currentrgbcolor b g r 
+endps
+
+defineps PScurrentscreen()
+	currentscreen 
+endps
+
+defineps PScurrentstrokeadjust( | boolean *b)
+	currentstrokeadjust b 
+endps
+
+defineps PScurrenttransfer()
+	currenttransfer 
+endps
+
+defineps PSdefaultmatrix()
+	defaultmatrix 
+endps
+
+defineps PSgrestore()
+	grestore 
+endps
+
+defineps PSgrestoreall()
+	grestoreall 
+endps
+
+defineps PSgsave()
+	gsave 
+endps
+
+defineps PSgstate()
+	gstate 
+endps
+
+defineps PSinitgraphics()
+	initgraphics 
+endps
+
+defineps PSinitmatrix()
+	initmatrix 
+endps
+
+defineps PSrotate(float angle)
+	angle rotate 
+endps
+
+defineps PSscale(float x, y)
+	x y scale 
+endps
+
+defineps PSsetdash(float pat[size]; int size; float offset)
+	pat offset setdash
+endps
+
+defineps PSsetflat(float flatness)
+	flatness setflat 
+endps
+
+defineps PSsetgray(float gray)
+	gray setgray 
+endps
+
+defineps PSsetgstate(userobject gst)
+	gst setgstate 
+endps
+
+defineps PSsethalftone()
+	sethalftone 
+endps
+
+defineps PSsethalftonephase(float x, y)
+	x y sethalftonephase 
+endps
+
+defineps PSsethsbcolor(float h, s, b)
+	h s b sethsbcolor 
+endps
+
+defineps PSsetlinecap(int linecap)
+	linecap setlinecap 
+endps
+
+defineps PSsetlinejoin(int linejoin)
+	linejoin setlinejoin 
+endps
+
+defineps PSsetlinewidth(float width)
+	width setlinewidth 
+endps
+
+defineps PSsetmatrix()
+	setmatrix 
+endps
+
+defineps PSsetmiterlimit(float limit)
+	limit setmiterlimit 
+endps
+
+defineps PSsetrgbcolor(float r, g, b)
+	r g b setrgbcolor 
+endps
+
+defineps PSsetscreen()
+	setscreen 
+endps
+
+defineps PSsetstrokeadjust(boolean b)
+	b setstrokeadjust 
+endps
+
+defineps PSsettransfer()
+	settransfer 
+endps
+
+defineps PStranslate(float x, y)
+	x y translate 
+endps
+

@@ -1,0 +1,369 @@
+.NH 2
+Structure Related and No-op Functions
+.XS
+\*(SN Structure Related and No-op Functions
+.XE
+.LP
+.IN "output commands"
+.IN "structure"
+.IN "no-op"
+There are some output commands that either relate to only structure
+resources or that do not directly cause anything to be rendered.
+The output commands in this category are application data, execute structure,
+generalized structure element, label and no-op.
+Label, no-op and application data
+have no visible effect when rendered.
+A label command is used to position the element pointer in a structure.
+For more information on labels, see \fIChapter 7: Structures\fP.
+.NH 3
+Common Data Structures
+.XS
+\*(SN Common Data Structures
+.XE
+.LP
+Below are the data structures used that are common to more than one function
+described in this section.
+.RS
+.Co
+/* similar to XErrorEvent - use to access additional info in OC error */
+.ID
+typedef struct {
+    int             type;
+    Display         *display;      /* Display the event was read from */
+    XID             resourceid;    /* resource id of renderer or structure */
+    unsigned long   serial;        /* serial number of failed request */
+    unsigned char   error_code;    /* error code of failed request */
+    unsigned char   request_code;  /* Major op-code of failed request */
+    unsigned char   minor_code;    /* Minor op-code of failed request */
+    unsigned short  op_code;       /* op-code of failed output command */
+    unsigned short  count;         /* number of output commands successfully */
+                                   /* executed before error */
+} PEXOCErrorEvent;
+.DE
+.ft P
+.RE
+.bp
+.XS
+Function Descriptions
+.XE
+.SH
+PEXApplicationData - Structure Application Data
+.XS
+	PEXApplicationData
+.XE
+.IN "PEXApplicationData" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXApplicationData\^(\^Display *\fIdisplay\fP\^, XID \fIresource_id\fP\^, PEXOCRequestType \fIreq_type\fP\^, int \fIlength\fP\^, char *\fIdata\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIresource_id\fP 1i
+The resource identifier of the renderer or structure.
+.IP \fIreq_type\fP 1i
+The request type for the output command
+.Pn ( PEXOCRender ,
+.PN PEXOCStore ,
+.PN PEXOCRenderSingle
+or
+.PN PEXOCStoreSingle ).
+.IP \fIlength\fP 1i
+The length, in bytes, of the application data.
+.IP \fIdata\fP 1i
+A pointer to the application data.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function creates an
+application data output command
+which has no visible effect when rendered.
+It is typically used to store arbitrary application data in a structure.
+.RE
+.SH
+Errors
+.RS
+.IP \fIBadPEXRenderer\fP 1i
+The specified renderer resource identifier is invalid.
+.IP \fIBadPEXStructure\fP 1i
+The specified structure resource identifier is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.RE
+.bp
+.SH
+PEXExecuteStructure - Execute Structure
+.XS
+	PEXExecuteStructure
+.XE
+.IN "PEXExecuteStructure" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXExecuteStructure\^(\^Display *\fIdisplay\fP\^, XID \fIresource_id\fP\^, PEXOCRequestType \fIreq_type\fP\^, PEXStructure \fIstructure\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIresource_id\fP 1i
+The resource identifier of the renderer or structure.
+.IP \fIreq_type\fP 1i
+The request type for the output command
+.Pn ( PEXOCRender ,
+.PN PEXOCStore ,
+.PN PEXOCRenderSingle
+or
+.PN PEXOCStoreSingle ).
+.IP \fIstructure\fP 1i
+The resource identifier of the structure.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function creates an
+execute structure output command
+which causes the specified structure to be executed during structure traversal.
+Executing a structure consists of these steps:
+.ID
+1. Save the current state of the rendering pipeline.
+2. Set the global transform to the current composite modeling transform.
+3. Set the local transform to the identity matrix.
+4. Process all structure elements in the called structure.
+5. Restore the state saved at step 1.
+.DE
+If structure does not exist at the time
+.PN PEXExecuteStructure
+is processed, a
+.PN BadPEXOutputCommand
+error is produced.  The structure must first be created.
+.RE
+.SH
+Errors
+.RS
+.IP \fIBadPEXOutputCommand\fP 1i
+The output command contains an invalid value.
+.IP \fIBadPEXRenderer\fP 1i
+The specified renderer resource identifier is invalid.
+.IP \fIBadPEXStructure\fP 1i
+The specified structure resource identifier is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreateStructure ,
+.PN PEXBeginStructure ,
+.PN PEXEndStructure
+.RE
+.bp
+.SH
+PEXGSE - Generalized Structure Element
+.XS
+	PEXGSE
+.XE
+.IN "PEXGSE" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXGSE\^(\^Display *\fIdisplay\fP\^, XID \fIresource_id\fP\^, PEXOCRequestType \fIreq_type\fP\^, long \fIid\fP\^, int \fIlength\fP\^, char *\fIdata\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIresource_id\fP 1i
+The resource identifier of the renderer or structure.
+.IP \fIreq_type\fP 1i
+The request type for the output command
+.Pn ( PEXOCRender ,
+.PN PEXOCStore ,
+.PN PEXOCRenderSingle
+or
+.PN PEXOCStoreSingle ).
+.IP \fIid\fP 1i
+The identifier of the GSE.
+.IP \fIlength\fP 1i
+The length, in bytes, of the GSE data.
+.IP \fIdata\fP 1i
+A pointer to the GSE data.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function creates a generalized structure element.
+.LP
+The complete interface and behavior for each GSE identifier
+should be available with the individual PEX server implementations.
+There are no standard PEX GSEs.
+If the specified GSE identifier is not supported,
+then the output command is ignored.
+.RE
+.SH
+Errors
+.RS
+.IP \fIBadPEXRenderer\fP 1i
+The specified renderer resource identifier is invalid.
+.IP \fIBadPEXStructure\fP 1i
+The specified structure resource identifier is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.RE
+.bp
+.SH
+PEXLabel - Structure Label
+.XS
+	PEXLabel
+.XE
+.IN "PEXLabel" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXLabel\^(\^Display *\fIdisplay\fP\^, XID \fIresource_id\fP\^, PEXOCRequestType \fIreq_type\fP\^, long \fIlabel\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIresource_id\fP 1i
+The resource identifier of the renderer or structure.
+.IP \fIreq_type\fP 1i
+The request type for the output command
+.Pn ( PEXOCRender ,
+.PN PEXOCStore ,
+.PN PEXOCRenderSingle
+or
+.PN PEXOCStoreSingle ).
+.IP \fIlabel\fP 1i
+A value to be used as a label.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function creates a
+label output command which
+has no visible effect.  Its primary function comes when it is stored in a
+structure, as labels can be used in various element pointer positioning
+operations.  Labels within a particular structure need not be unique.
+.RE
+.SH
+Errors
+.RS
+.IP \fIBadPEXRenderer\fP 1i
+The specified renderer resource identifier is invalid.
+.IP \fIBadPEXStructure\fP 1i
+The specified structure resource identifier is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXDeleteToLabel ,
+.PN PEXDeleteBetweenLabels ,
+.PN PEXSetElementPtrAtLabel
+.RE
+.bp
+.SH
+PEXNoop - Noop Output Command
+.XS
+	PEXNoop
+.XE
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXNoop\^(\^Display *\fIdisplay\fP\^, XID \fIresource_id\fP\^, PEXOCRequestType \fIreq_type\fP\^)
+.FN
+.RE
+.IN "PEXNoop" "" "@DEF@"
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIresource_id\fP 1i
+The resource identifier of the renderer or structure.
+.IP \fIreq_type\fP 1i
+The request type for the output command
+.Pn ( PEXOCRender ,
+.PN PEXOCStore ,
+.PN PEXOCRenderSingle
+or
+.PN PEXOCStoreSingle ).
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function creates a
+no-op output command which, when rendered, will do nothing except update the
+current path.
+.RE
+.SH
+Errors
+.RS
+.IP \fIBadPEXRenderer\fP 1i
+The specified renderer resource identifier is invalid.
+.IP \fIBadPEXStructure\fP 1i
+The specified structure resource identifier is invalid.
+.RE
+.SH
+See Also
+.RS
+.RE
+.bp

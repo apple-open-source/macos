@@ -1,0 +1,158 @@
+_C_ License Applicability. Except to the extent portions of this file are
+_C_ made subject to an alternative license as permitted in the SGI Free
+_C_ Software License B, Version 1.1 (the "License"), the contents of this
+_C_ file are subject only to the provisions of the License. You may not use
+_C_ this file except in compliance with the License. You may obtain a copy
+_C_ of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+_C_ Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+_C_ 
+_C_ http://oss.sgi.com/projects/FreeB
+_C_ 
+_C_ Note that, as provided in the License, the Software is distributed on an
+_C_ "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+_C_ DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+_C_ CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+_C_ PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+_C_ 
+_C_ Original Code. The Original Code is: OpenGL Sample Implementation,
+_C_ Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+_C_ Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+_C_ Copyright in any portions created by third parties is as indicated
+_C_ elsewhere herein. All Rights Reserved.
+_C_ 
+_C_ Additional Notice Provisions: The application programming interfaces
+_C_ established by SGI in conjunction with the Original Code are The
+_C_ OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+_C_ April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+_C_ 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+_C_ Window System(R) (Version 1.3), released October 19, 1998. This software
+_C_ was created using the OpenGL(R) version 1.2.1 Sample Implementation
+_C_ published by SGI, but has not been independently verified as being
+_C_ compliant with the OpenGL(R) version 1.2.1 Specification.
+_C_
+_C_ The first character in this file must be an '_'!
+_C_ Anything on a line after _C_ is ignored
+_define(_filters,tbl|eqn)_C_
+_C_      eqn is automatically replaced with neqn for nroff
+_header(DrawBuffer,specify which color buffers are to be drawn into)
+_names(DrawBuffer)
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+_phead(_param1)
+Specifies up to four color buffers to be drawn into.
+Symbolic constants
+_const(NONE), 
+_const(FRONT_LEFT),
+_const(FRONT_RIGHT),
+_const(BACK_LEFT),
+_const(BACK_RIGHT),
+_const(FRONT),
+_const(BACK),
+_const(LEFT),
+_const(RIGHT),
+_const(FRONT_AND_BACK), and
+_const(AUX)\f2i\fP,
+where \f2i\fP is between 0 and
+.br
+``_const(AUX_BUFFERS)'' \-1,
+are accepted (_const(AUX_BUFFERS) is not the upper limit; use _cmnd(Get)
+to query the number of available aux buffers.)
+The initial value is _const(FRONT) for single-buffered contexts,
+and _const(BACK) for double-buffered contexts.
+.SH DESCRIPTION
+When colors are written to the frame buffer,
+they are written into the color buffers specified by _cmnd.
+The specifications are as follows:
+.TP 25
+_const(NONE)
+No color buffers are written.
+.TP
+_const(FRONT_LEFT)
+Only the front left color buffer is written.
+.TP
+_const(FRONT_RIGHT)
+Only the front right color buffer is written.
+.TP
+_const(BACK_LEFT)
+Only the back left color buffer is written.
+.TP
+_const(BACK_RIGHT)
+Only the back right color buffer is written.
+.TP
+_const(FRONT)
+Only the front left and front right color buffers are written.
+If there is no front right color buffer,
+only the front left color buffer is written.
+.TP
+_const(BACK)
+Only the back left and back right color buffers are written.
+If there is no back right color buffer,
+only the back left color buffer is written.
+.TP
+_const(LEFT)
+Only the front left and back left color buffers are written.
+If there is no back left color buffer,
+only the front left color buffer is written.
+.TP
+_const(RIGHT)
+Only the front right and back right color buffers are written.
+If there is no back right color buffer,
+only the front right color buffer is written.
+.BP
+.TP
+_const(FRONT_AND_BACK)
+All the front and back color buffers
+(front left, front right, back left, back right)
+are written.
+If there are no back color buffers,
+only the front left and front right color buffers are written.
+If there are no right color buffers,
+only the front left and back left color buffers are written.
+If there are no right or back color buffers,
+only the front left color buffer is written.
+.TP
+_const(AUX)\f2i\fP
+Only auxiliary color buffer \f2i\fP is written.
+.P
+If more than one color buffer is selected for drawing,
+then blending or logical operations are computed and applied independently
+for each color buffer and can produce different results in each buffer.
+.P
+Monoscopic contexts include only 
+.I left 
+buffers, and stereoscopic contexts include both
+.I left
+and
+.I right
+buffers.
+Likewise, single-buffered contexts include only
+.I front
+buffers, and double-buffered contexts include both 
+.I front
+and
+.I back
+buffers.
+The context is selected at GL initialization.
+.SH NOTES
+It is always the case that _const(AUX)$i$ = _const(AUX0) + $i$.
+.SH ERRORS
+_const(INVALID_ENUM) is generated if _param1 is not an accepted value.
+.P
+_const(INVALID_OPERATION) is generated if none of the buffers indicated
+by _param1 exists.
+.P
+_const(INVALID_OPERATION) is generated if _cmnd
+is executed between the execution of _cmnd(Begin)
+and the corresponding execution of _cmnd(End).
+.SH ASSOCIATED GETS
+_cmnd(Get) with argument _const(DRAW_BUFFER)
+.br
+_cmnd(Get) with argument _const(AUX_BUFFERS)
+.SH SEE ALSO
+_cmnd(BlendFunc),
+_cmnd(ColorMask),
+_cmnd(IndexMask),
+_cmnd(LogicOp),
+_cmnd(ReadBuffer)

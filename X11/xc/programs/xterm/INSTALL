@@ -1,0 +1,343 @@
+-- $XFree86: xc/programs/xterm/INSTALL,v 3.27 2002/10/05 17:57:11 dickey Exp $
+-- Thomas E. Dickey
+
+Xterm is normally built as part of the X Window System source tree, using
+imake to generate a Makefile from Imakefile.  You can also use the
+configure script to generate a Makefile from Makefile.in:
+
+	+ If you have imake (or xmkmf), then you can use those directly,
+	  or use the configure script, which normally uses those tools
+	  to obtain the special definitions needed to build xterm.
+
+	  Ultimately, imake will not be necessary, since it is possible
+	  to add configure tests that derive the information that imake
+	  would supply.
+
+	+ You need the Athena widgets (or a clone, such as Xaw3d or
+	  neXtaw), to provide the popup menus.
+
+Even if you have imake, the configure script is still convenient because
+it allows you to build different configurations more easily than with
+imake, simply by specifying options to the configure script.
+
+Options:
+-------
+
+Autoconf configure scripts recognize two types of application-defined
+options, enable/disable and with/without.  The latter, by convention, are
+used for denoting inclusion of external packages, while the former denote
+enabling/disabling of internal features.  The configure --help option lists
+the available options.  This script uses "enable" and "disable" to indicate
+the sense of the default behavior.
+
+The options (in alphabetic order):
+
+  --disable-16-color      disable 16-color support
+
+	Do not compile-in code to recognize aixterm-style control sequences
+	that support color values 8-15.
+
+	Most color applications know only about 8 ANSI colors, but some
+	(e.g., ones built with ncurses) do.
+
+  --disable-active-icon   disable X11R6.3 active-icon feature
+
+	Do not compile-in code to support the active-icon feature.  This is
+	not configured on systems (e.g., X11R5) which lack the library
+	support needed.
+
+	Xterms with an active icon continue to respond to input and update
+	their display when iconified.  Not all window managers support
+	active icons.  Those that do include fvwm, olvwm and mwm.
+
+  --disable-ansi-color    disable ANSI color
+
+  	Do not compile-in code for ANSI colors.
+
+  --disable-blink-cursor  disable support for blinking cursor
+
+	Do not compile-in code that implements a blinking cursor.  The blinking
+	cursor is enabled either by resource setting or by popup menu entry.
+
+  --disable-bold-color    disable PC-style mapping of bold colors
+
+	Do not compile-in code that maps colors 8-15 to bold versions of
+	colors 0-7.
+
+	Some applications have hardcoded logic that assumes this.  It does
+	not interfere with the 16-color support.
+
+  --disable-boxchars      disable fallback-support for box chars
+
+  	Do not compile-in code to generate approximations for box/graphic
+	characters.
+
+	Most fonts do not contain the vt100-style graphic characters in
+	positions 0-31.  Many applications use the line-drawing characters,
+	e.g., to make boxes.  When xterm loads a font, it checks if those
+	characters are present, and draws its own if they are missing.
+
+  --disable-color-class   disable color class resources
+
+	Use this option to change most of the color resources to use Foreground
+	as the color class.  This is the older (before patch #157) behavior
+	which has the drawback that setting the Foreground resource on most
+	platforms prevents use of color since the class is evaluated before
+	the instance.
+
+  --disable-color-mode    disable default colorMode resource
+
+  	Do not compile-in code that sets the default value of the colorMode
+	resource to ``true''.
+
+  --disable-doublechars   disable support for double-size chars
+
+  	Do not compile-in code that supports font-manipulation needed to
+	implement vt100-style double-sized characters.
+
+  --disable-echo          test: display "compiling" commands
+
+  	Modify the generated Makefile so that most compiler options are
+	not shown.  This makes it simpler to read a build log and see the
+	actual warning messages.
+
+  --disable-freetype      disable freetype library-support
+
+ 	Do not use freetype libraries if they are found.  Normally they will
+	be used automatically.
+
+  --disable-highlighting  disable support for color highlighting
+
+  	Do not compile-in code that allows the selected region to be a
+	different color than the reverse of foreground/background colors.
+
+	See the discussion of highlightColor in the manual.
+
+  --disable-i18n          disable internationalization
+
+  	Do not compile-in code to handle multi-byte characters.  This is
+	related to, but not identical with the input method logic.
+
+  --disable-imake         disable use of imake for definitions
+
+  	Do not attempt to use imake to determine compiler options.
+
+	The main.c file has many ifdef's which rely on obscure combinations
+	known only to imake.  The configure script implements only a
+	portion of the tests needed to supplant imake.
+
+  --disable-initial-erase disable setup for stty erase
+
+	Do not compile-in code which aligns the stty erase and the backarrow
+	key.  When compiled-in, xterm will optionally use the pty's sense
+	of stty erase and apply that to the backarrow mode (sending 8 or 127),
+	or go the other way, setting stty erase to match xterm's configuration.
+
+  --disable-input-method  disable input-method
+
+	Do not compile-in code for "input method".  This is an X11R6
+	feature which deals with translation of composite characters.
+
+	Some users report problems with their configuration, e.g., messages
+	stating that there is no input method defined for the given preedit
+	type.  If you do not need input method (and are troubled by the
+	warning messages), it is safe to disable this option.
+
+  --disable-maximize      disable actions for iconify/deiconify/maximize/restore
+
+	Do not compile-in code that implements runtime 'actions' for
+	iconifying, maximizing, etc.
+
+	Most users will find that the window manager is more suitable for
+	this sort of manipulation than putting the capabilities into xterm.
+
+  --disable-num-lock      disable NumLock keypad support
+
+	Do not compile-in code that looks for the actual NumLock key to
+	support vt100/vt220 keypad translation.
+
+	This is used in xterm to simplify logic, and to workaround some
+	quirks of the keyboard tables.  Use the ``numLock'' resource to
+	disable this feature if you must customize xterm in some other way.
+
+	(The same ifdef controls the metaSendsEscape support).
+
+  --disable-rightbar      disable right-scrollbar support
+
+  	Do not compile-in code that supports a scrollbar on the right.
+
+	Left/right scrollbars are a matter of taste.  Some older libraries
+	(e.g., X11R5) do not perform the geometry computation correctly,
+	leaving the right scrollbar incorrectly positioned after changing
+	the font size.
+
+  --disable-samename      disable check for redundant name-change
+
+	Do not compile-in code that suppresses redundant updates to the
+	titlebar when the text has not changed.
+
+  --disable-session-mgt   enable support for session management
+
+	Do not compile-in code which adds simple session management hooks which
+	are used when closing an xterm.  Normally the code is compiled-in,
+	except for systems which do not support it.
+
+  --disable-tek4014       disable tek4014 emulation
+
+  	Do not compile-in code to support Tektronix 4014 emulation.
+
+	This reduces the executable size by 17% (checked 1999/3/13).
+
+	Some people use the Tektronix emulation (which has been in xterm
+	for many years) as an example of code bloat, though this is not an
+	accurate impression.
+
+  --disable-vt52          disable VT52 emulation
+
+  	Do not compile-in code to support vt52 emulation.
+
+	A genuine vt100 emulates a vt52.
+
+  --disable-ziconbeep     disable -ziconbeep option
+
+	Do not compile-in code that modifies the icon's title and sounds a
+	beep when they receive output.
+
+  --enable-256-color      enable 256-color support
+
+  	Compile-in code that interprets SGR 38 and 48 for 256-colors.
+
+  --enable-88-color       enable 88-color support
+
+	Compile-in code that interprets SGR 38 and 48 for 88-colors.
+
+  --enable-dec-locator    enable DECterm Locator support
+	Add support for for DEC Locator control sequences for xterm:
+
+		DECEFR - Enable Filter Rectangle
+	        DECELR - Enable Locator Reports
+		DECSLE - Select Locator Events
+		DECRQLP - Request Locator Position
+
+	This allows the xterm mouse to be used with applications that use the
+	DEC Locator sequences, such as VAX Tpu, or SMG$ based applications.
+
+  --enable-hp-fkeys       enable support for HP-style function keys
+
+  	Compile-in code to support HP-style function keys.
+
+  --enable-logfile-exec   enable exec'd logfile filter
+
+  	Compile-in code that allows logging piped via an external filter.
+
+  --enable-logging        enable logging
+
+  	Compile-in code that allows logging.
+
+	Logging was disabled in X11R5 xterm because of security problems.
+	They were addressed in X11R6, but the feature was not reinstated.
+
+  --enable-luit           enable support for luit filter (Unicode translation)
+
+	Luit is a filter that can be run between an arbitrary application and a
+	UTF-8 terminal emulator.  It will convert application output from the
+	locale's encoding into UTF-8, and convert terminal input from UTF-8
+	into the locale's encoding.
+
+	This sets "--enable-wide-chars" as a side-effect.
+
+  --enable-sco-fkeys      enable support for SCO-style function keys
+
+  	Compile-in code to support SCO-style function keys.
+
+  --enable-tcap-query     enable termcap query/report
+
+	Compile-in code to support experimental DCS '+' control sequence, which
+	allows an application to ask xterm what control sequences it would
+	transmit for specified function keys, given the termcap or terminfo
+	names.
+
+  --enable-toolbar        enable pulldown menus on toolbar
+
+  	Compile-in code that builds a toolbar with pulldown menus.  The
+	normal popup menus are still available.
+
+  --enable-trace          test: set to enable debugging traces
+
+  	Compile-in code to trace xterm's internal states.
+
+	This is a debugging feature.  It causes xterm to produce two files
+	(Trace-parent.out and Trace-child.out).
+
+  --enable-warnings       test: turn on GCC compiler warnings
+
+	Modify the generate Makefile to turn on gcc compiler warnings.
+
+	I use this option regularly, and correct all but a few (difficult)
+	problems.
+
+  --enable-wide-chars     enable wide-character support
+
+  	Compile-in code that supports 16-bit characters.  Includes support
+	for UTF-8.
+
+  --enable-xmc-glitch     test: enable xmc magic-cookie emulation
+
+  	Compile-in code that simulates the terminfo "magic cookie" glitch.
+
+	This is for testing ncurses.
+
+  --with-Xaw3d            link with Xaw 3d library
+
+  	Look for, compile and link with the Xaw 3d widget library.
+
+  --with-neXtaw           link with neXT Athena library
+
+  	Look for, compile and link with the neXT Athena widget library.
+
+  --with-own-terminfo=P   set default $TERMINFO (default: from environment)
+
+  	Modify the generated Makefile to set the target for the 'install-ti'
+	rule to point to the given directory.
+
+	If you have the $TERMINFO variable defined in your environment, the
+	configure script will use that value.  If no option and no variable
+	are are given, the configure script uses /usr/lib/terminfo, if it
+	exists.
+
+	You do not have to run "make install-ti", if there is already a
+	workable terminfo description.  Be advised, however, that the
+	common variety of "xterm-color" is not suited for xterm, but is
+	directed to other variations (such as nxterm) which do not
+	support the back-color erase capability.
+
+  --with-terminal-id[=V]  set default decTerminalID (default: vt100)
+
+  	Set the default emulation level.
+
+	DEC terminals vt52/vt100/vt220/etc form a series where succeeding
+	models emulate features of the older terminals.  While most
+	features of these terminals are recognized by xterm at all levels,
+	a few behave differently according to the emulation level.
+
+	You can always override this with the command-line option "-ti".
+
+  --with-terminal-type=T  set default $TERM (default: xterm)
+
+	Set the default value for $TERM.  Xterm supports legacy termcap
+	applications by constructing a modified version of the $TERMCAP
+	variable at initialization, which supplies the resulting screen
+	size.  It also sets $TERM, if not already set, for use by programs
+	running within xterm.
+
+	The default value "xterm", can be overridden to avoid conflict
+	with older versions of xterm, e.g., those that do not implement
+	vt220 emulation.
+
+	You can always override this with the command-line option "-tn".
+
+  --with-utempter         use utempter library for access to utmp
+
+	The utempter library is a set-uid wrapper for the utmp facility.
+	On systems with Unix98 pty's, xterm can use this library when
+	available so it need not be installed set-uid.

@@ -1,0 +1,93 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/drivers/rendition/Imakefile,v 1.21 2003/02/17 17:06:43 dawes Exp $
+
+XCOMM
+XCOMM This is an Imakefile for the Rendition driver.
+XCOMM
+
+#define IHaveModules
+#include <Server.tmpl>
+
+SRCS = rendition.c vboard.c vmodes.c vramdac.c v1krisc.c \
+       hwcursor.c vloaduc.c accel.c rendition_shadow.c
+
+OBJS = rendition.o vboard.o vmodes.o vramdac.o v1krisc.o \
+       hwcursor.o vloaduc.o accel.o rendition_shadow.o
+
+#if defined(XF86DriverSDK)
+INCLUDES = -I. -I../../include
+#else
+INCLUDES = -I. -I$(SERVERSRC)/fb \
+	   -I$(SERVERSRC)/mi -I$(SERVERSRC)/cfb\
+	   -I$(XF86SRC)/ddc -I$(XF86SRC)/i2c -I$(XF86SRC)/vgahw \
+	   -I$(XF86SRC)/rac -I$(XF86SRC)/int10 -I$(XF86SRC)/vbe \
+	   -I$(XF86COMSRC) -I$(XF86OSSRC) -I$(FONTINCSRC) -I$(XINCLUDESRC) \
+	   -I$(SERVERSRC)/include  -I$(XF86SRC)/xaa \
+	   -I$(XF86SRC)/ramdac -I$(SERVERSRC)/Xext \
+	   -I$(XF86SRC)/shadowfb -I$(XF86SRC)/rac -I$(XF86SRC)/loader \
+	   -I$(SERVERSRC)/render -I$(EXTINCSRC)
+#endif
+
+XCOMM
+XCOMM Temporary solution for the loader to find the microcode
+XCOMM
+DEFINES = -DMODULEDIR=\"$(MODULEDIR)/\"
+
+
+#if MakeHasPosixVariableSubstitutions
+SubdirLibraryRule($(OBJS))
+#endif
+
+ModuleObjectRule()
+
+ObjectModuleTarget(rendition,$(OBJS))
+
+ObjectFromSpecialSource(accel, accelX, -DPSZ=16)
+
+InstallObjectModule(rendition,$(MODULEDIR),drivers)
+InstallNonExecFile(v10002d.uc,$(MODULEDIR))
+InstallNonExecFile(v20002d.uc,$(MODULEDIR))
+
+#if !defined(XF86DriverSDK)
+InstallModuleManPage(rendition)
+#endif
+
+DependTarget()
+
+InstallDriverSDKNonExecFile(Imakefile,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(cscode.h,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(rendition.c,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(rendition.h,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(rendition_options.h,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(rendition_shadow.c,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(rendition_shadow.h,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(commonregs.h,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(v1kregs.h,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(v1krisc.c,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(v1krisc.h,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(vboard.c,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(vboard.h,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(vloaduc.h,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(vmodes.c,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(vmodes.h,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(vos.h,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(vramdac.c,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(vramdac.h,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(vtypes.h,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(v2kregs.h,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(vgafont-vrx.data,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(vgapalette.data,$(DRIVERSDKDIR)/drivers/rendition)
+
+InstallDriverSDKNonExecFile(hwcursor.c,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(hwcursor.h,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(vloaduc.c,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(vloaduc.h,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(accel.h,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(accelX.c,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(cmd2d.h,$(DRIVERSDKDIR)/drivers/rendition)
+
+InstallDriverSDKNonExecFile(v10002d.uc,$(DRIVERSDKDIR)/drivers/rendition)
+InstallDriverSDKNonExecFile(v20002d.uc,$(DRIVERSDKDIR)/drivers/rendition)
+
+InstallDriverSDKNonExecFile(README.uc,$(DRIVERSDKDIR)/drivers/rendition)
+
+InstallDriverSDKObjectModule(rendition,$(DRIVERSDKMODULEDIR),drivers)

@@ -39,6 +39,99 @@ char *sdps_envto;
 static char lastok[POPBUFSIZE+1];
 #endif /* OPIE_ENABLE */
 
+/* these variables are shared between the CAPA probe and the authenticator */
+#if defined(GSSAPI)
+    flag has_gssapi = FALSE;
+#endif /* defined(GSSAPI) */
+#if defined(KERBEROS_V4) || defined(KERBEROS_V5)
+    flag has_kerberos = FALSE;
+#endif /* defined(KERBEROS_V4) || defined(KERBEROS_V5) */
+    flag has_cram = FALSE;
+#ifdef OPIE_ENABLE
+    flag has_otp = FALSE;
+#endif /* OPIE_ENABLE */
+#ifdef SSL_ENABLE
+    flag has_ssl = FALSE;
+#endif /* SSL_ENABLE */
+
+#if NTLM_ENABLE
+#include "ntlm.h"
+
+static tSmbNtlmAuthRequest   request;		   
+static tSmbNtlmAuthChallenge challenge;
+static tSmbNtlmAuthResponse  response;
+
+/*
+ * NTLM support by Grant Edwards.
+ *
+ * Handle MS-Exchange NTLM authentication method.  This is the same
+ * as the NTLM auth used by Samba for SMB related services. We just
+ * encode the packets in base64 instead of sending them out via a
+ * network interface.
+ * 
+ * Much source (ntlm.h, smb*.c smb*.h) was borrowed from Samba.
+ */
+
+static int do_pop3_ntlm(int sock, struct query *ctl)
+{
+    char msgbuf[2048];
+    int result,len;
+  
+    gen_send(sock, "AUTH MSN");
+
+    if ((result = gen_recv(sock, msgbuf, sizeof msgbuf)))
+	return result;
+  
+    if (msgbuf[0] != '+')
+	return PS_AUTHFAIL;
+  
+    buildSmbNtlmAuthRequest(&request,ctl->remotename,NULL);
+
+    if (outlevel >= O_DEBUG)
+	dumpSmbNtlmAuthRequest(stdout, &request);
+
+    memset(msgbuf,0,sizeof msgbuf);
+    to64frombits (msgbuf, (unsigned char*)&request, SmbLength(&request));
+  
+    if (outlevel >= O_MONITOR)
+	report(stdout, "POP3> %s\n", msgbuf);
+  
+    strcat(msgbuf,"\r\n");
+    SockWrite (sock, msgbuf, strlen (msgbuf));
+
+    if ((gen_recv(sock, msgbuf, sizeof msgbuf)))
+	return result;
+  
+    len = from64tobits ((unsigned char*)&challenge, msgbuf, sizeof(msgbuf));
+    
+    if (outlevel >= O_DEBUG)
+	dumpSmbNtlmAuthChallenge(stdout, &challenge);
+    
+    buildSmbNtlmAuthResponse(&challenge, &response,ctl->remotename,ctl->password);
+  
+    if (outlevel >= O_DEBUG)
+	dumpSmbNtlmAuthResponse(stdout, &response);
+  
+    memset(msgbuf,0,sizeof msgbuf);
+    to64frombits (msgbuf, (unsigned char*)&response, SmbLength(&response));
+
+    if (outlevel >= O_MONITOR)
+	report(stdout, "POP3> %s\n", msgbuf);
+      
+    strcat(msgbuf,"\r\n");
+    SockWrite (sock, msgbuf, strlen (msgbuf));
+  
+    if ((result = gen_recv (sock, msgbuf, sizeof msgbuf)))
+	return result;
+  
+    if (strstr (msgbuf, "OK"))
+	return PS_SUCCESS;
+    else
+	return PS_AUTHFAIL;
+}
+#endif /* NTLM */
+
+
 #define DOTLINE(s)	(s[0] == '.' && (s[1]=='\r'||s[1]=='\n'||s[1]=='\0'))
 
 static int pop3_ok (int sock, char *argbuf)
@@ -124,6 +217,57 @@ static int pop3_ok (int sock, char *argbuf)
     return(ok);
 }
 
+
+
+static int capa_probe(sock)
+/* probe the capabilities of the remote server */
+{
+    int	ok;
+
+#if defined(GSSAPI)
+    has_gssapi = FALSE;
+#endif /* defined(GSSAPI) */
+#if defined(KERBEROS_V4) || defined(KERBEROS_V5)
+    has_kerberos = FALSE;
+#endif /* defined(KERBEROS_V4) || defined(KERBEROS_V5) */
+    has_cram = FALSE;
+#ifdef OPIE_ENABLE
+    has_otp = FALSE;
+#endif /* OPIE_ENABLE */
+
+    ok = gen_transact(sock, "CAPA");
+    if (ok == PS_SUCCESS)
+    {
+	char buffer[64];
+
+	/* determine what authentication methods we have available */
+	while ((ok = gen_recv(sock, buffer, sizeof(buffer))) == 0)
+	{
+	    if (DOTLINE(buffer))
+		break;
+#ifdef SSL_ENABLE
+	    if (strstr(buffer, "STLS"))
+		has_ssl = TRUE;
+#endif /* SSL_ENABLE */
+#if defined(GSSAPI)
+	    if (strstr(buffer, "GSSAPI"))
+		has_gssapi = TRUE;
+#endif /* defined(GSSAPI) */
+#if defined(KERBEROS_V4)
+	    if (strstr(buffer, "KERBEROS_V4"))
+		has_kerberos = TRUE;
+#endif /* defined(KERBEROS_V4)  */
+#ifdef OPIE_ENABLE
+	    if (strstr(buffer, "X-OTP"))
+		has_otp = TRUE;
+#endif /* OPIE_ENABLE */
+	    if (strstr(buffer, "CRAM-MD5"))
+		has_cram = TRUE;
+	}
+    }
+    return(ok);
+}
+
 static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 /* apply for connection authorization */
 {
@@ -133,19 +277,27 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 #if OPIE_ENABLE
     char *challenge;
 #endif /* OPIE_ENABLE */
+#ifdef SSL_ENABLE
+    flag did_stls = FALSE;
+#endif /* SSL_ENABLE */
+
 #if defined(GSSAPI)
-    flag has_gssapi = FALSE;
+    has_gssapi = FALSE;
 #endif /* defined(GSSAPI) */
 #if defined(KERBEROS_V4) || defined(KERBEROS_V5)
-    flag has_kerberos = FALSE;
+    has_kerberos = FALSE;
 #endif /* defined(KERBEROS_V4) || defined(KERBEROS_V5) */
-    flag has_cram = FALSE;
+    has_cram = FALSE;
 #ifdef OPIE_ENABLE
-    flag has_otp = FALSE;
+    has_otp = FALSE;
 #endif /* OPIE_ENABLE */
 #ifdef SSL_ENABLE
-    flag has_ssl = FALSE;
+    has_ssl = FALSE;
 #endif /* SSL_ENABLE */
+
+    if (ctl->server.authenticate == A_SSH) {
+        return PS_SUCCESS;
+    }
 
 #ifdef SDPS_ENABLE
     /*
@@ -156,6 +308,21 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
     if (!(ctl->server.sdps) && MULTIDROP(ctl) && strstr(greeting, "demon."))
         ctl->server.sdps = TRUE;
 #endif /* SDPS_ENABLE */
+#ifdef NTLM_ENABLE
+	/* MSN servers require the use of NTLM (MSN) authentication */
+	if (!strcasecmp(ctl->server.pollname, "pop3.email.msn.com") ||
+	    ctl->server.authenticate == A_NTLM)
+	{
+	    if (!do_pop3_ntlm(sock, ctl))
+	    {
+		return(PS_SUCCESS);
+	    }
+	    else
+	    {
+		return(PS_AUTHFAIL);
+	    }
+	}
+#endif
 
     switch (ctl->server.protocol) {
     case P_POP3:
@@ -200,67 +367,62 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 	 */
 	if (ctl->server.authenticate == A_ANY)
 	{
-	    ok = gen_transact(sock, "CAPA");
-	    if (ok == PS_SUCCESS)
-	    {
-		char buffer[64];
-
-		/* determine what authentication methods we have available */
-		while ((ok = gen_recv(sock, buffer, sizeof(buffer))) == 0)
-		{
-		    if (DOTLINE(buffer))
-			break;
-#ifdef SSL_ENABLE
-		    if (strstr(buffer, "STLS"))
-			has_ssl = TRUE;
-#endif /* SSL_ENABLE */
-#if defined(GSSAPI)
-		    if (strstr(buffer, "GSSAPI"))
-			has_gssapi = TRUE;
-#endif /* defined(GSSAPI) */
-#if defined(KERBEROS_V4)
-		    if (strstr(buffer, "KERBEROS_V4"))
-			has_kerberos = TRUE;
-#endif /* defined(KERBEROS_V4)  */
-#ifdef OPIE_ENABLE
-		    if (strstr(buffer, "X-OTP"))
-			has_otp = TRUE;
-#endif /* OPIE_ENABLE */
-		    if (strstr(buffer, "CRAM-MD5"))
-			has_cram = TRUE;
-		}
-	    }
+	    if ((ok = capa_probe(sock)) != PS_SUCCESS)
 	    /* we are in STAGE_GETAUTH! */
-	    else if (ok == PS_AUTHFAIL ||
-		/* Some servers directly close the socket. However, if we
-		 * have already authenticated before, then a previous CAPA
-		 * must have succeeded. In that case, treat this as a
-		 * genuine socket error and do not change the auth method.
-		 */
-		(ok == PS_SOCKET && !ctl->wehaveauthed))
-	    {
-		ctl->server.authenticate = A_PASSWORD;
-		/* repoll immediately */
-		ok = PS_REPOLL;
-		break;
-	    }
+		if (ok == PS_AUTHFAIL ||
+		    /* Some servers directly close the socket. However, if we
+		     * have already authenticated before, then a previous CAPA
+		     * must have succeeded. In that case, treat this as a
+		     * genuine socket error and do not change the auth method.
+		     */
+		    (ok == PS_SOCKET && !ctl->wehaveauthed))
+		{
+		    ctl->server.authenticate = A_PASSWORD;
+		    /* repoll immediately */
+		    ok = PS_REPOLL;
+		    break;
+		}
 	}
 
 #ifdef SSL_ENABLE
 	if (has_ssl
 	    && !ctl->use_ssl
-	    && (ctl->server.authenticate == A_ANY))
+	    && (!ctl->sslproto || !strcmp(ctl->sslproto,"tls1")))
 	{
 	    char *realhost;
 
 	   realhost = ctl->server.via ? ctl->server.via : ctl->server.pollname;
-           gen_transact(sock, "STLS");
-	   if (SSLOpen(sock,ctl->sslcert,ctl->sslkey,ctl->sslproto,ctl->sslcertck, ctl->sslcertpath,ctl->sslfingerprint,realhost,ctl->server.pollname) == -1)
+           ok = gen_transact(sock, "STLS");
+
+           /* We use "tls1" instead of ctl->sslproto, as we want STLS,
+            * not other SSL protocols
+            */
+	   if (ok == PS_SUCCESS &&
+	       SSLOpen(sock,ctl->sslcert,ctl->sslkey,"tls1",ctl->sslcertck, ctl->sslcertpath,ctl->sslfingerprint,realhost,ctl->server.pollname) == -1)
 	   {
+	       if (!ctl->sslproto && !ctl->wehaveauthed)
+	       {
+		   ctl->sslproto = xstrdup("");
+		   /* repoll immediately */
+		   return(PS_REPOLL);
+	       }
 	       report(stderr,
 		       GT_("SSL connection failed.\n"));
 		return(PS_AUTHFAIL);
 	    }
+	   did_stls = TRUE;
+
+	   /*
+	    * RFC 2595 says this:
+	    *
+	    * "Once TLS has been started, the client MUST discard cached
+	    * information about server capabilities and SHOULD re-issue the
+	    * CAPABILITY command.  This is necessary to protect against
+	    * man-in-the-middle attacks which alter the capabilities list prior
+	    * to STARTTLS.  The server MAY advertise different capabilities
+	    * after STARTTLS."
+	    */
+	   capa_probe(sock);
 	}
 #endif /* SSL_ENABLE */
 
@@ -310,9 +472,8 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 	}
 #endif /* OPIE_ENABLE */
 
-	if (has_cram &&
-	    (ctl->server.authenticate == A_CRAM_MD5 ||
-	     ctl->server.authenticate == A_ANY))
+	if (ctl->server.authenticate == A_CRAM_MD5 || 
+	    (has_cram && ctl->server.authenticate == A_ANY))
 	{
 	    ok = do_cram_md5(sock, "AUTH", ctl, NULL);
 	    if (ok == PS_SUCCESS || ctl->server.authenticate != A_ANY)
@@ -350,6 +511,16 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 	strcpy(shroud, ctl->password);
 	ok = gen_transact(sock, "PASS %s", ctl->password);
 	shroud[0] = '\0';
+#ifdef SSL_ENABLE
+	/* this is for servers which claim to support TLS, but actually
+	 * don't! */
+	if (did_stls && ok == PS_SOCKET && !ctl->sslproto && !ctl->wehaveauthed)
+	{
+	    ctl->sslproto = xstrdup("");
+	    /* repoll immediately */
+	    ok = PS_REPOLL;
+	}
+#endif
 	break;
 
     case P_APOP:
@@ -439,6 +610,77 @@ static int pop3_gettopid( int sock, int num , char *id)
 	    sscanf( buf+12, "%s", id);
 	}
     }
+    return 0;
+}
+
+static int pop3_getuidl( int sock, int num , char *id)
+{
+    int ok;
+    char buf [POPBUFSIZE+1];
+    gen_send(sock, "UIDL %d", num);
+    if ((ok = pop3_ok(sock, buf)) != 0)
+	return(ok);
+    if (sscanf(buf, "%d %s", &num, id) != 2)
+	return(PS_PROTOCOL);
+    return(PS_SUCCESS);
+}
+
+static int pop3_fastuidl( int sock,  struct query *ctl, unsigned int count, int *newp)
+{
+    int ok;
+    unsigned int first_nr, last_nr, try_nr;
+    char id [IDLEN+1];
+
+    first_nr = 0;
+    last_nr = count + 1;
+    while (first_nr < last_nr - 1)
+    {
+	struct idlist	*new;
+
+	try_nr = (first_nr + last_nr) / 2;
+	if( (ok = pop3_getuidl( sock, try_nr, id )) != 0 )
+	    return ok;
+	if ((new = str_in_list(&ctl->oldsaved, id, FALSE)))
+	{
+	    flag mark = new->val.status.mark;
+	    if (mark == UID_DELETED || mark == UID_EXPUNGED)
+	    {
+		if (outlevel >= O_VERBOSE)
+		    report(stderr, GT_("id=%s (num=%d) was deleted, but is still present!\n"), id, try_nr);
+		/* just mark it as seen now! */
+		new->val.status.mark = mark = UID_SEEN;
+	    }
+
+	    /* narrow the search region! */
+	    if (mark == UID_UNSEEN)
+	    {
+		if (outlevel >= O_DEBUG)
+		    report(stdout, GT_("%u is unseen\n"), try_nr);
+		last_nr = try_nr;
+	    }
+	    else
+		first_nr = try_nr;
+
+	    /* save the number */
+	    new->val.status.num = try_nr;
+	}
+	else
+	{
+	    if (outlevel >= O_DEBUG)
+		report(stdout, GT_("%u is unseen\n"), try_nr);
+	    last_nr = try_nr;
+
+	    /* save it */
+	    new = save_str(&ctl->oldsaved, id, UID_UNSEEN);
+	    new->val.status.num = try_nr;
+	}
+    }
+    if (outlevel >= O_DEBUG && last_nr <= count)
+	report(stdout, GT_("%u is first unseen\n"), last_nr);
+
+    /* update last! */
+    *newp = count - first_nr;
+    last = first_nr;
     return 0;
 }
 
@@ -566,7 +808,22 @@ static int pop3_getrange(int sock,
     *newp = -1;
     if (*countp > 0 && !ctl->fetchall)
     {
+	int fastuidl;
 	char id [IDLEN+1];
+
+	/* should we do fast uidl this time? */
+	fastuidl = ctl->fastuidl;
+	if (*countp > 7 &&		/* linear search is better if there are few mails! */
+	    !ctl->flush &&		/* with flush, it is safer to disable fastuidl */
+	    NUM_NONZERO (fastuidl))
+	{
+	    if (fastuidl == 1)
+		dofastuidl = 1;
+	    else
+		dofastuidl = ctl->fastuidlcount != 0;
+	}
+	else
+	    dofastuidl = 0;
 
 	if (!ctl->server.uidl) {
 	    gen_send(sock, "LAST");
@@ -584,6 +841,8 @@ static int pop3_getrange(int sock,
 	}
  	else
  	{
+	    if (dofastuidl)
+		return(pop3_fastuidl( sock, ctl, *countp, newp));
 	    /* grab the mailbox's UID list */
 	    if ((ok = gen_transact(sock, "UIDL")) != 0)
 	    {
@@ -605,17 +864,41 @@ static int pop3_getrange(int sock,
  			break;
  		    else if (sscanf(buf, "%d %s", &num, id) == 2)
 		    {
- 			struct idlist	*new;
+ 			struct idlist	*old, *new;
 
 			new = save_str(&ctl->newsaved, id, UID_UNSEEN);
 			new->val.status.num = num;
 
-			if (str_in_list(&ctl->oldsaved, id, FALSE)) {
-			    new->val.status.mark = UID_SEEN;
-			    str_set_mark(&ctl->oldsaved, id, UID_SEEN);
+			if ((old = str_in_list(&ctl->oldsaved, id, FALSE)))
+			{
+			    flag mark = old->val.status.mark;
+			    if (mark == UID_DELETED || mark == UID_EXPUNGED)
+			    {
+				if (outlevel >= O_VERBOSE)
+				    report(stderr, GT_("id=%s (num=%d) was deleted, but is still present!\n"), id, num);
+				/* just mark it as seen now! */
+				old->val.status.mark = mark = UID_SEEN;
+			    }
+			    new->val.status.mark = mark;
+			    if (mark == UID_UNSEEN)
+			    {
+				(*newp)++;
+				if (outlevel >= O_DEBUG)
+				    report(stdout, GT_("%u is unseen\n"), num);
+			    }
 			}
 			else
+			{
 			    (*newp)++;
+			    if (outlevel >= O_DEBUG)
+				report(stdout, GT_("%u is unseen\n"), num);
+			    /* add it to oldsaved also! In case, we do not
+			     * swap the lists (say, due to socket error),
+			     * the same mail will not be downloaded again.
+			     */
+			    old = save_str(&ctl->oldsaved, id, UID_UNSEEN);
+			    old->val.status.num = num;
+			}
 		    }
  		}
  	    }
@@ -623,6 +906,32 @@ static int pop3_getrange(int sock,
     }
 
     return(PS_SUCCESS);
+}
+
+static int pop3_getpartialsizes(int sock, int first, int last, int *sizes)
+/* capture the size of message #first */
+{
+    int	ok;
+    char buf [POPBUFSIZE+1];
+    unsigned int num, size;
+
+    /* for POP3, we can get the size of one mail only! */
+    if (first != last)
+    {
+	report(stderr, "cannot get a range of message sizes (%d-%d).\n", first, last);
+	return(PS_PROTOCOL);
+    }
+    gen_send(sock, "LIST %d", first);
+    if ((ok = pop3_ok(sock, buf)) != 0)
+	return(ok);
+    if (sscanf(buf, "%u %u", &num, &size) == 2) {
+	if (num == first)
+	    sizes[0] = size;
+	else
+	    /* warn about possible attempt to induce buffer overrun */
+	    report(stderr, "Warning: ignoring bogus data for message sizes returned by server.\n");
+    }
+    return(ok);
 }
 
 static int pop3_getsizes(int sock, int count, int *sizes)
@@ -658,11 +967,42 @@ static int pop3_getsizes(int sock, int count, int *sizes)
 static int pop3_is_old(int sock, struct query *ctl, int num)
 /* is the given message old? */
 {
+    struct idlist *new;
     if (!ctl->oldsaved)
 	return (num <= last);
+    else if (dofastuidl)
+    {
+	char id [IDLEN+1];
+
+	if (num <= last)
+	    return(TRUE);
+
+	/* in fast uidl, we manipulate the old list only! */
+
+	if ((new = id_find(&ctl->oldsaved, num)))
+	{
+	    /* we already have the id! */
+	    return(new->val.status.mark != UID_UNSEEN);
+	}
+
+	/* get the uidl first! */
+	if (pop3_getuidl(sock, num, id) != PS_SUCCESS)
+	    return(TRUE);
+
+	if ((new = str_in_list(&ctl->oldsaved, id, FALSE))) {
+	    /* we already have the id! */
+	    new->val.status.num = num;
+	    return(new->val.status.mark != UID_UNSEEN);
+	}
+
+	/* save it */
+	new = save_str(&ctl->oldsaved, id, UID_UNSEEN);
+	new->val.status.num = num;
+	return(FALSE);
+    }
     else
-        return (str_in_list(&ctl->oldsaved,
-			    str_find(&ctl->newsaved, num), FALSE));
+        return ((new = id_find(&ctl->newsaved, num)) != NULL &&
+	    new->val.status.mark != UID_UNSEEN);
 }
 
 #ifdef UNUSED
@@ -770,11 +1110,39 @@ static int pop3_fetch(int sock, struct query *ctl, int number, int *lenp)
     return(PS_SUCCESS);
 }
 
+static void mark_uid_seen(struct query *ctl, int number)
+/* Tell the UID code we've seen this. */
+{
+    struct idlist	*sdp;
+
+    if ((sdp = id_find(&ctl->newsaved, number)))
+	sdp->val.status.mark = UID_SEEN;
+    /* mark it as seen in oldsaved also! In case, we do not swap the lists
+     * (say, due to socket error), the same mail will not be downloaded
+     * again.
+     */
+    if ((sdp = id_find(&ctl->oldsaved, number)))
+	sdp->val.status.mark = UID_SEEN;
+}
+
 static int pop3_delete(int sock, struct query *ctl, int number)
 /* delete a given message */
 {
+    int ok;
+    mark_uid_seen(ctl, number);
     /* actually, mark for deletion -- doesn't happen until QUIT time */
-    return(gen_transact(sock, "DELE %d", number));
+    ok = gen_transact(sock, "DELE %d", number);
+    if (ok != PS_SUCCESS)
+	return(ok);
+    delete_str(dofastuidl ? &ctl->oldsaved : &ctl->newsaved, number);
+    return(PS_SUCCESS);
+}
+
+static int pop3_mark_seen(int sock, struct query *ctl, int number)
+/* mark a given message as seen */
+{
+    mark_uid_seen(ctl, number);
+    return(PS_SUCCESS);
 }
 
 static int pop3_logout(int sock, struct query *ctl)
@@ -804,12 +1172,6 @@ static int pop3_logout(int sock, struct query *ctl)
     if (!ok)
 	expunge_uids(ctl);
 
-    if (ctl->lastid)
-    {
-	free(ctl->lastid);
-	ctl->lastid = NULL;
-    }
-
     return(ok);
 }
 
@@ -829,11 +1191,13 @@ const static struct method pop3 =
     pop3_getauth,	/* get authorization */
     pop3_getrange,	/* query range of messages */
     pop3_getsizes,	/* we can get a list of sizes */
+    pop3_getpartialsizes,	/* we can get the size of 1 mail */
     pop3_is_old,	/* how do we tell a message is old? */
     pop3_fetch,		/* request given message */
     NULL,		/* no way to fetch body alone */
     NULL,		/* no message trailer */
     pop3_delete,	/* how to delete a message */
+    pop3_mark_seen,	/* how to mark a message as seen */
     pop3_logout,	/* log out, we're done */
     FALSE,		/* no, we can't re-poll */
 };

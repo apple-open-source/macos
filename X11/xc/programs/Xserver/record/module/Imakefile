@@ -1,0 +1,34 @@
+XCOMM $XFree86: xc/programs/Xserver/record/module/Imakefile,v 1.2 2002/09/17 01:15:14 dawes Exp $
+XCOMM
+XCOMM
+XCOMM $XConsortium: Imakefile /main/3 1996/09/28 17:15:43 rws $
+
+#define IHaveModules
+#include <Server.tmpl>
+
+#if DoLoadableServer
+      MSRCS = recordmod.c
+      MOBJS = recordmod.o
+#endif
+
+       SRCS = record.c set.c $(MSRCS)
+       OBJS = record.o set.o $(MOBJS)
+   INCLUDES = -I.. -I../../include -I$(XINCLUDESRC) -I$(EXTINCSRC) \
+	-I$(SERVERSRC)/Xext
+   LINTLIBS = ../../dix/llib-ldix.ln
+    DEFINES = -DNDEBUG
+
+LinkSourceFile(recordmod.c,..)
+LinkSourceFile(record.c,..)
+LinkSourceFile(set.c,..)
+
+ModuleObjectRule()
+LibraryModuleTarget(record,$(OBJS))
+LintLibraryTarget(record,$(SRCS))
+NormalLintTarget($(SRCS))
+
+InstallLibraryModule(record,$(MODULEDIR),extensions)
+
+DependTarget()
+
+InstallDriverSDKLibraryModule(record,$(DRIVERSDKMODULEDIR),extensions)

@@ -1,0 +1,22 @@
+# makedep
+#
+# This shell script creates a dependency file necessary for older compilers
+# on the MS-DOS platform.
+
+echo "\
+# This dependency file to be used with various MS-DOS compilers
+# has been generated automatically with the script \`makedep' on
+# `date +%d-%b-%Y`.
+" > depend.dos
+
+(cd ../..
+ gcc -MM -I../lib/arch/msdos -I../lib -I../lib/extend -I. *.c | \
+   sed -e "s/\.o:/.obj:/" -e "s:/:\\\\:g") >> depend.dos
+
+(cd ../..
+ gcc -MM -I../lib/arch/win16 -I../lib -I../lib/extend -I. \
+     -Dreg_ax -Dint86 arch/msdos/*.c | \
+   sed -e "s/^\(.*\)\.o:/arch\\\\msdos\\\\\1.obj:/" \
+       -e "s:/:\\\\:g") >> depend.dos
+
+# eof

@@ -1,0 +1,66 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:22 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/programs/xfs/os/Imakefile,v 3.9 2002/10/15 01:45:03 dawes Exp $
+
+#undef ServerDefines
+#include <Server.tmpl>
+
+#ifdef OS2Architecture
+SRCS1 = os2_stubs.c
+OBJS1 = os2_stubs.o
+LinkSourceFile(os2_stubs.c,../../Xserver/hw/xfree86/os-support/os2)
+SpecialCObjectRule(os2_stubs,$(ICONFIGFILES),-DOS2NULLSELECT)
+#endif
+
+SRCS =	connection.c waitfor.c daemon.c io.c utils.c osinit.c \
+	config.c access.c osglue.c error.c $(SRCS1)
+OBJS =  connection.o waitfor.o daemon.o io.o utils.o osinit.o \
+	config.o access.o osglue.o error.o $(OBJS1)
+
+INCLUDES = -I../include -I$(FONTINCSRC) -I$(EXTINCSRC) \
+	   -I$(FONTLIBSRC)/include -I$(FONTLIBSRC)/bitmap
+
+CONN_DEFINES = $(CONNECTION_FLAGS) -DFONT_t -DTRANS_SERVER -DTRANS_REOPEN
+
+#if HasBSD44Sockets
+SOCK_DEFINES = -DBSD44SOCKETS
+#endif
+
+#if FSUseSyslog
+ERROR_DEFINES = -DUSE_SYSLOG
+#endif
+
+OS_DEFINES = ServerOSDefines
+
+#if BuildFontCacheLib
+FONTCACHE_DEFINES = FontCacheExtensionDefines
+#endif
+
+#ifdef VarRunDirectory
+XFSPIDDIR = $(VARRUNDIR)
+#else
+XFSPIDDIR = $(LIBDIR)/fs
+#endif
+PID_DEFINES = -DXFSPIDDIR=\"$(XFSPIDDIR)\"
+
+NormalLibraryObjectRule()
+NormalLibraryTarget(os,$(OBJS))
+
+SpecialCObjectRule(connection,$(ICONFIGFILES),$(CONN_DEFINES) $(SIGNAL_DEFINES) $(SOCK_DEFINES) $(OS_DEFINES))
+
+SpecialCObjectRule(utils,$(ICONFIGFILES),$(PID_DEFINES))
+
+SpecialCObjectRule(io,$(ICONFIGFILES),$(CONN_DEFINES))
+
+SpecialCObjectRule(waitfor,$(ICONFIGFILES),$(CONN_DEFINES))
+
+SpecialCObjectRule(error,$(ICONFIGFILES),$(ERROR_DEFINES))
+
+SpecialCObjectRule(osglue,$(ICONFIGFILES),$(CONN_DEFINES) $(OS_DEFINES))
+
+SpecialCObjectRule(config,$(ICONFIGFILES),$(CONN_DEFINES) $(FONTCACHE_DEFINES))
+
+DependTarget()

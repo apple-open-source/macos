@@ -1,0 +1,662 @@
+/* $Xorg: miLUTProcs.ci,v 1.4 2001/02/09 02:04:13 xorgcvs Exp $ */
+/*
+
+Copyright 1990, 1991, 1998  The Open Group
+
+Permission to use, copy, modify, distribute, and sell this software and its
+documentation for any purpose is hereby granted without fee, provided that
+the above copyright notice appear in all copies and that both that
+copyright notice and this permission notice appear in supporting
+documentation.
+
+The above copyright notice and this permission notice shall be included
+in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE OPEN GROUP BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+
+Except as contained in this notice, the name of The Open Group shall
+not be used in advertising or otherwise to promote the sale, use or
+other dealings in this Software without prior written authorization
+from The Open Group.
+
+
+Copyright 1990, 1991 by Sun Microsystems, Inc. 
+All Rights Reserved
+
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted,
+provided that the above copyright notice appear in all copies and that
+both that copyright notice and this permission notice appear in
+supporting documentation, and that the name of Sun Microsystems
+not be used in advertising or publicity pertaining to distribution
+ of the software without specific, written prior permission.
+
+SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
+INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT
+SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL
+DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
+SOFTWARE.
+
+*/
+
+#ifndef	MILUT_PROCS_CI
+#define	MILUT_PROCS_CI
+
+#include "pexUtils.h"
+
+/* this file is a template for defining the lut procedures */
+/* it uses a bunch of macros (blah) but allows easier porting */
+/* the following macros must be defined in the file which includes
+ * this one before this file is included:
+ *	LUT_TYPE	the table type
+ *	LUT_TABLE_START	pointer to the first entry in the table
+ *	LUT_PDE_ENTRIES	the beginning of the predefined entries table
+ *	LUT_SET_PDE_ENTRY	macro which sets an entry to a predefined
+ *				value
+ *	LUT_SET_DEFAULT_VALUES 	macro which sets an entry to the default
+ *				values
+ * data structure names:
+ *	DD_LUT_ENTRY_STR	 devPriv data structure def 
+ *	MI_LUT_ENTRY_STR	 table entry data structure def 
+ *	PEX_LUT_ENTRY_STR	 pex data structure def 
+ * renderer dynamics changes bit:
+ *	LUT_REND_DYN_BIT
+ * table info:
+ *	LUT_START_INDEX          
+ *	LUT_DEFAULT_INDEX        
+ * table info dependent on drawable type (SI only supports one type):
+ *	LUT_0_DEFINABLE_ENTRIES  
+ *	LUT_0_NUM_PREDEFINED     
+ *	LUT_0_PREDEFINED_MIN     
+ *	LUT_0_PREDEFINED_MAX     
+ *
+ * procedure definition flags: 
+ *	define the ones whose definitions you want to use from this file
+ * procedure definition names: 
+ *	define the names of the procedures to use for the lut
+ */
+ 
+extern ddpex4rtn miDealWithDynamics();	/* in level4/miDynamics.c */
+
+/* get pointer to first legal entry in the table */
+#define	FIRST_ENTRY( pheader )		\
+	LUT_TABLE_START(pheader)
+
+#define SET_TABLE_INFO( drawType, pInfo )       \
+        switch(drawType) {                               \
+                case MI_DRAWABLE0:                       \
+                        (pInfo)->definableEntries =      \
+                                LUT_0_DEFINABLE_ENTRIES; \
+                        (pInfo)->numPredefined =         \
+                                LUT_0_NUM_PREDEFINED;    \
+                        (pInfo)->predefinedMin =         \
+                                LUT_0_PREDEFINED_MIN;    \
+                        (pInfo)->predefinedMax =         \
+                                LUT_0_PREDEFINED_MAX;    \
+                break; }
+
+/* the following procedure definitions are useful for all SI lut types */
+/* replace them in the mi*LUT.c files if these are not appropriate */
+
+/* don't use special procs for these - use the general ones called
+ * directly by diPEX */
+
+#ifdef	LUT_USE_FREE
+extern  ddpex43rtn      FreeLUT();
+#define	LUT_FREE	FreeLUT
+#endif	/* LUT_USE_FREE */
+
+#ifdef	LUT_USE_INQ_PREDEF
+extern  ddpex43rtn      InquireLUTPredEntries();
+#define	LUT_INQ_PREDEF	InquireLUTPredEntries
+#endif	/* LUT_USE_INQ_PREDEF */
+
+#ifdef	LUT_USE_INQ_ENTRIES
+extern  ddpex43rtn      InquireLUTEntries();
+#define	LUT_INQ_ENTRIES	InquireLUTEntries
+#endif	/* LUT_USE_INQ_ENTRIES */
+
+/*
+	The default entry: uninitialized, non-static, this scratch
+	structure is kept around so that we can fill it with default
+	data and return its address from routines like those made
+	from LUT_INQ_ENTRY_ADDRESS
+ */
+static MI_LUT_ENTRY_STR	def_entry;
+
+
+
+#ifdef	LUT_USE_COPY
+ddpex43rtn
+LUT_COPY (pSrcLUT, pDestLUT)
+/* in */
+    diLUTHandle         pSrcLUT;  /* source lookup table */
+    diLUTHandle         pDestLUT; /* destination lookup table */
+/* out */
+{
+    MILUT_DEFINE_HEADER(pSrcLUT, srcHeader);
+    MILUT_DEFINE_HEADER(pDestLUT, destHeader);
+    MI_LUT_ENTRY_STR       *pentry;
+    ddpex43rtn		err;
+    register int        i;
+
+#ifdef DDTEST
+    ErrorF( "\ncopy src lut %d type %d\n", pSrcLUT->id, pSrcLUT->lutType);
+    ErrorF( "\ncopy dest lut %d type %d\n", pDestLUT->id, pDestLUT->lutType);
+#endif
+
+    /* set all entries to undefined */
+    pentry = LUT_TABLE_START(destHeader);
+    MILUT_SET_STATUS(pentry, MILUT_ALLOC_ENTS(destHeader), MILUT_UNDEFINED, MI_FALSE);
+
+    /* copy entries */
+    mibcopy(LUT_TABLE_START(srcHeader),  LUT_TABLE_START(destHeader),
+        sizeof(MI_LUT_ENTRY_STR) * MILUT_ALLOC_ENTS(srcHeader));
+
+    MILUT_NUM_ENTS(destHeader) = MILUT_NUM_ENTS(srcHeader);
+
+   err =  destHeader->ops[MILUT_REQUEST_OP(milut_mod_call_back)](pDestLUT,
+  	 MILUT_START_INDEX(destHeader), MILUT_DEF_ENTS(destHeader), MILUT_COPY_MOD);
+   /* check err here if your call back proc can return an error */
+
+    return (err);
+}                             
+#endif	/* LUT_USE_COPY */
+
+#ifdef	LUT_USE_INQ_INFO
+ddpex43rtn
+LUT_INQ_INFO (pDrawable, pLUTinfo)
+/* in */
+    DrawablePtr         pDrawable;/* pointer to example drawable */
+/* out */
+    ddTableInfo        *pLUTinfo; /* table information */
+{
+    ddSHORT             drawtype;
+
+#ifdef DDTEST
+    ErrorF( "\ninquire info, table type %d \n", LUT_TYPE );
+#endif
+
+    MI_WHICHDRAW(pDrawable, drawtype);
+    SET_TABLE_INFO( drawtype, pLUTinfo );
+
+    return (Success);
+}
+#endif	/* LUT_USE_INQ_INFO */
+
+#ifdef	LUT_USE_INQ_IND
+ddpex43rtn
+LUT_INQ_IND (pLUT, pNumIndices, pBuffer)
+/* in */
+    diLUTHandle         pLUT;	  /* lut handle */
+/* out */
+    ddULONG            *pNumIndices;	/* number of indices in list */
+    ddBufferPtr         pBuffer;  /* list of table indices */
+{
+    MILUT_DEFINE_HEADER(pLUT, pheader);
+    register ddUSHORT   macks;	/* number of definable entries */
+    register	ddTableIndex	*pb;
+    MI_LUT_ENTRY_STR		*pentry;
+
+#ifdef DDTEST
+    ErrorF( "\n inquire indices lut %d type %d\n", pLUT->id, pLUT->lutType);
+#endif
+
+    PU_CHECK_BUFFER_SIZE(pBuffer,MILUT_NUM_ENTS(pheader) * sizeof(ddTableIndex));
+    *pNumIndices = MILUT_NUM_ENTS(pheader);
+    pBuffer->dataSize = *pNumIndices * sizeof(ddTableIndex);
+    pb = (ddTableIndex *)(pBuffer->pBuf);
+
+    pentry = FIRST_ENTRY(pheader);
+
+    for ( macks = MILUT_DEF_ENTS(pheader); 
+	macks > 0; macks--, pentry++ )
+	      if (pentry->entry_info.status != MILUT_UNDEFINED)	
+		*pb++ = pentry->entry_info.index;
+
+    return (Success);
+}
+#endif	/* LUT_USE_INQ_IND */
+
+#ifdef	LUT_USE_INQ_ENTRY
+ddpex43rtn
+LUT_INQ_ENTRY (pLUT, index,  valueType, pStatus, pBuffer)
+/* in */
+    diLUTHandle         pLUT;	  /* lut handle */
+    ddTableIndex        index;	  /* index of entry to get */
+    ddUSHORT		valueType;	/* SET or REALIZED */
+/* out */
+    ddUSHORT           *pStatus;  /* entry status */
+    ddBufferPtr         pBuffer;  /* table entry */
+{
+    MILUT_DEFINE_HEADER(pLUT, pheader);
+    MI_LUT_ENTRY_STR		*pentry, *plast;
+    ddPointer			pb;
+
+#ifdef DDTEST
+    ErrorF( "\ninquire entry lut %d type %d\n", pLUT->id, pLUT->lutType);
+#endif
+
+    PU_CHECK_BUFFER_SIZE(pBuffer, sizeof(PEX_LUT_ENTRY_STR)); 
+
+    pentry = FIRST_ENTRY(pheader);
+    plast = pentry + MILUT_DEF_ENTS(pheader);
+
+    MILUT_GET_ENTRY(index, pentry, plast);
+
+    if ((pentry == NULL) || (pentry->entry_info.status == MILUT_UNDEFINED))
+    {
+	*pStatus = PEXDefaultEntry;
+    	pentry = FIRST_ENTRY(pheader);
+	MILUT_GET_ENTRY(MILUT_DEFAULT_INDEX(pheader), pentry, plast);
+	if (pentry == NULL)
+ 	{
+		/* default entry doesn't exist -  get the default values */
+		LUT_SET_DEFAULT_VALUES(&def_entry);
+		pentry = &def_entry;
+	}
+	else if (pentry->entry_info.status == MILUT_UNDEFINED)
+		{
+		/* default entry is undefined - get default values */
+			LUT_SET_DEFAULT_VALUES(&def_entry);
+			pentry = &def_entry;
+		}
+    } else
+	*pStatus = PEXDefinedEntry;
+
+    pb = pBuffer->pBuf;
+
+    pheader->ops[MILUT_REQUEST_OP(milut_copy_mi_to_pex)](pheader, valueType, pentry, &pb);
+
+    pBuffer->dataSize = pb - pBuffer->pBuf;
+	    
+    return (Success);
+}
+#endif	/* LUT_USE_INQ_ENTRY */
+
+#ifdef	LUT_USE_SET_ENTRIES
+ddpex43rtn
+LUT_SET_ENTRIES (pLUT, start, numEntries, pEntries)
+/* in */
+    diLUTHandle         pLUT;	  /* lut handle */
+    ddTableIndex        start;	  /* index of first entry to set */
+    ddUSHORT            numEntries;	/* number of entries to set */
+    ddPointer           pEntries; /* list of entries */
+{
+    MILUT_DEFINE_HEADER(pLUT, pheader);
+    MI_LUT_ENTRY_STR		*pentry, *plast, *psave;
+    PEX_LUT_ENTRY_STR	 *psrc;
+     register	int 	i;
+    int			freecount1 = 0, freecount2;
+    ddpex43rtn		err;
+    ddPointer		ps;
+
+#ifdef DDTEST
+    ErrorF( "\nset entries lut %d type %d\n", pLUT->id, pLUT->lutType);
+#endif
+
+    psrc = (PEX_LUT_ENTRY_STR *) pEntries;
+    pentry = FIRST_ENTRY(pheader);
+    plast = pentry + MILUT_DEF_ENTS(pheader);
+
+    /* check for a place to put the entries and check them for errors */
+    /* this is set up to work for tables with contiguous index
+     * values most efficiently. it will work for sparse tables, too
+     */
+    for (i = start; i < (start + numEntries); i++)
+    {
+	/* starting at current pentry, see if entry 'i' is after it */
+	psave = pentry;
+    	MILUT_GET_ENTRY(i, pentry, plast);
+
+    	if (!pentry)
+	{
+		/* make sure the entry wasn't before pentry 
+		 * by starting at the beginning and looking until where
+		 * pentry was (psave)
+		 */
+    		pentry = FIRST_ENTRY(pheader);
+    		MILUT_GET_ENTRY(i, pentry, psave);
+    		if (!pentry)
+		{
+			/* no entry defined with this index 
+			 * put one in by looking for the first
+			 * undefined entry. this has no intelligence
+			 * about it
+			 */
+    			pentry = FIRST_ENTRY(pheader);
+    			plast = pentry + MILUT_DEF_ENTS(pheader);
+			freecount2 = freecount1;
+			while ((pentry < plast) &&
+			((pentry->entry_info.status != MILUT_UNDEFINED) || freecount2))
+			{
+				if (pentry->entry_info.status == MILUT_UNDEFINED)
+					freecount2--;
+				pentry++;
+			}
+			if (pentry == plast)
+				/* couldn't find a place for it */
+				return(BadAlloc);
+			else
+				/* keep count of free places found so far */
+				freecount1++;
+		}
+	}
+	/* check the entry and increment the source pointer */
+	if ((err = pheader->ops[MILUT_REQUEST_OP(milut_entry_check)](pheader, &psrc)) != Success)
+		return(err);
+    }
+
+    psrc = (PEX_LUT_ENTRY_STR *) pEntries;
+    for (i = start; i < (start + numEntries); i++) 
+    {
+	/* starting at current pentry, see if entry 'i' is after it */
+	psave = pentry;
+    	MILUT_GET_ENTRY(i, pentry, plast);
+
+    	if (!pentry)
+	{
+		/* make sure the entry wasn't before pentry 
+		 * by starting at the beginning and looking until where
+		 * pentry was (psave)
+		 */
+    		pentry = FIRST_ENTRY(pheader);
+    		MILUT_GET_ENTRY(i, pentry, psave);
+    		if (!pentry)
+		{
+			/* no entry defined with this index 
+			 * put one in by looking for the first
+			 * undefined entry. this has no intelligence
+			 * about it
+			 */
+    			pentry = FIRST_ENTRY(pheader);
+    			plast = pentry + MILUT_DEF_ENTS(pheader);
+			while ((pentry < plast) &&
+				(pentry->entry_info.status != MILUT_UNDEFINED))
+					pentry++;
+			if (pentry == plast)
+				/* this shouldn't happen since it was
+				 * checked above, but just in case..
+				 * this is where one of those ASSURE
+				 * tests can be useful
+				 */
+				return(BadAlloc);
+		}
+	}
+
+	if (pentry->entry_info.status == MILUT_UNDEFINED)
+		MILUT_NUM_ENTS(pheader)++;
+	pentry->entry_info.status = MILUT_DEFINED;
+	pentry->entry_info.index = i;
+
+	ps = (ddPointer)psrc;
+    	pheader->ops[MILUT_REQUEST_OP(milut_copy_pex_to_mi)](pheader, &ps, pentry);
+
+	psrc = (PEX_LUT_ENTRY_STR *)ps;
+    }
+
+   err =  pheader->ops[MILUT_REQUEST_OP(milut_mod_call_back)](pLUT, 
+  	 start, numEntries, MILUT_SET_MOD);
+
+   /* check err here if your call back proc can return an error */
+
+    return (err);
+}
+#endif	/* LUT_USE_SET_ENTRIES */
+
+#ifdef	LUT_USE_DEL_ENTRIES
+ddpex43rtn
+LUT_DEL_ENTRIES (pLUT, start, numEntries)
+/* in */
+    diLUTHandle         pLUT;	  /* lut handle */
+    ddUSHORT            start;	  /* index of first entry to delete */
+    ddUSHORT            numEntries;	/* number of entries in range */
+/* out */
+{
+    MILUT_DEFINE_HEADER(pLUT, pheader);
+    MI_LUT_ENTRY_STR	*pentry, *plast, *psave;
+    ddpex43rtn		err;
+
+#ifdef DDTEST
+    ErrorF( "\ndelete entries lut %d type %d\n", pLUT->id, pLUT->lutType);
+#endif
+
+    pentry = FIRST_ENTRY(pheader);
+    plast = pentry + MILUT_DEF_ENTS(pheader);
+   
+    /* invoke the call back before deleting the entries and changing
+       start and numEntries
+    */
+    err =  pheader->ops[MILUT_REQUEST_OP(milut_mod_call_back)](pLUT,
+  	 start, numEntries, MILUT_DEL_MOD);
+
+    /* loop through and set each entry to undefined
+     * this works most efficiently if the entries are stored
+     * in the lut contiguously since MILUT_GET_ENTRY starts
+     * where pentry points then searches forward colour_approxarly
+     */
+    for (; numEntries > 0; start++, numEntries--)
+    {
+	psave = pentry;
+    	MILUT_GET_ENTRY(start, pentry, plast);
+
+    	if (!pentry)
+	{
+		/* make sure the entry wasn't before pentry */
+    		pentry = FIRST_ENTRY(pheader);
+    		MILUT_GET_ENTRY(start, pentry, psave);
+	}
+
+    	if (pentry)
+	{
+		if (pentry->entry_info.status != MILUT_UNDEFINED)
+		{
+			MILUT_NUM_ENTS(pheader)--;
+			pentry->entry_info.status = MILUT_UNDEFINED;
+		}
+	}
+	else
+		pentry = psave;
+    }
+
+   /* check err here if your call back proc can return an error */
+
+    return (err);
+}
+#endif	/* LUT_USE_DEL_ENTRIES */
+
+#ifdef	LUT_USE_INQ_ENTRY_ADDRESS
+ddpex43rtn
+LUT_INQ_ENTRY_ADDRESS (LUTtype, pLUT, index,  pStatus, ppEntry)
+/* in */
+    ddUSHORT            LUTtype;  /* lookup table type use this if pLUT is NULL */
+    diLUTHandle         pLUT;	  /* lut handle */
+    ddTableIndex        index;	  /* index of entry to get */
+/* out */
+    ddUSHORT           *pStatus;  /* entry status */
+    ddPointer         *ppEntry;  /* table entry */
+{
+    miLUTHeader		*pheader;
+    MI_LUT_ENTRY_STR	*pentry, *plast;
+
+#ifdef DDTEST
+    ErrorF( "\ninquire entry address  lut type %d\n", LUTtype);
+#endif
+
+    pentry = NULL;			
+
+    if (!pLUT) 
+    {
+	/* get the default values */
+	LUT_SET_DEFAULT_VALUES(&def_entry);
+	*ppEntry = (ddPointer)&def_entry;		
+    	return (Success);
+    }
+
+    pheader = MILUT_HEADER(pLUT);
+    pentry = FIRST_ENTRY(pheader);
+    plast = pentry + MILUT_DEF_ENTS(pheader);
+
+    MILUT_GET_ENTRY(index, pentry, plast);
+    if ((pentry == NULL) || (pentry->entry_info.status == MILUT_UNDEFINED))
+    {
+	/* get the default entry */
+	*pStatus = PEXDefaultEntry;
+    	pentry = FIRST_ENTRY(pheader);
+	MILUT_GET_ENTRY(MILUT_DEFAULT_INDEX(pheader), pentry, plast);
+	if (pentry == NULL)
+ 	{
+		/* default entry doesn't exist -  get the default values */
+		LUT_SET_DEFAULT_VALUES(&def_entry);
+		*ppEntry = (ddPointer)&def_entry;
+	}
+	else if (pentry->entry_info.status == MILUT_UNDEFINED)
+		{
+		/* default entry is undefined - get default values */
+			LUT_SET_DEFAULT_VALUES(&def_entry);
+			*ppEntry = (ddPointer)&def_entry;
+		}
+		else		/* the default entry is good */
+			*ppEntry = (ddPointer)pentry;
+    } else	/* the entry was found and is defined */
+    {
+	*pStatus = PEXDefinedEntry;
+	*ppEntry = (ddPointer)pentry;
+    }
+
+    return (Success);
+}
+#endif	/* LUT_USE_INQ_ENTRY_ADDRESS */
+
+#ifdef	LUT_USE_MOD_CALL_BACK
+ddpex43rtn
+LUT_MOD_CALL_BACK(pLUT, start, numEntries, mod)
+    diLUTHandle		pLUT;
+    ddTableIndex        start;	  /* index of first entry to set */
+    ddUSHORT            numEntries;	/* number of entries to set */
+    ddUSHORT		mod;	/* modification: copy, set, delete */
+{
+        MILUT_DEFINE_HEADER(pLUT, pheader);
+	register int	i;
+	ddRendererPtr	*pprend;
+	diWKSHandle 	*phandle;
+	miWksPtr	pwks;
+        ddpex43rtn	err;
+
+	/* set change flags in renderer so ValidateRenderer will
+	 * know to update the ddContext with changes
+	 * add to here and calls to hardware, etc. to realize 
+	 * modifications 
+	 */
+	pprend = (ddRendererPtr *)pheader->rendRefList->pList;
+	for (i=0; i<pheader->rendRefList->numObj; i++, pprend++) 
+                (*pprend)->tablesChanges |= LUT_REND_DYN_BIT;	
+
+	/* for view luts: this wks list only identifies the wks for 
+	 * which this is the current view.  The wks is not included
+	 * in the list of the requested view lut
+	 */
+	if (pheader->wksRefList->numObj) 
+	{
+		phandle = (diWKSHandle *)pheader->wksRefList->pList;
+		for (i=0; i<pheader->wksRefList->numObj; i++, phandle++) 
+		{
+			pwks = (miWksPtr)((*phandle)->deviceData);
+        		pwks->pRend->tablesChanges |= LUT_REND_DYN_BIT;
+		}
+	}
+   
+       err = Success;
+
+#ifdef	DYNAMIC
+       if (pheader->wksRefList->numObj)
+	       err = miDealWithDynamics( DYNAMIC, pheader->wksRefList );
+#endif	/* DYNAMIC */
+
+	return( err );
+}
+#endif	/* LUT_USE_MOD_CALL_BACK */
+
+
+#ifdef	LUT_USE_CREATE
+ddpex43rtn
+LUT_CREATE (pLUT, pheader)
+/* in */
+    diLUTHandle         pLUT;	  /* lut handle */
+    miLUTHeader 	*pheader; /* lut header */
+/* out */
+{
+    register int        i;
+    MI_LUT_ENTRY_STR	*pentry;
+    DD_LUT_ENTRY_STR	*pdeentry;
+
+#ifdef DDTEST
+    ErrorF( "\ncreate lut %d type %d\n", pLUT->id, pLUT->lutType);
+#endif
+
+    MILUT_START_INDEX(pheader) = LUT_START_INDEX;
+    MILUT_DEFAULT_INDEX(pheader) = LUT_DEFAULT_INDEX;
+    MILUT_NUM_ENTS(pheader) = 0;
+    SET_TABLE_INFO( pheader->drawType, &(pheader->tableInfo) );
+
+    if (MILUT_ALLOC_ENTS(pheader) == 0)
+    {
+      LUT_TABLE_START(pheader) = NULL;
+    }
+    else if ( (LUT_TABLE_START(pheader) = (MI_LUT_ENTRY_STR *)
+		xalloc(MILUT_ALLOC_ENTS(pheader) * sizeof(MI_LUT_ENTRY_STR)) ) 
+		== NULL)
+    {
+	MILUT_DESTROY_HEADER(pheader);
+	return(BadAlloc);
+    }
+
+    pentry = LUT_TABLE_START(pheader);
+    MILUT_SET_STATUS(pentry, MILUT_ALLOC_ENTS(pheader), MILUT_UNDEFINED, MI_TRUE);
+
+    /* if there are predefined entries, put them in */
+    if (MILUT_PRENUM(pheader))
+    {
+	pentry = LUT_TABLE_START(pheader) + MILUT_PREMIN(pheader);
+	pdeentry = &(LUT_PDE_ENTRIES);
+
+        for (i=MILUT_PREMIN(pheader); 
+		i<=MILUT_PREMAX(pheader); i++, pentry++, pdeentry++) 
+	{
+                pentry->entry_info.status = MILUT_PREDEFINED;
+                pentry->entry_info.index = i;
+		LUT_SET_PDE_ENTRY(pentry, pdeentry);
+		pheader->numDefined++;
+	}
+    }
+
+    pheader->ops[MILUT_REQUEST_OP(PEX_CreateLookupTable)] = LUT_CREATE;
+    pheader->ops[MILUT_REQUEST_OP(PEX_CopyLookupTable)] = LUT_COPY;
+    pheader->ops[MILUT_REQUEST_OP(PEX_FreeLookupTable)] = LUT_FREE;
+    pheader->ops[MILUT_REQUEST_OP(PEX_GetTableInfo)] = LUT_INQ_INFO;
+    pheader->ops[MILUT_REQUEST_OP(PEX_GetPredefinedEntries)] = LUT_INQ_PREDEF;
+    pheader->ops[MILUT_REQUEST_OP(PEX_GetDefinedIndices)] = LUT_INQ_IND;
+    pheader->ops[MILUT_REQUEST_OP(PEX_GetTableEntry)] = LUT_INQ_ENTRY;
+    pheader->ops[MILUT_REQUEST_OP(PEX_GetTableEntries)] = LUT_INQ_ENTRIES;
+    pheader->ops[MILUT_REQUEST_OP(PEX_SetTableEntries)] = LUT_SET_ENTRIES;
+    pheader->ops[MILUT_REQUEST_OP(PEX_DeleteTableEntries)] = LUT_DEL_ENTRIES;
+    pheader->ops[MILUT_REQUEST_OP(milut_InquireEntryAddress)] = LUT_INQ_ENTRY_ADDRESS;
+    pheader->ops[MILUT_REQUEST_OP(milut_entry_check)] = LUT_ENTRY_CHECK;
+    pheader->ops[MILUT_REQUEST_OP(milut_copy_pex_to_mi)] = LUT_COPY_PEX_MI;
+    pheader->ops[MILUT_REQUEST_OP(milut_copy_mi_to_pex)] = LUT_COPY_MI_PEX;
+    pheader->ops[MILUT_REQUEST_OP(milut_mod_call_back)] = LUT_MOD_CALL_BACK;
+
+    pLUT->deviceData = (ddPointer) pheader;
+    return (Success);
+}
+#endif	/* LUT_USE_CREATE */
+
+#endif	/* MILUT_PROCS_CI */

@@ -1,0 +1,58 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:30 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/programs/xkbcomp/Imakefile,v 3.21 2003/02/15 22:22:43 dawes Exp $
+
+#define IHaveSubdirs
+#define PassCDebugFlags 'CDEBUGFLAGS=$(CDEBUGFLAGS)'
+
+#if CrossCompiling
+         CROSS = cross
+#endif
+          SRCS = xkbcomp.c xkbscan.c expr.c vmod.c indicators.c misc.c \
+		 keymap.c keycodes.c keytypes.c compat.c action.c alias.c \
+		 symbols.c geometry.c xkbpath.c listing.c \
+		 xkbparse.c parseutils.c utils.c
+          OBJS = xkbcomp.o xkbscan.o expr.o vmod.o indicators.o misc.o alias.o \
+		 keymap.o keycodes.o keytypes.o compat.o action.o \
+		 symbols.o geometry.o xkbpath.o listing.o \
+		 xkbparse.o parseutils.o utils.o
+        DEPLIBS = $(DEPXKBFILELIB) $(DEPXLIBONLY)
+LOCAL_LIBRARIES = $(XKBFILELIB) $(XLIB)
+        SUBDIRS = $(CROSS) compat geometry keycodes keymap semantics symbols \
+		  types compiled rules
+      DATAFILES = README README.config README.enhancing
+
+ROOT_DEFINES = -DDFLT_XKB_CONFIG_ROOT=\"$(LIBDIR)/xkb\"
+
+INCLUDES = -I$(EXTINCSRC)
+
+all::
+
+SpecialCObjectRule(xkbpath,$(ICONFIGFILES),$(ROOT_DEFINES))
+
+YaccFile(xkbparse,$(YFLAGS))
+
+install::
+	@echo "Creating $(LIBDIR)/xkb"
+	MakeDir($(DESTDIR)$(LIBDIR)/xkb)
+
+InstallProgram(xkbcomp,$(LIBDIR)/xkb)
+InstallMultiple($(DATAFILES),$(LIBDIR)/xkb)
+
+clean::
+	RemoveFiles(test.h *.xkm *.xkb)
+
+ComplexProgramTarget(xkbcomp)
+#ifdef OS2Architecture
+all::
+	$(CP) ProgramTargetName(xkbcomp) /
+#endif
+
+LinkBuildBinary(ProgramTargetName(xkbcomp))
+
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))
+

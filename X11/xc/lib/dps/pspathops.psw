@@ -1,0 +1,169 @@
+/* pspathops.psw
+ *
+ * (c) Copyright 1988-1994 Adobe Systems Incorporated.
+ * All rights reserved.
+ * 
+ * Permission to use, copy, modify, distribute, and sublicense this software
+ * and its documentation for any purpose and without fee is hereby granted,
+ * provided that the above copyright notices appear in all copies and that
+ * both those copyright notices and this permission notice appear in
+ * supporting documentation and that the name of Adobe Systems Incorporated
+ * not be used in advertising or publicity pertaining to distribution of the
+ * software without specific, written prior permission.  No trademark license
+ * to use the Adobe trademarks is hereby granted.  If the Adobe trademark
+ * "Display PostScript"(tm) is used to describe this software, its
+ * functionality or for any other purpose, such use shall be limited to a
+ * statement that this software works in conjunction with the Display
+ * PostScript system.  Proper trademark attribution to reflect Adobe's
+ * ownership of the trademark shall be given whenever any such reference to
+ * the Display PostScript system is made.
+ * 
+ * ADOBE MAKES NO REPRESENTATIONS ABOUT THE SUITABILITY OF THE SOFTWARE FOR
+ * ANY PURPOSE.  IT IS PROVIDED "AS IS" WITHOUT EXPRESS OR IMPLIED WARRANTY.
+ * ADOBE DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL
+ * IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NON- INFRINGEMENT OF THIRD PARTY RIGHTS.  IN NO EVENT SHALL ADOBE BE LIABLE
+ * TO YOU OR ANY OTHER PARTY FOR ANY SPECIAL, INDIRECT, OR CONSEQUENTIAL
+ * DAMAGES OR ANY DAMAGES WHATSOEVER WHETHER IN AN ACTION OF CONTRACT,
+ * NEGLIGENCE, STRICT LIABILITY OR ANY OTHER ACTION ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.  ADOBE WILL NOT
+ * PROVIDE ANY TRAINING OR OTHER SUPPORT FOR THE SOFTWARE.
+ * 
+ * Adobe, PostScript, and Display PostScript are trademarks of Adobe Systems
+ * Incorporated which may be registered in certain jurisdictions
+ * 
+ * Author:  Adobe Systems Incorporated
+ */
+
+defineps PSarc(float x, y, r, angle1, angle2)
+	x y r angle1 angle2 arc 
+endps
+
+defineps PSarcn(float x, y, r, angle1, angle2)
+	x y r angle1 angle2 arcn 
+endps
+
+defineps PSarct(float x1, y1, x2, y2, r)
+	x1 y1 x2 y2 r arct 
+endps
+
+defineps PSarcto(float x1, y1, x2, y2, r | float *xt1, *yt1, *xt2, *yt2)
+	x1 y1 x2 y2 r arcto yt2 xt2 yt1 xt1 
+endps
+
+defineps PScharpath(char *s; boolean b)
+	(s) b charpath 
+endps
+
+defineps PSclip()
+	clip 
+endps
+
+defineps PSclippath()
+	clippath 
+endps
+
+defineps PSclosepath()
+	closepath 
+endps
+
+defineps PScurveto(float x1, y1, x2, y2, x3, y3)
+	x1 y1 x2 y2 x3 y3 curveto 
+endps
+
+defineps PSeoclip()
+	eoclip 
+endps
+
+defineps PSeoviewclip()
+	eoviewclip 
+endps
+
+defineps PSflattenpath()
+	flattenpath 
+endps
+
+defineps PSinitclip()
+	initclip 
+endps
+
+defineps PSinitviewclip()
+	initviewclip 
+endps
+
+defineps PSlineto(float x, y)
+	x y lineto 
+endps
+
+defineps PSmoveto(float x, y)
+	x y moveto 
+endps
+
+defineps PSnewpath()
+	newpath 
+endps
+
+defineps PSpathbbox( | float *llx, *lly, *urx, *ury)
+	pathbbox ury urx lly llx 
+endps
+
+defineps PSpathforall()
+	pathforall 
+endps
+
+defineps PSrcurveto(float x1, y1, x2, y2, x3, y3)
+	x1 y1 x2 y2 x3 y3 rcurveto 
+endps
+
+defineps PSrectclip(float x, y, w, h)
+	x y w h rectclip 
+endps
+
+defineps PSrectviewclip(float x, y, w, h)
+	x y w h rectviewclip 
+endps
+
+defineps PSreversepath()
+	reversepath 
+endps
+
+defineps PSrlineto(float x, y)
+	x y rlineto 
+endps
+
+defineps PSrmoveto(float x, y)
+	x y rmoveto 
+endps
+
+defineps PSsetbbox(float llx, lly, urx, ury)
+	llx lly urx ury setbbox 
+endps
+
+defineps PSsetucacheparams()
+	setucacheparams 
+endps
+
+defineps PSuappend(char nums[n]; int n; char ops[l]; int l)
+	[(nums) (ops)] uappend
+endps
+
+defineps PSucache()
+	ucache 
+endps
+
+defineps PSucachestatus()
+	ucachestatus 
+endps
+
+defineps PSupath(boolean b)
+	b upath 
+endps
+
+defineps PSviewclip()
+	viewclip 
+endps
+
+defineps PSviewclippath()
+	viewclippath 
+endps
+

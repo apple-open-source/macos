@@ -1,0 +1,11 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:41:54 cpqbld Exp $
+
+MANDIR = $(LIBMANDIR)
+MANSUFFIX = $(LIBMANSUFFIX)
+
+all::
+
+InstallManPage(Xau,$(MANDIR))
+#if ExpandManNames
+InstallManPageAliases(Xau,$(MANDIR),XauFileName XauReadAuth XauLockAuth XauUnlockAuth XauWriteAuth XauDisposeAuth XauGetAuthByAddr XauGetBestAuthByAddr)
+#endif

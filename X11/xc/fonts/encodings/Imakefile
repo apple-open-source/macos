@@ -1,0 +1,46 @@
+XCOMM $XFree86: xc/fonts/encodings/Imakefile,v 1.9 2003/02/05 12:47:41 dawes Exp $
+
+#define IHaveSubdirs
+#define PassCDebugFlags 'CDEBUGFLAGS=$(CDEBUGFLAGS)'
+
+SUBDIRS = large
+
+OBJS = EncObjComp(adobe-dingbats) EncObjComp(adobe-standard) \
+	EncObjComp(adobe-symbol) \
+	EncObj(armscii-8) \
+	EncObj(dec-special) \
+	EncObj(ibm-cp437) EncObj(ibm-cp850) \
+	EncObj(ibm-cp852) EncObj(ibm-cp866) \
+	EncObj(iso8859-11) EncObj(iso8859-13) \
+	EncObj(iso8859-16) \
+	EncObj(microsoft-cp1250) EncObj(microsoft-cp1251) \
+	EncObj(microsoft-cp1252) EncObj(microsoft-cp1253) \
+	EncObj(microsoft-cp1254) EncObj(microsoft-cp1255) \
+	EncObj(microsoft-cp1256) EncObj(microsoft-cp1257) \
+	EncObj(microsoft-cp1258) EncObj(microsoft-win3.1) \
+	EncObj(mulearabic-0) EncObj(mulearabic-1) \
+	EncObj(mulearabic-2) EncObj(mulelao-1) \
+	EncObj(tcvn-0) EncObj(tis620-2) EncObjComp(viscii1.1-1)
+
+DONES = large/DONE
+
+#if HasParallelMake
+MakeMutex($(SUBDIRS) $(DONES))
+#endif
+
+#if HasGnuMake || HasBsdMake
+$(DONES): $(SUBDIRS)
+#endif
+
+MakeEncodings($(SUBDIRS) $(DONES),$(ENCODINGSDIR),. large)
+
+CompEncodingTarget(adobe-dingbats)
+CompEncodingTarget(adobe-standard)
+CompEncodingTarget(adobe-symbol)
+CompEncodingTarget(viscii1.1-1)
+
+InstallEncodings($(ENCODINGSDIR))
+
+ForceSubdirs($(SUBDIRS))
+
+DependSubdirs($(SUBDIRS))
