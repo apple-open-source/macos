@@ -163,6 +163,8 @@ uid_t process_uid = -1;
 
 int gSuppressAllUI = 0;
 
+char webdavcache_path[MAXPATHLEN] = "";
+
 /*****************************************************************************/
 
 static void usage(void)
@@ -1265,23 +1267,6 @@ int main(int argc, char *argv[])
 		}
 	}
 	
-	/* Create the temporary directory to hold cache files
-	  We need to do this now so that the webdav_mount call
-	  (which will do a lookup) will suceed.  It may need
-	  to cache some data in a file */
-	um = umask((mode_t)0);
-	error = mkdir(_PATH_TMPWEBDAVDIR, 0777);
-	if (error)
-	{
-		if (errno != EEXIST)
-		{
-			/* we got an error and it wasn't EEXIST so exit */
-			syslog(LOG_ERR, "main: could not create webdavcache directory");
-			exit(errno);
-		}
-	}
-	(void)umask(um);
-
 	/*
 	 * Check out the server and get the mount flags
 	 */
@@ -1668,6 +1653,12 @@ int main(int argc, char *argv[])
 
 	syslog(LOG_INFO, "%s unmounted", gmountpt);
 	
+	/* attempt to delete the cache directory if any */
+	if (*webdavcache_path != '\0')
+	{
+		(void) rmdir(webdavcache_path);
+	}
+
 	if (diskarb_inited)
 	{
 		/* Tell AutoDiskMount to send notifications if it needs to */

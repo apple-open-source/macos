@@ -468,6 +468,7 @@ int MimeBodyType(unsigned char *hdrs, int WantDecode)
 	   the boundary string */
 	strcpy(MultipartDelimiter, "--");
 	strncat(MultipartDelimiter, p1, MAX_DELIM_LEN);
+	MultipartDelimiter[sizeof(MultipartDelimiter)-1] = '\0';
 	BodyType = (MSG_IS_8BIT | MSG_NEEDS_DECODE);
       }
     }
@@ -725,7 +726,7 @@ int main(int argc, char *argv[])
      if (buf_p > buffer) {
         if (bodytype & MSG_NEEDS_DECODE) {
            buf_p = buffer;
-           UnMimeBodyline(&buf_p, 0);
+           UnMimeBodyline(&buf_p, 0, 0);
         }
         fwrite(buffer, (buf_p - buffer), 1, stdout);
         DBG_FWRITE(buffer, (buf_p - buffer), 1, fd_conv);

@@ -1,6 +1,6 @@
    (This document was generated from fetchmail-FAQ.html)
 
-   Back to Fetchmail Home Page To Site Map $Date: 2002/11/08 02:15:22 $
+   Back to Fetchmail Home Page To Site Map $Date: 2003/10/16 17:59:41 $
      _________________________________________________________________
 
                   Frequently Asked Questions About Fetchmail
@@ -75,19 +75,22 @@
 
    S1. How can I use fetchmail with qpopper?
    S2. How can I use fetchmail with Microsoft Exchange?
-   S3. How can I use fetchmail with Compuserve RPA?
-   S4. How can I use fetchmail with Demon Internet's SDPS?
-   S5. How can I use fetchmail with usa.net's servers?
-   S6. How can I use fetchmail with HP OpenMail?
-   S7. How can I use fetchmail with geocities POP3 servers?
-   S8. How can I use fetchmail with Hotmail?
-   S9. How can I use fetchmail with MSN?
-   S10. How can I use fetchmail with SpryNet?
-   S11. How can I use fetchmail with FTGate?
-   S12. How can I use fetchmail with MailMax?
-   S13. How can I use fetchmail with Novell GroupWise?
-   S14. How can I use fetchmail with InterChange?
-   S15. How can I use fetchmail with www.gmx.de?
+   S3. How can I use fetchmail with HP OpenMail?
+   S4. How can I use fetchmail with Novell GroupWise?
+   S5. How can I use fetchmail with InterChange?
+   S6. How can I use fetchmail with MailMax?
+   S7. How can I use fetchmail with FTGate?
+
+                   How to fetchmail work with specific ISPs:
+
+   I1. How can I use fetchmail with Compuserve RPA?
+   I2. How can I use fetchmail with Demon Internet's SDPS?
+   I3. How can I use fetchmail with usa.net's servers?
+   I4. How can I use fetchmail with geocities POP3 servers?
+   I5. How can I use fetchmail with Hotmail?
+   I6. How can I use fetchmail with MSN?
+   I7. How can I use fetchmail with SpryNet?
+   I8. How can I use fetchmail with comcast.net?
 
          How to set up well-known security and authentication methods:
 
@@ -170,6 +173,8 @@
    over?
    O10. Why is the received date on all my messages the same?
    O11. I keep getting messages that say "Repoll immediately" in my logs.
+   O12. Fetchmail no longer expunges mail on a 451 SMTP response.
+   O13. I want timestamp information in my fetchmail logs.
 
                                    Answers:
      _________________________________________________________________
@@ -206,8 +211,8 @@ G2. Where do I find the latest FAQ and fetchmail sources?
 
    The  latest  HTML  FAQ  is  available  alongside  the latest fetchmail
    sources at the fetchmail home page:
-   http://www.tuxedo.org/~esr/fetchmail.  You  can also usually find both
-   in the POP mail tools directory on Sunsite.
+   http://www.catb.org/~esr/fetchmail.  You can also usually find both in
+   the POP mail tools directory on Sunsite.
 
    A  text  dump  of  this FAQ is included in the fetchmail distribution.
    Because  it  freezes  at  distribution  release  time,  it  may not be
@@ -315,10 +320,13 @@ G4. I have this idea for a neat feature. Will you add it?
 
    You  can  do  spam  filtering  better with procmail or maildrop on the
    server  side  and  (if  you're the server sysadmin) sendmail.cf domain
-   exclusions.  You can do other policy things better with the mda option
-   and     script     wrappers    around    fetchmail.    If    it's    a
-   prime-time-vs.-non-prime-time  issue,  ask  yourself whether a wrapper
-   script called from crontab would do the job.
+   exclusions.  If  you  really  want  fetchmail to do it from the client
+   side, yse a preconnect command to call mailfilter.
+
+   You  can  do other policy things better with the mda option and script
+   wrappers  around  fetchmail.  If  it's a prime-time-vs.-non-prime-time
+   issue, ask yourself whether a wrapper script called from crontab would
+   do the job.
 
    I'm  not  going to do these; fetchmail's job is transport, not policy,
    and I refuse to change it from doing one thing well to attempting many
@@ -446,18 +454,19 @@ G10. How can I avoid sending my password en clair?
    Depending  on  what  your  mail server you are talking to, this ranges
    from trivial to impossible. It may even be next to useless.
 
-   Most  people  use  fetchmail  over phone wires, which are hard to tap.
-   Anybody  with  the  skill and resources to do this could get into your
-   server mailbox with much less effort by subverting the server host. So
-   if  your  provider  setup is modem wires going straight into a service
-   box, you probably don't need to worry.
+   Most  people  use fetchmail over phone wires (whether plain old copper
+   or  DSL),  which are hard to tap. Anybody with the skill and resources
+   to do this could get into your server mailbox with much less effort by
+   subverting the server host. So if your provider setup is phone-company
+   wire  going  straight  into  a service box, you probably don't need to
+   worry.
 
    In  general  there  is little point in trying to secure your fetchmail
    transaction  unless  you trust the security of the server host you are
    retrieving  mail  from.  Your  vulnerability  is  more likely to be an
    insecure  local  network  on  the  server end (e.g. to somebody with a
    TCP/IP  packet sniffer intercepting Ethernet traffic between the modem
-   concentrator you dial in to and the mailserver host).
+   concentrator or DSL POP you dial in to and the mailserver host).
 
    Having  realized  this,  you  need  to ask whether password encryption
    alone  will  really  address  your security exposure. If you think you
@@ -509,7 +518,7 @@ G10. How can I avoid sending my password en clair?
    for AUTH=KERBEROS_V4 in the CAPABILITY response.
 
    If  you  are fetching mail from a CompuServe POP3 account, you can use
-   their  RPA  authentication  (which  works  much like APOP). See S3 for
+   their  RPA  authentication  (which  works  much like APOP). See I1 for
    details.  If you are fetching mail from Microsoft Exchange using IMAP,
    you will be able to use NTLM.
 
@@ -843,7 +852,7 @@ F2. The .fetchmailrc parser won't accept my all-numeric user name.
 F3. The .fetchmailrc parser won't accept my host or username beginning with
 `no'.
 
-   See  F2  You're caught in an unfortunate crack between the newer-style
+   See  F2. You're caught in an unfortunate crack between the newer-style
    syntax  for  negated  options  (`no  keep', `no rewrite' etc.) and the
    older style run-on syntax (`nokeep', `norewrite' etc.).
 
@@ -1266,6 +1275,7 @@ T6. How can I use fetchmail with Lotus Notes?
    The Lotus Notes SMTP gateway tries to deduce when it should convert \n
    to  \r\n,  but  its rules are not the intuitive and correct-for-RFC822
    ones. Use `forcecr'.
+     _________________________________________________________________
 
 T7. How can I use fetchmail with Courier IMAP?
 
@@ -1317,7 +1327,7 @@ S2. How can I use fetchmail with Microsoft Exchange?
    RFC-compliant server. IMAP is alleged to work OK, though.
 
    Older  versions  of  Exchange  are  semi-usable.  They  randomly  drop
-   atttachments  on  the  floor, though. Microsoft acknowledges this as a
+   attachments  on  the  floor,  though. Microsoft acknowledges this as a
    known bug and apparently has no plans to fix it.
 
    Fetchmail  using  IMAP supports the proprietary NTLM mode used with M$
@@ -1411,12 +1421,72 @@ System\Pop3 Performance
 
    But,  the best option involves a tactical nuclear weapon (an old ASROC
    will do), pissing off a lot people who live downwind from Redmond, and
-   your choice of any Linux, NetBSD, FreeBSD, or Solaris CD.
-
-   I'll provide the CD.
+   your choice of any Linux, NetBSD, FreeBSD, or Solaris CD-ROM.
      _________________________________________________________________
 
-S3. How can I use fetchmail with CompuServe RPA?
+S3. How can I use fetchmail with HP OpenMail?
+
+   No  special  configuration is required, but OpenMail versions prior to
+   6.0 have an annoying bug similar to the big one in Microsoft Exchange.
+   The message sizes it gives in the LIST are rounded to the nearest 1024
+   bytes.  It  also  has  a  nasty habit of discarding headers it doesn't
+   recognize, such as X- and Resent- headers.
+
+   As  with M$ Exchange, the only real fix for these problems is to get a
+   POP  (or  preferably  IMAP)  server  that isn't brain-dead. OpenMail's
+   project manager claims these bugs have been fixed in 6.0.
+
+   We've  had  a  more recent report (December 2001) that the TOP command
+   fails,  returning  only  one  line  regrardless  of  its  argument, on
+   something identifying itself as "OpenMail POP3 interface".
+     _________________________________________________________________
+
+S4. How can I use fetchmail with Novell GroupWise?
+
+   The  Novell  GroupWise IMAP server would be better named GroupFoolish;
+   it is (according to the designer of IMAP) unusably broken. Among other
+   things, it doesn't include a required content length in its BODY[TEXT]
+   response.
+
+   Fetchmail  works around this problem, but we strongly recommend voting
+   with  your  dollars  for  a server that isn't brain-dead. If you stick
+   with  code  as  shoddy as GroupWise seems to be, you will probably pay
+   for it with other problems.
+     _________________________________________________________________
+
+S5. How can I use fetchmail with InterChange?
+
+   You  can't.  At  least  not if you want to be able to see attachments.
+   InterChange  has  a  bug similar to the MailMax server; it reports the
+   message  length  with  attachments but doesn't download them on TOP or
+   RETR.
+
+   On  Jan  9  2001, the people at InfiniteMail sent me mail informing me
+   that  their  new  3.61.08 release of InterChange fixes this problem. I
+   don't have any reports one way or the other yet.
+     _________________________________________________________________
+
+S6. How can I use fetchmail with MailMax?
+
+   You  can't.  At  least  not if you want to be able to see attachments.
+   MailMax  has a bug; it reports the message length with attachments but
+   doesn't download them on TOP or RETR.
+
+   Also,  we're  told  that  TOP  sometimes  fails to retrieve the entire
+   message  even  when  enough  lines  have  been  specified. The MailMax
+   developers  have  acknowledged this bug as of 4 May 2000, but there is
+   no  fix yet. If you must use this server, force RETR with the fetchall
+   option.
+     _________________________________________________________________
+
+S7. How can I use fetchmail with FTGate?
+
+   The FTGate V2 server (and possibly older versions as well) has a weird
+   bug.  It answers OK twice to a TOP request! Use the fetchall option to
+   force use of RETR and work around this bug.
+     _________________________________________________________________
+
+I1. How can I use fetchmail with CompuServe RPA?
 
    First, make sure your fetchmail has the RPA support compiled in. Stock
    fetchmail  binaries (such as you might get from an RPM) don't. You can
@@ -1450,7 +1520,7 @@ poll non-rpa.csi.com via "pop.site1.csi.com" with proto POP3 and options no dns
        is LOCAL_USER here options fetchall stripcr
      _________________________________________________________________
 
-S4. How can I use fetchmail with Demon Internet's SDPS?
+I2. How can I use fetchmail with Demon Internet's SDPS?
 
   Single-drop mode
 
@@ -1510,7 +1580,7 @@ poll pop3.demon.co.uk with protocol POP3:
    may fail. To force SDPS mode, pick "sdps" as your protocol.
      _________________________________________________________________
 
-S5. How can I use fetchmail with usa.net's servers?
+I3. How can I use fetchmail with usa.net's servers?
 
    Enable  `fetchall'.  A  user reports that the 2.2 version of USA.NET's
    POP  server  reports  that  you must use the `fetchall' option to make
@@ -1532,24 +1602,7 @@ S5. How can I use fetchmail with usa.net's servers?
    provider.)
      _________________________________________________________________
 
-S6. How can I use fetchmail with HP OpenMail?
-
-   No  special  configuration is required, but OpenMail versions prior to
-   6.0 have an annoying bug similar to the big one in Microsoft Exchange.
-   The message sizes it gives in the LIST are rounded to the nearest 1024
-   bytes.  It  also  has  a  nasty habit of discarding headers it doesn't
-   recognize, such as X- and Resent- headers.
-
-   As  with M$ Exchange, the only real fix for these problems is to get a
-   POP  (or  preferably  IMAP)  server  that isn't brain-dead. OpenMail's
-   project manager claims these bugs have been fixed in 6.0.
-
-   We've  had  a  more recent report (December 2001) that the TOP command
-   fails,  returning  only  one  line  regrardless  of  its  argument, on
-   something identifying itself as "OpenMail POP3 interface".
-     _________________________________________________________________
-
-S7. How can I use fetchmail with geocities POP3 servers?
+I4. How can I use fetchmail with geocities POP3 servers?
 
    Nathan  Cutler  reports  that  the the mail.geocities.com POP3 servers
    fail  to include the first Received line of the message in the send to
@@ -1570,12 +1623,12 @@ mda "sed -e '1s/^\t/Received: /' | formail | /usr/bin/procmail -d <user>"
    Geocities are lame, you should boycott them anyway.
      _________________________________________________________________
 
-S8. How can I use fetchmail with Hotmail?
+I5. How can I use fetchmail with Hotmail?
 
    You can't, yet. But gotmail or HotWayDaemon might be what you need.
      _________________________________________________________________
 
-S9. How can I use fetchmail with MSN?
+I6. How can I use fetchmail with MSN?
 
    You  can't.  MSN  uses  something  that  looks  like  POP3, except the
    authentication  part is nonstandard. And of course they don't document
@@ -1589,7 +1642,7 @@ S9. How can I use fetchmail with MSN?
    MSN; if so, somebody should report it so this FAQ can be corrected.
      _________________________________________________________________
 
-S10. How can I use fetchmail with SpryNet?
+I7. How can I use fetchmail with SpryNet?
 
    The SpryNet POP3 servers mark a message queried with TOP as seen. This
    means  that  if  your  connection  drops in mid-message, it may end up
@@ -1597,55 +1650,15 @@ S10. How can I use fetchmail with SpryNet?
    that it's recovered on the next cycle.
      _________________________________________________________________
 
-S11. How can I use fetchmail with FTGate?
+I8. How can I use fetchmail with comcast.net?
 
-   The FTGate V2 server (and possibly older versions as well) has a weird
-   bug.  It answers OK twice to a TOP request! Use the fetchall option to
-   force use of RETR and work around this bug.
-     _________________________________________________________________
+   Stock   fetchmail  will  work  with  a  comcast.net  server...but  the
+   Maillennium  POP3 server comcat uses seems to have an 80K limit on the
+   length  of  downloaded  messages  if  you  use  POP3  TOP to retrieve.
+   Anything  larger  is  silently  truncated.  Don't  mistake  this for a
+   fetchmail bug. (Reported July 2003.)
 
-S12. How can I use fetchmail with MailMax?
-
-   You  can't.  At  least  not if you want to be able to see attachments.
-   MailMax  has a bug; it reports the message length with attachments but
-   doesn't download them on TOP or RETR.
-
-   Also,  we're  told  that  TOP  sometimes  fails to retrieve the entire
-   message  even  when  enough  lines  have  been  specified. The MailMax
-   developers  have  acknowledged this bug as of 4 May 2000, but there is
-   no  fix yet. If you must use this server, force RETR with the fetchall
-   option.
-     _________________________________________________________________
-
-S13. How can I use fetchmail with Novell GroupWise?
-
-   The  Novell  GroupWise IMAP server would be better named GroupFoolish;
-   it is (according to the designer of IMAP) unusably broken. Among other
-   things, it doesn't include a required content length in its BODY[TEXT]
-   response.
-
-   Fetchmail  works around this problem, but we strongly recommend voting
-   with  your  dollars  for  a server that isn't brain-dead. If you stick
-   with  code  as  shoddy as GroupWise seems to be, you will probably pay
-   for it with other problems.
-     _________________________________________________________________
-
-S14. How can I use fetchmail with InterChange?
-
-   You  can't.  At  least  not if you want to be able to see attachments.
-   InterChange  has  a  bug similar to the MailMax server; it reports the
-   message  length  with  attachments but doesn't download them on TOP or
-   RETR.
-
-   On  Jan  9  2001, the people at InfiniteMail sent me mail informing me
-   that  their  new  3.61.08 release of InterChange fixes this problem. I
-   don't have any reports one way or the other yet.
-
-S15. How can I use fetchmail with www.gmx.de?
-
-   You  can't,  not  reliably  anyway. The GMX StreamProxy server behaves
-   badly  on authentication failures, sending back a non-conformant error
-   message (missing an -ERR tag) that confuses fetchmail.
+   Workaround: use the fetchall option.
      _________________________________________________________________
 
 K1. How can I use fetchmail with SOCKS?
@@ -2810,7 +2823,7 @@ O9. Why does fetchmail keep retrieving the same messages over and over?
    them.  The  solution  is  to  either  (a) wait for the other client to
    finish, or (b) terminate it.
 
-   James Stevens <James.Stevens@kyzo.com> writes:
+   James Stevens <James.Stevens at kyzo.com> writes:
 
    We had a Linux box dialing the Net and collecting mail from an NT POP3
    server.  Fetchmail  was  correctly collecting and deleting each e-mail
@@ -2845,7 +2858,7 @@ O10. Why is the received date on all my messages the same?
    received date from the last Received header.
      _________________________________________________________________
 
-   O11. I keep getting messages that say "Repoll immediately" in my logs.
+O11. I keep getting messages that say "Repoll immediately" in my logs.
 
    This is your server barfing on the CAPA probe that fetchmail sends.
    If  you  run fetchmail in daemon mode (say "set daemon 600"), you will
@@ -2855,7 +2868,37 @@ O10. Why is the received date on all my messages the same?
    password), you will never get the message.
      _________________________________________________________________
 
-   Back to Fetchmail Home Page To Site Map $Date: 2002/11/08 02:15:22 $
+O12. Fetchmail no longer expunges mail on a 451 SMTP response.
+
+   This is a feature, not a bug.
+
+   Any  4xx  response (like 451) indicates a transient (temporary) error.
+   This  means  that  the mail could be accepted if retried later. Lookup
+   failures  are  normally  transient  errors  as  a  mail should not get
+   rejected if a dns server is unreachable or down.
+
+   A permanent reject response is of the form 5xx (like 550).
+
+   You could tell your SMTP server to not lookup any addresses if you are
+   not  keen  on  checking  the  sender addresses. This problem typically
+   occurs  if  your mail server is not checking the sender addresses, but
+   your local server is.
+
+   Or you could declare antispam 451
+
+   Or,  you  could check your nameserver configuration and query logs for
+   dns errors.
+
+   All these issues are not related to fetchmail directly.
+     _________________________________________________________________
+
+O13. I want timestamp information in my fetchmail logs.
+
+   Write  a  preconnect  command  in  your  configuration  file that does
+   something like "date >> $HOME/Procmail/fetchmail.log".
+     _________________________________________________________________
+
+   Back to Fetchmail Home Page To Site Map $Date: 2003/10/16 17:59:41 $
 
 
     Eric S. Raymond <esr@thyrsus.com>

@@ -14,6 +14,7 @@
 #include <memory.h>
 #endif /* HAVE_MEMORY_H */
 #include <sys/types.h>
+#include <sys/stat.h>
 #ifndef HAVE_NET_SOCKET_H
 #include <sys/socket.h>
 #else
@@ -540,6 +541,7 @@ int SockRead(int sock, char *buf, int len)
 {
     char *newline, *bp = buf;
     int n;
+    int maxavailable = 0;
 #ifdef	SSL_ENABLE
     SSL *ssl;
 #endif
@@ -579,6 +581,7 @@ int SockRead(int sock, char *buf, int len)
 			(void)SSL_get_error(ssl, n);
 			return(-1);
 		}
+		maxavailable = n;
 		if( 0 == n ) {
 			/* SSL_peek says no data...  Does he mean no data
 			or did the connection blow up?  If we got an error
@@ -622,6 +625,7 @@ int SockRead(int sock, char *buf, int len)
 	    if ((n = fm_peek(sock, bp, len)) <= 0)
 #endif
 		return (-1);
+	    maxavailable = n;
 	    if ((newline = memchr(bp, '\n', n)) != NULL)
 		n = newline - bp + 1;
 #ifndef __BEOS__
@@ -634,6 +638,47 @@ int SockRead(int sock, char *buf, int len)
     } while 
 	    (!newline && len);
     *bp = '\0';
+
+#ifdef FORCE_STUFFING		/* too ugly to live -- besides, there's IMAP */
+    /* OK, very weird hack coming up here:
+     * When POP3 servers send us a message, they're supposed to
+     * terminate the message with a line containing only a dot. To protect
+     * against lines in the real message that might contain only a dot,
+     * they're supposed to preface any line that starts with a dot with
+     * an additional dot, which will be removed on the client side. That
+     * process, called byte-stuffing (and unstuffing) is really not the
+     * concern of this low-level routine, ordinarily, but there are some
+     * POP servers (and maybe IMAP servers too, who knows) that fail to
+     * do the byte-stuffing, and this routine is the best place to try to
+     * identify and fix that fault.
+     *
+     * Since the DOT line is supposed to come only at the end of a
+     * message, the implication is that right after we see it, the server
+     * is supposed to go back to waiting for the next command. There
+     * isn't supposed to be any more data to read after we see the dot.
+     * THEREFORE, if we see more data to be read after something that
+     * looks like the dot line, then probably the server is failing to
+     * do byte-stuffing. In that case, we'll byte-pack it for them so
+     * that the higher-level routines see things as hunky-dorey.
+     * This is not a perfect test or fix by any means (it has an
+     * obvious race condition, for one thing), but it should at least
+     * reduce the nastiness that ensues when people don't know how
+     * to write POP servers.
+     */
+    if ((maxavailable > (bp-buf)) &&
+	    ((((bp-buf) == 3) &&
+	      (buf[0] == '.') &&
+	      (buf[1] == '\r') &&
+	      (buf[2] == '\n')) ||
+	     (((bp-buf) == 2) &&
+	      (buf[0] == '.') &&
+	      (buf[1] == '\n')))) {
+
+	memmove(buf+1, buf, (bp-buf)+1);
+	buf[0] = '.';
+	bp++;
+    }
+#endif /* FORCE_STUFFING */
     return bp - buf;
 }
 
@@ -857,10 +902,31 @@ int SSLOpen(int sock, char *mycert, char *mykey, char *myproto, int certck, char
     char *fingerprint, char *servercname, char *label)
 {
 	SSL *ssl;
+        struct stat randstat;
+        int i;
 	
 	SSL_load_error_strings();
 	SSLeay_add_ssl_algorithms();
 	
+#ifdef SSL_ENABLE
+        if (stat("/dev/random", &randstat)  &&
+            stat("/dev/urandom", &randstat)) {
+          /* Neither /dev/random nor /dev/urandom are present, so add
+             entropy to the SSL PRNG a hard way. */
+          for (i = 0; i < 10000  &&  ! RAND_status (); ++i) {
+            char buf[4];
+            struct timeval tv;
+            gettimeofday (&tv, 0);
+            buf[0] = tv.tv_usec & 0xF;
+            buf[2] = (tv.tv_usec & 0xF0) >> 4;
+            buf[3] = (tv.tv_usec & 0xF00) >> 8;
+            buf[1] = (tv.tv_usec & 0xF000) >> 12;
+            RAND_add (buf, sizeof buf, 0.1);
+          }
+        }
+#endif /* SSL_ENABLE */
+
+
 	if( sock < 0 || sock > FD_SETSIZE ) {
 		report(stderr, GT_("File descriptor out of range for SSL") );
 		return( -1 );
@@ -876,6 +942,8 @@ int SSLOpen(int sock, char *mycert, char *mykey, char *myproto, int certck, char
 				_ctx = SSL_CTX_new(SSLv3_client_method());
 			} else if(!strcmp("tls1",myproto)) {
 				_ctx = SSL_CTX_new(TLSv1_client_method());
+			} else if (!strcmp("ssl23",myproto)) {
+				myproto = NULL;
 			} else {
 				fprintf(stderr,GT_("Invalid SSL protocol '%s' specified, using default (SSLv23).\n"), myproto);
 				myproto = NULL;
@@ -930,7 +998,7 @@ int SSLOpen(int sock, char *mycert, char *mykey, char *myproto, int certck, char
 
 	SSL_set_fd(_ssl_context[sock], sock);
 	
-	if(SSL_connect(_ssl_context[sock]) == -1) {
+	if(SSL_connect(_ssl_context[sock]) < 1) {
 		ERR_print_errors_fp(stderr);
 		return(-1);
 	}
@@ -1016,6 +1084,8 @@ static ssize_t cygwin_read(int sock, void *buf, size_t count)
 	    return(-1);
 	}
     }
+
+    return count;
 }
 #endif /* __CYGWIN__ */
 

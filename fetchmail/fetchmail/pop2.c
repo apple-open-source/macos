@@ -141,11 +141,13 @@ const static struct method pop2 =
     pop2_getauth,			/* get authorization */
     pop2_getrange,			/* query range of messages */
     NULL,				/* no way to get sizes */
+    NULL,				/* no way to get sizes of subsets */
     NULL,				/* messages are always new */
     pop2_fetch,				/* request given message */
     NULL,				/* no way to fetch body alone */
     pop2_trail,				/* eat message trailer */
     NULL,				/* no POP2 delete method */
+    NULL,				/* how to mark a message as seen */
     pop2_logout,			/* log out, we're done */
     FALSE,				/* no, we can't re-poll */
 };

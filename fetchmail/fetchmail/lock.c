@@ -77,7 +77,7 @@ int lock_state(void)
     {
 	bkgd = (fscanf(lockfp, "%d %d", &pid, &st) == 2);
 
-	if (kill(pid, 0) == -1) {
+	if (pid == 0 || kill(pid, 0) == -1) {
 	    fprintf(stderr,GT_("fetchmail: removing stale lockfile\n"));
 	    pid = 0;
 	    unlink(lockfile);

@@ -1,4 +1,4 @@
-/* config.h.in.  Generated from configure.in by autoheader.  */
+/* config.h.in.  Generated from configure.ac by autoheader.  */
 /* acconfig.h
    This file is in the public domain.
 
@@ -556,6 +556,9 @@
 /* Define to empty if `const' does not conform to ANSI C. */
 #undef const
 
+/* Define to `int' if <sys/types.h> doesn't define. */
+#undef gid_t
+
 /* Define as `__inline' if that's what the C compiler calls it, or to nothing
    if it is not supported. */
 #undef inline
@@ -569,6 +572,13 @@
 /* Define to `unsigned' if <sys/types.h> does not define. */
 #undef size_t
 
+/* Define to `int' if <sys/types.h> doesn't define. */
+#undef uid_t
+
 /* Define to unsigned long or unsigned long long if <inttypes.h> and
    <stdint.h> don't define. */
 #undef uintmax_t
+
+/* Define to empty if the keyword `volatile' does not work. Warning: valid
+   code using `volatile' can become incorrect without. Disable with care. */
+#undef volatile

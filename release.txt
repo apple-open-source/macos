@@ -1,4 +1,4 @@
-# Mac OS X 10.3
+# Mac OS X 10.3.1
 Apple16X50Serial	13
 Apple3Com3C90x	7
 AppleADBButtons	250.0.1
@@ -83,7 +83,7 @@ IOPCIFamily	21
 IOSCSIArchitectureModelFamily	130.3.8
 IOSCSIParallelFamily	130.3.1
 IOSerialFamily	20
-IOStorageFamily	44
+IOStorageFamily	44.1
 IOUSBFamily	205.3.5
 IOUSBMassStorageClass	130.2.1
 IPFirewall	17
@@ -167,12 +167,11 @@ emacs	56
 enscript	9
 expect	1
 extenTools	17.3
-fetchmail	9
+fetchmail	10
 file	1
 file_cmds	82
 files	436
 flex	11
-gas	495
 gcc	1495
 gcc_legacy	938
 gcc_os	1256
@@ -254,9 +253,8 @@ top	9
 usertemplate	40
 vim	10
 volfs	24
-webdavfs	148
+webdavfs	148.2
 xinetd	26
-xnu	517
 yacc	6
 zlib	12
 zsh	34

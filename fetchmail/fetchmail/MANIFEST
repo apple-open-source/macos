@@ -105,12 +105,16 @@ po/da.gmo
 po/da.po
 po/de.gmo
 po/de.po
+po/el.gmo
+po/el.po
 po/es.gmo
 po/es.po
 po/fetchmail.diff
 po/fetchmail.pot
 po/fr.gmo
 po/fr.po
+po/fr.po.orig
+po/fr.po.rej
 po/gl.gmo
 po/gl.po
 po/ja.gmo
@@ -123,6 +127,8 @@ po/pl.po
 po/POTFILES.in
 po/pt_BR.gmo
 po/pt_BR.po
+po/sk.gmo
+po/sk.po
 po/stamp-cat-id
 po/tr.gmo
 po/tr.po

@@ -7,6 +7,8 @@
 #ifndef _POPSMTP_
 #define _POPSMTP_
 
+#include <time.h>
+
 #define         SMTPBUFSIZE     256
 
 /* SMTP error values */
@@ -20,6 +22,8 @@
 #define ESMTP_ETRN	0x04
 #define ESMTP_ATRN	0x08		/* used with ODMR, RFC 2645 */
 #define ESMTP_AUTH	0x10
+
+extern time_t last_smtp_ok;
 
 void SMTP_setmode(char);
 int SMTP_helo(int socket,const char *host);

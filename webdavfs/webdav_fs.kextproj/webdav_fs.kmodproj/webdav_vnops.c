@@ -1364,6 +1364,7 @@ static int webdav_open(ap)
 	struct timeval tv;
 	struct sockopt sopt;
 	int retryrequest;
+	int opencollision;
 	struct timeval lasttrytime;
 	struct timeval currenttime;
 
@@ -1381,6 +1382,7 @@ retry:
 	fd = 0;
 	error = 0;
 	retryrequest = 0;
+	opencollision = 0;
 	
 	/*
 	 * Previously this code:
@@ -1404,6 +1406,10 @@ retry:
 	/* If it is already open then just ref the node
 	 * and go on about our business. Make sure to set
 	 * the write status if this is read/write open
+	 */
+	/* There is no vnode locking so more than one open can be going to the deamon at a time
+	 * and so multiple cache files can be opened. The opencollision retry mechanism was added
+	 * to work around this problem until vnode locking is in place.
 	 */
 	if (vp->v_usecount > 0 && pt->pt_cache_vnode)
 	{
@@ -1666,6 +1672,14 @@ retry:
 				else
 				{
 					webdav_up(fmp);
+					if ( error == EAGAIN )
+					{
+						/* If this request failed because another open was opened a cache file
+						 * after this open was started, then retry.
+						 */
+						opencollision = 1;
+						retryrequest = 1;
+					}
 				}
 			}
 			else
@@ -1873,7 +1887,7 @@ bad:
 		{
 			/* get current time */
 			microtime(&currenttime);
-			if ( currenttime.tv_sec < (lasttrytime.tv_sec + 2) )
+			if ( !opencollision && (currenttime.tv_sec < (lasttrytime.tv_sec + 2)) )
 			{
 				/* sleep for 2 sec before retrying again */
 				(void) tsleep(&lbolt, PCATCH, "webdav_open", 200);
