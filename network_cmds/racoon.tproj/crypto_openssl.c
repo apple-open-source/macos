@@ -686,7 +686,7 @@ eay_check_x509sign(source, sig, cert)
 {
 	X509 *x509;
 	u_char *bp;
-	vchar_t pubkey;
+	EVP_PKEY *evp;
 
 	bp = cert->v;
 
@@ -698,10 +698,13 @@ eay_check_x509sign(source, sig, cert)
 		return -1;
 	}
 
-	pubkey.v = x509->cert_info->key->public_key->data;
-	pubkey.l = x509->cert_info->key->public_key->length;
-	
-	return eay_rsa_verify(source, sig, &pubkey);
+	evp = X509_get_pubkey(x509);
+	if (!evp) {
+	  plog(LLV_ERROR, LOCATION, NULL, "X509_get_pubkey: %s\n", eay_strerror());
+	  return -1;
+	}
+
+	return eay_rsa_verify(source, sig, evp);
 }
 
 /*
@@ -902,21 +905,14 @@ eay_rsa_sign(src, privkey)
 }
 
 int
-eay_rsa_verify(src, sig, pubkey)
-	vchar_t *src, *sig, *pubkey;
-{
+eay_rsa_verify(src, sig, evp)
+        vchar_t *src, *sig;
 	EVP_PKEY *evp;
-	u_char *bp = pubkey->v;
+{
 	vchar_t *xbuf = NULL;
 	int pad = RSA_PKCS1_PADDING;
 	int len = 0;
 	int error;
-
-	evp = d2i_PUBKEY(NULL, &bp, pubkey->l);
-	if (evp == NULL)
-#ifndef EAYDEBUG
-		return NULL;
-#endif
 
 	len = RSA_size(evp->pkey.rsa);
 

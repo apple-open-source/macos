@@ -3,10 +3,10 @@ Esto es un aviso de rebote de correo de una lista Mailman.
     Lista:       %(listname)s
     Miembro:     %(addr)s
     Acción:      Suscripción %(negative)s%(did)s.
-    Razón:       Rebotes excesivos o fatales.
+    Motivo:      Demasiados mensajes fatales o devueltos
     %(but)s
 
 %(reenable)s
-Se adjunta abajo el mensaje de rebote que provocó el aviso.
+Se adjunta abajo el mensaje devuelto que provocó el aviso.
 
 Si tiene alguna pregunta póngase en contacto con el administrador de mailman en %(owneraddr)s.

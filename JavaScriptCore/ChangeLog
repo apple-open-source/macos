@@ -1,0 +1,1510 @@
+2004-04-16  Vicki Murley  <vicki@apple.com>
+
+        Reviewed by kocienda.
+
+	Make this change on the branch for SUPanLavender, per Amy Rapport's request.
+
+    2004-03-03  Darin Adler  <darin@apple.com>
+
+        Reviewed by Vicki.
+
+        * English.lproj/InfoPlist.strings: Removed. No need to localize the version and
+        copyright string, and that's all that was in here.
+        * JavaScriptCore.pbproj/project.pbxproj: Removed InfoPlist.strings from build.
+
+2004-04-15  Vicki Murley  <vicki@apple.com>
+
+	Fix mismatched_CFBundleShortVersionStrings verification failure
+
+        * English.lproj/InfoPlist.strings:
+
+=== JavaScriptCore-125~4 ===
+
+2004-04-07  Vicki Murley  <vicki@apple.com>
+
+        - merge fix for <rdar://problem/3612939>: Java/JavaScript LiveConnect: Null string assignment results in string value of "Null" (clone for SU) from HEAD
+
+        * bindings/jni/jni_utility.cpp:
+        (KJS::Bindings::convertValueToJValue):
+        
+    2004-03-15  Richard Williamson   <rjw@apple.com>
+
+        Fixed 3570854.  Don't attempt to convert Null to strings.  We
+        were incorrectly converting to "Null".
+
+        Actually fixed by Scott Kovatch.
+
+        Reviewed by Richard.
+
+        * bindings/jni/jni_utility.cpp:
+        (KJS::Bindings::convertValueToJValue):
+
+2004-03-11  Vicki Murley <vicki@apple.com>
+
+	- bump the JavaScriptCore version number to 125.3 on the Safari-1-2-branch, to match the JSC version number that is in Feldspar
+
+        * JavaScriptCore.pbproj/project.pbxproj:
+
+2004-03-11  Vicki Murley <vicki@apple.com>
+
+
+- roll this change from the SUPanFeldspar branch to the Safari-1-2-branch, so that all our Feldspar changes are also in Epiphany
+
+    2004-01-30  Richard Williamson   <rjw@apple.com>
+
+	Fixed 3542044.  Create KJS::String using UString constructor instead 
+	of passing UTF8 string to char* constructor.
+
+        Reviewed by Darin.
+
+        * bindings/jni/jni_instance.cpp:
+        (JavaInstance::stringValue):
+
+=== JavaScriptCore-125.2 ===
+
+2004-02-27  Vicki Murley  <vicki@apple.com>
+
+    - roll this change onto the Safari-1-2-branch, for SUPanFeldspar
+
+2004-02-02  Darin Adler  <darin@apple.com>
+
+        Reviewed by Maciej.
+
+        - fixed <rdar://problem/3546613>: array of negative size leads to crash (test page at oscar.the-rileys.net)
+
+        * kjs/array_object.cpp:
+        (ArrayInstanceImp::ArrayInstanceImp): If the length is greater than 10,000, don't allocate an array until
+        we start putting values in. This prevents new Array(2147483647) from causing trouble.
+        (ArrayObjectImp::construct): Check number as described in specification, and raise a range error if the
+        number is out of range. This prevents new Array(-1) from causing trouble.
+
+=== Safari-125 ===
+
+=== Safari-124 ===
+
+2004-01-16  Richard Williamson   <rjw@apple.com>
+
+	Fixed 3525853.  We weren't handling mapping to overloaded Java
+	methods very well.  Even though this is undefined the other
+	browsers support it.  Also fixed a bug with returning arrays
+	from Java functions.
+
+        Reviewed by John.
+
+        * bindings/jni/jni_class.cpp:
+        (JavaClass::_commonInit):
+        (JavaClass::methodsNamed):
+        * bindings/jni/jni_class.h:
+        * bindings/jni/jni_instance.cpp:
+        (JavaInstance::invokeMethod):
+        * bindings/jni/jni_instance.h:
+        * bindings/jni/jni_runtime.cpp:
+        (JavaArray::convertJObjectToArray):
+        (JavaField::valueFromInstance):
+        (JavaMethod::signature):
+        (JavaArray::valueAt):
+        * bindings/jni/jni_runtime.h:
+        * bindings/jni_jsobject.cpp:
+        (JSObject::call):
+        (JSObject::convertJObjectToValue):
+        * bindings/runtime.cpp:
+        (MethodList::addMethod):
+        (MethodList::length):
+        (MethodList::methodAt):
+        (MethodList::~MethodList):
+        * bindings/runtime.h:
+        (KJS::Bindings::MethodList::MethodList):
+        * bindings/runtime_method.cpp:
+        (RuntimeMethodImp::RuntimeMethodImp):
+        (RuntimeMethodImp::get):
+        (RuntimeMethodImp::call):
+        * bindings/runtime_method.h:
+        * bindings/runtime_object.cpp:
+        (RuntimeObjectImp::get):
+        (RuntimeObjectImp::hasProperty):
+
+2004-01-16  Richard Williamson   <rjw@apple.com>
+
+	Fixed 3531229.  Another place that needs the  Push/PopLocalFrame
+	protection implemented for 3530401.
+
+        Reviewed by John.
+
+        * bindings/runtime_method.cpp:
+        (RuntimeMethodImp::call):
+
+2004-01-15  Richard Williamson   <rjw@apple.com>
+
+	Fixed 3530401.  JNI doesn't cleanup local refs created on the
+	main thread.   IMO this is a bad bug in our JMI implementation.
+
+	To work-around the problem I explicitly delete all local refs.
+	Further, I've added Push/PopLocalFrame calls to catch any refs
+	that I may have missed.  This will guarantee that we don't leak
+	any Java references.
+
+        Reviewed by John.
+
+        * bindings/jni/jni_class.cpp:
+        (JavaClass::_commonInit):
+        (JavaClass::JavaClass):
+        * bindings/jni/jni_instance.cpp:
+        (JavaInstance::begin):
+        (JavaInstance::end):
+        * bindings/jni/jni_instance.h:
+        * bindings/jni/jni_runtime.cpp:
+        (JavaConstructor::JavaConstructor):
+        (JavaMethod::JavaMethod):
+        * bindings/jni_jsobject.cpp:
+        (JSObject::listFromJArray):
+        * bindings/runtime.h:
+        (KJS::Bindings::Instance::begin):
+        (KJS::Bindings::Instance::end):
+        * bindings/runtime_object.cpp:
+        (RuntimeObjectImp::get):
+        (RuntimeObjectImp::put):
+        (RuntimeObjectImp::canPut):
+        (RuntimeObjectImp::hasProperty):
+        (RuntimeObjectImp::defaultValue):
+
+2004-01-15  Vicki Murley  <vicki@apple.com>
+
+        Reviewed by Darin.
+
+        * JavaScriptCore.pbproj/project.pbxproj: Update copyright date to 2004.
+
+2004-01-14  Richard Williamson   <rjw@apple.com>
+	
+	Fixed 3529466.  With recent changes to Java plugin we must no
+	longer call DeleteLocalRef().  Not a problem, it was an optimization anyway.
+
+        Reviewed by John.
+
+        * bindings/jni/jni_instance.cpp:
+        (JObjectWrapper::JObjectWrapper):
+
+=== Safari-122 ===
+
+2004-01-14  Richard Williamson   <rjw@apple.com>
+
+	Fixed 3529010.
+
+	Finalize may be called on an JSObject after we've already remove all our references.  The assert in this case is firing because we've received a finalize call from Java for an instance that we no longer know about.  The fix is to check in finalize that we're getting a call on an instance that we still care about.
+
+
+        Reviewed by John.
+
+        * bindings/jni_jsobject.cpp:
+        (addJavaReference):
+        (removeJavaReference):
+        (RootObject::removeAllJavaReferencesForRoot):
+        (JSObject::invoke):
+
+2004-01-13  Richard Williamson   <rjw@apple.com>
+
+	Fixed 3528324. 
+
+	The run loop that is used to execute JavaScript (in practice, always the main run loop) is held in a class variable.  It is set and retained once and should not be released.  Unfortunately is it being released when the 'root' object on a LiveConnect applet is released.  This has the symptom of eventually causing an deallocation of the main run loop!  Usually after about 5 instantiations/destructions of a LiveConnect applet.  The CFRelease of the run loop was removed.
+
+        Reviewed by Hyatt.
+
+        * bindings/jni_jsobject.h:
+        (KJS::Bindings::RootObject::~RootObject):
+
+=== Safari-121 ===
+
+=== Safari-120 ===
+
+2004-01-06  Richard Williamson   <rjw@apple.com>
+
+	Fixed 3521814.  Finalize messages weren't being dispatched!
+
+        Reviewed by John.
+
+        * bindings/jni_jsobject.cpp:
+        (JSObject::invoke):
+
+2004-01-05  Richard Williamson   <rjw@apple.com>
+
+	Added cache of JNI method IDs to minimize allocations.  This mitigates the problem
+	described by 3515579.
+
+	Also cleanup up logging of Java exceptions.
+
+        Reviewed by John.
+
+        * bindings/jni/jni_class.cpp:
+        (JavaClass::classForInstance):
+        * bindings/jni/jni_instance.cpp:
+        (JavaInstance::JavaInstance):
+        (JavaInstance::getClass):
+        (JavaInstance::invokeMethod):
+        (JObjectWrapper::JObjectWrapper):
+        (JObjectWrapper::~JObjectWrapper):
+        * bindings/jni/jni_instance.h:
+        (KJS::Bindings::JavaInstance::operator=):
+        * bindings/jni/jni_runtime.cpp:
+        (JavaMethod::JavaMethod):
+        (JavaMethod::methodID):
+        * bindings/jni/jni_runtime.h:
+        (KJS::Bindings::JavaMethod::JavaMethod):
+        * bindings/jni/jni_utility.cpp:
+        (callJNIMethod):
+        (callJNIMethodIDA):
+        (callJNIMethodA):
+        (KJS::Bindings::getMethodID):
+        (KJS::Bindings::callJNIVoidMethodIDA):
+        (KJS::Bindings::callJNIObjectMethodIDA):
+        (KJS::Bindings::callJNIByteMethodIDA):
+        (KJS::Bindings::callJNICharMethodIDA):
+        (KJS::Bindings::callJNIShortMethodIDA):
+        (KJS::Bindings::callJNIIntMethodIDA):
+        (KJS::Bindings::callJNILongMethodIDA):
+        (KJS::Bindings::callJNIFloatMethodIDA):
+        (KJS::Bindings::callJNIDoubleMethodIDA):
+        (KJS::Bindings::callJNIBooleanMethodIDA):
+        (KJS::Bindings::getCharactersFromJStringInEnv):
+        (KJS::Bindings::getUCharactersFromJStringInEnv):
+        (KJS::Bindings::getJNIField):
+        * bindings/jni/jni_utility.h:
+
+l2003-12-23  John Sullivan  <sullivan@apple.com>
+
+        * JavaScriptCore.pbproj/project.pbxproj:
+        Xcode version wars, harmless
+
+2003-12-23  Darin Adler  <darin@apple.com>
+
+        Reviewed by John (concept, not code, which is just the old code coming back).
+
+        - fixed 3518092: REGRESSION (100-119): getting NaN instead of HH:MM times
+
+        * kjs/date_object.cpp: Added back our CF-based implementations of gmtime, localtime,
+        mktime, timegm, and time, because mktime, at least, won't handle a year of 0.
+
+2003-12-19  Richard Williamson   <rjw@apple.com>
+
+	Fixed 3515597.  When an error occurs we need
+	to make sure result values are zeroed.
+
+	Cleaned up logs by adding a newline.
+
+        Reviewed by John.
+
+        * bindings/jni/jni_utility.cpp:
+        (KJS::Bindings::getJavaVM):
+        (KJS::Bindings::getJNIEnv):
+        (callJNIMethod):
+        (callJNIMethodA):
+        (KJS::Bindings::getJNIField):
+        * bindings/jni_jsobject.cpp:
+        (JSObject::convertValueToJObject):
+
+=== Safari-119 ===
+
+2003-12-17  Richard Williamson   <rjw@apple.com>
+
+	Ensure that all the symbols we export are in the KJS
+	namespace (3512245).
+
+	Also renamed JavaString.characters() to JavaString.UTF8String()
+	for enhanced clarity.
+
+	Added some sanity checking to constructor of JObjectWrapper.
+
+        Reviewed by Dave.
+
+        * ChangeLog:
+        * bindings/jni/jni_class.cpp:
+        * bindings/jni/jni_class.h:
+        * bindings/jni/jni_instance.cpp:
+        (JavaInstance::invokeMethod):
+        (JObjectWrapper::JObjectWrapper):
+        * bindings/jni/jni_instance.h:
+        * bindings/jni/jni_runtime.cpp:
+        (JavaParameter::JavaParameter):
+        (JavaField::JavaField):
+        (JavaMethod::JavaMethod):
+        (JavaMethod::signature):
+        * bindings/jni/jni_runtime.h:
+        (KJS::Bindings::JavaString::ascii):
+        (KJS::Bindings::JavaString::UTF8String):
+        (KJS::Bindings::JavaString::JavaString):
+        (KJS::Bindings::JavaString::_commonInit):
+        (KJS::Bindings::JavaString::uchars):
+        (KJS::Bindings::JavaString::length):
+        (KJS::Bindings::JavaString::ustring):
+        (KJS::Bindings::JavaParameter::type):
+        (KJS::Bindings::JavaField::name):
+        (KJS::Bindings::JavaField::type):
+        (KJS::Bindings::JavaMethod::name):
+        (KJS::Bindings::JavaMethod::returnType):
+        * bindings/jni/jni_utility.cpp:
+        (KJS::Bindings::getJavaVM):
+        (KJS::Bindings::getJNIEnv):
+        (KJS::Bindings::callJNIVoidMethod):
+        (KJS::Bindings::callJNIObjectMethod):
+        (KJS::Bindings::callJNIBooleanMethod):
+        (KJS::Bindings::callJNIByteMethod):
+        (KJS::Bindings::callJNICharMethod):
+        (KJS::Bindings::callJNIShortMethod):
+        (KJS::Bindings::callJNIIntMethod):
+        (KJS::Bindings::callJNILongMethod):
+        (KJS::Bindings::callJNIFloatMethod):
+        (KJS::Bindings::callJNIDoubleMethod):
+        (KJS::Bindings::callJNIVoidMethodA):
+        (KJS::Bindings::callJNIObjectMethodA):
+        (KJS::Bindings::callJNIByteMethodA):
+        (KJS::Bindings::callJNICharMethodA):
+        (KJS::Bindings::callJNIShortMethodA):
+        (KJS::Bindings::callJNIIntMethodA):
+        (KJS::Bindings::callJNILongMethodA):
+        (KJS::Bindings::callJNIFloatMethodA):
+        (KJS::Bindings::callJNIDoubleMethodA):
+        (KJS::Bindings::callJNIBooleanMethodA):
+        (KJS::Bindings::getCharactersFromJString):
+        (KJS::Bindings::releaseCharactersForJString):
+        (KJS::Bindings::getCharactersFromJStringInEnv):
+        (KJS::Bindings::releaseCharactersForJStringInEnv):
+        (KJS::Bindings::getUCharactersFromJStringInEnv):
+        (KJS::Bindings::releaseUCharactersForJStringInEnv):
+        (KJS::Bindings::JNITypeFromClassName):
+        (KJS::Bindings::signatureFromPrimitiveType):
+        (KJS::Bindings::JNITypeFromPrimitiveType):
+        (KJS::Bindings::getJNIField):
+        (KJS::Bindings::convertValueToJValue):
+        * bindings/jni/jni_utility.h:
+        * bindings/jni_jsobject.cpp:
+        (KJS::Bindings::JSObject::invoke):
+        (KJS::Bindings::JSObject::JSObject):
+        (KJS::Bindings::JSObject::call):
+        (KJS::Bindings::JSObject::eval):
+        (KJS::Bindings::JSObject::getMember):
+        (KJS::Bindings::JSObject::setMember):
+        (KJS::Bindings::JSObject::removeMember):
+        (KJS::Bindings::JSObject::getSlot):
+        (KJS::Bindings::JSObject::setSlot):
+        (KJS::Bindings::JSObject::toString):
+        (KJS::Bindings::JSObject::finalize):
+        (KJS::Bindings::JSObject::createNative):
+        (KJS::Bindings::JSObject::convertValueToJObject):
+        (KJS::Bindings::JSObject::convertJObjectToValue):
+        (KJS::Bindings::JSObject::listFromJArray):
+        * bindings/jni_jsobject.h:
+        * bindings/runtime.cpp:
+        * bindings/runtime.h:
+        * bindings/runtime_method.cpp:
+        * bindings/runtime_method.h:
+
+=== Safari-118 ===
+
+2003-12-16  Richard Williamson   <rjw@apple.com>
+
+	Ack!  More assertions.  Lock ALL entry points into the interpreter!
+	(3511733).
+
+        Reviewed by Ken.
+
+        * bindings/jni_jsobject.cpp:
+        (Bindings::JSObject::call):
+        (Bindings::JSObject::eval):
+        (Bindings::JSObject::getMember):
+        (Bindings::JSObject::setMember):
+        (Bindings::JSObject::removeMember):
+        (Bindings::JSObject::getSlot):
+        (Bindings::JSObject::setSlot):
+        (Bindings::JSObject::convertJObjectToValue):
+
+2003-12-15  Richard Williamson   <rjw@apple.com>
+
+	Fixed a couple of snafus and removed some logging.
+
+        Reviewed by Maciej.
+
+        * bindings/jni_jsobject.cpp:
+        (Bindings::performJavaScriptAccess):
+        (Bindings::completedJavaScriptAccess):
+        (Bindings::dispatchToJavaScriptThread):
+	Removed some annoying JS_LOG clutter.
+
+        (Bindings::RootObject::removeAllJavaReferencesForRoot):
+	Fixed allocation of key buffer that was called after it was needed.
+
+        (Bindings::JSObject::invoke):
+        (Bindings::JSObject::JSObject):
+        (Bindings::JSObject::getMember):
+        (Bindings::JSObject::getSlot):
+	Added additional interpreter locks around getMember and getSlot. 
+	These functions may cause allocation of JS impls.  
+
+2003-12-15  Richard Williamson   <rjw@apple.com>
+
+	args weren't passed to 'call' invocation.  d'oh.
+	lock interpreter when we create instances of JS impls.	
+
+        Reviewed by Maciej.
+
+        * bindings/jni_jsobject.cpp:
+        (Bindings::JSObject::call):
+        (Bindings::JSObject::eval):
+        (Bindings::JSObject::getMember):
+        (Bindings::JSObject::setMember):
+        (Bindings::JSObject::getSlot):
+        (Bindings::JSObject::convertValueToJObject):
+        (Bindings::JSObject::convertJObjectToValue):
+        (Bindings::JSObject::listFromJArray):
+        * bindings/jni_jsobject.h:
+
+2003-12-15  Richard Williamson   <rjw@apple.com>
+
+	Last piece of LiveConnect!  This checkin adds implementation
+	of the Java to JavaScript object conversion functions.
+
+        Reviewed by John.
+
+        * bindings/jni/jni_instance.cpp:
+        (JavaInstance::invokeMethod):
+        * bindings/jni/jni_utility.cpp:
+        * bindings/jni/jni_utility.h:
+        * bindings/jni_jsobject.cpp:
+        (Bindings::JSObject::invoke):
+        (Bindings::JSObject::call):
+        (Bindings::JSObject::eval):
+        (Bindings::JSObject::getMember):
+        (Bindings::JSObject::setMember):
+        (Bindings::JSObject::getSlot):
+        (Bindings::JSObject::setSlot):
+        (Bindings::JSObject::createNative):
+        (Bindings::JSObject::convertValueToJObject):
+        (Bindings::JSObject::convertJObjectToValue):
+        (Bindings::JSObject::listFromJArray):
+        * bindings/jni_jsobject.h:
+        (Bindings::):
+        * bindings/runtime_method.cpp:
+        (RuntimeMethodImp::get):
+        (RuntimeMethodImp::codeType):
+        (RuntimeMethodImp::execute):
+
+2003-12-12  Richard Williamson   <rjw@apple.com>
+
+	Added implementation of stubs in JSObject.  All that
+	remains is a couple of simple conversion functions stubs and
+	we're done with LiveConnect.  Also, changed string passing to
+	JS to use uchars instead of chars.  
+
+        Reviewed by Maciej.
+
+        * bindings/jni/jni_runtime.h:
+        (Bindings::JavaString::JavaString):
+        (Bindings::JavaString::_commonInit):
+        (Bindings::JavaString::_commonCopy):
+        (Bindings::JavaString::_commonDelete):
+        (Bindings::JavaString::~JavaString):
+        (Bindings::JavaString::operator=):
+        (Bindings::JavaString::uchars):
+        (Bindings::JavaString::length):
+        (Bindings::JavaString::ustring):
+        * bindings/jni/jni_utility.cpp:
+        (getUCharactersFromJStringInEnv):
+        (releaseUCharactersForJStringInEnv):
+        (convertValueToJObject):
+        (convertJObjectToValue):
+        * bindings/jni/jni_utility.h:
+        * bindings/jni_jsobject.cpp:
+        (Bindings::JSObject::invoke):
+        (Bindings::JSObject::call):
+        (Bindings::JSObject::eval):
+        (Bindings::JSObject::getMember):
+        (Bindings::JSObject::setMember):
+        (Bindings::JSObject::removeMember):
+        (Bindings::JSObject::getSlot):
+        (Bindings::JSObject::setSlot):
+        * bindings/jni_jsobject.h:
+
+2003-12-12  Richard Williamson   <rjw@apple.com>
+
+	Ensure that all calls from Java into JavaScript are
+	performed on a designated thread (the main thread).
+
+        Reviewed by Ken.
+
+        * bindings/jni_jsobject.cpp:
+        (isJavaScriptThread):
+        (rootForImp):
+        (Bindings::performJavaScriptAccess):
+        (Bindings::completedJavaScriptAccess):
+        (Bindings::initializeJavaScriptAccessLock):
+        (Bindings::lockJavaScriptAccess):
+        (Bindings::unlockJavaScriptAccess):
+        (Bindings::dispatchToJavaScriptThread):
+        (Bindings::RootObject::setFindRootObjectForNativeHandleFunction):
+        (Bindings::RootObject::removeAllJavaReferencesForRoot):
+        (Bindings::JSObject::invoke):
+        (Bindings::JSObject::JSObject):
+        (Bindings::JSObject::call):
+        (Bindings::JSObject::eval):
+        (Bindings::JSObject::getMember):
+        (Bindings::JSObject::setMember):
+        (Bindings::JSObject::removeMember):
+        (Bindings::JSObject::getSlot):
+        (Bindings::JSObject::setSlot):
+        (Bindings::JSObject::toString):
+        (Bindings::JSObject::finalize):
+        (Bindings::JSObject::getWindow):
+        * bindings/jni_jsobject.h:
+        (Bindings::RootObject::~RootObject):
+        (Bindings::RootObject::findRootObjectForNativeHandleFunction):
+        (Bindings::RootObject::runLoop):
+        (Bindings::RootObject::performJavaScriptSource):
+        (Bindings::):
+
+2003-12-11  Richard Williamson   <rjw@apple.com>
+
+	Added support for calling a JavaScript function from
+	Java.  Right now this only works for void func(void)
+	functions, but the conversion of args and return values
+	will come shortly.
+
+	Cleaned up and verified reference counting scheme, and
+	dereferencing of vended JavaScript objects when applet is
+	destroyed (actually when part is destroyed).
+	
+	Removed link hack for testkjs now that the Java folks think
+	they have a solution for the 1.4.2 JavaVM link problem.  Although
+	Greg B. thinks his solution may cause problems for the 1.3.1
+	version of the VM!?!
+
+        Reviewed by Ken.
+
+        * Makefile.am:
+        * bindings/jni/jni_runtime.h:
+        (Bindings::JavaString::JavaString):
+        * bindings/jni/jni_utility.cpp:
+        (convertValueToJValue):
+        (convertValueToJObject):
+        (listFromJArray):
+        * bindings/jni/jni_utility.h:
+        * bindings/jni_jsobject.cpp:
+        (KJS_setFindRootObjectForNativeHandleFunction):
+        (KJS_findRootObjectForNativeHandleFunction):
+        (getReferencesByRootDictionary):
+        (getReferencesDictionary):
+        (findReferenceDictionary):
+        (rootForImp):
+        (addJavaReference):
+        (removeJavaReference):
+        * bindings/jni_jsobject.h:
+        (Bindings::RootObject::RootObject):
+        (Bindings::RootObject::~RootObject):
+        (Bindings::RootObject::setRootObjectImp):
+        (Bindings::RootObject::rootObjectImp):
+        (Bindings::RootObject::setInterpreter):
+        (Bindings::RootObject::interpreter):
+
+=== Safari-117 ===
+
+2003-12-10  Darin Adler  <darin@apple.com>
+
+        Reviewed by Maciej.
+
+        - fixed regression in JavaScript tests reported by the KDE guys
+        - fixed 3506345: REGRESSION (115-116): VIP: chordfind.com no longer displays chords
+
+        * kjs/ustring.h: Add tolerateEmptyString parameter to toDouble and toULong.
+        * kjs/ustring.cpp:
+        (KJS::UString::toDouble): Separate the "tolerant" parameter into two separate ones:
+        tolerateTrailingJunk and tolerateEmptyString. Add new overloads; better for code size
+        and binary compatibility than default parameter values.
+        (KJS::UString::toULong): Pass tolerateEmptyString down to toDouble. Add new overload.
+
+        * kjs/string_object.cpp: (StringProtoFuncImp::call): Pass false for the new
+        "tolerate empty string" parameter.
+
+2003-12-10  Richard Williamson   <rjw@apple.com>
+
+	Added code to manage reference counting of JavaScript
+	objects passed to Java.   Also added implementation of
+	KJS_JSCreateNativeJSObject.  This is the function that
+	provides the root object to Java (KJS::Window).
+
+        Reviewed by Hyatt.
+
+        * JavaScriptCore.pbproj/project.pbxproj:
+        * bindings/jni_jsobject.cpp:
+        (KJS_setFindObjectForNativeHandleFunction):
+        (KJS_findObjectForNativeHandleFunction):
+        (getReferencesByOwnerDictionary):
+        (getReferencesDictionary):
+        (findReferenceDictionary):
+        (addJavaReference):
+        (removeJavaReference):
+        (removeAllJavaReferencesForOwner):
+        * bindings/jni_jsobject.h:
+
+2003-12-09  Richard Williamson   <rjw@apple.com>
+
+	LiveConnect stubs that correspond to the native methods
+	on JSObject.  These will be called from the new Java plugin
+	when an instance of JSObject is instantiated and messaged.
+	When these are implemented the Java will be able to originate
+	calls into JavaScript.
+
+	Also a temporary work-around added to Makefile.am to solve
+	a link problem.  The 1.4.2 JavaVM accidentally links against
+	libobjc.  This call a failure linking testkjs.  Mike Hay is
+	working with someone to fix the problem (3505587).
+
+        Reviewed by Chris.
+
+        * JavaScriptCore.pbproj/project.pbxproj:
+        * Makefile.am:
+        * bindings/jni_jsobject.cpp: Added.
+        (KJS_JSCreateNativeJSObject):
+        (KJS_JSObject_JSFinalize):
+        (KJS_JSObject_JSObjectCall):
+        (KJS_JSObject_JSObjectEval):
+        (KJS_JSObject_JSObjectGetMember):
+        (KJS_JSObject_JSObjectSetMember):
+        (KJS_JSObject_JSObjectRemoveMember):
+        (KJS_JSObject_JSObjectGetSlot):
+        (KJS_JSObject_JSObjectSetSlot):
+        (KJS_JSObject_JSObjectToString):
+        * bindings/jni_jsobject.h: Added.
+
+2003-12-09  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by John.
+
+	<rdar://problem/3505183>: JavaScriptCore should assert that interpreter is locked in collector
+
+        * kjs/collector.cpp:
+        (KJS::Collector::allocate): Assert that interpreter lock count is not 0.
+        (KJS::Collector::collect): likewise
+
+2003-12-08  Richard Williamson   <rjw@apple.com>
+
+	LiveConnect:  The last piece of the JavaScript side of the
+	LiveConnect implementation.  This change adds support for
+	setting/getting values from Java arrays in JavaScript.
+
+        Reviewed by John.
+
+        * bindings/jni/jni_instance.h:
+        * bindings/jni/jni_runtime.cpp:
+        (JavaField::JavaField):
+        (convertJObjectToArray):
+        (JavaArray::JavaArray):
+        (JavaArray::~JavaArray):
+        (JavaArray::setValueAt):
+        (JavaArray::valueAt):
+        (JavaArray::getLength):
+        * bindings/jni/jni_runtime.h:
+        (Bindings::JavaArray::operator=):
+        (Bindings::JavaArray::javaArray):
+        * bindings/jni/jni_utility.cpp:
+        (JNITypeFromPrimitiveType):
+        (convertValueToJValue):
+        * bindings/jni/jni_utility.h:
+        * bindings/runtime.h:
+        * bindings/runtime_array.cpp:
+        (RuntimeArrayImp::RuntimeArrayImp):
+        (RuntimeArrayImp::~RuntimeArrayImp):
+        (RuntimeArrayImp::get):
+        (RuntimeArrayImp::put):
+        (RuntimeArrayImp::hasProperty):
+        * bindings/runtime_array.h:
+        (KJS::RuntimeArrayImp::getLength):
+        (KJS::RuntimeArrayImp::getConcreteArray):
+        * bindings/runtime_object.cpp:
+        (RuntimeObjectImp::get):
+        (RuntimeObjectImp::canPut):
+        (RuntimeObjectImp::hasProperty):
+
+2003-12-05  Richard Williamson   <rjw@apple.com>
+
+	LiveConnect:  Part 1 of supporting JS bindings to
+	native language arrays.
+
+        Reviewed by Chris.
+
+        * JavaScriptCore.pbproj/project.pbxproj:
+        * bindings/jni/jni_runtime.cpp:
+        (JavaField::JavaField):
+        (convertJObjectToArray):
+        (JavaField::valueFromInstance):
+        (JavaField::setValueToInstance):
+        * bindings/jni/jni_runtime.h:
+        * bindings/runtime.cpp:
+        (Instance::setValueOfField):
+        * bindings/runtime.h:
+        (Bindings::Array::~Array):
+
+2003-12-04  Richard Williamson   <rjw@apple.com>
+
+	LiveConnect:  Moved defaultValue into concrete implementation because
+	more intelligent conversion can be perform with knowledge
+	of the class of the original instance.
+
+        Reviewed by Chris.
+
+        * bindings/jni/jni_class.cpp:
+        (JavaClass::isNumberClass):
+        (JavaClass::isBooleanClass):
+        (JavaClass::isStringClass):
+        * bindings/jni/jni_class.h:
+        * bindings/jni/jni_instance.cpp:
+        (JavaInstance::defaultValue):
+        (JavaInstance::valueOf):
+        * bindings/jni/jni_instance.h:
+        (Bindings::JavaInstance::javaInstance):
+        * bindings/runtime.h:
+        * bindings/runtime_object.cpp:
+        (RuntimeObjectImp::defaultValue):
+
+2003-12-04  Richard Williamson   <rjw@apple.com>
+
+	LiveConnect:  Added support for setting the value of Java
+	fields.
+
+        Reviewed by Chris.
+
+        * bindings/jni/jni_instance.cpp:
+        (JavaInstance::invokeMethod):
+        * bindings/jni/jni_runtime.cpp:
+        (JavaParameter::JavaParameter):
+        (JavaField::JavaField):
+        (JavaField::valueFromInstance):
+        (JavaField::setValueToInstance):
+        (JavaMethod::JavaMethod):
+        * bindings/jni/jni_runtime.h:
+        (Bindings::JavaField::getJNIType):
+        * bindings/jni/jni_utility.cpp:
+        (JNITypeFromClassName):
+        (convertValueToJValue):
+        * bindings/jni/jni_utility.h:
+        * bindings/runtime.cpp:
+        (Instance::setValueOfField):
+        * bindings/runtime.h:
+        * bindings/runtime_object.cpp:
+        (RuntimeObjectImp::get):
+        (RuntimeObjectImp::put):
+        (RuntimeObjectImp::defaultValue):
+
+2003-12-04  Richard Williamson   <rjw@apple.com>
+
+	Added support for string conversions.
+	Changed various JavaString member variables to be inline.
+	Implemented defaultValue for context relevant type coercion.
+
+        Reviewed by Chris.
+
+        * bindings/jni/jni_class.cpp:
+        (JavaClass::JavaClass):
+        (JavaClass::setClassName):
+        (JavaClass::classForInstance):
+        * bindings/jni/jni_class.h:
+        * bindings/jni/jni_instance.cpp:
+        (JavaInstance::stringValue):
+        (JavaInstance::numberValue):
+        (JavaInstance::booleanValue):
+        (JavaInstance::invokeMethod):
+        * bindings/jni/jni_instance.h:
+        * bindings/jni/jni_runtime.cpp:
+        (JavaParameter::JavaParameter):
+        (JavaField::JavaField):
+        (JavaMethod::JavaMethod):
+        (appendClassName):
+        (JavaMethod::signature):
+        * bindings/jni/jni_runtime.h:
+        (Bindings::JavaString::JavaString):
+        (Bindings::JavaString::~JavaString):
+        (Bindings::JavaString::operator=):
+        (Bindings::JavaString::characters):
+        (Bindings::JavaParameter::JavaParameter):
+        (Bindings::JavaParameter::~JavaParameter):
+        (Bindings::JavaParameter::operator=):
+        (Bindings::JavaParameter::type):
+        (Bindings::JavaField::JavaField):
+        (Bindings::JavaField::~JavaField):
+        (Bindings::JavaField::operator=):
+        (Bindings::JavaField::name):
+        (Bindings::JavaField::type):
+        (Bindings::JavaMethod::JavaMethod):
+        (Bindings::JavaMethod::_commonDelete):
+        (Bindings::JavaMethod::name):
+        (Bindings::JavaMethod::returnType):
+        * bindings/jni/jni_utility.cpp:
+        (convertValueToJValue):
+        * bindings/runtime.h:
+        (Bindings::Instance::valueOf):
+        * bindings/runtime_method.cpp:
+        (RuntimeMethodImp::call):
+        * bindings/runtime_object.cpp:
+        (RuntimeObjectImp::RuntimeObjectImp):
+        (RuntimeObjectImp::get):
+        (RuntimeObjectImp::defaultValue):
+        * bindings/runtime_object.h:
+        (KJS::RuntimeObjectImp::classInfo):
+
+=== Safari-116 ===
+
+2003-12-03  Richard Williamson   <rjw@apple.com>
+
+	LiveConnect:  Added support for parameter passing to Java and conversion
+	of return values.
+
+        Reviewed by Chris.
+
+        * bindings/jni/jni_instance.cpp:
+        (JavaInstance::invokeMethod):
+        * bindings/jni/jni_instance.h:
+        * bindings/jni/jni_runtime.cpp:
+        (JavaParameter::JavaParameter):
+        (JavaMethod::JavaMethod):
+        (JavaMethod::signature):
+        * bindings/jni/jni_runtime.h:
+        (Bindings::JavaParameter::JavaParameter):
+        (Bindings::JavaParameter::operator=):
+        (Bindings::JavaParameter::getJNIType):
+        * bindings/jni/jni_utility.cpp:
+        (callJNIBooleanMethodA):
+        (convertValueToJValue):
+        * bindings/jni/jni_utility.h:
+        * bindings/runtime.h:
+        * bindings/runtime_method.cpp:
+        (RuntimeMethodImp::call):
+        * bindings/runtime_object.cpp:
+        (RuntimeObjectImp::get):
+
+2003-12-02  Richard Williamson   <rjw@apple.com>
+
+	Added support for calling simple methods in Java from JavaScript.
+	(void return and no parameters).  Yay, LiveConnect lives.
+
+	Still need write argument and return value conversion code.
+
+        Reviewed by Chris.
+
+        * JavaScriptCore.pbproj/project.pbxproj:
+        * bindings/jni/jni_instance.cpp:
+        (JavaInstance::getClass):
+        (JavaInstance::invokeMethod):
+        * bindings/jni/jni_instance.h:
+        * bindings/jni/jni_runtime.cpp:
+        (JavaMethod::JavaMethod):
+        (JavaMethod::signature):
+        (JavaMethod::JNIReturnType):
+        * bindings/jni/jni_runtime.h:
+        (Bindings::JavaMethod::_commonDelete):
+        (Bindings::JavaMethod::_commonCopy):
+        (Bindings::JavaMethod::name):
+        * bindings/jni/jni_utility.cpp:
+        (signatureFromPrimitiveType):
+        * bindings/jni/jni_utility.h:
+        * bindings/runtime.h:
+        * bindings/runtime_method.cpp: Added.
+        (RuntimeMethodImp::RuntimeMethodImp):
+        (RuntimeMethodImp::~RuntimeMethodImp):
+        (RuntimeMethodImp::get):
+        (RuntimeMethodImp::implementsCall):
+        (RuntimeMethodImp::call):
+        (RuntimeMethodImp::codeType):
+        (RuntimeMethodImp::execute):
+        * bindings/runtime_method.h: Added.
+        * bindings/runtime_object.cpp:
+        (RuntimeObjectImp::RuntimeObjectImp):
+        (RuntimeObjectImp::get):
+        * bindings/runtime_object.h:
+        * kjs/function.cpp:
+        (FunctionImp::FunctionImp):
+        * kjs/interpreter.h:
+
+2003-12-01  Darin Adler  <darin@apple.com>
+
+        Reviewed by Maciej.
+
+        - fixed 3493799: JavaScript string.replace expands $ if it's the last character in replacement string
+
+        * kjs/ustring.cpp: (KJS::UString::toDouble): Fix backwards handling of the "tolerant" boolean.
+        This indirectly caused the string.replace bug.
+
+2003-12-02  Maciej Stachowiak  <mjs@apple.com>
+
+        Merged patches from Harri Porten and David Faure to fix:
+
+	<rdar://problem/3497643>: reproducible crash printing self-referential array
+        
+	* kjs/array_object.cpp:
+        (ArrayProtoFuncImp::call): Break out of the loop if an exception was thrown.
+        * kjs/nodes.cpp:
+        (FunctionCallNode::evaluate): Move function call depth check from here...
+        * kjs/object.cpp:
+        (KJS::Object::call): ...to here.
+        * kjs/object.h: Un-inline Object::call now that it does more.
+
+2003-12-01  Richard Williamson   <rjw@apple.com>
+
+	Fixed mistake in method signatures used to get boolean and integer fields.
+
+        Reviewed by Chris.
+
+        * bindings/jni/jni_runtime.cpp:
+        (JavaField::valueFromInstance):
+
+2003-12-01  Richard Williamson   <rjw@apple.com>
+
+Fixed parameter passing to applet.  Child elements are NOT valid in setStyle().  So we now create the widget before needed with createWidgetIfNecessary.  This either happens when doing the first layout, or when JavaScript first references the applet element.
+
+Fixed early delete of the the main applet instance.  When the JS collector cleaned up the last JS object referring to the applet instance we were deleting the java instance.  This caused the applet instance cached on the applet element to be invalid.  The applet instance is the only Java object not to be cleaned up by the JS collector.
+
+Added support for getting at Java object fields.
+
+        Reviewed by Chris.
+
+        * JavaScriptCore.pbproj/project.pbxproj:
+        * Makefile.am:
+        * bindings/jni/jni_instance.cpp:
+        (JObjectWrapper::JObjectWrapper):
+        * bindings/jni/jni_instance.h:
+        (Bindings::JObjectWrapper::~JObjectWrapper):
+        * bindings/jni/jni_runtime.cpp:
+        (JavaField::valueFromInstance):
+        * bindings/runtime_object.cpp:
+        (RuntimeObjectImp::~RuntimeObjectImp):
+        (RuntimeObjectImp::RuntimeObjectImp):
+        (RuntimeObjectImp::get):
+        (RuntimeObjectImp::deleteProperty):
+        * bindings/runtime_object.h:
+
+=== Safari-115 ===
+
+2003-11-21  Maciej Stachowiak  <mjs@apple.com>
+
+        Patch from Harri Porten, reviewed by me.
+
+	- fixed 3491712 - String slice with negative arguments does not offset from end of string
+        
+	* kjs/string_object.cpp:
+        (StringProtoFuncImp::call): Handle negative arguments as offsets from end by
+	adding length and clamping to [0,length-1].
+
+2003-11-21  Maciej Stachowiak  <mjs@apple.com>
+
+        Patch from Harri Porten, reviewed by me.
+
+	- fixed 3491709 - using Function.apply with a primitive type as the arg list causes crash
+        
+	* kjs/function_object.cpp:
+        (FunctionProtoFuncImp::call): Nest parentheses properly.
+
+2003-11-20  Richard Williamson   <rjw@apple.com>
+
+	More LiveConnect stuff.  Primitive Java fields are now
+	accessible from JavaScript!  Yay!
+
+        Reviewed by Maciej.
+
+        * bindings/jni/jni_class.cpp:
+        (JavaClass::methodNamed):
+        (JavaClass::fieldNamed):
+        * bindings/jni/jni_class.h:
+        (Bindings::JavaClass::_commonDelete):
+        * bindings/jni/jni_instance.cpp:
+        (JavaInstance::JavaInstance):
+        (JavaInstance::~JavaInstance):
+        (JavaInstance::getClass):
+        * bindings/jni/jni_instance.h:
+        (Bindings::JavaInstance::javaInstance):
+        * bindings/jni/jni_runtime.cpp:
+        (JavaField::JavaField):
+        (JavaField::valueFromInstance):
+        * bindings/jni/jni_runtime.h:
+        (Bindings::JavaField::JavaField):
+        (Bindings::JavaField::~JavaField):
+        (Bindings::JavaField::operator=):
+        * bindings/jni/jni_utility.cpp:
+        (callJNIMethod):
+        (callJNIMethodA):
+        (callJNIVoidMethod):
+        (callJNIObjectMethod):
+        (callJNIBooleanMethod):
+        (callJNIByteMethod):
+        (callJNICharMethod):
+        (callJNIShortMethod):
+        (callJNIIntMethod):
+        (callJNILongMethod):
+        (callJNIFloatMethod):
+        (callJNIDoubleMethod):
+        (callJNIVoidMethodA):
+        (callJNIObjectMethodA):
+        (callJNIByteMethodA):
+        (callJNICharMethodA):
+        (callJNIShortMethodA):
+        (callJNIIntMethodA):
+        (callJNILongMethodA):
+        (callJNIFloatMethodA):
+        (callJNIDoubleMethodA):
+        (releaseCharactersForJStringInEnv):
+        (primitiveTypeFromClassName):
+        (getJNIField):
+        * bindings/jni/jni_utility.h:
+        * bindings/runtime.cpp:
+        (Instance::createBindingForLanguageInstance):
+        (Instance::getValueOfField):
+        * bindings/runtime.h:
+        * bindings/runtime_object.cpp:
+        (RuntimeObjectImp::get):
+
+2003-11-20  Richard Williamson   <rjw@apple.com>
+
+	More LiveConnect stuff.
+
+        Reviewed by Chris.
+
+        * bindings/jni/jni_class.cpp:
+        (JavaClass::classForName):
+        (JavaClass::classForInstance):
+        * bindings/jni/jni_instance.cpp:
+        (JavaInstance::getValueOfField):
+        * bindings/jni/jni_instance.h:
+        (Bindings::JObjectWrapper::JObjectWrapper):
+        * bindings/jni/jni_runtime.h:
+        (Bindings::JavaConstructor::~JavaConstructor):
+        (Bindings::JavaConstructor::operator=):
+        (Bindings::JavaMethod::JavaMethod):
+        (Bindings::JavaMethod::_commonDelete):
+        (Bindings::JavaMethod::signature):
+        * bindings/jni/jni_utility.cpp:
+        (getJNIEnv):
+        (attachToJavaVM):
+        * bindings/jni/jni_utility.h:
+        * bindings/runtime.h:
+        * bindings/runtime_object.cpp:
+        (RuntimeObjectImp::~RuntimeObjectImp):
+        (RuntimeObjectImp::get):
+        * bindings/runtime_object.h:
+
+2003-11-19  Richard Williamson   <rjw@apple.com>
+
+	More LiveConnect stuff.
+
+        Reviewed by Ken.
+
+        * JavaScriptCore.pbproj/project.pbxproj:
+        * bindings/jni/jni_class.cpp: Added.
+        (JavaClass::_commonInit):
+        (JavaClass::JavaClass):
+        (_createClassesByNameIfNecessary):
+        (JavaClass::classForName):
+        (JavaClass::classForInstance):
+        (JavaClass::methodNamed):
+        (JavaClass::fieldNamed):
+        * bindings/jni/jni_class.h: Added.
+        (Bindings::JavaClass::_commonDelete):
+        (Bindings::JavaClass::~JavaClass):
+        (Bindings::JavaClass::_commonCopy):
+        (Bindings::JavaClass::JavaClass):
+        (Bindings::JavaClass::operator=):
+        (Bindings::JavaClass::name):
+        (Bindings::JavaClass::constructorAt):
+        (Bindings::JavaClass::numConstructors):
+        * bindings/jni/jni_instance.cpp: Added.
+        (JavaInstance::JavaInstance):
+        (JavaInstance::~JavaInstance):
+        * bindings/jni/jni_instance.h: Added.
+        (Bindings::JObjectWrapper::JObjectWrapper):
+        (Bindings::JObjectWrapper::~JObjectWrapper):
+        (Bindings::JObjectWrapper::ref):
+        (Bindings::JObjectWrapper::deref):
+        (Bindings::JavaInstance::getClass):
+        (Bindings::JavaInstance::operator=):
+        * bindings/jni/jni_runtime.cpp:
+        (JavaMethod::JavaMethod):
+        * bindings/jni/jni_runtime.h:
+        (Bindings::JavaString::JavaString):
+        (Bindings::JavaString::~JavaString):
+        (Bindings::JavaString::operator=):
+        * bindings/jni/jni_utility.cpp:
+        (getJavaVM):
+        (getJNIEnv):
+        (getCharactersFromJString):
+        (releaseCharactersForJString):
+        (getCharactersFromJStringInEnv):
+        (releaseCharactersForJStringInEnv):
+        * bindings/jni/jni_utility.h:
+        * bindings/runtime.cpp:
+        (Instance::createBindingForLanguageInstance):
+        * bindings/runtime.h:
+        (Bindings::Instance::):
+
+2003-11-18  Richard Williamson   <rjw@apple.com>
+
+	More live connect stubs.  We're getting close.
+
+        Reviewed by Chris.
+
+        * JavaScriptCore.pbproj/project.pbxproj:
+        * bindings/jni/jni_runtime.cpp:
+        (JavaClass::JavaClass):
+        (JavaInstance::JavaInstance):
+        (JavaInstance::~JavaInstance):
+        * bindings/jni/jni_runtime.h:
+        (Bindings::JavaConstructor::value):
+        (Bindings::JavaField::value):
+        (Bindings::JavaMethod::value):
+        (Bindings::JavaClass::_commonDelete):
+        (Bindings::JavaClass::_commonCopy):
+        (Bindings::JavaClass::methodNamed):
+        (Bindings::JavaClass::fieldNamed):
+        (Bindings::JavaInstance::getClass):
+        * bindings/runtime.cpp: Added.
+        * bindings/runtime.h:
+        (Bindings::Instance::~Instance):
+        * bindings/runtime_object.cpp: Added.
+        (RuntimeObjectImp::classInfo):
+        (RuntimeObjectImp::RuntimeObjectImp):
+        (RuntimeObjectImp::get):
+        (RuntimeObjectImp::put):
+        (RuntimeObjectImp::canPut):
+        (RuntimeObjectImp::hasProperty):
+        (RuntimeObjectImp::deleteProperty):
+        (RuntimeObjectImp::defaultValue):
+        (RuntimeObjectImp::_initializeClassInfoFromInstance):
+        * bindings/runtime_object.h: Added.
+        (KJS::RuntimeObjectImp::setInternalInstance):
+        (KJS::RuntimeObjectImp::getInternalInstance):
+        * kjs/object.cpp:
+        (KJS::ObjectImp::get):
+        (KJS::ObjectImp::hasProperty):
+        * kjs/value.h:
+        (KJS::):
+
+2003-11-17  Maciej Stachowiak  <mjs@apple.com>
+
+        Patch from Harri, reviewed by me.
+
+	- fixed 3487375 - backwards array slice causes infinite loop
+        
+	* kjs/array_object.cpp:
+        (ArrayProtoFuncImp::call):
+
+2003-11-17  Maciej Stachowiak  <mjs@apple.com>
+
+        Patch from Harri Porten reviewed by me.
+
+	- fixed 3487371 - operator precedence for bitwise or, xor and and is wrong
+
+        * kjs/grammar.y: Correct the precedence.
+
+2003-11-16  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by John.
+
+	- fixed 3483829 - JavaScriptCore needs workaround to compile on Merlot
+	
+        * JavaScriptCore.pbproj/project.pbxproj: Add -Wno-long-double to
+	warning flags.
+
+=== Safari-114 ===
+
+2003-11-13  Richard Williamson   <rjw@apple.com>
+
+	Factored common code between copy constructor and assignment operator.
+
+        Reviewed by Chris.
+
+        * ChangeLog:
+        * bindings/jni/jni_runtime.h:
+        (Bindings::JavaConstructor::_commonCopy):
+        (Bindings::JavaConstructor::JavaConstructor):
+        (Bindings::JavaConstructor::operator=):
+        (Bindings::JavaField::type):
+        * bindings/runtime.h:
+
+2003-11-13  Richard Williamson   <rjw@apple.com>
+
+	More LiveConnect stuff.  This checkin adds abstract classes to model
+	language runtimes and a JNI based set of concrete implementations for
+	Java.
+
+        Reviewed by Chris.
+
+        * JavaScriptCore.pbproj/project.pbxproj:
+        * Makefile.am:
+        * bindings/Makefile.am: Removed.
+        * bindings/jni/Makefile.am: Removed.
+        * bindings/jni/jni_runtime.cpp: Added.
+        (JavaField::JavaField):
+        (JavaConstructor::JavaConstructor):
+        (JavaMethod::JavaMethod):
+        (JavaClass::JavaClass):
+        * bindings/jni/jni_runtime.h: Added.
+        (Bindings::JavaString::JavaString):
+        (Bindings::JavaString::~JavaString):
+        (Bindings::JavaString::operator=):
+        (Bindings::JavaString::characters):
+        (Bindings::JavaParameter::JavaParameter):
+        (Bindings::JavaParameter::~JavaParameter):
+        (Bindings::JavaParameter::operator=):
+        (Bindings::JavaParameter::type):
+        (Bindings::JavaConstructor::JavaConstructor):
+        (Bindings::JavaConstructor::~JavaConstructor):
+        (Bindings::JavaConstructor::operator=):
+        (Bindings::JavaConstructor::parameterAt):
+        (Bindings::JavaConstructor::numParameters):
+        (Bindings::JavaField::JavaField):
+        (Bindings::JavaField::~JavaField):
+        (Bindings::JavaField::operator=):
+        (Bindings::JavaField::name):
+        (Bindings::JavaField::type):
+        (Bindings::JavaMethod::JavaMethod):
+        (Bindings::JavaMethod::_commonDelete):
+        (Bindings::JavaMethod::~JavaMethod):
+        (Bindings::JavaMethod::_commonCopy):
+        (Bindings::JavaMethod::operator=):
+        (Bindings::JavaMethod::name):
+        (Bindings::JavaMethod::returnType):
+        (Bindings::JavaMethod::parameterAt):
+        (Bindings::JavaMethod::numParameters):
+        (Bindings::JavaClass::_commonDelete):
+        (Bindings::JavaClass::~JavaClass):
+        (Bindings::JavaClass::_commonCopy):
+        (Bindings::JavaClass::JavaClass):
+        (Bindings::JavaClass::operator=):
+        (Bindings::JavaClass::name):
+        (Bindings::JavaClass::methodAt):
+        (Bindings::JavaClass::numMethods):
+        (Bindings::JavaClass::constructorAt):
+        (Bindings::JavaClass::numConstructors):
+        (Bindings::JavaClass::fieldAt):
+        (Bindings::JavaClass::numFields):
+        * bindings/jni/jni_utility.cpp:
+        (callJNIMethod):
+        (callJNIMethodA):
+        (callJNIObjectMethod):
+        (callJNIByteMethod):
+        (callJNICharMethod):
+        (callJNIShortMethod):
+        (callJNIIntMethod):
+        (callJNILongMethod):
+        (callJNIFloatMethod):
+        (callJNIDoubleMethod):
+        (callJNIVoidMethodA):
+        (callJNIObjectMethodA):
+        (callJNIByteMethodA):
+        (callJNICharMethodA):
+        (callJNIShortMethodA):
+        (callJNIIntMethodA):
+        (callJNILongMethodA):
+        (callJNIFloatMethodA):
+        (callJNIDoubleMethodA):
+        (getCharactersFromJString):
+        (releaseCharactersForJString):
+        * bindings/jni/jni_utility.h:
+        * bindings/objc/Makefile.am: Removed.
+        * bindings/runtime.h: Added.
+        (Bindings::Parameter::~Parameter):
+        (Bindings::Constructor::~Constructor):
+        (Bindings::Field::~Field):
+        (Bindings::Method::~Method):
+        (Bindings::Class::~Class):
+
+2003-11-13  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by John.
+
+	- fixed 3472562 - Null or Undefined variables passed to IN operator cause javascript exceptions
+	
+        * kjs/nodes.cpp:
+        (ForInNode::execute): If the in value is null or undefined, bail
+	out early, since attempting to iterate its properties will throw
+	an exception.
+
+2003-11-12  Darin Adler  <darin@apple.com>
+
+        - fixed the build
+
+        * Makefile.am: Fix the build by removing the bindings directory from SUBDIRS.
+        Later, we can either add this back and add the Makefile.am files to the top
+        level configure.in or leave it out and remove the Makefile.am files.
+
+2003-11-12  Richard Williamson   <rjw@apple.com>
+
+	Added utility functions for calling JNI methods.
+
+        Reviewed by Chris.
+
+        * JavaScriptCore.pbproj/project.pbxproj:
+        * Makefile.am:
+        * bindings/Makefile.am: Added.
+        * bindings/jni/Makefile.am: Added.
+        * bindings/jni/jni_utility.cpp: Added.
+        (attachToJavaVM):
+        (callJNIMethod):
+        (callJNIVoidMethod):
+        (callJNIObjectMethod):
+        (callJNIByteMethod):
+        (callJNICharMethod):
+        (callJNIShortMethod):
+        (callJNIIntMethod):
+        (callJNILongMethod):
+        (callJNIFloatMethod):
+        (callJNIDoubleMethod):
+        * bindings/jni/jni_utility.h: Added.
+        * bindings/objc/Makefile.am: Added.
+
+2003-11-08  Darin Adler  <darin@apple.com>
+
+        Reviewed by John.
+
+        - fixed 3477528 -- array.sort(function) fails if the function returns a non-zero value that rounds to zero
+
+        * kjs/array_object.cpp:
+        (compareByStringForQSort): Added checks for undefined values to match what the specification calls for.
+        (compareWithCompareFunctionForQSort): Added checks for undefined values as above, and also changed the
+        code that looks at the compare function result to look at the number returned without rounding to an integer.
+        (ArrayProtoFuncImp::call): Changed the code that looks at the compare function result to look at the number
+        returned without rounding to an integer.
+
+=== Safari-113 ===
+
+2003-11-03  Vicki Murley <vicki@apple.com>
+
+        Reviewed by kocienda.
+
+	- fixed <rdar://problem/3471096>: non-B&I builds should not use order files, because they cause false "regressions" in perf.
+
+        * JavaScriptCore.pbproj/project.pbxproj: added empty SECTORDER_FLAGS variables to the Development and Deployment build styles
+
+2003-11-02  Darin Adler  <darin@apple.com>
+
+        Reviewed by Maciej.
+
+        - changed list manipulation to use Harri Porten's idea of a circular
+          linked list that is built from head to tail rather than building the
+          list backwards and reversing the list when done
+
+        * kjs/grammar.y: Handle CatchNode and FinallyNode in a type-safe way.
+        Change many places that passed 0L to pass nothing at all, or to pass 0.
+
+        * kjs/nodes.h:
+        (KJS::ElementNode::ElementNode): Build a circular list instead of a 0-terminated
+        backwards list.
+        (KJS::ArrayNode::ArrayNode): Break the circular list instead of reversing the list.
+        (KJS::PropertyValueNode::PropertyValueNode): Moved before ObjectLiteralNode so the
+        inline code in ObjectLiteralNode works. Build a circular list instead of a 0-terminated
+        backwards list. Made the case for the first node separate so we don't need a nil check.
+        (KJS::ObjectLiteralNode::ObjectLiteralNode): Break the circular list instead of
+        reversing the list.
+        (KJS::ArgumentListNode::ArgumentListNode): Build a circular list instead of a 0-terminated
+        backwards list. Also, made the constructors inline (moved here from .cpp file).
+        (KJS::ArgumentsNode::ArgumentsNode): Break the circular list instead of
+        reversing the list.
+        (KJS::NewExprNode::NewExprNode): Changed a 0L to 0.
+        (KJS::StatListNode::StatListNode): Make this constructor no longer inline (moved into
+        .cpp file). The one in the .cpp file builds a circular list instead of a 0-terminated
+        backwards list.
+        (KJS::VarDeclListNode::VarDeclListNode): Build a circular list instead of a 0-terminated
+        backwards list.
+        (KJS::VarStatementNode::VarStatementNode): Break the circular list instead of reversing
+        the list.
+        (KJS::BlockNode::BlockNode): Make this constructor no longer inline (moved into .cpp file).
+        The one in the .cpp file breaks the list instead of reversing it.
+        (KJS::ForNode::ForNode): Break the circular list instead of reversing the list.
+        (KJS::CaseClauseNode::CaseClauseNode): Break the circular list instead of reversing the
+        list.
+        (KJS::ClauseListNode::ClauseListNode): Build a circular list instead of a 0-terminated
+        backwards list.
+        (KJS::CaseBlockNode::CaseBlockNode): Make this constructor no longer inline (moved into
+        .cpp file). The one in the .cpp file breaks the list instead of reversing it.
+        (KJS::TryNode::TryNode): Changed constructor to take typed parameters for the catch and
+        finally nodes rather than just Node.
+        (KJS::ParameterNode::ParameterNode): Build a circular list instead of a 0-terminated
+        backwards list.
+        (KJS::FuncDeclNode::FuncDeclNode): Break the circular list instead of reversing the
+        list.
+        (KJS::FuncExprNode::FuncExprNode): Break the circular list instead of reversing the
+        list.
+
+        * kjs/nodes.cpp:
+        (StatListNode::StatListNode): Moved this constructor here, no longer inline.
+        Did the "break circular list" thing instead of the "reverse list" thing.
+        Added setLoc calls to match KJS in the KDE tree; since we don't currently
+        use the JavaScript debugging support, it's unclear whether there's any benefit, but
+        later we might be using it and it's good to be as close as possible.
+        (BlockNode::BlockNode): Moved this constructor here, no longer inline.
+        Did the "break circular list" thing instead of the "reverse list" thing.
+        Added setLoc calls.
+        (CaseBlockNode::CaseBlockNode): Moved this constructor here, no longer inline.
+        Did the "break circular list" thing instead of the "reverse list" thing.
+        (SourceElementsNode::SourceElementsNode): Moved this constructor here, no longer inline.
+        Did the "break circular list" thing instead of the "reverse list" thing.
+        Added setLoc calls.
+
+        * kjs/grammar.cpp: Regenerated.
+        * kjs/grammar.cpp.h: Regenerated.
+        * kjs/grammar.h: Regenerated.
+
+=== Safari-112 ===
+
+2003-10-30  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Ken.
+
+	- fixed 3427069 - browsing mp3.com causes leaks (KJS)
+	
+        * kjs/string_object.cpp:
+        (StringProtoFuncImp::call): Don't do an early return, since that
+	could leak a temporary regexp.
+
+2003-10-29  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Darin.
+
+	- fixed 3426076 - Leak of JS lexer data visiting http://www.ebay.com
+	
+        * kjs/grammar.cpp:
+        (yyerror): Updated the commented code.
+        * kjs/grammar.y: Don't delete string and identifier tokens when done
+	with them any more, they'll get cleaned up by the lexer now.
+        * kjs/internal.cpp:
+        (Parser::parse): Tell lexer when done parsing.
+        * kjs/lexer.cpp:
+        (Lexer::Lexer): Initialize new data members.
+        (Lexer::lex): Use new methods to make strings and identifiers, and
+	save them.
+        (Lexer::makeIdentifier): Make a new Identifier and save it in an
+	auto-growing array.
+        (Lexer::makeUString): Likewise for UStrings.
+        (Lexer::doneParsing): Clean up arrays of Ifentifiers and UStrings.
+        * kjs/lexer.h:
+
+2003-10-28  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Ken.
+
+	- fixed 3413962 -  malicious web pages can kill all future JavaScript execution by breaking recursion limit check
+	
+        * kjs/nodes.cpp:
+        (FunctionCallNode::evaluate): If we're going to return early due
+	to breaking the recursion limit, make sure to lower it again, or
+	it will creep up by one each time it's exceeded.
+
+2003-10-26  Darin Adler  <darin@apple.com>
+
+        * JavaScriptCorePrefix.h: Added a C case to the NULL definition since we use C as well
+        as C++ in this project.
+
+2003-10-26  Darin Adler  <darin@apple.com>
+
+        - rolled in some CString changes Harri Porten did on the KDE side
+
+        * kjs/ustring.cpp:
+        (KJS::CString::CString): Use memcpy instead of strcpy for speed. Fix an off by one error
+        in the copy constructor.
+        (KJS::CString::operator=): Use memcpy instead of strcpy for speed.
+
+        * JavaScriptCorePrefix.h: Add a definition of NULL here that takes advantage of the GNU
+        __null feature even if the system C library doesn't.
+
+== Rolled over to ChangeLog-2003-10-25 ==

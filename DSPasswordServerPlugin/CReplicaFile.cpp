@@ -546,20 +546,20 @@ CReplicaFile::RefreshIfNeeded( void )
 	}
 	else
 	{
-	if ( refresh )
-	{
-		if ( LoadXMLData( kPWReplicaFile ) == 0 )
+		if ( refresh )
 		{
-			CFRelease( lastPropertyList );
+			if ( LoadXMLData( kPWReplicaFile ) == 0 )
+			{
+				CFRelease( lastPropertyList );
+			}
+			else
+			{
+				mReplicaDict = lastPropertyList;
+			}
+			
+			// reset
+			mReplicaArray = NULL;
 		}
-		else
-		{
-			mReplicaDict = lastPropertyList;
-		}
-		
-		// reset
-		mReplicaArray = NULL;
-	}
 		else
 		if ( mDirty )
 			this->SaveXMLData();

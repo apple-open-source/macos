@@ -3,22 +3,19 @@
 *
 * @APPLE_LICENSE_HEADER_START@
 * 
-* Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+* The contents of this file constitute Original Code as defined in and
+* are subject to the Apple Public Source License Version 1.1 (the
+* "License").  You may not use this file except in compliance with the
+* License.  Please obtain a copy of the License at
+* http://www.apple.com/publicsource and read it before using this file.
 * 
-* This file contains Original Code and/or Modifications of Original Code
-* as defined in and that are subject to the Apple Public Source License
-* Version 2.0 (the 'License'). You may not use this file except in
-* compliance with the License. Please obtain a copy of the License at
-* http://www.opensource.apple.com/apsl/ and read it before using this
-* file.
-* 
-* The Original Code and all software distributed under the License are
-* distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+* This Original Code and all software distributed under the License are
+* distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
 * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
 * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
-* Please see the License for the specific language governing rights and
-* limitations under the License.
+* FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+* License for the specific language governing rights and limitations
+* under the License.
 * 
 * @APPLE_LICENSE_HEADER_END@
 */
@@ -46,6 +43,16 @@
 // private
 #import "IOFireWireUserClient.h"
 #import "IOFWUserIsochPort.h"
+
+#if 0
+// DEBUG
+class DebugThing
+{
+	public :
+		natural_t * asyncRef ;
+		IOFWUserLocalIsochPort * port; 
+} ;
+#endif
 
 // ============================================================
 // utility functions
@@ -434,6 +441,7 @@ IOFWUserLocalIsochPort :: initWithUserDCLProgram (
 																								params->startEvent, 
 																								params->startState,
 																								params->startMask ) ;
+
 			bufferMap->release() ;		// retained by DCL program
 			bufferMap = NULL ;
 			
@@ -447,7 +455,9 @@ IOFWUserLocalIsochPort :: initWithUserDCLProgram (
 				ErrorLog ( "IOFWUserIsochPort :: init failed\n" ) ;
 				error = kIOReturnError ;
 			}
-			
+		
+			program->setForceStopProc( IOFireWireUserClient::s_IsochChannel_ForceStopHandler, 0, NULL ) ;
+					
 //			program->release() ;
 //			program = NULL ;
 		}
@@ -651,20 +661,21 @@ IOFWUserLocalIsochPort :: stop ()
 
 	IOReturn error ;
 	
+	// we ignore any errors from above here because we need to call super :: stop() always
+	error = super :: stop() ;
+	
 	if ( fStarted )
 	{
 		error = IOFireWireUserClient::sendAsyncResult( fStopTokenAsyncRef, kIOFireWireLastDCLToken, NULL, 0 ) ;
-		DebugLogCond ( error, "sendAsyncResult returned error %x!\n", error ) ;
+		
+		fStarted = false ;
 	}
-	
-	// we ignore any errors from above here because we need to call super :: stop() always
-	error = super :: stop() ;
 
 	unlock() ;
 	
 //	link->openIsochGate () ;
-	
-	return error ;
+
+ 	return error ;
 }
 
 void
@@ -681,8 +692,15 @@ IOFWUserLocalIsochPort :: s_dclCallProcHandler( DCLCallProc * dcl )
 #endif
 	
 	if ( dcl->procData )
-	{	
+	{
+#if 0
+// DEBUG
+		DebugThing * debugThing = (DebugThing*)dcl->procData ;
+		IOFireWireUserClient::sendAsyncResult( (natural_t*)debugThing->asyncRef, kIOReturnSuccess, NULL, 0 ) ;
+		DebugLog("send callback port=%p\n", debugThing->port ) ;
+#else
 		IOFireWireUserClient::sendAsyncResult( (natural_t*)dcl->procData, kIOReturnSuccess, NULL, 0 ) ;
+#endif
 	}	
 }
 
@@ -728,8 +746,17 @@ IOFWUserLocalIsochPort::setAsyncRef_DCLCallProc( OSAsyncReference asyncRef )
 			DCLCommand * dcl = fDCLTable[ index ] ;
 			if ( ( dcl->opcode & ~kFWDCLOpFlagMask ) == kDCLCallProcOp )
 			{
+#if 0
+// DEBUG
 				if ( ((DCLCallProc*)dcl)->proc && ((DCLCallProc*)dcl)->procData )
+				{
+					((DebugThing*)((DCLCallProc*)dcl)->procData)->asyncRef[0] = asyncRef[0] ;
+				}
+#else
+				{
 					((natural_t*)((DCLCallProc*)dcl)->procData)[ 0 ] = asyncRef[ 0 ] ;
+				}
+#endif
 			}
 		
 			dcl = dcl->pNextDCLCommand ;
@@ -872,7 +899,16 @@ IOFWUserLocalIsochPort :: convertToKernelDCL (
 	asyncRef[ kIOAsyncCalloutRefconIndex ] = (natural_t)dcl->procData ;
 	
 	dcl->proc				= (DCLCallCommandProc*) & s_dclCallProcHandler ;
+
+#if 0
+// DEBUG
+	DebugThing * debugThing = new DebugThing ;
+	dcl->procData			= debugThing ;
+	debugThing->asyncRef = asyncRef ;
+	debugThing->port = this ;
+#else
 	dcl->procData			= (UInt32) asyncRef ;
+#endif
 		
 	return kIOReturnSuccess ;
 }

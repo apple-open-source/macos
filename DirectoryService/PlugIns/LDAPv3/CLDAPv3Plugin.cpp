@@ -56,6 +56,7 @@ using namespace std;
 #include "DSUtils.h"
 #include "PrivateTypes.h"
 #include "CLog.h"
+#include "DSLDAPUtils.h"
 
 
 #define LDAPURLOPT95SEPCHAR			" "
@@ -125,6 +126,7 @@ sInt32 DSDoRetrieval (	char			   *inNativeRecType,
 						int					inSearchTO,
 						LDAPMessage		  *&outResult,
 						bool			   &outResultFound,
+						int				   &ldapMsgId,
 						CLDAPv3Configs     *inConfigFromXML);
 
 sInt32 DSSearchLDAP (	CLDAPNode		   &inLDAPSessionMgr,
@@ -2256,6 +2258,19 @@ sInt32 CLDAPv3Plugin::GetAllRecords (	char			   *inRecType,
 			ldap_msgfree( result );
 			result = nil;
 		}
+		
+		//here we attempt to cleanup the response list of responses that have already been deleted
+		//if siResult is eDSNoErr then the msgId will be removed from inContinue in the calling routine GetRecordList
+		if ( (siResult == eDSNoErr) && (inContinue != NULL) && (inContinue->msgId != 0) )
+		{
+			LDAP *aHost = nil;
+			aHost = fLDAPSessionMgr.LockSession(inContext);
+			if (aHost != nil)
+			{
+				DSSearchCleanUp(aHost, inContinue->msgId);
+			}
+			fLDAPSessionMgr.UnLockSession(inContext);
+		}
 
     } // try block
 
@@ -4269,6 +4284,19 @@ sInt32 CLDAPv3Plugin::GetTheseRecords (	char			   *inConstRecName,
 			result = nil;
 		}
 
+		//here we attempt to cleanup the response list of responses that have already been deleted
+		//if siResult is eDSNoErr then the msgId will be removed from inContinue in the calling routine GetRecordList
+		if ( (siResult == eDSNoErr) && (inContinue != NULL) && (inContinue->msgId != 0) )
+		{
+			LDAP *aHost = nil;
+			aHost = fLDAPSessionMgr.LockSession(inContext);
+			if (aHost != nil)
+			{
+				DSSearchCleanUp(aHost, inContinue->msgId);
+			}
+			fLDAPSessionMgr.UnLockSession(inContext);
+		}
+
     } // try block
 
     catch ( sInt32 err )
@@ -5271,6 +5299,7 @@ sInt32 CLDAPv3Plugin::OpenRecord ( sOpenRecord *inData )
 	CFArrayRef			OCSearchList	= nil;
 	ber_int_t			scope			= LDAP_SCOPE_SUBTREE;
 	sInt32				searchResult	= eDSNoErr;
+	int					ldapMsgId		= 0;
 
 
 	try
@@ -5340,6 +5369,7 @@ sInt32 CLDAPv3Plugin::OpenRecord ( sOpenRecord *inData )
 											searchTO,
 											result,
 											bResultFound,
+											ldapMsgId,
 											pConfigFromXML);
 
 			if ( queryFilter != nil )
@@ -5419,6 +5449,7 @@ sInt32 CLDAPv3Plugin::OpenRecord ( sOpenRecord *inData )
 			{
 				//get the ldapDN here
 				pRecContext->fOpenRecordDN = ldap_get_dn(aHost, result);
+				DSSearchCleanUp(aHost, ldapMsgId);
 			}
 			fLDAPSessionMgr.UnLockSession(pRecContext);
 		
@@ -6327,6 +6358,7 @@ sInt32 CLDAPv3Plugin::RemoveAttributeValue ( sRemoveAttributeValue *inData )
 	LDAPMod				   *mods[2];
 	int						ldapReturnCode	= 0;
 	LDAP				   *aHost			= nil;
+	int						ldapMsgId		= 0;
 
 	try
 	{
@@ -6335,7 +6367,7 @@ sInt32 CLDAPv3Plugin::RemoveAttributeValue ( sRemoveAttributeValue *inData )
 
 		if ( pRecContext->fOpenRecordDN == nil ) throw( (sInt32)eDSNullRecName );
 
-		siResult = GetRecRefLDAPMessage( pRecContext, &result );
+		siResult = GetRecRefLDAPMessage( pRecContext, ldapMsgId, &result );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		pAttrType = inData->fInAttrType;
@@ -6446,10 +6478,6 @@ sInt32 CLDAPv3Plugin::RemoveAttributeValue ( sRemoveAttributeValue *inData )
 				//get the next mapping
 				pLDAPAttrType = MapAttrToLDAPType( (const char *)(pRecContext->fOpenRecordType), pAttrType->fBufferData, pRecContext->fConfigTableIndex, numAttributes, pConfigFromXML, true );
 			} // while ( pLDAPAttrType != nil )
-			
-        	ldap_msgfree( result );
-	        result = nil;
-	
         } // retrieve the result from the LDAP server
         else
         {
@@ -6469,6 +6497,19 @@ sInt32 CLDAPv3Plugin::RemoveAttributeValue ( sRemoveAttributeValue *inData )
 		pLDAPAttrType = nil;
 	}
 	
+	if (result != nil)
+	{
+		ldap_msgfree( result );
+		result = nil;
+	}
+				
+	aHost = fLDAPSessionMgr.LockSession(pRecContext);
+	if (aHost != nil)
+	{
+		DSSearchCleanUp(aHost, ldapMsgId);
+	}
+	fLDAPSessionMgr.UnLockSession(pRecContext);
+			
 	return( siResult );
 
 } // RemoveAttributeValue
@@ -6498,6 +6539,7 @@ sInt32 CLDAPv3Plugin::SetAttributeValue ( sSetAttributeValue *inData )
 	uInt32					attrLength		= 0;
 	char				   *emptyValue		= (char *)"";
 	LDAP				   *aHost			= nil;
+	int						ldapMsgId		= 0;
 
 	try
 	{
@@ -6523,7 +6565,7 @@ sInt32 CLDAPv3Plugin::SetAttributeValue ( sSetAttributeValue *inData )
 			memcpy(attrValue, inData->fInAttrValueEntry->fAttributeValueData.fBufferData, attrLength);
 			
 		}
-		siResult = GetRecRefLDAPMessage( pRecContext, &result );
+		siResult = GetRecRefLDAPMessage( pRecContext, ldapMsgId, &result );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		pAttrType = inData->fInAttrType;
@@ -6649,10 +6691,6 @@ sInt32 CLDAPv3Plugin::SetAttributeValue ( sSetAttributeValue *inData )
 				//get the next mapping
 				pLDAPAttrType = MapAttrToLDAPType( (const char *)(pRecContext->fOpenRecordType), pAttrType->fBufferData, pRecContext->fConfigTableIndex, numAttributes, pConfigFromXML, true );
 			} // while ( pLDAPAttrType != nil )
-			
-        	ldap_msgfree( result );
-	        result = nil;
-	
         } // retrieve the result from the LDAP server
         else
         {
@@ -6666,6 +6704,19 @@ sInt32 CLDAPv3Plugin::SetAttributeValue ( sSetAttributeValue *inData )
 		siResult = err;
 	}
 
+	if ( result != nil )
+	{
+		ldap_msgfree( result );
+		result = nil;
+	}
+				
+	aHost = fLDAPSessionMgr.LockSession(pRecContext);
+	if (aHost != nil)
+	{
+		DSSearchCleanUp(aHost, ldapMsgId);
+	}
+	fLDAPSessionMgr.UnLockSession(pRecContext);
+	
 	if (pLDAPAttrType != nil)
 	{
 		delete( pLDAPAttrType );
@@ -6859,6 +6910,8 @@ sInt32 CLDAPv3Plugin::GetRecAttribInfo ( sGetRecAttribInfo *inData )
 	int						numAttributes	= 1;
 	bool					bTypeFound		= false;
 	int						valCount		= 0;
+	LDAP				   *aHost			= nil;
+	int						ldapMsgId		= 0;
 	
 	try
 	{
@@ -6866,7 +6919,7 @@ sInt32 CLDAPv3Plugin::GetRecAttribInfo ( sGetRecAttribInfo *inData )
 		pRecContext = (sLDAPContextData *)gLDAPContextTable->GetItemData( inData->fInRecRef );
 		if ( pRecContext  == nil ) throw( (sInt32)eDSBadContextData );
 
-		siResult = GetRecRefLDAPMessage( pRecContext, &result );
+		siResult = GetRecRefLDAPMessage( pRecContext, ldapMsgId, &result );
 		if ( siResult != eDSNoErr ) throw( siResult);
 
 		pAttrType = inData->fInAttrType;
@@ -6920,7 +6973,7 @@ sInt32 CLDAPv3Plugin::GetRecAttribInfo ( sGetRecAttribInfo *inData )
 				}
 				else
 				{
-					LDAP *aHost = fLDAPSessionMgr.LockSession(pRecContext);
+					aHost = fLDAPSessionMgr.LockSession(pRecContext);
 					if ( (aHost != nil) && ( ( bValues = ldap_get_values_len(aHost, result, pLDAPAttrType )) != NULL ) )
 					{
 					
@@ -6967,10 +7020,6 @@ sInt32 CLDAPv3Plugin::GetRecAttribInfo ( sGetRecAttribInfo *inData )
 			pOutAttrEntry->fAttributeDataSize = uiDataLen;
 			//assign the result out
 			inData->fOutAttrInfoPtr = pOutAttrEntry;
-			
-        	ldap_msgfree( result );
-	        result = nil;
-	
         } // retrieve the result from the LDAP server
         else
         {
@@ -6983,6 +7032,19 @@ sInt32 CLDAPv3Plugin::GetRecAttribInfo ( sGetRecAttribInfo *inData )
 		siResult = err;
 	}
 
+	if ( result != nil )
+	{
+		ldap_msgfree( result );
+		result = nil;
+	}
+				
+	aHost = fLDAPSessionMgr.LockSession(pRecContext);
+	if (aHost != nil)
+	{
+		DSSearchCleanUp(aHost, ldapMsgId);
+	}
+	fLDAPSessionMgr.UnLockSession(pRecContext);
+	
 	if (pLDAPAttrType != nil)
 	{
 		delete( pLDAPAttrType );
@@ -7013,13 +7075,15 @@ sInt32 CLDAPv3Plugin::GetRecAttrValueByIndex ( sGetRecordAttributeValueByIndex *
 	int						numAttributes	= 1;
 	uInt32					literalLength	= 0;
 	bool					bStripCryptPrefix		= false;
+	LDAP				   *aHost			= nil;
+	int						ldapMsgId		= 0;
 
 	try
 	{
 		pRecContext = (sLDAPContextData *)gLDAPContextTable->GetItemData( inData->fInRecRef );
 		if ( pRecContext  == nil ) throw( (sInt32)eDSBadContextData );
 
-		siResult = GetRecRefLDAPMessage( pRecContext, &result );
+		siResult = GetRecRefLDAPMessage( pRecContext, ldapMsgId, &result );
 		if ( siResult != eDSNoErr ) throw( siResult);
 
 		pAttrType = inData->fInAttrType;
@@ -7088,7 +7152,7 @@ sInt32 CLDAPv3Plugin::GetRecAttrValueByIndex ( sGetRecordAttributeValueByIndex *
 				}
 				else
 				{
-					LDAP *aHost = fLDAPSessionMgr.LockSession(pRecContext);
+					aHost = fLDAPSessionMgr.LockSession(pRecContext);
 					if ( (aHost != nil) && ( ( bValues = ldap_get_values_len (aHost, result, pLDAPAttrType )) != NULL ) )
 					{
 					
@@ -7152,8 +7216,6 @@ sInt32 CLDAPv3Plugin::GetRecAttrValueByIndex ( sGetRecordAttributeValueByIndex *
 				pLDAPAttrType = MapAttrToLDAPType( (const char *)(pRecContext->fOpenRecordType), pAttrType->fBufferData, pRecContext->fConfigTableIndex, numAttributes, pConfigFromXML );
 			} // while ( pLDAPAttrType != nil )
 			
-        	ldap_msgfree( result );
-	        result = nil;
 	        if (!bFoundIt)
 	        {
 				if (valCount < inData->fInAttrValueIndex)
@@ -7176,13 +7238,25 @@ sInt32 CLDAPv3Plugin::GetRecAttrValueByIndex ( sGetRecordAttributeValueByIndex *
 			delete( pLDAPAttrType );
 			pLDAPAttrType = nil;
 		}				
-			
 	}
 
 	catch ( sInt32 err )
 	{
 		siResult = err;
 	}
+
+	if ( result != nil )
+	{
+		ldap_msgfree( result );
+		result = nil;
+	}
+	
+	aHost = fLDAPSessionMgr.LockSession(pRecContext);
+	if (aHost != nil)
+	{
+		DSSearchCleanUp(aHost, ldapMsgId);
+	}
+	fLDAPSessionMgr.UnLockSession(pRecContext);
 
 	return( siResult );
 
@@ -7208,13 +7282,15 @@ sInt32 CLDAPv3Plugin::GetRecordAttributeValueByID ( sGetRecordAttributeValueByID
 	uInt32					crcVal			= 0;
 	uInt32					literalLength	= 0;
 	bool					bStripCryptPrefix		= false;
+	LDAP				   *aHost			= nil;
+	int						ldapMsgId		= 0;
 
 	try
 	{
 		pRecContext = (sLDAPContextData *)gLDAPContextTable->GetItemData( inData->fInRecRef );
 		if ( pRecContext  == nil ) throw( (sInt32)eDSBadContextData );
 
-		siResult = GetRecRefLDAPMessage( pRecContext, &result );
+		siResult = GetRecRefLDAPMessage( pRecContext, ldapMsgId, &result );
 		if ( siResult != eDSNoErr ) throw( siResult);
 
 		pAttrType = inData->fInAttrType;
@@ -7285,7 +7361,7 @@ sInt32 CLDAPv3Plugin::GetRecordAttributeValueByID ( sGetRecordAttributeValueByID
 				}
 				else
 				{
-					LDAP *aHost = fLDAPSessionMgr.LockSession(pRecContext);
+					aHost = fLDAPSessionMgr.LockSession(pRecContext);
 					if ( (aHost != nil) && ( ( bValues = ldap_get_values_len(aHost, result, pLDAPAttrType )) != NULL ) )
 					{
 					
@@ -7343,10 +7419,6 @@ sInt32 CLDAPv3Plugin::GetRecordAttributeValueByID ( sGetRecordAttributeValueByID
 				//get the next mapping
 				pLDAPAttrType = MapAttrToLDAPType( (const char *)(pRecContext->fOpenRecordType), pAttrType->fBufferData, pRecContext->fConfigTableIndex, numAttributes, pConfigFromXML );
 			} // while ( pLDAPAttrType != nil )
-			
-        	ldap_msgfree( result );
-	        result = nil;
-	
         } // retrieve the result from the LDAP server
         else
         {
@@ -7358,7 +7430,6 @@ sInt32 CLDAPv3Plugin::GetRecordAttributeValueByID ( sGetRecordAttributeValueByID
 			delete( pLDAPAttrType );
 			pLDAPAttrType = nil;
 		}				
-			
 	}
 
 	catch ( sInt32 err )
@@ -7366,6 +7437,19 @@ sInt32 CLDAPv3Plugin::GetRecordAttributeValueByID ( sGetRecordAttributeValueByID
 		siResult = err;
 	}
 
+	if ( result != nil )
+	{
+		ldap_msgfree( result );
+		result = nil;
+	}
+	
+	aHost = fLDAPSessionMgr.LockSession(pRecContext);
+	if (aHost != nil)
+	{
+		DSSearchCleanUp(aHost, ldapMsgId);
+	}
+	fLDAPSessionMgr.UnLockSession(pRecContext);
+	
 	return( siResult );
 
 } // GetRecordAttributeValueByID
@@ -8187,6 +8271,20 @@ sInt32 CLDAPv3Plugin::FindAllRecords (	char			   *inConstAttrName,
 			ldap_msgfree( result );
 			result = nil;
 		}
+
+		//here we attempt to cleanup the response list of responses that have already been deleted
+		//if siResult is eDSNoErr then the msgId will be removed from inContinue in the calling routine DoAttributeValueSearch
+		if ( (siResult == eDSNoErr) && (inContinue != NULL) && (inContinue->msgId != 0) )
+		{
+			LDAP *aHost = nil;
+			aHost = fLDAPSessionMgr.LockSession(inContext);
+			if (aHost != nil)
+			{
+				DSSearchCleanUp(aHost, inContinue->msgId);
+			}
+			fLDAPSessionMgr.UnLockSession(inContext);
+		}
+
     } // try block
 
     catch ( sInt32 err )
@@ -8429,6 +8527,19 @@ sInt32 CLDAPv3Plugin::FindTheseRecords (	char			   *inConstAttrType,
 		{
 			ldap_msgfree( result );
 			result = nil;
+		}
+
+		//here we attempt to cleanup the response list of responses that have already been deleted
+		//if siResult is eDSNoErr then the msgId will be removed from inContinue in the calling routine DoAttributeValueSearch
+		if ( (siResult == eDSNoErr) && (inContinue != NULL) && (inContinue->msgId != 0) )
+		{
+			LDAP *aHost = nil;
+			aHost = fLDAPSessionMgr.LockSession(inContext);
+			if (aHost != nil)
+			{
+				DSSearchCleanUp(aHost, inContinue->msgId);
+			}
+			fLDAPSessionMgr.UnLockSession(inContext);
 		}
 
     } // try block
@@ -10102,6 +10213,7 @@ sInt32 CLDAPv3Plugin::LookupAttribute (	sLDAPContextData *inContext,
 	ber_int_t		scope				= LDAP_SCOPE_SUBTREE;
 	sInt32			searchResult		= eDSNoErr;
 	char		   *pLDAPAttrType		= nil;
+	int				ldapMsgId			= 0;
     
 	try
 	{
@@ -10178,6 +10290,7 @@ sInt32 CLDAPv3Plugin::LookupAttribute (	sLDAPContextData *inContext,
 												searchTO,
 												result,
 												bResultFound,
+												ldapMsgId,
 												inConfigFromXML);
 	
 				if (queryFilter != nil)
@@ -10254,7 +10367,9 @@ sInt32 CLDAPv3Plugin::LookupAttribute (	sLDAPContextData *inContext,
 						}
 						//need to be smart and not call abandon unless the search is continuing
 						//ldap_abandon( aHost, ldapMsgId ); // we don't care about the other results, just the first
-					}		
+					}   
+					
+					DSSearchCleanUp(aHost, ldapMsgId);
 				}// if aHost != nil
 				inLDAPSessionMgr.UnLockSession(inContext);
 			} // if bResultFound and ldapReturnCode okay
@@ -10402,6 +10517,7 @@ sInt32 CLDAPv3Plugin::DoUnixCryptAuth ( sLDAPContextData *inContext, tDataBuffer
 	CFArrayRef		OCSearchList		= nil;
 	ber_int_t		scope				= LDAP_SCOPE_SUBTREE;
 	sInt32			searchResult		= eDSNoErr;
+	int				ldapMsgId			= 0;
 	
 	try
 	{
@@ -10502,6 +10618,7 @@ sInt32 CLDAPv3Plugin::DoUnixCryptAuth ( sLDAPContextData *inContext, tDataBuffer
 											searchTO,
 											result,
 											bResultFound,
+											ldapMsgId,
 											inConfigFromXML);
 
 			if (queryFilter != nil)
@@ -10626,11 +10743,12 @@ sInt32 CLDAPv3Plugin::DoUnixCryptAuth ( sLDAPContextData *inContext, tDataBuffer
 					//need to be smart and not call abandon unless the search is continuing
 					//ldap_abandon( aHost, ldapMsgId ); // we don't care about the other results, just the first
 				}
+				
+				DSSearchCleanUp(aHost, ldapMsgId);
 			}//if aHost != nil
 			gLDAPv3Plugin->fLDAPSessionMgr.UnLockSession(inContext);
 		} // if bResultFound and ldapReturnCode okay
 
-		//no check for LDAP_TIMEOUT on ldapReturnCode since we will return nil
 		if ( result != nil )
 		{
 			ldap_msgfree( result );
@@ -10869,6 +10987,7 @@ char* CLDAPv3Plugin::GetDNForRecordName ( char* inRecName, sLDAPContextData *inC
 	CFArrayRef			OCSearchList	= nil;
 	ber_int_t			scope			= LDAP_SCOPE_SUBTREE;
 	sInt32				searchResult	= eDSNoErr;
+	int					ldapMsgId		= 0;
 
 
 	try
@@ -10928,6 +11047,7 @@ char* CLDAPv3Plugin::GetDNForRecordName ( char* inRecName, sLDAPContextData *inC
 											searchTO,
 											result,
 											bResultFound,
+											ldapMsgId,
 											inConfigFromXML);
 
 			if (queryFilter != nil)
@@ -10959,12 +11079,12 @@ char* CLDAPv3Plugin::GetDNForRecordName ( char* inRecName, sLDAPContextData *inC
 			{
 				//get the ldapDN here
 				ldapDN = ldap_get_dn(aHost, result);
+				DSSearchCleanUp(aHost, ldapMsgId);
 			}
 			gLDAPv3Plugin->fLDAPSessionMgr.UnLockSession(inContext);
 		
 		} // if bResultFound and ldapReturnCode okay
 		
-		//no check for LDAP_TIMEOUT on ldapReturnCode since we will return nil
 		if ( result != nil )
 		{
 			ldap_msgfree( result );
@@ -11360,7 +11480,7 @@ sInt32 CLDAPv3Plugin:: RebindLDAPSession ( sLDAPContextData *inContext, CLDAPNod
 //	* GetRecRefLDAPMessage
 //------------------------------------------------------------------------------------
 
-sInt32 CLDAPv3Plugin::GetRecRefLDAPMessage ( sLDAPContextData *inRecContext, LDAPMessage **outResultMsg )
+sInt32 CLDAPv3Plugin::GetRecRefLDAPMessage ( sLDAPContextData *inRecContext, int &ldapMsgId, LDAPMessage **outResultMsg )
 {
 	sInt32				siResult		= eDSNoErr;
     sLDAPConfigData	   *pConfig			= nil;
@@ -11437,6 +11557,7 @@ sInt32 CLDAPv3Plugin::GetRecRefLDAPMessage ( sLDAPContextData *inRecContext, LDA
 											searchTO,
 											result,
 											bResultFound,
+											ldapMsgId,
 											pConfigFromXML);
 
 			if ( queryFilter != nil )
@@ -11778,10 +11899,10 @@ sInt32 DSDoRetrieval (	char			   *inNativeRecType,
 						int					inSearchTO,
 						LDAPMessage		  *&outResult,
 						bool			   &outResultFound,
+						int				   &ldapMsgId,
 						CLDAPv3Configs     *inConfigFromXML)
 {
 	sInt32				searchResult	= eDSNoErr;
-	int					ldapMsgId		= 0;
 	int					numRetries		= 2; //two tries to rebind
 
 	try

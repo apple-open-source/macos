@@ -105,6 +105,12 @@ int mm_auth_krb4(struct Authctxt *, void *, char **, void *);
 int mm_auth_krb5(void *authctxt, void *auth, char **client, void *reply);
 #endif
 
+#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
+void mm_solaris_audit_bad_pw(const char *what);
+void mm_solaris_audit_maxtrys(void);
+void mm_solaris_audit_not_console(void);
+#endif /* BSM */
+
 /* zlib allocation hooks */
 
 void *mm_zalloc(struct mm_master *, u_int, u_int);

@@ -28,6 +28,7 @@
 
 // Libkern includes
 #include <libkern/OSByteOrder.h>
+#include <libkern/c++/OSNumber.h>
 
 // Generic IOKit related headers
 #include <IOKit/IOMessage.h>
@@ -38,8 +39,8 @@
 #include <IOKit/storage/IOStorageProtocolCharacteristics.h>
 
 // SCSI Architecture Model Family includes
-#include <IOKit/scsi/SCSITask.h>
-#include <IOKit/scsi/SCSICmds_INQUIRY_Definitions.h>
+#include "SCSITask.h"
+#include "SCSICmds_INQUIRY_Definitions.h"
 #include "IOSCSIPeripheralDeviceNub.h"
 #include "SCSITaskLib.h"
 #include "SCSITaskLibPriv.h"
@@ -196,7 +197,7 @@ IOSCSIPeripheralDeviceNub::start ( IOService * provider )
 		
 	STATUS_LOG ( ( "%s: default inquiry count is: %d\n", getName ( ), fDefaultInquiryCount ) );
 	
-	require ( InterrogateDevice ( ), CloseProvider );
+	require_quiet ( InterrogateDevice ( ), CloseProvider );
 	
 	setProperty ( kIOMatchCategoryKey, kSCSITaskUserClientIniterKey );
 	
@@ -940,6 +941,18 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
  	// Check if we got terminated. If so, bail early.
  	require ( isInactive ( ) == false, ReleaseTask );
 	
+	{
+        
+		UInt8	qualifier = inqData->PERIPHERAL_DEVICE_TYPE & kINQUIRY_PERIPHERAL_QUALIFIER_Mask;
+            
+		if ( qualifier & kINQUIRY_PERIPHERAL_QUALIFIER_SupportedButNotConnected )
+			goto ReleaseTask;
+		
+		if ( qualifier & kINQUIRY_PERIPHERAL_QUALIFIER_NotSupported )
+			goto ReleaseTask;
+		
+	}
+        
    	// Set the Peripheral Device Type property for the device.
    	setProperty ( kIOPropertySCSIPeripheralDeviceType,
    				( UInt64 ) ( inqData->PERIPHERAL_DEVICE_TYPE & kINQUIRY_PERIPHERAL_TYPE_Mask ),
@@ -1179,8 +1192,8 @@ IOSCSILogicalUnitNub::start ( IOService * provider )
 		
 	STATUS_LOG ( ( "%s: default inquiry count is: %d\n", getName ( ), fDefaultInquiryCount ) );
 	
-	require ( InterrogateDevice ( ), CloseProvider );
-		
+	require_quiet ( InterrogateDevice ( ), CloseProvider );
+	
 	setProperty ( kIOMatchCategoryKey, kSCSITaskUserClientIniterKey );
 	
 	characterDict = OSDynamicCast ( OSDictionary, fProvider->getProperty ( kIOPropertyProtocolCharacteristicsKey ) );
@@ -1191,7 +1204,7 @@ IOSCSILogicalUnitNub::start ( IOService * provider )
 	
 	else
 	{
-		characterDict->retain ( );
+		characterDict = OSDictionary::withDictionary ( characterDict );
 	}
 	
 	obj = fProvider->getProperty ( kIOPropertyPhysicalInterconnectTypeKey );

@@ -1,8 +1,8 @@
-.TH REDO_PREBINDING 1 "September 10, 2001" "Apple Computer, Inc."
+.TH REDO_PREBINDING 1 "March 29, 2004" "Apple Computer, Inc."
 .SH NAME
 redo_prebinding \- redo the prebinding of an executable or dynamic library
 .SH SYNOPSIS
-redo_prebinding [\-c | \-p | \-d] [\-i] [\-z] [\-r rootdir] [\-e executable_path] [-seg_addr_table table_file_name] [-seg_addr_table_filename pathname] [\-o output_file] input_file
+redo_prebinding [\-c | \-p | \-d] [\-i] [\-z] [\-u] [\-r rootdir] [\-e executable_path] [-seg_addr_table table_file_name] [-seg_addr_table_filename pathname] [-seg1addr address] [\-o output_file] [\-s] input_file
 .SH DESCRIPTION
 .I Redo_prebinding
 is used to redo the prebinding of an executable or dynamic library when one
@@ -49,6 +49,15 @@ ignore non-prebound files (useful when running on all types of files).
 .B \-z
 zero out the prebind check sum in the output if it has one.
 .TP
+.B \-u
+unprebind, rather than reprebind (-c, -p, -d, -e ignored).  
+Resets or removes prebinding-specific information from the input file.
+As unprebinding is intended to produce a canonical Mach-O 
+binary, bundles and non-prebound executables and dylibs are acceptable 
+as input.  For these files, the  unprebind operation will zero library time 
+stamps and version numbers and zero entries in the two-level hints 
+table.
+.TP
 .BI "\-e " executable_path
 replace any dependent library's "@executable_path" prefix with the
 .I executable_path
@@ -67,6 +76,16 @@ Use
 instead of the install name of the library for matching an entry in the segment
 address table.
 .TP
+.BI "\-seg1addr " address
+Move the input library to base address
+.B address.
+This option does not apply when
+.B \-u,
+.B \-seg_addr_table
+or
+.B \-seg_addr_table_filename
+are specified.
+.TP
 .BI "\-r " rootdir
 prepend the
 .I rootdir
@@ -76,6 +95,9 @@ argument to all dependent libraries.
 write the updated file into
 .I output_file
 rather than back into the input file.
+.TP
+.BI \-s
+write the updated file to standard output
 .SH DIAGNOSTICS
 With no \-c, \-p or \-d an exit status of 0 means success and 2 means it could
 not be done for reasons like a dependent library is missing (an error message

@@ -2,24 +2,21 @@
  * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ *
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ *
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
- * 
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -667,6 +664,24 @@ static void deviceArrived(void *refcon, io_iterator_t iterator )
 		{
             UInt8 mode, stype;
 
+			// Exclude DVCProHD devices from the IDH device list!
+			if (dev->fSupportsFCP)
+			{
+				if(isDVCPro(dev->fAVCInterface,&dvcProMode))
+				{
+					if ((dvcProMode == kAVCSignalModeDVCPro100_525_60) || (dvcProMode == kAVCSignalModeDVCPro100_625_50))
+					{
+						// Terminate this device
+						DVDeviceTerminate(dev);
+
+						// Remove this device from the device list
+						dvThread->fNumDevices--;
+
+						continue;	// continue to next device!
+					}
+				}
+			}
+			
             dev->deviceIndex = device+1;
             (*dev->fAVCInterface)->setMessageCallback(dev->fAVCInterface, (void *) dev, AVCUnitMessageCallback);
 
@@ -2930,8 +2945,10 @@ IOReturn DVReadAllocFrames(DVGlobalInPtr globs, UInt32 numFrames,
 
 static void doDVReadHandleInputUnderrun( DVGlobalInPtr pGlobalData )
 {
-    UInt32 timeNow, lastFrameTime;
+	UInt32 timeNow, lastFrameTime;
     DVStream *stream;
+	int	pingPongNum;
+
 
     if ((pGlobalData->pendingDVReadUnderrunHandler == true) && (pGlobalData->deferredDVReadFree == true))
     {
@@ -2954,14 +2971,33 @@ static void doDVReadHandleInputUnderrun( DVGlobalInPtr pGlobalData )
     syslog(LOG_INFO, "DVReadHandleInputUnderrun: 0x%p, last block = %d, status %d, writer %d reader %d timeNow %x\n",
         pGlobalData, pGlobalData->fState, stream->fFrames.fStatus,
         stream->fFrames.fWriter, stream->fFrames.fReader, timeNow);
-        
-    DVReadStop(pGlobalData);
+
     lastFrameTime = stream->fFrames.fFrameTime[(stream->fFrames.fWriter-1)%stream->fFrames.fNumFrames];
-    
+	
+	// Stop
+	(*stream->fIsochChannelRef)->Stop(stream->fIsochChannelRef);
+
+	// Fixup DCL program jumps and timestamps
+	for (pingPongNum = 0; pingPongNum < kNumPingPongs; pingPongNum++)
+    {
+		if (pingPongNum < (kNumPingPongs-1))
+			ModifyDCLJump(pGlobalData->fStreamVars.pFWLocalIsochPort,
+				pGlobalData->fLocalDataArray[pingPongNum].fStateJmp, pGlobalData->fLocalDataArray[pingPongNum+1].fStateLabel);
+		else
+			ModifyDCLJump(pGlobalData->fStreamVars.pFWLocalIsochPort,
+				 pGlobalData->fLocalDataArray[pingPongNum].fStateJmp, pGlobalData->fTerminal);
+
+		*pGlobalData->fLocalDataArray[pingPongNum].fTimeStampPtr = 0xffffffff;
+	}
+
+	// Reset some vars
+	pGlobalData->fState = 0;
     pGlobalData->fSynced = 0;
     pGlobalData->fRestarted = true;
     pGlobalData->fLastFrameTime = lastFrameTime;
-    DVReadStart(pGlobalData);
+	
+	// Restart
+	(*stream->fIsochChannelRef)->Start(stream->fIsochChannelRef);
 }
 
 static void DVReadHandleInputUnderrun( DCLCommandPtr pDCLCommandPtr )
@@ -3025,9 +3061,19 @@ static void DVStorePackets(DVLocalInPtr pLocalData)
             syslog(LOG_INFO, "DVStorePackets: size %d header 0x%x\n", packetSize, packetHeader);
             packetSize = 8;
         }
-        else if(packetSize > 8 && packetSize != (pPacketBuffer[1]*4*fn) + 8) {
-            syslog(LOG_INFO, "DVStorePackets: size %d header 0x%x\n", packetSize, packetHeader);
-            packetSize = 8;
+        else
+		{
+			// Check for packet size not matching CIP header specified packet size
+			if(packetSize > 8 && packetSize != (pPacketBuffer[1]*4*fn) + 8) {
+				syslog(LOG_INFO, "DVStorePackets: size %d header 0x%x\n", packetSize, packetHeader);
+				packetSize = 8;
+			}
+
+			// Check to make sure the signal mode in the CIP header is what we're expecting
+			if (pGlobalData->fStreamVars.fSignalMode != ((*(UInt32 *)(pPacketBuffer+4) >> 16) & 0xff)){
+				syslog(LOG_INFO, "DVStorePackets: expected DV mode: %d, actual DV mode: %d\n", pGlobalData->fStreamVars.fSignalMode, ((*(UInt32 *)(pPacketBuffer+4) >> 16) & 0xff));
+				packetSize = 8;
+			}
         }
 #endif
         // skip empty packets

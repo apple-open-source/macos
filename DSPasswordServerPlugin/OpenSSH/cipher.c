@@ -201,7 +201,7 @@ cipher_name(int cipher)
 {
 	if (cipher < 0 || cipher >= sizeof(cipher_names) / sizeof(cipher_names[0]) ||
 	    cipher_names[cipher] == NULL)
-		fatal("cipher_name: bad cipher name: %d", cipher);
+		pwsf_fatal("cipher_name: bad cipher name: %d", cipher);
 	return cipher_names[cipher];
 }
 
@@ -323,11 +323,11 @@ cipher_set_key(CipherContext *context, int cipher, const unsigned char *key,
 	case SSH_CIPHER_BLOWFISH_CBC:
 	case SSH_CIPHER_ARCFOUR:
 	case SSH_CIPHER_CAST128_CBC:
-		fatal("cipher_set_key: illegal cipher: %s", cipher_name(cipher));
+		pwsf_fatal("cipher_set_key: illegal cipher: %s", cipher_name(cipher));
 		break;
 
 	default:
-		fatal("cipher_set_key: unknown cipher: %s", cipher_name(cipher));
+		pwsf_fatal("cipher_set_key: unknown cipher: %s", cipher_name(cipher));
 	}
 	memset(padded, 0, sizeof(padded));
 }
@@ -347,7 +347,7 @@ cipher_set_key_iv(CipherContext * context, int cipher,
 
 	case SSH_CIPHER_3DES:
 	case SSH_CIPHER_BLOWFISH:
-		fatal("cipher_set_key_iv: illegal cipher: %s", cipher_name(cipher));
+		pwsf_fatal("cipher_set_key_iv: illegal cipher: %s", cipher_name(cipher));
 		break;
 
 	case SSH_CIPHER_3DES_CBC:
@@ -386,7 +386,7 @@ cipher_set_key_iv(CipherContext * context, int cipher,
 		break;
 
 	default:
-		fatal("cipher_set_key: unknown cipher: %s", cipher_name(cipher));
+		pwsf_fatal("cipher_set_key: unknown cipher: %s", cipher_name(cipher));
 	}
 }
 
@@ -397,7 +397,7 @@ cipher_encrypt(CipherContext *context, unsigned char *dest,
 	       const unsigned char *src, unsigned int len)
 {
 	if ((len & 7) != 0)
-		fatal("cipher_encrypt: bad plaintext length %d", len);
+		pwsf_fatal("cipher_encrypt: bad plaintext length %d", len);
 
 	switch (context->type) {
 	case SSH_CIPHER_NONE:
@@ -441,7 +441,7 @@ cipher_encrypt(CipherContext *context, unsigned char *dest,
 		break;
 
 	default:
-		fatal("cipher_encrypt: unknown cipher: %s", cipher_name(context->type));
+		pwsf_fatal("cipher_encrypt: unknown cipher: %s", cipher_name(context->type));
 	}
 }
 
@@ -452,7 +452,7 @@ cipher_decrypt(CipherContext *context, unsigned char *dest,
 	       const unsigned char *src, unsigned int len)
 {
 	if ((len & 7) != 0)
-		fatal("cipher_decrypt: bad ciphertext length %d", len);
+		pwsf_fatal("cipher_decrypt: bad ciphertext length %d", len);
 
 	switch (context->type) {
 	case SSH_CIPHER_NONE:
@@ -496,6 +496,6 @@ cipher_decrypt(CipherContext *context, unsigned char *dest,
 		break;
 
 	default:
-		fatal("cipher_decrypt: unknown cipher: %s", cipher_name(context->type));
+		pwsf_fatal("cipher_decrypt: unknown cipher: %s", cipher_name(context->type));
 	}
 }

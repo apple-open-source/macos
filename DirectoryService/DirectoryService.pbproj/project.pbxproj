@@ -1069,11 +1069,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.6.1</string>
+	<string>1.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.6.1</string>
+	<string>1.7</string>
 </dict>
 </plist>
 ";
@@ -1222,11 +1222,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.6.1</string>
+	<string>1.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.6.1</string>
+	<string>1.7</string>
 </dict>
 </plist>
 ";
@@ -1417,6 +1417,7 @@
 				61A12D660444DFA30070E40C,
 				61C157170444F29B00D7A0F6,
 				6177A56C04E470CC0042E116,
+				E50914510624B82200863364,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1473,6 +1474,7 @@
 				61A12D620444DE960070E40C,
 				61C157150444F28900D7A0F6,
 				6177A56B04E470CC0042E116,
+				E50914500624B82200863364,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1491,6 +1493,8 @@
 				61CAAF9E0444A0A10083B1B5,
 				61BEF3BC048D778A00B72E1B,
 				847D67D304BCB59C00DF229F,
+				AA82EE6905EC2305004CEFBB,
+				AA82EE8005EC2356004CEFBB,
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1766,6 +1770,8 @@
 		};
 		0035DBFB00AC584500DD2B59 = {
 			children = (
+				AA82EE7F05EC2356004CEFBB,
+				AA82EE6805EC2305004CEFBB,
 				0035DBFC00AC584500DD2B59,
 				00CB9FE900B065BB00DD2B59,
 				6910548D02EE3F5E0ADD2B8D,
@@ -2246,7 +2252,7 @@
 			isa = PBXShellScriptBuildPhase;
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "#moving from temp filename to final\n#due to product name comflicts in PB\nmv \"${DSTROOT}/usr/sbin/DirectoryServiceDaemon\" \"${DSTROOT}/usr/sbin/DirectoryService\"\nchown root.wheel \"${DSTROOT}/usr/sbin/DirectoryService\"";
+			shellScript = "#moving from temp filename to final\n#due to product name comflicts in PB\nmv \"${DSTROOT}/usr/sbin/DirectoryServiceDaemon\" \"${DSTROOT}/usr/sbin/DirectoryService\"\nchown root:wheel \"${DSTROOT}/usr/sbin/DirectoryService\"";
 		};
 		007ACA9202B6EEB300DD2B5A = {
 			children = (
@@ -3623,6 +3629,7 @@
 				61ADDD0703F74CDA00BD54C7,
 				61ADDD0903F74CDB00BD54C7,
 				61ADDD1003F74D2300BD54C7,
+				E509144F0624B82200863364,
 			);
 			isa = PBXGroup;
 			name = Headers;
@@ -3634,6 +3641,7 @@
 				61ADDD0603F74CDA00BD54C7,
 				61ADDD0803F74CDB00BD54C7,
 				61ADDD0E03F74D1300BD54C7,
+				E509144E0624B82200863364,
 			);
 			isa = PBXGroup;
 			name = Classes;
@@ -4135,11 +4143,79 @@
 //842
 //843
 //844
+//AA0
+//AA1
+//AA2
+//AA3
+//AA4
+		AA82EE6805EC2305004CEFBB = {
+			expectedFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
+			name = libbsm.dylib;
+			path = /usr/lib/libbsm.dylib;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		AA82EE6905EC2305004CEFBB = {
+			fileRef = AA82EE6805EC2305004CEFBB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AA82EE7F05EC2356004CEFBB = {
+			expectedFileType = wrapper.framework;
+			isa = PBXFileReference;
+			name = PasswordServer.framework;
+			path = /System/Library/PrivateFrameworks/PasswordServer.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		AA82EE8005EC2356004CEFBB = {
+			fileRef = AA82EE7F05EC2356004CEFBB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//AA0
+//AA1
+//AA2
+//AA3
+//AA4
 //E50
 //E51
 //E52
 //E53
 //E54
+		E509144E0624B82200863364 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = DSLDAPUtils.c;
+			path = PlugIns/LDAPv3/DSLDAPUtils.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E509144F0624B82200863364 = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = DSLDAPUtils.h;
+			path = PlugIns/LDAPv3/DSLDAPUtils.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E50914500624B82200863364 = {
+			fileRef = E509144E0624B82200863364;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		E50914510624B82200863364 = {
+			fileRef = E509144F0624B82200863364;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		E53F0FA5042BC9DD00DD2B5C = {
 			fileRef = 61092FC80428EEA600DD2B5C;
 			isa = PBXBuildFile;

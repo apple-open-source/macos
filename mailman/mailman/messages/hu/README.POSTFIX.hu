@@ -1,5 +1,5 @@
 Mailman - The GNU Mailing List Management System
-Copyright (C) 2001,2002 by the Free Software Foundation, Inc.
+Copyright (C) 2001-2003 by the Free Software Foundation, Inc.
 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
 
@@ -8,24 +8,40 @@ Copyright (C) 2001,2002 by the Free Software Foundation, Inc.
     A Mailmannek minden gond nélkül mûködnie kell egy általánosan
     beállított Postfix-el. A dokumentáció írásakor a beállítások
     Postfix 19991231 verziótól kezdve pl13 verzióig, és 200010228
-    verziótól pl08 verzióig lettek tesztelve.
+    verziótól pl08 verzióig, valamint Postfix 2.0.15-tel lettek 
+    tesztelve.
 
-    Ajánlatos megadni a main.cf konfigurációs állományban az 
-    "owner_request_specil = no" beállítást nehogy a Postfix az -owner
-    és -request címekre érkezõ leveleket külön kezelje (az ezekre
-    a címekre érkezõ leveleket is egyszerûen továbbítani kell a 
-    Mailman wrapper programjának). Az alapértelmezett beállítás
-    valószínûleg "yes".
-
+    A Postfix alapértelmezésként speciális módon kezeli az -owner
+    és -request címekre érkezõ leveleket. Ha azt szeretnénk, hogy
+    az ide érkezõ leveleket is a Mailmannek továbbítsa a program
+    kapcsoljuk ki ezt a funkciót a main.cf állomány módosításával:   
+ 
+	  owner_request_specil = no
+	
     Ahhoz hogy esetlegesen használni tudjuk a Mailman VERP küldési
     képességét ki kell kapcsolnunk az luser_relay (ez az alapértelmezett)
     beállítást és módosítanunk kell a recipient_delimeter értékén.
-    Javasoljuk hogy kommentezzük ki a main.cf állományban az luser_relay
-    sort és adjuk meg a "recipient_delimiter = +" beállítást. Ezzel
-    beállítottuk a programban, hogy a cím a bõvített címzésben a + jelig
-    kell értelmezni. Ezekkel a beállítások a Defaults.py állományban
-    megadott alapértelmezett VERP_FORMAT és VERP_REGEXP értékekkel
-    megfelelõen mûködnek.
+    Ehhez kommentezzük ki a main.cf állományban található összes
+    luser_relay sort, visszatérve ezzel az alpértelmezett opcióhoz.
+    Továbbá, helyezzük el main.cf fájlba a következõ sort:
+    
+          recipient_delimiter = +
+	  
+    A + jel használatával a a Defaults.py állományban megadott 
+    alapértelmezett VERP_FORMAT és VERP_REGEXP értékek megfelelõen 
+    fognak mûködni.
+
+    A Postfix 450-es hibaüzenettel válaszol, ha egy nem létezõ lokális
+    címre probálunk meg levelet továbbítani. Mivel ez nem jelent
+    végzetes hibát, ezért a Mailman a kézbesítést addig ismételgeti,
+    amíg le nem jár a DELIVERY_RETRY_PERIOD változóban megadott idõ
+    (alapesetben 5 nap). Ennek elkerülésére be lehet állítani a
+    Postfixet úgy, hogy a nem létezõ helyi felhasználóknak történõ
+    kézbesítéskor a nem végzetes hibaüzenet helyet egy végzetes
+    hiba üzenetet küldjön. Ehhez a beállításhoz a következõ sort kell
+    elhelyezni a main.cf állományba:
+
+          unknown_local_recipient_reject_code = 550
 
     Végül ha Postfix-stílusú virtuális tartományokat használunk, akkor
     olvassuk el az errõl szóló lejjebb található fejezetet.
@@ -60,7 +76,8 @@ POSTFIX ÉS MAILMAN ÖSSZEKAPCSOLÁSA
     - Keressük meg a Defaults.py állományban a POSTFIX_ALIAS_CMD és
       POSTFIX_MAP_CMD változókat. Gyõzõdjünk meg, hogy a változók a
       postalias és postmap programok helyes teljes elérési útvonalát
-      tartalmazzák.
+      tartalmazzák. Fontos, hogy ha ezeket megszeretnénk változtatni,
+      akkor ne itt tegyük hanem az mm_cfg.py állományban.
 
     - Futtassuk a genaliases programot az aliases állomány létrehozásához:
 
@@ -108,24 +125,33 @@ POSTFIX ÉS MAILMAN ÖSSZEKAPCSOLÁSA
 
 VIRTUÁLIS TARTOMÁNYOK
 
-    A Postfix két típusú a "Postfix-típusú" és "Sendmail-típusú" virtuális
-    tartománykezelésre képes. Az utóbbinál minden bejegyzés (aliases)
-    minden tartományban látható, ekkor semmi különleges beállításra nincs
-    szükség a Mailmannél.
+    A Postix 2.0 a támogatja "virtual alias domains" kezelést, amelyet
+    a korábbi Postfix verziókban egyszerûen csak Postfix-típusú virtuális
+    tartománykezelésnek hívtak. Ahhoz, hogy a Mailman képes legyen a 
+    virtuális tartománykezelés használatához mind a Mailman, mind a 
+    Postfix beállításokon változtatni kell. A Mailman alapesetben az
+    összes virtuális tartományhoz tartaozó bejegyzést az 
+    /usr/local/mailman/data/virtual-mailman állományban tárolja. A postmap
+    program is ezen állomány alapján készíti el a virtual-mailman.db 
+    állományt, melyet a Postfix valójában használni fog.
 
-    A Postfix-típusú virtuális tartományoknál már kicsit tükközni kell,
-    azonban itt sem lesz gond a Mailman beállításánál. Elõször is a
-    Postfix virtual_maps változóhoz kell egy újabb könyvtár elérési
-    utat adni:
+    Elõször a Postfix dokumentációban foglaltak alapján állítsuk be a 
+    virtuális tartománykezelést (bõvebben a Postfix virtual(5) súgója ad
+    eligazítást). Fontos, hogy el ne felejtsük megadni, ahogy a súgóban
+    le van írva a "virtual-alias.domain anything" sort, mivel a Mailman
+    virtual-mailman állománya nem tartalmazza ezt a sort. Javasoljuk,
+    hogy még mielõtt telepítenénk a Mailmant, gyõzödjünk meg róla, hogy
+    megfelelõen mûködik a virtuális tartománykezelés.
+
+    A következõ lépséként a Postfix virtual_maps változóhoz kell egy 
+    újabb könyvtár elérési utat adni:
 
     virtual_maps = <your normal virtual files>,
         hash:/usr/local/mailman/data/virtual-mailman
 
-    Esetünkben a Mailman alapértelmezett telepítési könyvtárát vettük fel
-    a változóba. Fontos, hogy kövessük a Postfix leírást arról, hogy
-    hogyan kell virtuális tartományokat beállítani; ezért már a Mailman
-    beállítása elõtt hozzuk létre a megfelelõen mûködõ virtuális
-    tartományokat.
+    Esetünkben a Mailman az alapértelmezett telepítési könyvtárban
+    helyezkedik el. Régebbi Postfix-eknél nincsen virtual_alias_maps
+    változó, ez esetben használjuk a virtual_maps változót.
 
     Következõ lépésként az mm_cfg.py állományba állítsuk be a
     POSTFIX_STYLE_VIRTUAL_DOMAINS változóba azon virtuális tartományokat,
@@ -143,7 +169,8 @@ VIRTUÁLIS TARTOMÁNYOK
         myhostname = mail.dom1.ain
         mydomain = dom1.ain
         mydestination = $myhostname, localhost.$mydomain
-        virtual_maps = hash:/some/path/to/virtual-dom1,
+        virtual_maps = 
+	    hash:/some/path/to/virtual-dom1,
             hash:/some/path/to/virtual-dom2,
             hash:/some/path/to/virtual-dom2
 

@@ -8,7 +8,7 @@ A razão de estar em espera é:
 
     %(reason)s
 
-Ou a mensagem será postada a lsita, ou receberá uma notificação da 
+Ou a mensagem será postada a lista, ou receberá uma notificação da 
 decisão do moderador. Se desejar cancelar esta postagem, visite 
 o seguinte endereço:
 

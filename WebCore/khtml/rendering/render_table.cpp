@@ -447,18 +447,17 @@ void RenderTable::paint( QPainter *p, int _x, int _y,
 	child = child->nextSibling();
     }
 
-    if (collapseBorders() && 
-        (paintAction == PaintActionElementBackground || paintAction == PaintActionChildBackground)
-        && style()->visibility() == VISIBLE) {
+    if (collapseBorders() && paintAction == PaintActionChildBackground && style()->visibility() == VISIBLE) {
         // Collect all the unique border styles that we want to paint in a sorted list.  Once we
         // have all the styles sorted, we then do individual passes, painting each style of border
         // from lowest precedence to highest precedence.
-        QPtrList<CollapsedBorderValue> borderStyles;
-        borderStyles.setAutoDelete(true);
+        QValueList<CollapsedBorderValue> borderStyles;
         collectBorders(borderStyles);
-        for (uint i = 0; i < borderStyles.count(); i++) {
-            m_currentBorder = borderStyles.at(i);
-            for (child = firstChild(); child; child = child->nextSibling()) {
+        QValueListIterator<CollapsedBorderValue> it = borderStyles.begin();
+        QValueListIterator<CollapsedBorderValue> end = borderStyles.end();
+        for (; it != end; ++it) {
+            m_currentBorder = &(*it);
+            for (RenderObject* child = firstChild(); child; child = child->nextSibling())
                 if (child->isTableSection())
                     child->paint(p, _x, _y, _w, _h, _tx, _ty, PaintActionCollapsedTableBorders);
             }
@@ -468,7 +467,6 @@ void RenderTable::paint( QPainter *p, int _x, int _y,
 #ifdef BOX_DEBUG
     outlineBox(p, _tx, _ty, "blue");
 #endif
-}
 
 void RenderTable::paintBoxDecorations(QPainter *p,int _x, int _y,
                                       int _w, int _h, int _tx, int _ty)
@@ -1764,8 +1762,8 @@ void RenderTableCell::setStyle( RenderStyle *style )
 // (4) If border styles differ only in color, then a style set on a cell wins over one on a row, 
 // which wins over a row group, column, column group and, lastly, table. It is undefined which color 
 // is used when two elements of the same type disagree.
-static const CollapsedBorderValue compareBorders(const CollapsedBorderValue& border1, 
-                                                 const CollapsedBorderValue& border2)
+static CollapsedBorderValue compareBorders(const CollapsedBorderValue& border1, 
+                                           const CollapsedBorderValue& border2)
 {
     // Sanity check the values passed in.  If either is null, return the other.
     if (!border2.exists()) return border1;
@@ -2153,31 +2151,25 @@ public:
     int count;
 };
 
-static void addBorderStyle(QPtrList<CollapsedBorderValue>& borderStyles, CollapsedBorderValue borderValue)
+static void addBorderStyle(QValueList<CollapsedBorderValue>& borderStyles, CollapsedBorderValue borderValue)
 {
-    if (!borderValue.exists())
+    if (!borderValue.exists() || borderStyles.contains(borderValue))
         return;
     
-    uint count = borderStyles.count();
-    if (count == 0)
-        borderStyles.append(new CollapsedBorderValue(borderValue));
-    else {
-        for (uint i = 0; i < count; i++) {
-            CollapsedBorderValue* b = borderStyles.at(i);
-            if (*b == borderValue)
-                return;
-            CollapsedBorderValue result = compareBorders(*b, borderValue);
-            if (result == *b) {
-                borderStyles.insert(i, new CollapsedBorderValue(borderValue));
-                return;
-            }
+    QValueListIterator<CollapsedBorderValue> it = borderStyles.begin();
+    QValueListIterator<CollapsedBorderValue> end = borderStyles.end();
+    for (; it != end; ++it) {
+        CollapsedBorderValue result = compareBorders(*it, borderValue);
+        if (result == *it) {
+            borderStyles.insert(it, borderValue);
+            return;
         }
-        
-        borderStyles.append(new CollapsedBorderValue(borderValue));
     }
+
+    borderStyles.append(borderValue);
 }
 
-void RenderTableCell::collectBorders(QPtrList<CollapsedBorderValue>& borderStyles)
+void RenderTableCell::collectBorders(QValueList<CollapsedBorderValue>& borderStyles)
 {
     addBorderStyle(borderStyles, collapsedLeftBorder());
     addBorderStyle(borderStyles, collapsedRightBorder());

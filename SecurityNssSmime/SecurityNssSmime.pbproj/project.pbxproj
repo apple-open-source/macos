@@ -136,9 +136,9 @@
 				4C8E165D0435392C00CA2E66,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 10;
+				DYLIB_CURRENT_VERSION = 11;
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYMROOT)\" \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				HEADER_SEARCH_PATHS = "\"$(SYMROOT)/SecurityNssAsn1.framework/Headers\" \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/SecurityNssAsn1.framework/Headers\"";
 				INSTALL_PATH = /usr/local/lib;
@@ -555,7 +555,7 @@
 				4C87FBE80410252B00CA2E66,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYMROOT)\" \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				HEADER_SEARCH_PATHS = "";
 				INSTALL_PATH = /usr/local/bin;

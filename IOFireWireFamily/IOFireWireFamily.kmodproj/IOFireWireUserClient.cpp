@@ -3,22 +3,19 @@
 *
 * @APPLE_LICENSE_HEADER_START@
 * 
-* Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+* The contents of this file constitute Original Code as defined in and
+* are subject to the Apple Public Source License Version 1.1 (the
+* "License").  You may not use this file except in compliance with the
+* License.  Please obtain a copy of the License at
+* http://www.apple.com/publicsource and read it before using this file.
 * 
-* This file contains Original Code and/or Modifications of Original Code
-* as defined in and that are subject to the Apple Public Source License
-* Version 2.0 (the 'License'). You may not use this file except in
-* compliance with the License. Please obtain a copy of the License at
-* http://www.opensource.apple.com/apsl/ and read it before using this
-* file.
-* 
-* The Original Code and all software distributed under the License are
-* distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+* This Original Code and all software distributed under the License are
+* distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
 * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
 * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
-* Please see the License for the specific language governing rights and
-* limitations under the License.
+* FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+* License for the specific language governing rights and limitations
+* under the License.
 * 
 * @APPLE_LICENSE_HEADER_END@
 */
@@ -31,6 +28,33 @@
 */
 /*
 	$Log: IOFireWireUserClient.cpp,v $
+	Revision 1.104.2.3  2004/05/11 22:38:43  niels
+	*** empty log message ***
+	
+	Revision 1.104  2004/02/17 23:13:23  niels
+	*** empty log message ***
+	
+	Revision 1.103  2004/02/17 23:12:26  niels
+	*** empty log message ***
+	
+	Revision 1.102  2004/02/11 22:30:02  niels
+	*** empty log message ***
+	
+	Revision 1.101  2004/02/11 22:13:08  niels
+	fix final cut pro panic/object leak when calling TurnOffNotification on isoch channels in user space
+	
+	Revision 1.100  2004/01/28 22:13:32  niels
+	*** empty log message ***
+	
+	Revision 1.99  2004/01/22 01:49:59  niels
+	fix user space physical address space getPhysicalSegments
+	
+	Revision 1.98  2003/12/19 22:07:46  niels
+	send force stop when channel dies/system sleeps
+	
+	Revision 1.97  2003/12/18 00:42:37  niels
+	*** empty log message ***
+	
 	Revision 1.96  2003/11/14 01:00:53  collin
 	*** empty log message ***
 	
@@ -172,11 +196,13 @@
 */
 
 // public
-#import <IOKit/firewire/IOFireWireFamilyCommon.h>
-#import <IOKit/firewire/IOFireWireNub.h>
-#import <IOKit/firewire/IOLocalConfigDirectory.h>
-#import <IOKit/firewire/IOFireWireController.h>
-#import <IOKit/firewire/IOFireWireDevice.h>
+#import "IOFireWireFamilyCommon.h"
+#import "IOFireWireNub.h"
+#import "IOLocalConfigDirectory.h"
+#import "IOFireWireController.h"
+#import "IOFireWireDevice.h"
+#import "IOFWDCLProgram.h"
+
 #import <sys/proc.h>
 #import <IOKit/IOMessage.h>
 
@@ -488,9 +514,9 @@ const IOFireWireUserClient::ExternalMethod IOFireWireUserClient::sMethods[ kNumM
 	
 	// --- Physical Address Space Methods --------- 26
 	
-	, { 1, (IOMethod) & IOFireWireUserClient :: physicalAddressSpace_Create, kIOUCStructIStructO, sizeof( PhysicalAddressSpaceCreateParams ), sizeof( UserObjectHandle ) }
+	, { 1, (IOMethod) & IOFireWireUserClient :: physicalAddressSpace_Create, kIOUCScalarIScalarO, 3, 1 }
 	, { 0, (IOMethod) & IOFWUserPhysicalAddressSpace :: getSegmentCount, kIOUCScalarIScalarO, 0, 1 }
-	, { 1, (IOMethod) & IOFireWireUserClient :: physicalAddressSpace_GetSegments, kIOUCScalarIScalarO, 4, 1 }
+	, { 1, (IOMethod) & IOFireWireUserClient :: physicalAddressSpace_GetSegments, kIOUCScalarIScalarO, 3, 1 }
 	
 	// --- config directory ---------------------- 29
 
@@ -526,6 +552,7 @@ const IOFireWireUserClient::ExternalMethod IOFireWireUserClient::sMethods[ kNumM
 	, { 1, (IOMethod) & IOFireWireUserClient :: localIsochPort_Create, kIOUCStructIStructO, sizeof(LocalIsochPortAllocateParams), sizeof(UserObjectHandle) }
 	, { 0, (IOMethod) & IOFWUserLocalIsochPort :: modifyJumpDCL, kIOUCScalarIScalarO, 2, 0 }
 	, { 0, (IOMethod) & IOFWUserLocalIsochPort :: userNotify, kIOUCScalarIStructI, 2, 0xFFFFFFFF /*variable size*/ }
+	, { 1, (IOMethod) & IOFireWireUserClient :: localIsochPort_SetChannel, kIOUCScalarIScalarO, 2, 0 }
 
 	// --- isoch channel methods ------------------------- 56
 	
@@ -770,14 +797,14 @@ IOFireWireUserClient :: userClose ()
 
 	if ( getProvider() == NULL )
 		return kIOReturnSuccess ;
-			
-	if (!fOwner->isOpen( this ))
+	
+	if ( fOpenClient == this )
 	{
-		result = kIOReturnNotOpen ;
-	}
-	else
-	{
-		if (fOpenClient == this)
+		if ( !fOwner->isOpen( this ) )
+		{
+			result = kIOReturnNotOpen ;
+		}
+		else
 		{
 			if ( fSelfOpenCount > 0 )
 			{
@@ -787,8 +814,12 @@ IOFireWireUserClient :: userClose ()
 					fOpenClient = NULL ;
 				}
 			}
-		}
-	}		
+			else
+			{
+				return kIOReturnNotOpen ;
+			}
+		}		
+	}
 	
 	return result ;
 }
@@ -1046,7 +1077,6 @@ IOReturn
 IOFireWireUserClient :: releaseUserObject (
 	UserObjectHandle		obj )
 {
-	DebugLog("+IOFireWireUserClient :: releaseUserObject\n") ;
 	fExporter->removeObject( obj ) ;
 
 	return kIOReturnSuccess ;
@@ -1064,9 +1094,18 @@ IOFireWireUserClient :: getOSStringData (
 {
 	*outTextLength = 0 ;
 
-	OSString * string = OSDynamicCast ( OSString, fExporter->lookupObject( stringHandle ) ) ;
-	if ( ! string )
+	const OSObject * object = fExporter->lookupObject( stringHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
+	}
+	
+	OSString * string = OSDynamicCast ( OSString, object ) ;
+	if ( ! string )
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
 	
 	UInt32 len = stringLen <? string->getLength() ;
 
@@ -1083,21 +1122,31 @@ IOFireWireUserClient :: getOSStringData (
 
 IOReturn
 IOFireWireUserClient :: getOSDataData (
-	UserObjectHandle			dataHandle,
+	UserObjectHandle		dataHandle,
 	IOByteCount				dataLen,
 	char*					dataBuffer,
 	IOByteCount*			outDataLen)
 {
-	OSData * data = OSDynamicCast( OSData, fExporter->lookupObject( dataHandle ) ) ;
-	if ( ! data )
+	const OSObject * object = fExporter->lookupObject( dataHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
+	}
+	
+	OSData * data = OSDynamicCast( OSData, object ) ;
+	if ( !data )
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
 	
 	IOReturn error = copyToUserBuffer (	(IOVirtualAddress) data->getBytesNoCopy(), 
 										(IOVirtualAddress) dataBuffer, 
 										( data->getLength() <? dataLen ), 
 										*outDataLen ) ;
 	fExporter->removeObject( dataHandle ) ;
-	data->release() ;		// this is retained when we call lookupObject; "I must release you"
+		
+	object->release() ;		// this is retained when we call lookupObject; "I must release you"
 	
 	return error ;
 }
@@ -1114,7 +1163,7 @@ IOFireWireUserClient :: localConfigDirectory_Create ( UserObjectHandle* outDir )
 
 	if ( ! dir )
 	{
-		DebugLog ( "IOLocalConfigDirectory::create returned NULL\n" ) ;
+		DebugLog( "IOLocalConfigDirectory::create returned NULL\n" ) ;
 		return kIOReturnNoMemory ;
 	}
 
@@ -1135,9 +1184,16 @@ IOFireWireUserClient :: localConfigDirectory_addEntry_Buffer (
 	const char *			descCString,
 	UInt32					descLen ) const
 {
-	IOLocalConfigDirectory * dir = OSDynamicCast ( IOLocalConfigDirectory, fExporter->lookupObject ( dirHandle ) ) ;
+	const OSObject * object = fExporter->lookupObject( dirHandle ) ;
+	if ( !object )
+	{
+		return kIOReturnBadArgument ;
+	}
+	
+	IOLocalConfigDirectory * dir = OSDynamicCast ( IOLocalConfigDirectory, object ) ;
 	if ( ! dir )
 	{
+		object->release() ;
 		return kIOReturnBadArgument ;
 	}
 	
@@ -1179,10 +1235,19 @@ IOFireWireUserClient :: localConfigDirectory_addEntry_UInt32 (
 	const char *			descCString,
 	UInt32					descLen ) const
 {
-	IOLocalConfigDirectory * dir = OSDynamicCast ( IOLocalConfigDirectory, fExporter->lookupObject( dirHandle) ) ;
-	if ( ! dir )
+	const OSObject * object = fExporter->lookupObject( dirHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
-
+	}
+	
+	IOLocalConfigDirectory * dir = OSDynamicCast ( IOLocalConfigDirectory, object ) ;
+	if ( ! dir )
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
+	
 	OSString * desc = NULL ;
 	if ( descCString )
 	{
@@ -1208,9 +1273,18 @@ IOFireWireUserClient :: localConfigDirectory_addEntry_FWAddr (
 	UInt32				descLen,
 	FWAddress *			value ) const
 {
-	IOLocalConfigDirectory * dir = OSDynamicCast ( IOLocalConfigDirectory, fExporter->lookupObject( dirHandle ) ) ;
-	if ( ! dir )
+	const OSObject * object = fExporter->lookupObject( dirHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
+	}
+	
+	IOLocalConfigDirectory * dir = OSDynamicCast ( IOLocalConfigDirectory, object ) ;
+	if ( ! dir )
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
 
 	OSString * desc = NULL ;
 	if ( descCString )
@@ -1238,33 +1312,59 @@ IOFireWireUserClient :: localConfigDirectory_addEntry_UnitDir (
 	const char *		descCString,
 	UInt32				descLen ) const
 {
-	IOLocalConfigDirectory * dir = OSDynamicCast( IOLocalConfigDirectory, fExporter->lookupObject( dirHandle ) ) ;
-	if ( ! dir )
-		return kIOReturnBadArgument ;
+	IOLocalConfigDirectory * dir ;
+	{
+		const OSObject * object = fExporter->lookupObject( dirHandle ) ;
+		if ( !object )
+		{
+			return kIOReturnBadArgument ;
+		}
+		
+		dir = OSDynamicCast( IOLocalConfigDirectory, object ) ;
+		if ( ! dir )
+		{
+			object->release() ;
+			return kIOReturnBadArgument ;
+		}
+	}
 	
 	IOReturn error ;
-	IOLocalConfigDirectory * value = OSDynamicCast( IOLocalConfigDirectory, fExporter->lookupObject( valueHandle ) ) ;
-	if ( ! value )
-		error = kIOReturnBadArgument ;
-	else
+	IOLocalConfigDirectory * value ;
+
 	{
-		OSString * desc = NULL ;
-		
-		if ( descCString )
+		const OSObject * object = fExporter->lookupObject( valueHandle ) ;
+		if ( !object )
 		{
-			char cStr[ descLen ] ;
-			copyUserData( (IOVirtualAddress)descCString, (IOVirtualAddress)cStr, descLen ) ;
-
-			cStr[ descLen ] = 0 ;
-			
-			desc = OSString::withCString( cStr ) ;
+			return kIOReturnBadArgument ;
 		}
-	
-		error = dir->addEntry( key, value, desc ) ;
 		
-		value->release() ;
-	}
+		value = OSDynamicCast( IOLocalConfigDirectory, object ) ;
 
+		if ( ! value )
+		{
+			object->release() ;
+			error = kIOReturnBadArgument ;
+		}
+		else
+		{
+			OSString * desc = NULL ;
+			
+			if ( descCString )
+			{
+				char cStr[ descLen ] ;
+				copyUserData( (IOVirtualAddress)descCString, (IOVirtualAddress)cStr, descLen ) ;
+	
+				cStr[ descLen ] = 0 ;
+				
+				desc = OSString::withCString( cStr ) ;
+			}
+		
+			error = dir->addEntry( key, value, desc ) ;
+			
+			value->release() ;
+		}
+	}
+	
 	dir->release() ;	// lookupObject retains the object
 	
 	return error ;
@@ -1273,10 +1373,19 @@ IOFireWireUserClient :: localConfigDirectory_addEntry_UnitDir (
 IOReturn
 IOFireWireUserClient :: localConfigDirectory_Publish ( UserObjectHandle dirHandle ) const
 {	
-	IOLocalConfigDirectory * dir = OSDynamicCast ( IOLocalConfigDirectory, fExporter->lookupObject( dirHandle ) ) ;
-	if ( ! dir )
+	const OSObject * object = fExporter->lookupObject( dirHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
-
+	}
+	
+	IOLocalConfigDirectory * dir = OSDynamicCast ( IOLocalConfigDirectory, object ) ;
+	if ( ! dir )
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
+	
 	IOReturn error = getOwner ()->getController()->AddUnitDirectory( dir ) ;
 	
 	dir->release() ;	// lookupObject retains result; "I must release you"
@@ -1287,9 +1396,18 @@ IOFireWireUserClient :: localConfigDirectory_Publish ( UserObjectHandle dirHandl
 IOReturn
 IOFireWireUserClient :: localConfigDirectory_Unpublish ( UserObjectHandle dirHandle ) const
 {
-	IOLocalConfigDirectory * dir = OSDynamicCast ( IOLocalConfigDirectory, fExporter->lookupObject( dirHandle ) ) ;
-	if ( ! dir )
+	const OSObject * object = fExporter->lookupObject( dirHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
+	}
+
+	IOLocalConfigDirectory * dir = OSDynamicCast ( IOLocalConfigDirectory, object ) ;
+	if ( ! dir )
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
 	
 	IOReturn error = getOwner ()->getBus()->RemoveUnitDirectory ( dir ) ;
 	
@@ -1339,11 +1457,19 @@ IOFireWireUserClient :: addressSpace_GetInfo (
 	UserObjectHandle		addressSpaceHandle,
 	AddressSpaceInfo *		outInfo )
 {
-	IOFWUserPseudoAddressSpace *	me 		= OSDynamicCast(	IOFWUserPseudoAddressSpace, 
-																fExporter->lookupObject( addressSpaceHandle ) ) ;
-	if (!me)
+	const OSObject *  object = fExporter->lookupObject( addressSpaceHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
-
+	}
+	
+	IOFWUserPseudoAddressSpace *	me 		= OSDynamicCast( IOFWUserPseudoAddressSpace, object ) ;
+	if (!me)
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
+	
 	outInfo->address = me->getBase() ;
 
 	me->release() ;
@@ -1357,11 +1483,20 @@ IOFireWireUserClient :: addressSpace_ClientCommandIsComplete (
 	FWClientCommandID		inCommandID,
 	IOReturn				inResult)
 {
-	IOReturn	result = kIOReturnSuccess ;
-	IOFWUserPseudoAddressSpace *	me	= OSDynamicCast( IOFWUserPseudoAddressSpace, fExporter->lookupObject( addressSpaceHandle ) ) ;
-	if (!me)
+	const OSObject * object = fExporter->lookupObject( addressSpaceHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
+	}
 
+	IOReturn	result = kIOReturnSuccess ;
+	IOFWUserPseudoAddressSpace *	me	= OSDynamicCast( IOFWUserPseudoAddressSpace, object ) ;
+	if (!me)
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
+	
 	me->clientCommandIsComplete ( inCommandID, inResult ) ;
 	me->release() ;
 	
@@ -1378,10 +1513,19 @@ IOFireWireUserClient :: setAsyncRef_Packet (
 	void*,
 	void*)
 {
-	IOFWUserPseudoAddressSpace * me = OSDynamicCast ( IOFWUserPseudoAddressSpace, fExporter->lookupObject ( addressSpaceHandle ) ) ;
-	if ( ! me )
+	const OSObject * object = fExporter->lookupObject ( addressSpaceHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
-
+	}
+	
+	IOFWUserPseudoAddressSpace * me = OSDynamicCast ( IOFWUserPseudoAddressSpace, object ) ;
+	if ( ! me )
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
+	
 	if ( inCallback )
 		super :: setAsyncReference ( asyncRef, (mach_port_t) asyncRef[0], inCallback, inUserRefCon ) ;
 	else
@@ -1403,12 +1547,21 @@ IOFireWireUserClient :: setAsyncRef_SkippedPacket(
 	void*,
 	void*)
 {
+	const OSObject * object = fExporter->lookupObject ( inAddrSpaceRef ) ;
+	if ( !object )
+	{
+		return kIOReturnBadArgument ;
+	}
+	
 	IOReturn						result	= kIOReturnSuccess ;
-	IOFWUserPseudoAddressSpace * me = OSDynamicCast ( IOFWUserPseudoAddressSpace, fExporter->lookupObject ( inAddrSpaceRef ) ) ;
+	IOFWUserPseudoAddressSpace * me = OSDynamicCast ( IOFWUserPseudoAddressSpace, object ) ;
 
-	if ( NULL == me)
+	if ( !me )
+	{
+		object->release() ;
 		result = kIOReturnBadArgument ;
-
+	}
+	
 	if ( kIOReturnSuccess == result )
 	{
 		if (inCallback)
@@ -1434,12 +1587,21 @@ IOFireWireUserClient :: setAsyncRef_Read(
 	void*,
 	void*)
 {
+	const OSObject * object = fExporter->lookupObject ( inAddrSpaceRef ) ;
+	if ( !object )
+	{
+		return kIOReturnBadArgument ;
+	}
+	
 	IOReturn						result	= kIOReturnSuccess ;
-	IOFWUserPseudoAddressSpace * me = OSDynamicCast ( IOFWUserPseudoAddressSpace, fExporter->lookupObject ( inAddrSpaceRef ) ) ;
+	IOFWUserPseudoAddressSpace * me = OSDynamicCast ( IOFWUserPseudoAddressSpace, object ) ;
 
-	if ( NULL == me)
+	if ( !me )
+	{
+		object->release() ;
 		result = kIOReturnBadArgument ;
-
+	}
+	
 	if ( kIOReturnSuccess == result )
 	{
 		if (inCallback)
@@ -1497,18 +1659,23 @@ IOFireWireUserClient :: setAsyncRef_BusResetDone(
 
 IOReturn
 IOFireWireUserClient :: physicalAddressSpace_Create ( 
-	PhysicalAddressSpaceCreateParams *	params, 
+//	PhysicalAddressSpaceCreateParams *	params, 
+	UInt32						size,
+	void *						backingStore,
+	UInt32						flags,
 	UserObjectHandle * 			outAddressSpaceHandle )
 {
-	IOMemoryDescriptor*	mem = IOMemoryDescriptor::withAddress((vm_address_t)params->backingStore, params->size, kIODirectionOutIn, fTask) ;
+	IOMemoryDescriptor*	mem = IOMemoryDescriptor::withAddress( (vm_address_t)backingStore, size, kIODirectionOutIn, fTask ) ;
 	if ( ! mem )
 	{
+		DebugLog("couldn't get memory descriptor for physical address space memory\n") ;
 		return kIOReturnNoMemory ;
 	}
 	
 	IOReturn error = mem->prepare() ;
 	if ( error )
 	{
+		DebugLog("couldn't prepare address space memory descriptor\n") ;
 		mem->release() ;
 		return error ;
 	}
@@ -1545,16 +1712,24 @@ IOFireWireUserClient :: physicalAddressSpace_Create (
 
 IOReturn
 IOFireWireUserClient :: physicalAddressSpace_GetSegments (
-	UserObjectHandle			addressSpaceHandle,
+	UserObjectHandle					addressSpaceHandle,
 	UInt32								inSegmentCount,
 	IOMemoryCursor::IOPhysicalSegment *	outSegments,
 	UInt32*								outSegmentCount)
 {
-	IOFWUserPhysicalAddressSpace* addressSpace = OSDynamicCast(	IOFWUserPhysicalAddressSpace, 
-																		fExporter->lookupObject( addressSpaceHandle )) ;
+	const OSObject * object = fExporter->lookupObject( addressSpaceHandle ) ;
+	if ( !object )
+	{
+		return kIOReturnBadArgument ;
+	}
+	
+	IOFWUserPhysicalAddressSpace* addressSpace = OSDynamicCast(	IOFWUserPhysicalAddressSpace, object ) ;
 																	
 	if ( ! addressSpace )
+	{
+		object->release() ;
 		return kIOReturnBadArgument ;
+	}
 	
 	UInt32 segmentCount	;
 	IOReturn error = addressSpace->getSegmentCount( &segmentCount ) ;
@@ -1570,7 +1745,7 @@ IOFireWireUserClient :: physicalAddressSpace_GetSegments (
 		if ( ! error )
 		{
 			IOByteCount bytesCopied ;
-			error = copyToUserBuffer( (IOVirtualAddress)segments, (IOVirtualAddress)outSegments, sizeof( IOPhysicalAddress ) * segmentCount, bytesCopied ) ;
+			error = copyToUserBuffer( (IOVirtualAddress)segments, (IOVirtualAddress)outSegments, sizeof( IOPhysicalSegment ) * segmentCount, bytesCopied ) ;
 	
 			*outSegmentCount = bytesCopied / sizeof( IOPhysicalSegment ) ;
 		}
@@ -1610,9 +1785,18 @@ IOFireWireUserClient :: configDirectory_GetKeyType (
 	int					key,
 	IOConfigKeyType *	outType) const
 {
-	IOConfigDirectory * dir = OSDynamicCast( IOConfigDirectory, fExporter->lookupObject( dirHandle ) ) ;
-	if ( !dir )
+	const OSObject * object = fExporter->lookupObject( dirHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
+	}
+	
+	IOConfigDirectory * dir = OSDynamicCast( IOConfigDirectory, object ) ;
+	if ( !dir )
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
 	
 	IOReturn error = dir->getKeyType(key, *outType) ;
 	
@@ -1630,9 +1814,18 @@ IOFireWireUserClient :: configDirectory_GetKeyValue_UInt32 (
 	UserObjectHandle * 		outTextHandle, 
 	UInt32 * 				outTextLength ) const
 {
-	IOConfigDirectory * dir = OSDynamicCast ( IOConfigDirectory, fExporter->lookupObject( dirHandle ) ) ;
-	if ( ! dir )
+	const OSObject * object = fExporter->lookupObject( dirHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
+	}
+	
+	IOConfigDirectory * dir = OSDynamicCast ( IOConfigDirectory, object ) ;
+	if ( ! dir )
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
 	
 	OSString * outString = NULL ;
 	IOReturn error = dir->getKeyValue( key, *outValue, ((bool)wantText) ? & outString : NULL ) ;
@@ -1659,9 +1852,18 @@ IOFireWireUserClient :: configDirectory_GetKeyValue_Data (
 	UInt32 						wantText, 
 	GetKeyValueDataResults *	results ) const
 {
-	IOConfigDirectory * dir = OSDynamicCast ( IOConfigDirectory, fExporter->lookupObject( dirHandle ) ) ;
-	if ( ! dir )
+	const OSObject * object = fExporter->lookupObject( dirHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
+	}
+	
+	IOConfigDirectory * dir = OSDynamicCast ( IOConfigDirectory, object ) ;
+	if ( ! dir )
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
 	
 	OSData * outData = NULL ;
 	OSString * outText = NULL ;
@@ -1703,9 +1905,18 @@ IOFireWireUserClient :: configDirectory_GetKeyValue_ConfigDirectory(
 		UserObjectHandle * 			outTextHandle, 
 		UInt32 * 					outTextLength ) const
 {
-	IOConfigDirectory * dir = OSDynamicCast ( IOConfigDirectory, fExporter->lookupObject( dirHandle ) ) ;
-	if ( ! dir )
+	const OSObject * object = fExporter->lookupObject( dirHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
+	}
+	
+	IOConfigDirectory * dir = OSDynamicCast ( IOConfigDirectory, object ) ;
+	if ( ! dir )
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
 
 	OSString * outText = NULL ;
 	IOConfigDirectory * outDir = NULL ;
@@ -1742,9 +1953,18 @@ IOFireWireUserClient :: configDirectory_GetKeyOffset_FWAddress (
 	UInt32 					wantText,
 	GetKeyOffsetResults * 	results ) const
 {
-	IOConfigDirectory * dir = OSDynamicCast ( IOConfigDirectory, fExporter->lookupObject( dirHandle ) ) ;
-	if ( ! dir )
+	const OSObject * object = fExporter->lookupObject( dirHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
+	}
+	
+	IOConfigDirectory * dir = OSDynamicCast ( IOConfigDirectory, object ) ;
+	if ( ! dir )
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
 	
 	OSString * outText = NULL ;
 	IOReturn error = dir->getKeyOffset ( key, results->address, ((bool)wantText) ? & outText : NULL) ;
@@ -1771,9 +1991,18 @@ IOFireWireUserClient :: configDirectory_GetIndexType (
 	int					index,
 	IOConfigKeyType*	outType ) const
 {
-	IOConfigDirectory * dir = OSDynamicCast( IOConfigDirectory, fExporter->lookupObject( dirHandle ) ) ;
-	if ( !dir )
+	const OSObject * object = fExporter->lookupObject( dirHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
+	}
+	
+	IOConfigDirectory * dir = OSDynamicCast ( IOConfigDirectory, object ) ;
+	if ( ! dir )
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
 	
 	IOReturn error = dir->getIndexType(index, *outType) ;
 	
@@ -1788,9 +2017,18 @@ IOFireWireUserClient :: configDirectory_GetIndexKey (
 	int					index,
 	int *				outKey ) const
 {
-	IOConfigDirectory * dir = OSDynamicCast( IOConfigDirectory, fExporter->lookupObject( dirHandle ) ) ;
-	if ( ! dir )
+	const OSObject * object = fExporter->lookupObject( dirHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
+	}
+	
+	IOConfigDirectory * dir = OSDynamicCast ( IOConfigDirectory, object ) ;
+	if ( ! dir )
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
 	
 	IOReturn error = dir->getIndexKey(index, *outKey) ;
 	
@@ -1805,9 +2043,18 @@ IOFireWireUserClient :: configDirectory_GetIndexValue_UInt32 (
 	int					index,
 	UInt32*				outKey ) const
 {
-	IOConfigDirectory * dir = OSDynamicCast( IOConfigDirectory, fExporter->lookupObject( dirHandle ) ) ;
-	if ( ! dir )
+	const OSObject * object = fExporter->lookupObject( dirHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
+	}
+	
+	IOConfigDirectory * dir = OSDynamicCast ( IOConfigDirectory, object ) ;
+	if ( ! dir )
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
 	
 	IOReturn error = dir->getIndexValue(index, *outKey) ;
 	
@@ -1823,9 +2070,18 @@ IOFireWireUserClient :: configDirectory_GetIndexValue_Data (
 	UserObjectHandle *		outDataHandle,
 	IOByteCount *			outDataLen ) const
 {
-	IOConfigDirectory * dir = OSDynamicCast ( IOConfigDirectory, fExporter->lookupObject( dirHandle ) ) ;
-	if ( ! dir )
+	const OSObject * object = fExporter->lookupObject( dirHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
+	}
+	
+	IOConfigDirectory * dir = OSDynamicCast ( IOConfigDirectory, object ) ;
+	if ( ! dir )
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
 	
 	OSData * outData = NULL ;
 	IOReturn error = dir->getIndexValue( index, outData ) ;
@@ -1850,9 +2106,18 @@ IOFireWireUserClient :: configDirectory_GetIndexValue_String (
 	UserObjectHandle * 		outTextHandle, 
 	UInt32 * 				outTextLength ) const
 {
-	IOConfigDirectory * dir = OSDynamicCast( IOConfigDirectory, fExporter->lookupObject( dirHandle ) ) ;
-	if ( ! dir )
+	const OSObject * object = fExporter->lookupObject( dirHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
+	}
+	
+	IOConfigDirectory * dir = OSDynamicCast ( IOConfigDirectory, object ) ;
+	if ( ! dir )
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
 	
 	OSString * outText = NULL ;
 	IOReturn error = dir->getIndexValue( index, outText ) ;
@@ -1876,9 +2141,18 @@ IOFireWireUserClient :: configDirectory_GetIndexValue_ConfigDirectory (
 	int						index,
 	UserObjectHandle *		outDirHandle ) const
 {
-	IOConfigDirectory * dir = OSDynamicCast ( IOConfigDirectory, fExporter->lookupObject( dirHandle ) ) ;
-	if ( ! dir )
+	const OSObject * object = fExporter->lookupObject( dirHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
+	}
+	
+	IOConfigDirectory * dir = OSDynamicCast ( IOConfigDirectory, object ) ;
+	if ( ! dir )
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
 	
 	IOConfigDirectory * outDir = NULL ;
 	IOReturn error = dir->getIndexValue( index, outDir ) ;
@@ -1900,9 +2174,18 @@ IOFireWireUserClient :: configDirectory_GetIndexOffset_FWAddress (
 	int					index,
 	FWAddress *			outAddress ) const
 {
-	IOConfigDirectory * dir = OSDynamicCast( IOConfigDirectory, fExporter->lookupObject( dirHandle ) ) ;
-	if ( ! dir )
+	const OSObject * object = fExporter->lookupObject( dirHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
+	}
+	
+	IOConfigDirectory * dir = OSDynamicCast ( IOConfigDirectory, object ) ;
+	if ( ! dir )
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
 	
 	IOReturn result = dir->getIndexOffset( index, *outAddress ) ;
 	
@@ -1917,9 +2200,18 @@ IOFireWireUserClient :: configDirectory_GetIndexOffset_UInt32 (
 	int					index,
 	UInt32*				outValue) const
 {
-	IOConfigDirectory * dir = OSDynamicCast( IOConfigDirectory, fExporter->lookupObject( dirHandle ) ) ;
-	if ( ! dir )
+	const OSObject * object = fExporter->lookupObject( dirHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
+	}
+	
+	IOConfigDirectory * dir = OSDynamicCast ( IOConfigDirectory, object ) ;
+	if ( ! dir )
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
 	
 	IOReturn error = dir->getIndexOffset(index, *outValue) ;
 	
@@ -1934,9 +2226,18 @@ IOFireWireUserClient :: configDirectory_GetIndexEntry (
 	int					index,
 	UInt32*				outValue) const
 {
-	IOConfigDirectory * dir = OSDynamicCast( IOConfigDirectory, fExporter->lookupObject( dirHandle ) ) ;
-	if ( ! dir )
+	const OSObject * object = fExporter->lookupObject( dirHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
+	}
+	
+	IOConfigDirectory * dir = OSDynamicCast ( IOConfigDirectory, object ) ;
+	if ( ! dir )
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
 	
 	IOReturn error = dir->getIndexEntry(index, *outValue) ;
 
@@ -1950,9 +2251,18 @@ IOFireWireUserClient :: configDirectory_GetSubdirectories (
 	UserObjectHandle		dirHandle,
 	UserObjectHandle*		outIteratorHandle ) const
 {
-	IOConfigDirectory * dir = OSDynamicCast( IOConfigDirectory, fExporter->lookupObject( dirHandle ) ) ;
-	if ( ! dir )
+	const OSObject * object = fExporter->lookupObject( dirHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
+	}
+	
+	IOConfigDirectory * dir = OSDynamicCast ( IOConfigDirectory, object ) ;
+	if ( ! dir )
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
 	
 	OSIterator * outIterator = NULL ;
 	IOReturn error = dir->getSubdirectories( outIterator ) ;
@@ -1976,9 +2286,18 @@ IOFireWireUserClient :: configDirectory_GetKeySubdirectories (
 	int							key,
 	UserObjectHandle*			outIteratorHandle ) const
 {
-	IOConfigDirectory * dir = OSDynamicCast( IOConfigDirectory, fExporter->lookupObject( dirHandle ) ) ;
-	if ( ! dir )
+	const OSObject * object = fExporter->lookupObject( dirHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
+	}
+	
+	IOConfigDirectory * dir = OSDynamicCast ( IOConfigDirectory, object ) ;
+	if ( ! dir )
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
 	
 	OSIterator * outIterator = NULL ;
 	IOReturn error = dir->getKeySubdirectories( key, outIterator ) ;
@@ -2001,9 +2320,18 @@ IOFireWireUserClient :: configDirectory_GetType (
 	UserObjectHandle		dirHandle,
 	int*					outType) const
 {
-	IOConfigDirectory * dir = OSDynamicCast( IOConfigDirectory, fExporter->lookupObject( dirHandle ) ) ;
-	if ( ! dir )
+	const OSObject * object = fExporter->lookupObject( dirHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
+	}
+	
+	IOConfigDirectory * dir = OSDynamicCast ( IOConfigDirectory, object ) ;
+	if ( ! dir )
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
 	
 	*outType = dir->getType();
 	
@@ -2017,9 +2345,18 @@ IOFireWireUserClient :: configDirectory_GetNumEntries (
 	UserObjectHandle		dirHandle,
 	int*					outNumEntries) const
 {
-	IOConfigDirectory * dir = OSDynamicCast( IOConfigDirectory, fExporter->lookupObject( dirHandle ) ) ;
-	if ( ! dir )
+	const OSObject * object = fExporter->lookupObject( dirHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
+	}
+	
+	IOConfigDirectory * dir = OSDynamicCast ( IOConfigDirectory, object ) ;
+	if ( ! dir )
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
 	
 	*outNumEntries = dir->getNumEntries() ;
 	dir->release() ;
@@ -2037,10 +2374,19 @@ IOFireWireUserClient :: localIsochPort_GetSupported(
 	UInt32*					outChanSupportedHi,
 	UInt32*					outChanSupportedLo) const
 {
-	IOFWUserLocalIsochPort * port = OSDynamicCast ( IOFWUserLocalIsochPort, fExporter->lookupObject( portHandle ) ) ;
-	if ( ! port )
+	const OSObject * object = fExporter->lookupObject( portHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
-		
+	}
+	
+	IOFWUserLocalIsochPort * port = OSDynamicCast ( IOFWUserLocalIsochPort, object ) ;
+	if ( ! port )
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
+	
 	UInt64		chanSupported ;
 	IOReturn	result			= kIOReturnSuccess ;
 
@@ -2060,16 +2406,12 @@ IOFireWireUserClient :: localIsochPort_Create (
 	LocalIsochPortAllocateParams*	params,
 	UserObjectHandle*				outPortHandle )
 {
-	DebugLog("+IOFireWireUserClient :: localIsochPort_Create\n") ;
-	
 	IOFWUserLocalIsochPort * port = new IOFWUserLocalIsochPort ;
 	if ( port && ! port->initWithUserDCLProgram( params, *this, *getOwner()->getController() ) )
 	{
 		port->release() ;
 		port = NULL ;
 	}
-
-	DebugLog("port retain is %d\n", getRetainCount()) ;
 
 	if ( !port )
 	{
@@ -2087,21 +2429,76 @@ IOFireWireUserClient :: localIsochPort_Create (
 }
 
 IOReturn
+IOFireWireUserClient :: localIsochPort_SetChannel (
+	UserObjectHandle	portHandle,
+	UserObjectHandle	channelHandle )
+{
+	IOFWUserLocalIsochPort * port ;
+	
+	{
+		const OSObject * object = fExporter->lookupObject( portHandle ) ;
+		if ( !object )
+		{
+			return kIOReturnBadArgument ;
+		}
+		
+		port = OSDynamicCast ( IOFWUserLocalIsochPort, object ) ;
+		if ( !port )
+		{
+			object->release() ;
+			return kIOReturnBadArgument ;
+		}
+	}
+	
+	const OSObject * object = fExporter->lookupObject( channelHandle ) ;
+	if ( !object )
+	{
+		port->release() ;
+		return kIOReturnBadArgument ;
+	}
+	
+	IOReturn error = kIOReturnSuccess ;
+	IOFWUserIsochChannel * channel = OSDynamicCast( IOFWUserIsochChannel, object ) ;
+	if ( !channel )
+	{
+		object->release() ;
+		port->release() ;
+		return kIOReturnBadArgument ;
+	}
+	
+	IODCLProgram * program = port->getProgramRef() ;
+	if ( program )
+	{
+		program->setForceStopProc( s_IsochChannel_ForceStopHandler, channel->getAsyncRef(), channel ) ;
+		
+		program->release() ;
+	}
+	
+	port->release() ;
+	channel->release() ;
+	
+	return error ;
+}
+
+IOReturn
 IOFireWireUserClient :: setAsyncRef_DCLCallProc ( 
 		OSAsyncReference 			asyncRef,
 		UserObjectHandle 			portHandle )
 {
-//	DebugLog("asyncRef\n") ;
-//	for( unsigned index=0; index < 8 ; ++index )
-//	{
-//		DebugLog("asyncRef[ %d ]=%x\n", index, asyncRef[ index ] ) ;
-//	}
-	
-	IOFWUserLocalIsochPort * port = OSDynamicCast( IOFWUserLocalIsochPort, fExporter->lookupObject( portHandle ) ) ;
-	if ( ! port )
+	const OSObject * object =  fExporter->lookupObject( portHandle ) ;
+	if ( !object )
+	{
 		return kIOReturnBadArgument ;
+	}
 	
-	IOReturn error = port->setAsyncRef_DCLCallProc ( asyncRef ) ;
+	IOFWUserLocalIsochPort * port = OSDynamicCast( IOFWUserLocalIsochPort, object ) ;
+	if ( ! port )
+	{
+		object->release() ;
+		return kIOReturnBadArgument ;
+	}
+	
+	IOReturn error = port->setAsyncRef_DCLCallProc( asyncRef ) ;
 	
 	port->release() ;	// loopkupObject retains the return value for thread safety
 	
@@ -2121,7 +2518,7 @@ IOFireWireUserClient::s_IsochChannel_ForceStopHandler(
 		return kIOReturnSuccess ;
 	}
 	
-	return IOFireWireUserClient::sendAsyncResult( (natural_t*)refCon, kIOReturnSuccess, (void **) & stopCondition, 1 ) ;
+	return IOFireWireUserClient::sendAsyncResult( (natural_t*)refCon, stopCondition, NULL, 0 ) ;
 }
 
 IOReturn
@@ -2150,13 +2547,10 @@ IOFireWireUserClient :: isochChannel_Create (
 					*outChannelHandle ) ;
 		}
 		
-		DebugLog( "made new channel %p, handle=%p, retain count now %d\n", channel, *outChannelHandle, channel->getRetainCount()) ;
-
 		channel->release() ;	// addObject retains the object
 	}
 	else
 	{
-		DebugLog( "couldn't make newChannel\n") ;
 		error = kIOReturnNoMemory ;
 	}	
 
@@ -2172,9 +2566,17 @@ IOFireWireUserClient::isochChannel_AllocateChannelBegin(
 	UInt32 * 				outSpeed,
 	UInt32 * 				outChannel )
 {
-	IOFWUserIsochChannel * channel = OSDynamicCast( IOFWUserIsochChannel, fExporter->lookupObject( channelRef ) ) ;
+	const OSObject * object = fExporter->lookupObject( channelRef ) ;
+	if ( !object )
+	{
+		return kIOReturnBadArgument ;
+	}
+	
+	IOFWUserIsochChannel * channel = OSDynamicCast( IOFWUserIsochChannel, object ) ;
+
 	if ( ! channel )
 	{
+		object->release() ;
 		return kIOReturnBadArgument ;
 	}
 
@@ -2182,7 +2584,7 @@ IOFireWireUserClient::isochChannel_AllocateChannelBegin(
 	IOReturn error = channel->allocateChannelBegin( (IOFWSpeed)speed, allowedChans, outChannel ) ;
 	*outSpeed = speed;
 	
-	channel->release() ;	// lookup retains object, so we have to release it.
+	channel->release() ;	// lookup retains object, so we have to release it.	
 	
 	return error ;
 }
@@ -2194,9 +2596,16 @@ IOFireWireUserClient::setAsyncRef_IsochChannelForceStop(
 {
 	IOReturn result = kIOReturnSuccess;
 	
-	IOFWUserIsochChannel * channel = OSDynamicCast( IOFWUserIsochChannel, fExporter->lookupObject( channelRef ) ) ;
+	const OSObject * object = fExporter->lookupObject( channelRef ) ;
+	if ( !object )
+	{
+		return kIOReturnBadArgument ;
+	}
+	
+	IOFWUserIsochChannel * channel = OSDynamicCast( IOFWUserIsochChannel, object ) ;
 	if ( ! channel )
 	{
+		object->release() ;
 		result = kIOReturnBadArgument ;
 	}
 	
@@ -2227,7 +2636,7 @@ IOFireWireUserClient::setAsyncRef_IsochChannelForceStop(
 	{
 		channel->release();
 	}
-	
+
 	return result;
 }
 
@@ -2248,16 +2657,23 @@ IOFireWireUserClient :: userAsyncCommand_Submit(
 	
 	if ( params->kernCommandRef )
 	{
-		DebugLog("using existing command object\n") ;
-
-		cmd = OSDynamicCast( IOFWUserCommand, fExporter->lookupObject( params->kernCommandRef ) ) ;
-		if ( ! cmd )
+		const OSObject * object = fExporter->lookupObject( params->kernCommandRef ) ;
+		if ( !object )
+		{
 			error = kIOReturnBadArgument ;
+		}
+		else
+		{
+			cmd = OSDynamicCast( IOFWUserCommand, object ) ;
+			if ( ! cmd )
+			{
+				object->release() ;
+				error = kIOReturnBadArgument ;
+			}
+		}
 	}
 	else
 	{
-		DebugLog("lazy allocating command object\n") ;
-	
 		cmd = IOFWUserCommand :: withSubmitParams( params, this ) ;
 
 		if ( ! cmd )

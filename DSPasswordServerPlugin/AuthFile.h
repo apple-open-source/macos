@@ -41,6 +41,8 @@
 #define kPWFileMaxDigests				10
 #define kPWFileMaxPublicKeyBytes		1024
 #define kPWFileMaxPrivateKeyBytes		2048
+#define kPWFileMaxHistoryCount			15
+#define kPWFileMaxReplicaName			32
 #define kSMBNTStorageTag				"*cmusaslsecretSMBNT"
 
 // password server error strings
@@ -77,6 +79,7 @@
 #define kPWPolicyStr_minChars					"minChars"
 #define kPWPolicyStr_maxChars					"maxChars"
 #define kPWPolicyStr_passwordCannotBeName		"passwordCannotBeName"
+#define kPWPolicyStr_isSessionKeyAgent			"isSessionKeyAgent"
 
 // meta policies
 #define kPWPolicyStr_resetToGlobalDefaults		"resetToGlobalDefaults"
@@ -84,7 +87,6 @@
 #define kPWPolicyStr_kickOffTime				"kickOffTime"
 #define kPWPolicyStr_lastLoginTime				"lastLoginTime"
 #define kPWPolicyStr_passwordLastSetTime		"passwordLastSetTime"
-#define kPWPolicyStr_isSessionKeyAgent			"isSessionKeyAgent"
 
 // this is the version of the time struct that
 // will be written to our db file.
@@ -114,16 +116,16 @@ typedef struct PasswordDigest {
 } PasswordDigest;
 
 typedef struct PWGlobalAccessFeatures {
-    int usingHistory:1;						// TRUE == users have password history files
-    int usingExpirationDate:1;				// TRUE == look at expirationDateGMT
-    int usingHardExpirationDate:1;			// TRUE == look at hardExpirationDateGMT
-    int requiresAlpha:1;					// TRUE == password must have one char in [A-Z], [a-z]
-    int requiresNumeric:1;					// TRUE == password must have one char in [0-9]
-    
+    unsigned int usingHistory:1;			// TRUE == users have password history files
+    unsigned int usingExpirationDate:1;		// TRUE == look at expirationDateGMT
+    unsigned int usingHardExpirationDate:1; // TRUE == look at hardExpirationDateGMT
+    unsigned int requiresAlpha:1;			// TRUE == password must have one char in [A-Z], [a-z]
+    unsigned int requiresNumeric:1;			// TRUE == password must have one char in [0-9]
+	
 	// db 1.1
-	int passwordIsHash:1;
-	int passwordCannotBeName:1;
-	int historyCount:4;
+    unsigned int passwordIsHash:1;
+    unsigned int passwordCannotBeName:1;
+	unsigned int historyCount:4;
 	int unused:5;
     
     BSDTimeStructCopy expirationDateGMT;	// if exceeded, user is required to change the password at next login
@@ -153,7 +155,7 @@ typedef struct PWAccessFeatures {
 	// db 1.1
 	int passwordIsHash:1;
 	int passwordCannotBeName:1;
-	int historyCount:4;
+	unsigned int historyCount:4;
 	int isSessionKeyAgent:1;				// the user can retrieve (MPPE) session keys
     
     BSDTimeStructCopy expirationDateGMT;	// if exceeded, user is required to change the password at next login
@@ -189,7 +191,7 @@ typedef struct PWFileHeader {
     unsigned char privateKey[kPWFileMaxPrivateKeyBytes];
                                                     // 1024-bit RSA private key - expected size is 887 or so
 													
-	char replicationName[32];						// the name used by replication to identify this server
+	char replicationName[kPWFileMaxReplicaName];	// the name used by replication to identify this server
 	UInt32 deepestSlotUsedByThisServer;				// deepest slot used in this replica's allocated range
 	UInt32 accessModDate;							// time of last change to access field in seconds from 1970
 	UInt32 fExtraData[246];							// not used yet, room for future growth - all zero's until used...
@@ -236,13 +238,19 @@ int LoginTimeIsStale( BSDTimeStructCopy *inLastLogin, unsigned long inMaxMinutes
 void PWGlobalAccessFeaturesToString( PWGlobalAccessFeatures *inAccessFeatures, char *outString );
 void PWAccessFeaturesToString( PWAccessFeatures *inAccessFeatures, char *outString );
 void PWActualAccessFeaturesToString( PWGlobalAccessFeatures *inGAccessFeatures, PWAccessFeatures *inAccessFeatures, char *outString );
+void PWAccessFeaturesToStringWithoutStateInfo( PWAccessFeatures *inAccessFeatures, char *outString );
 Boolean StringToPWGlobalAccessFeatures( const char *inString, PWGlobalAccessFeatures *inOutAccessFeatures );
 Boolean StringToPWAccessFeatures( const char *inString, PWAccessFeatures *inOutAccessFeatures );
 Boolean StringToPWAccessFeatures_GetValue( const char *inString, unsigned long *outValue );
 void CrashIfBuiltWrong(void);
 
+// in CAuthFileBase.cpp
+int pwsf_TestDisabledStatus( PWAccessFeatures *inAccess, PWGlobalAccessFeatures *inGAccess, struct tm *inCreationDate, struct tm *inLastLoginTime, UInt16 *inOutFailedLoginAttempts );
+int pwsf_ChangePasswordStatus( PWAccessFeatures *inAccess, PWGlobalAccessFeatures *inGAccess, struct tm *inModDateOfPassword );
+int pwsf_RequiredCharacterStatus(PWAccessFeatures *access, PWGlobalAccessFeatures *inGAccess, const char *inUsername, const char *inPassword);
+
 #ifdef __cplusplus
-};
+	};
 #endif
 
 #endif

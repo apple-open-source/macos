@@ -53,6 +53,7 @@ public:
 	virtual IOReturn		setCodecMute (bool muteState, UInt32 streamType) {return kIOReturnError;}		//	[3435307]	rbm
 	virtual bool			hasAnalogMute () { return false; }												//	[3435307]	rbm
 	virtual bool			hasDigitalMute () { return false; }												//	[3435307]	rbm
+	virtual bool			hasHardwareVolume () { return true; }											//	[3527440]	aml
 
 	virtual bool			getInputMute () {return false;}
 	virtual IOReturn		setInputMute (bool muteState) {return 0;}
@@ -65,6 +66,7 @@ public:
 	virtual	UInt32			getMinimumdBGain (void) {return 0;}
 	virtual	UInt32			getMaximumGain (void) {return 0;}
 	virtual	UInt32			getMinimumGain (void) {return 0;}
+	virtual UInt32			getDefaultInputGain ( void ) { return 0; }										//	[3514617]	rbm		3 Feb 2004
 
 	bool					setVolume (UInt32 leftVolume, UInt32 rightVolume);
 	virtual bool			setCodecVolume (UInt32 leftVolume, UInt32 rightVolume) {return false;}
@@ -72,6 +74,8 @@ public:
 	virtual IOReturn		setInputGain (UInt32 leftGain, UInt32 rightGain) {return kIOReturnError;}
 	
 	virtual	void			setProcessing (UInt32 inEQIndex) {return;}
+	virtual	void			setEQProcessing (void * inEQStructure, Boolean inRealtime) {return;}
+	virtual	void			setDRCProcessing (void * inDRCStructure, Boolean inRealtime) {return;}
 	virtual	void			disableProcessing (Boolean inRealtime) {return;}
 	virtual	void			enableProcessing (void) {return;}
 	

@@ -1,24 +1,21 @@
 /*
  * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
- * @APPLE_LICENSE_HEADER_START@
+ * @APPLE_LICENSE_HEADER_START@ 
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -1170,6 +1167,7 @@ for(i=0; i<numOwnIDs; i++)
                                   (0x3f << kFWPhyConfigurationGapCntPhase) | kFWPhyConfigurationT );
 			
 			fGapCountMismatch = true;
+			FWKLOG(( "IOFireWireController::processSelfIDs Found Gap Count Mismatch!\n" ));
             break;
         }
     }
@@ -1257,7 +1255,7 @@ for(i=0; i<numOwnIDs; i++)
     }
     
     // Store selfIDs
-    OSObject * prop = OSData::withBytes( fSelfIDs, (numIDs+1) * sizeof(UInt32));
+    OSObject * prop = OSData::withBytes( fSelfIDs, numIDs * sizeof(UInt32));
     setProperty(gFireWireSelfIDs, prop);
     prop->release();
     
@@ -2938,6 +2936,7 @@ kprintf("Received packet 0x%x size %d\n", data, size);
     UInt32	tCode, tLabel;
     UInt32	quad0;
     UInt16	sourceID;
+    UInt16	destID;
 
     // Get first quad.
     quad0 = *data;
@@ -2945,13 +2944,14 @@ kprintf("Received packet 0x%x size %d\n", data, size);
     tCode = (quad0 & kFWPacketTCode) >> kFWPacketTCodePhase;
     tLabel = (quad0 & kFWAsynchTLabel) >> kFWAsynchTLabelPhase;
     sourceID = (data[1] & kFWAsynchSourceID) >> kFWAsynchSourceIDPhase;
+	destID = (data[0] & kFWAsynchDestinationID) >> kFWAsynchDestinationIDPhase;
 
     // Dispatch processing based on tCode.
     switch (tCode)
     {
         case kFWTCodeWriteQuadlet :
 #if (DEBUGGING_LEVEL > 0)
-            DEBUGLOG("WriteQuadlet: addr 0x%x:0x%x\n", 
+            DEBUGLOG("WriteQuadlet: addr 0x%x -> 0x%x:0x%x:0x%x\n", sourceID, destID,
 		(data[1] & kFWAsynchDestinationOffsetHigh) >> kFWAsynchDestinationOffsetHighPhase, data[2]);
 #endif
             processWriteRequest(sourceID, tLabel, data, &data[3], 4);
@@ -2959,7 +2959,7 @@ kprintf("Received packet 0x%x size %d\n", data, size);
 
         case kFWTCodeWriteBlock :
 #if (DEBUGGING_LEVEL > 0)
-            DEBUGLOG("WriteBlock: addr 0x%x:0x%x\n", 
+            DEBUGLOG("WriteBlock: addr 0x%x -> 0x%x:0x%x:0x%x\n", sourceID, destID,
 		(data[1] & kFWAsynchDestinationOffsetHigh) >> kFWAsynchDestinationOffsetHighPhase, data[2]);
 #endif
             processWriteRequest(sourceID, tLabel, data, &data[4],
@@ -2981,7 +2981,7 @@ kprintf("Received packet 0x%x size %d\n", data, size);
 
         case kFWTCodeReadQuadlet :
 #if (DEBUGGING_LEVEL > 0)
-            DEBUGLOG("ReadQuadlet: addr 0x%x:0x%x\n", 
+            DEBUGLOG("ReadQuadlet: addr 0x%x -> 0x%x:0x%x:0x%x\n", sourceID, destID, 
 		(data[1] & kFWAsynchDestinationOffsetHigh) >>
                      kFWAsynchDestinationOffsetHighPhase, data[2]);
 #endif
@@ -3003,19 +3003,25 @@ kprintf("Received packet 0x%x size %d\n", data, size);
 					UInt32 quad = 0xdeadbeef;
 						
 					buf->readBytes( offset, &quad, 4 );
-						
-					fFWIM->asyncReadQuadResponse(sourceID, speed, tLabel, ret, quad );
+					
+					if ( destID != 0xffff )	// we should not respond to broadcast reads
+						fFWIM->asyncReadQuadResponse(sourceID, speed, tLabel, ret, quad );
+					else
+						DebugLog("Skipped asyncReadQuadResponse because destID=0x%x\n", destID);
                 }
                 else 
 				{
-                    fFWIM->asyncReadQuadResponse(sourceID, speed, tLabel, ret, 0xdeadbeef);
+                    if ( destID != 0xffff )	// we should not respond to broadcast reads
+						fFWIM->asyncReadQuadResponse(sourceID, speed, tLabel, ret, 0xdeadbeef);
+					else
+						DebugLog("Skipped asyncReadQuadResponse because destID=0x%x\n", destID);
                 }
             }
             break;
 
         case kFWTCodeReadBlock :
 #if (DEBUGGING_LEVEL > 0)
-            DEBUGLOG("ReadBlock: addr 0x%x:0x%x len %d\n", 
+            DEBUGLOG("ReadBlock: addr 0x%x -> 0x%x:0x%x:0x%x\n", sourceID, destID, 
 		(data[1] & kFWAsynchDestinationOffsetHigh) >> kFWAsynchDestinationOffsetHighPhase, data[2],
 		(data[3] & kFWAsynchDataLength) >> kFWAsynchDataLengthPhase);
 #endif
@@ -3027,17 +3033,22 @@ kprintf("Received packet 0x%x size %d\n", data, size);
                 IOMemoryDescriptor *	buf = NULL;
 				IOByteCount offset;
 
-                ret = doReadSpace(sourceID, speed, addr, length,
-                                    &buf, &offset, (IOFWRequestRefCon)(tLabel));
+                ret = doReadSpace(sourceID, speed, addr, length, &buf, &offset, (IOFWRequestRefCon)(tLabel));
+									
                 if(ret == kFWResponsePending)
                     break;
+					
                 if(NULL != buf) {
-                    fFWIM->asyncReadResponse(sourceID, speed,
-                                       tLabel, ret, buf, offset, length);
+                    if ( destID != 0xffff )	// we should not respond to broadcast reads
+						fFWIM->asyncReadResponse(sourceID, speed, tLabel, ret, buf, offset, length);
+					else
+						DebugLog("Skipped asyncReadResponse because destID=0x%x\n", destID);
                 }
                 else {
-                    fFWIM->asyncReadResponse(sourceID, speed,
-                                       tLabel, ret, fBadReadResponse, 0, 4);
+                    if ( destID != 0xffff )	// we should not respond to broadcast reads
+						fFWIM->asyncReadResponse(sourceID, speed, tLabel, ret, fBadReadResponse, 0, 4);
+					else
+						DebugLog("Skipped asyncReadResponse because destID=0x%x\n", destID);
                 }
             }
             break;
@@ -3097,8 +3108,8 @@ kprintf("Received packet 0x%x size %d\n", data, size);
 
         case kFWTCodeLock :
 #if (DEBUGGING_LEVEL > 0)
-            DEBUGLOG("Lock type %d: addr 0x%x:0x%x\n", 
-		(data[3] & kFWAsynchExtendedTCode) >> kFWAsynchExtendedTCodePhase,
+            DEBUGLOG("Lock type %d: addr 0x%x -> 0x%x:0x%x:0x%x\n", 
+		(data[3] & kFWAsynchExtendedTCode) >> kFWAsynchExtendedTCodePhase, sourceID, destID,
 		(data[1] & kFWAsynchDestinationOffsetHigh) >> kFWAsynchDestinationOffsetHighPhase,
 		data[2]);
 #endif
@@ -3339,7 +3350,11 @@ void IOFireWireController::processWriteRequest(UInt16 sourceID, UInt32 tLabel,
         if(ret != kFWResponseAddressError)
             break;
     }
-    fFWIM->asyncWriteResponse(sourceID, speed, tLabel, ret, addr.addressHi);
+	
+    if ( ((hdr[0] & kFWAsynchDestinationID) >> kFWAsynchDestinationIDPhase) != 0xffff )	// we should not respond to broadcast writes
+		fFWIM->asyncWriteResponse(sourceID, speed, tLabel, ret, addr.addressHi);
+	else
+		DebugLog("Skipped asyncWriteResponse because destID=0x%x\n", ((hdr[0] & kFWAsynchDestinationID) >> kFWAsynchDestinationIDPhase));
 }
 
 // processLockRequest
@@ -3362,7 +3377,10 @@ void IOFireWireController::processLockRequest(UInt16 sourceID, UInt32 tLabel,
     ret = doLockSpace(sourceID, speed, addr, len, (const UInt32 *)buf, outLen, oldVal, type, refcon);
     if(ret != kFWResponsePending)
     {
-        fFWIM->asyncLockResponse(sourceID, speed, tLabel, ret, type, oldVal, outLen);
+        if ( ((hdr[0] & kFWAsynchDestinationID) >> kFWAsynchDestinationIDPhase) != 0xffff )	// we should not respond to broadcast locks
+			fFWIM->asyncLockResponse(sourceID, speed, tLabel, ret, type, oldVal, outLen);
+		else
+			DebugLog("Skipped asyncLockResponse because destID=0x%x\n", ((hdr[0] & kFWAsynchDestinationID) >> kFWAsynchDestinationIDPhase));
     }
 }
 

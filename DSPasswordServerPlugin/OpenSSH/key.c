@@ -88,7 +88,7 @@ key_new(int type)
 	case KEY_EMPTY:
 		break;
 	default:
-		fatal("key_new: bad key type %d", k->type);
+		pwsf_fatal("key_new: bad key type %d", k->type);
 		break;
 	}
 	return k;
@@ -108,7 +108,7 @@ key_free(Key *k)
 		k->dsa = NULL;
 		break;
 	default:
-		fatal("key_free: bad key type %d", k->type);
+		pwsf_fatal("key_free: bad key type %d", k->type);
 		break;
 	}
 	xfree(k);
@@ -132,7 +132,7 @@ key_equal(Key *a, Key *b)
 		    BN_cmp(a->dsa->pub_key, b->dsa->pub_key) == 0;
 		break;
 	default:
-		fatal("key_equal: bad key type %d", a->type);
+		pwsf_fatal("key_equal: bad key type %d", a->type);
 		break;
 	}
 	return 0;
@@ -163,7 +163,7 @@ key_fingerprint(Key *k)
 		dsa_make_key_blob(k, &blob, &len);
 		break;
 	default:
-		fatal("key_fingerprint: bad key type %d", k->type);
+		pwsf_fatal("key_fingerprint: bad key type %d", k->type);
 		break;
 	}
 	retval[0] = '\0';
@@ -171,7 +171,7 @@ key_fingerprint(Key *k)
 	if (blob != NULL) {
 		int i;
 		unsigned char digest[EVP_MAX_MD_SIZE];
-		EVP_MD *md = EVP_md5();
+		const EVP_MD *md = EVP_md5();
 		EVP_MD_CTX ctx;
 		EVP_DigestInit(&ctx, md);
 		EVP_DigestUpdate(&ctx, blob, len);
@@ -310,7 +310,7 @@ pwsf_key_read(Key *ret, char **cpp)
 		*cpp = cp;
 		break;
 	default:
-		fatal("pwsf_key_read: bad key type: %d", ret->type);
+		pwsf_fatal("pwsf_key_read: bad key type: %d", ret->type);
 		break;
 	}
 	return bits;

@@ -1,0 +1,18 @@
+Això és un recordatori, que s'envia un cop al mes sobre la comunitat de
+membres de la seva llista de correus %(hostname)s.  
+Inclou la vostra informació de subscripció i el que
+s´ha de fer per canviar-la o donar-se de baixa d'una llista.
+
+Pot visitar les URLs per canviar la seva categoria de mebre o la seva
+configuració, també per donar-se de baixa, setting digest-style delivery
+or disabling delivery altogether (e.g., for a vacation), and so on.
+
+A més de les interfície de les URLs, pot usar l'email per fer aquests mateixos canvis.
+Per a més informació, envieu un missatge a l'adreça '-request-' de la llista (per exemple,
+%(exreq)s) amb només la paraula 'ajuda' en el cos del missatge, i un mail li serà enviat amb instruccions.
+
+Si té preguntes, problemes,comentaris, etc, envii'ls a
+%(owner)s.  Gràcies!
+
+Clau de pas per %(useraddr)s:
+

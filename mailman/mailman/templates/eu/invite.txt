@@ -1,0 +1,14 @@
+%(listname)s posta zerrendaren arduradunak gonbita egin dio zure helbide honi 
+"%(email)s" %(hostname)s %(listname)s posta zerrendan parte hartzeko.
+Harpidetu nahi baduzu, erantzun mezu honi, Gaia (subject) lerroa hutsik lagata.
+
+%(confirmurl)s webgunean ere egin dezakezu.
+
+Edo ondorengo lerroa (ondorengoa besterik ez) %(requestaddr)s helbidera bidaliz:
+
+    confirm %(cookie)s
+
+Erabiltzaile gehienen kasuan nahikoa izango da "Mezu honi erantzun" aukeratzea.
+
+Ez baduzu parte hartzerik nahi, ahaztu mezu hau.
+Edozein galdera izanik, mesedez, idatzi %(listowner)s helbidera.

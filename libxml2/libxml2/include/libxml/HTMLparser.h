@@ -1,13 +1,18 @@
 /*
- * HTMLparser.h : interface for an HTML 4.0 non-verifying parser
+ * Summary: interface for an HTML 4.0 non-verifying parser
+ * Description: this module implements an HTML 4.0 non-verifying parser
+ *              with API compatible with the XML parser ones. It should
+ *              be able to parse "real world" HTML, even if severely
+ *              broken from a specification point of view.
  *
- * See Copyright for the status of this software.
+ * Copy: See Copyright for the status of this software.
  *
- * daniel@veillard.com
+ * Author: Daniel Veillard
  */
 
 #ifndef __HTML_PARSER_H__
 #define __HTML_PARSER_H__
+#include <libxml/xmlversion.h>
 #include <libxml/parser.h>
 
 #ifdef __cplusplus
@@ -76,58 +81,167 @@ struct _htmlEntityDesc {
 /*
  * There is only few public functions.
  */
-const htmlElemDesc * 	htmlTagLookup	(const xmlChar *tag);
-const htmlEntityDesc * 	htmlEntityLookup(const xmlChar *name);
-const htmlEntityDesc * 	htmlEntityValueLookup(unsigned int value);
+XMLPUBFUN const htmlElemDesc * XMLCALL 	
+			htmlTagLookup	(const xmlChar *tag);
+XMLPUBFUN const htmlEntityDesc * XMLCALL 	
+			htmlEntityLookup(const xmlChar *name);
+XMLPUBFUN const htmlEntityDesc * XMLCALL 	
+			htmlEntityValueLookup(unsigned int value);
 
-int			htmlIsAutoClosed(htmlDocPtr doc,
+XMLPUBFUN int XMLCALL			
+			htmlIsAutoClosed(htmlDocPtr doc,
 					 htmlNodePtr elem);
-int			htmlAutoCloseTag(htmlDocPtr doc,
+XMLPUBFUN int XMLCALL			
+			htmlAutoCloseTag(htmlDocPtr doc,
 					 const xmlChar *name,
 					 htmlNodePtr elem);
-const htmlEntityDesc * 	htmlParseEntityRef(htmlParserCtxtPtr ctxt,
-					 xmlChar **str);
-int			htmlParseCharRef(htmlParserCtxtPtr ctxt);
-void			htmlParseElement(htmlParserCtxtPtr ctxt);
+XMLPUBFUN const htmlEntityDesc * XMLCALL	
+			htmlParseEntityRef(htmlParserCtxtPtr ctxt,
+					 const xmlChar **str);
+XMLPUBFUN int XMLCALL			
+			htmlParseCharRef(htmlParserCtxtPtr ctxt);
+XMLPUBFUN void XMLCALL			
+			htmlParseElement(htmlParserCtxtPtr ctxt);
 
-int			htmlParseDocument(htmlParserCtxtPtr ctxt);
-htmlDocPtr		htmlSAXParseDoc	(xmlChar *cur,
+XMLPUBFUN htmlParserCtxtPtr XMLCALL	
+			htmlCreateMemoryParserCtxt(const char *buffer,
+						   int size);
+
+XMLPUBFUN int XMLCALL			
+			htmlParseDocument(htmlParserCtxtPtr ctxt);
+XMLPUBFUN htmlDocPtr XMLCALL		
+			htmlSAXParseDoc	(xmlChar *cur,
 					 const char *encoding,
 					 htmlSAXHandlerPtr sax,
 					 void *userData);
-htmlDocPtr		htmlParseDoc	(xmlChar *cur,
+XMLPUBFUN htmlDocPtr XMLCALL		
+			htmlParseDoc	(xmlChar *cur,
 					 const char *encoding);
-htmlDocPtr		htmlSAXParseFile(const char *filename,
+XMLPUBFUN htmlDocPtr XMLCALL		
+			htmlSAXParseFile(const char *filename,
 					 const char *encoding,
 					 htmlSAXHandlerPtr sax,
 					 void *userData);
-htmlDocPtr		htmlParseFile	(const char *filename,
+XMLPUBFUN htmlDocPtr XMLCALL		
+			htmlParseFile	(const char *filename,
 					 const char *encoding);
-int			UTF8ToHtml	(unsigned char *out,
+XMLPUBFUN int XMLCALL			
+			UTF8ToHtml	(unsigned char *out,
 					 int *outlen,
 					 const unsigned char *in,
 					 int *inlen);
-int			htmlEncodeEntities(unsigned char *out,
+XMLPUBFUN int XMLCALL			
+			htmlEncodeEntities(unsigned char *out,
 					 int *outlen,
 					 const unsigned char *in,
 					 int *inlen, int quoteChar);
-int			htmlIsScriptAttribute(const xmlChar *name);
-int			htmlHandleOmittedElem(int val);
+XMLPUBFUN int XMLCALL			
+			htmlIsScriptAttribute(const xmlChar *name);
+XMLPUBFUN int XMLCALL			
+			htmlHandleOmittedElem(int val);
 
+#ifdef LIBXML_PUSH_ENABLED
 /**
  * Interfaces for the Push mode.
  */
-void			htmlFreeParserCtxt	(htmlParserCtxtPtr ctxt);
-htmlParserCtxtPtr	htmlCreatePushParserCtxt(htmlSAXHandlerPtr sax,
+XMLPUBFUN htmlParserCtxtPtr XMLCALL	
+			htmlCreatePushParserCtxt(htmlSAXHandlerPtr sax,
 						 void *user_data,
 						 const char *chunk,
 						 int size,
 						 const char *filename,
 						 xmlCharEncoding enc);
-int			htmlParseChunk		(htmlParserCtxtPtr ctxt,
+XMLPUBFUN int XMLCALL			
+			htmlParseChunk		(htmlParserCtxtPtr ctxt,
 						 const char *chunk,
 						 int size,
 						 int terminate);
+#endif /* LIBXML_PUSH_ENABLED */
+
+XMLPUBFUN void XMLCALL			
+			htmlFreeParserCtxt	(htmlParserCtxtPtr ctxt);
+
+/*
+ * New set of simpler/more flexible APIs
+ */
+/**
+ * xmlParserOption:
+ *
+ * This is the set of XML parser options that can be passed down
+ * to the xmlReadDoc() and similar calls.
+ */
+typedef enum {
+    HTML_PARSE_NOERROR	= 1<<5,	/* suppress error reports */
+    HTML_PARSE_NOWARNING= 1<<6,	/* suppress warning reports */
+    HTML_PARSE_PEDANTIC	= 1<<7,	/* pedantic error reporting */
+    HTML_PARSE_NOBLANKS	= 1<<8,	/* remove blank nodes */
+    HTML_PARSE_NONET	= 1<<11 /* Forbid network access */
+} htmlParserOption;
+
+XMLPUBFUN void XMLCALL
+		htmlCtxtReset		(htmlParserCtxtPtr ctxt);
+XMLPUBFUN int XMLCALL
+		htmlCtxtUseOptions	(htmlParserCtxtPtr ctxt,
+					 int options);
+XMLPUBFUN htmlDocPtr XMLCALL
+		htmlReadDoc		(const xmlChar *cur,
+					 const char *URL,
+					 const char *encoding,
+					 int options);
+XMLPUBFUN htmlDocPtr XMLCALL
+		htmlReadFile		(const char *URL,
+					 const char *encoding,
+					 int options);
+XMLPUBFUN htmlDocPtr XMLCALL
+		htmlReadMemory		(const char *buffer,
+					 int size,
+					 const char *URL,
+					 const char *encoding,
+					 int options);
+XMLPUBFUN htmlDocPtr XMLCALL
+		htmlReadFd		(int fd,
+					 const char *URL,
+					 const char *encoding,
+					 int options);
+XMLPUBFUN htmlDocPtr XMLCALL
+		htmlReadIO		(xmlInputReadCallback ioread,
+					 xmlInputCloseCallback ioclose,
+					 void *ioctx,
+					 const char *URL,
+					 const char *encoding,
+					 int options);
+XMLPUBFUN htmlDocPtr XMLCALL
+		htmlCtxtReadDoc		(xmlParserCtxtPtr ctxt,
+					 const xmlChar *cur,
+					 const char *URL,
+					 const char *encoding,
+					 int options);
+XMLPUBFUN htmlDocPtr XMLCALL
+		htmlCtxtReadFile		(xmlParserCtxtPtr ctxt,
+					 const char *filename,
+					 const char *encoding,
+					 int options);
+XMLPUBFUN htmlDocPtr XMLCALL
+		htmlCtxtReadMemory		(xmlParserCtxtPtr ctxt,
+					 const char *buffer,
+					 int size,
+					 const char *URL,
+					 const char *encoding,
+					 int options);
+XMLPUBFUN htmlDocPtr XMLCALL
+		htmlCtxtReadFd		(xmlParserCtxtPtr ctxt,
+					 int fd,
+					 const char *URL,
+					 const char *encoding,
+					 int options);
+XMLPUBFUN htmlDocPtr XMLCALL
+		htmlCtxtReadIO		(xmlParserCtxtPtr ctxt,
+					 xmlInputReadCallback ioread,
+					 xmlInputCloseCallback ioclose,
+					 void *ioctx,
+					 const char *URL,
+					 const char *encoding,
+					 int options);
 
 /* NRK/Jan2003: further knowledge of HTML structure
  */
@@ -142,13 +256,35 @@ typedef enum {
 /* Using htmlElemDesc rather than name here, to emphasise the fact
    that otherwise there's a lookup overhead
 */
-htmlStatus htmlAttrAllowed(const htmlElemDesc*, const xmlChar*, int) ;
-int htmlElementAllowedHere(const htmlElemDesc*, const xmlChar*) ;
-htmlStatus htmlElementStatusHere(const htmlElemDesc*, const htmlElemDesc*) ;
-htmlStatus htmlNodeStatus(const htmlNodePtr, int) ;
+XMLPUBFUN htmlStatus XMLCALL htmlAttrAllowed(const htmlElemDesc*, const xmlChar*, int) ;
+XMLPUBFUN int XMLCALL htmlElementAllowedHere(const htmlElemDesc*, const xmlChar*) ;
+XMLPUBFUN htmlStatus XMLCALL htmlElementStatusHere(const htmlElemDesc*, const htmlElemDesc*) ;
+XMLPUBFUN htmlStatus XMLCALL htmlNodeStatus(const htmlNodePtr, int) ;
+/**
+ * htmlDefaultSubelement:
+ * @elt: HTML element
+ *
+ * Returns the default subelement for this element
+ */
 #define htmlDefaultSubelement(elt) elt->defaultsubelt
+/**
+ * htmlElementAllowedHereDesc:
+ * @parent: HTML parent element
+ * @elt: HTML element
+ *
+ * Checks whether an HTML element description may be a
+ * direct child of the specified element.
+ *
+ * Returns 1 if allowed; 0 otherwise.
+ */
 #define htmlElementAllowedHereDesc(parent,elt) \
 	htmlElementAllowedHere((parent), (elt)->name)
+/**
+ * htmlRequiredAttrs:
+ * @elt: HTML element
+ *
+ * Returns the attributes required for the specified element.
+ */
 #define htmlRequiredAttrs(elt) (elt)->attrs_req
 
 

@@ -53,10 +53,17 @@ BR = '<br>\n'
 SPACE = ' '
 
 try:
+    True, False
+except NameError:
+    True = 1
+    False = 0
+
+
+try:
     from mimetypes import guess_all_extensions
 except ImportError:
     import mimetypes
-    def guess_all_extensions(ctype, strict=1):
+    def guess_all_extensions(ctype, strict=True):
         # BAW: sigh, guess_all_extensions() is new in Python 2.3
         all = []
         def check(map):
@@ -76,7 +83,7 @@ def guess_extension(ctype, ext):
     # and .wiz are all mapped to application/msword.  This sucks for finding
     # the best reverse mapping.  If the extension is one of the giving
     # mappings, we'll trust that, otherwise we'll just guess. :/
-    all = guess_all_extensions(ctype, strict=0)
+    all = guess_all_extensions(ctype, strict=False)
     if ext in all:
         return ext
     return all and all[0]
@@ -93,8 +100,9 @@ def guess_extension(ctype, ext):
 # This isn't perfect because we still get stuff like the multipart boundaries,
 # but see below for how we corrupt that to our nefarious goals.
 class ScrubberGenerator(Generator):
-    def __init__(self, outfp, mangle_from_=1, maxheaderlen=78, skipheaders=1):
-        Generator.__init__(self, outfp, mangle_from_=0)
+    def __init__(self, outfp, mangle_from_=True,
+                 maxheaderlen=78, skipheaders=True):
+        Generator.__init__(self, outfp, mangle_from_=False)
         self.__skipheaders = skipheaders
 
     def _write_headers(self, msg):
@@ -156,7 +164,7 @@ def calculate_attachments_dir(mlist, msg, msgdata):
 
 def process(mlist, msg, msgdata=None):
     sanitize = mm_cfg.ARCHIVE_HTML_SANITIZER
-    outer = 1
+    outer = True
     if msgdata is None:
         msgdata = {}
     dir = calculate_attachments_dir(mlist, msg, msgdata)
@@ -190,7 +198,7 @@ def process(mlist, msg, msgdata=None):
                 # lists.
                 omask = os.umask(002)
                 try:
-                    url = save_attachment(mlist, part, dir, filter_html=0)
+                    url = save_attachment(mlist, part, dir, filter_html=False)
                 finally:
                     os.umask(omask)
                 del part['content-type']
@@ -201,7 +209,7 @@ URL: %(url)s
             else:
                 # HTML-escape it and store it as an attachment, but make it
                 # look a /little/ bit prettier. :(
-                payload = Utils.websafe(part.get_payload(decode=1))
+                payload = Utils.websafe(part.get_payload(decode=True))
                 # For whitespace in the margin, change spaces into
                 # non-breaking spaces, and tabs into 8 of those.  Then use a
                 # mono-space font.  Still looks hideous to me, but then I'd
@@ -216,7 +224,7 @@ URL: %(url)s
                 del part['content-transfer-encoding']
                 omask = os.umask(002)
                 try:
-                    url = save_attachment(mlist, part, dir, filter_html=0)
+                    url = save_attachment(mlist, part, dir, filter_html=False)
                 finally:
                     os.umask(omask)
                 del part['content-type']
@@ -249,7 +257,7 @@ Url: %(url)s
         # attachment that would have to be separately downloaded.  Pipermail
         # will transform the url into a hyperlink.
         elif not part.is_multipart():
-            payload = part.get_payload(decode=1)
+            payload = part.get_payload(decode=True)
             ctype = part.get_type()
             size = len(payload)
             omask = os.umask(002)
@@ -269,7 +277,7 @@ Size: %(size)d bytes
 Desc: %(desc)s
 Url : %(url)s
 """), lcset)
-        outer = 0
+        outer = False
     # We still have to sanitize multipart messages to flat text because
     # Pipermail can't handle messages with list payloads.  This is a kludge;
     # def (n) clever hack ;).
@@ -293,20 +301,23 @@ Url : %(url)s
                 text.append(_('Skipped content of type %(partctype)s'))
                 continue
             try:
-                t = part.get_payload(decode=1)
+                t = part.get_payload(decode=True)
             except binascii.Error:
                 t = part.get_payload()
             partcharset = part.get_content_charset()
             if partcharset and partcharset <> charset:
                 try:
                     t = unicode(t, partcharset, 'replace')
-                except (UnicodeError, LookupError):
-                    # Replace funny characters
-                    t = unicode(t, 'ascii', 'replace').encode('ascii')
+                except (UnicodeError, LookupError, ValueError):
+                    # Replace funny characters.  We use errors='replace' for
+                    # both calls since the first replace will leave U+FFFD,
+                    # which isn't ASCII encodeable.
+                    u = unicode(t, 'ascii', 'replace')
+                    t = u.encode('ascii', 'replace')
                 try:
                     # Should use HTML-Escape, or try generalizing to UTF-8
                     t = t.encode(charset, 'replace')
-                except (UnicodeError, LookupError):
+                except (UnicodeError, LookupError, ValueError):
                     t = t.encode(lcset, 'replace')
             # Separation is useful
             if not t.endswith('\n'):
@@ -336,11 +347,11 @@ def makedirs(dir):
 
 
 
-def save_attachment(mlist, msg, dir, filter_html=1):
+def save_attachment(mlist, msg, dir, filter_html=True):
     fsdir = os.path.join(mlist.archive_dir(), dir)
     makedirs(fsdir)
     # Figure out the attachment type and get the decoded data
-    decodedpayload = msg.get_payload(decode=1)
+    decodedpayload = msg.get_payload(decode=True)
     # BAW: mimetypes ought to handle non-standard, but commonly found types,
     # e.g. image/jpg (should be image/jpeg).  For now we just store such
     # things as application/octet-streams since that seems the safest.
@@ -385,7 +396,7 @@ def save_attachment(mlist, msg, dir, filter_html=1):
         # after filebase, e.g. msgdir/filebase-cnt.ext
         counter = 0
         extra = ''
-        while 1:
+        while True:
             path = os.path.join(fsdir, filebase + extra + ext)
             # Generally it is not a good idea to test for file existance
             # before just trying to create it, but the alternatives aren't

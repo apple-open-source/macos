@@ -1,2 +1,3 @@
-error detected at relaxng.c:6770
-Extra content for element preferredFormat: text
+./test/relaxng/tutor6_2_4.xml:4: element preferredFormat: Relax-NG validity error : Error validating value 
+./test/relaxng/tutor6_2_4.xml:4: element preferredFormat: Relax-NG validity error : Element preferredFormat failed to validate content
+./test/relaxng/tutor6_2_4.xml fails to validate

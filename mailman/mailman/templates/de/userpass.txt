@@ -3,7 +3,7 @@ Passwort-Erinnerungsmail fuer Ihre Mitgliedschaft auf der Liste
 %(fqdn_lname)s angefordert. Sie benoetigen dieses Passwort, um Ihre
 persoenlichen Einstellungen zu aendern, bzw. um das Abonnement zu beenden.
 
-e-mails von dieser Liste werden an Ihre Adresse: %(user)s geschickt.
+e-Mails von dieser Liste werden an Ihre Adresse: %(user)s geschickt.
 
 Ihr Passwort fuer die Liste %(listname)s ist: %(password)s
 
@@ -12,8 +12,8 @@ und besuchen die Seite:
 
     %(options_url)s
 
-Sie koennen allerdings auch Aenderunge via e-mail machen, indem Sie eine
-e-mail an die Adresse:
+Sie koennen allerdings auch Aenderunge via e-Mail machen, indem Sie eine
+e-Mail an die Adresse:
 
     %(requestaddr)s
 

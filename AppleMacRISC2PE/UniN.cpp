@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -167,6 +164,12 @@ IOReturn AppleUniN::callPlatformFunction(const OSSymbol *functionName, bool wait
     if (functionName->isEqualTo("safeWriteRegUInt32"))
     {
         safeWriteRegUInt32((UInt32)param1, (UInt32)param2, (UInt32)param3);
+        return kIOReturnSuccess;
+    }
+
+    if (functionName->isEqualTo(kUniNSetAACKDelay))
+    {
+        setAACKDelay((UInt32)param1);
         return kIOReturnSuccess;
     }
 
@@ -367,6 +370,20 @@ void AppleUniN::enableUniNFireWireClock(bool enable, IOService *nub)
 }
 
 // **********************************************************************************
+// setAACKDelay
+//
+// **********************************************************************************
+void AppleUniN::setAACKDelay(UInt32 setDelayBit)
+{
+    UInt32	uniNAACKCtrl = 0;
+
+    if ( setDelayBit )
+		uniNAACKCtrl = kUniNAACKCtrlDelayEnable;
+    
+    safeWriteRegUInt32(kUniNAACKCtrl, kUniNAACKCtrlDelayEnableMask, uniNAACKCtrl);
+}
+
+// **********************************************************************************
 // configureUniNPCIDevice
 //
 // **********************************************************************************
@@ -405,8 +422,6 @@ void AppleUniN::configureUniNPCIDevice (IOService *nub)
 // **********************************************************************************
 void AppleUniN::uniNSetPowerState (UInt32 state)
 {
-	UInt32 uataFCR;
-	
 	if (state == kUniNNormal) {
 		// Set normal mode
 		safeWriteRegUInt32(kUniNPowerMngmnt, ~0UL, kUniNNormal);
@@ -417,9 +432,8 @@ void AppleUniN::uniNSetPowerState (UInt32 state)
 		// On Intrepid, take the UATA bus out of reset
 		if (uataBusWasReset) {
 			uataBusWasReset = false;
-			uataFCR = *(UInt32 *)(uATABaseAddress + 0);			// Read byte reversed data
-			uataFCR |= (kUniNUATAReset | kUniNUATAEnable);		// Enable the bus
-			*(UInt32 *)(uATABaseAddress + 0) = uataFCR;			// Do it
+			uATAFCR |= (kUniNUATAReset | kUniNUATAEnable);		// Enable the bus
+			*(UInt32 *)(uATABaseAddress + 0) = uATAFCR;			// Do it
 			OSSynchronizeIO();
 		}
 	} else if (state == kUniNIdle2) {
@@ -431,9 +445,9 @@ void AppleUniN::uniNSetPowerState (UInt32 state)
 	} else if (state == kUniNSleep) {
 		// On Intrepid, put the UATA bus in reset for notebooks
 		if ((uniNVersion == kUniNVersionIntrepid) && hostIsMobile && uATABaseAddress) {
-			uataFCR = *(UInt32 *)(uATABaseAddress + 0);			// Read byte reversed data
-			uataFCR &= ~(kUniNUATAReset | kUniNUATAEnable);		// Reset the bus
-			*(UInt32 *)(uATABaseAddress + 0) = uataFCR;			// Do it
+			uATAFCR = *(UInt32 *)(uATABaseAddress + 0);			// Read byte reversed data
+			uATAFCR &= ~(kUniNUATAReset | kUniNUATAEnable);		// Reset the bus
+			*(UInt32 *)(uATABaseAddress + 0) = uATAFCR;			// Do it
 			OSSynchronizeIO();
 			uataBusWasReset = true;
 		}

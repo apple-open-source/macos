@@ -1,0 +1,300 @@
+<!-- $Revision: 1.1.1.1 $ -->
+<html>
+<head>
+    <link rel="SHORTCUT ICON" href="<mm-favicon>">
+    <title>Personlig medlemside for <MM-Presentable-User> p&aring; listen <MM-List-Name>
+    </title>
+</head>
+<BODY BGCOLOR="#ffffff">
+    <TABLE WIDTH="100%" BORDER="0" CELLSPACING="0" CELLPADDING="5">
+    <TR><TD WIDTH="100%" BGCOLOR="#99CCFF"><B>
+        <FONT COLOR="#000000" SIZE=+1>
+	Personlig medlemside for <MM-Presentable-User> p&aring; listen <MM-List-Name>
+	</FONT></B></TD></TR>
+    </TABLE>
+<p>
+<table width="100%" border="0" cellspacing="5" cellpadding="5">
+    <tr><td>
+        <b>Medlemsstatus, password, og indstillinger for <MM-Presentable-User></b>
+        p&aring; maillisten <MM-List-Name>.
+        </td><td><MM-Form-Start><mm-logout-button><MM-Form-End></td>
+    </tr><tr>
+        <td colspan="2">
+        <MM-Case-Preserved-User>
+
+        <MM-Disabled-Notice>
+
+        <p><mm-results>
+        </td>
+    </tr>
+</table>
+
+<MM-Form-Start>
+<p>
+<TABLE WIDTH="100%" BORDER="0" CELLSPACING="0" CELLPADDING="5">
+    <TR><TD WIDTH="100%" BGCOLOR="#FFF0D0" colspan="2">
+        <FONT COLOR="#000000">
+        <B>Aendre e-mail adresse p&aring; <MM-List-Name></B>
+	</FONT></TD></TR>
+    <tr><td colspan="2">Du kan aendre e-mail adressen hvortil du har tilmeldt dig til
+        listen ved at indtaste en anden e-mail adresse i feltene nedenfor.
+        Husk at en e-mail med n&aelig;rmere instruktioner vil s&aring; blive sendt til den nye
+        adresse. Endringene traeder ikke i kraft f&oslash;r du har bekreftet dem.
+        Du har <mm-pending-days> til at bekraefte aendringen.
+
+        <p>Du kan ogs&aring; oppgive eller aendre dit navn p&aring; listen (f.eks <em>Ola Olsen</em>).
+
+        <p>Hvis du vil endre din e-mail adresse for alle
+           maillisterne hvortil du er tilmeldt p&aring; <mm-host>, kryds af for at
+        <em>Aendre alle lister</em>.
+
+        </td></tr>
+    <tr><td><center>
+        l<table border="0" cellspacing="2" cellpadding="2" width="80%" cols="2">
+        <tr><td bgcolor="#dddddd"><div align="right">Ny e-mail adresse:</div></td>
+            <td><mm-new-address-box></td>
+            </tr>
+        <tr><td bgcolor="#dddddd"><div align="right">a-mail adresse en gang til:
+            </div></td> 
+            <td><mm-confirm-address-box></td>
+            </tr>
+        </tr></table></center>
+        </td>
+        <td><center>
+        <table border="0" cellspacing="2" cellpadding="2" width="80%" cols="2">
+            <tr><td bgcolor="#dddddd"><div align="right">Dit navn
+            (valgfritt):</div></td>
+            <td><mm-fullname-box></td>
+            </tr>
+        </table></center>
+        </td>
+        </tr>
+    <tr><td colspan="2"><center><mm-change-address-button>
+         <p><mm-global-change-of-address>Aendre min e-mail adresse p&aring; alle lister jeg er medlem af</center></td>
+    </tr>
+</table>
+
+<p>
+<TABLE WIDTH="100%" BORDER="0" CELLSPACING="5" CELLPADDING="5">
+    <TR><TD WIDTH="50%" BGCOLOR="#FFF0D0"><FONT COLOR="#000000">
+        <B>Melde deg av <MM-List-Name></B></td>
+
+	<TD WIDTH="50%" BGCOLOR="#FFF0D0"><FONT COLOR="#000000">
+        <B>Aendre lister du er medlem af p&aring; <MM-Host></B>
+	</FONT></TD></TR>
+
+    <tr><td>
+        Kryds af i afkrydsningsboksen og klikk f&oslash;lgende knap for &aring; melde dig
+        til denne mailliste.
+        <strong>MERK:</strong> Du vil umiddelbart blive frameldt listen!
+        <p>
+        <center><MM-Unsubscribe-Button></center></td>
+    <td>
+        Du kan velge at se alle lister hvortil du er tilmeldt, således kan gj&oslash;re samme
+        endringer p&aring; flere lister p&aring; en gang.
+
+        <p>
+        <center><MM-Other-Subscriptions-Submit></center>
+	</TD></TR>
+</table>
+
+<TABLE WIDTH="100%" BORDER="0" CELLSPACING="0" CELLPADDING="5">
+    <TR><TD COLSPAN=2 WIDTH="100%" BGCOLOR="#FFF0D0"><FONT COLOR="#000000">
+        <B>Ditt passord for <MM-List-Name></B>
+	</FONT></TD></TR>
+
+    <tr valign="TOP"><td WIDTH="50%">
+        <a name=reminder>
+        <center>
+        <h3>Har du glemt dit password?</h3>
+        </center>
+        Trykk p&aring; denne knap for &aring; f&aring; dit passwordet tilsendt p&aring; e-mailt.
+        <p><MM-Umbrella-Notice>
+        <center>
+        <MM-Email-My-Pw>
+        </center>
+        </td>
+
+    <td WIDTH="50%">
+        <a name=changepw>
+        <center>
+        <h3>Aendre password</h3>
+        <TABLE BORDER="0" CELLSPACING="2" CELLPADDING="2" WIDTH="70%" COLS=2>
+            <TR><TD BGCOLOR="#dddddd"><div align="right">Nyt
+                passord:</div></TD>
+                <TD><MM-New-Pass-Box></TD>
+                </TR>
+            <TR>
+                <TD BGCOLOR="#dddddd"><div align="right">Nyt password en gang
+                til:</div></TD>
+                <TD><MM-Confirm-Pass-Box></TD>
+            </TR>
+        </table>
+
+        <MM-Change-Pass-Button>
+        <p><center><mm-global-pw-changes-button>Aendre password for alle
+        lister jeg er medlem af p&aring; <mm-host>.
+        </center>
+</TABLE>
+
+<p>
+<TABLE WIDTH="100%" BORDER="0" CELLSPACING="0" CELLPADDING="5">
+    <TR><TD WIDTH="100%" BGCOLOR="#FFF0D0"><FONT COLOR="#000000">
+        <B>Dine indstillinger for <MM-List-Name></B>
+	</FONT></TD></TR>
+</table>
+
+<p>
+<i><strong>Gaeldende indstillinger er valgt.</strong></i>
+
+<p>Bemerk at nogen af indstillingerne har et <em>Brug p&aring; alle</em> valg.
+Krydser du af for det, vil alle lister du er medlem af p&aring; <mm-host> ogs&aring;
+f&aring; indstillingen sat ligesom du indstiller det her. Klikk p&aring; <em>Vise andre
+lister jeg er medlem af</em> ovenfor for at se hvilke andre maillister du
+er medlem af.
+<p>
+<TABLE BORDER="0" CELLSPACING="3" CELLPADDING="4" WIDTH="100%">
+    <tr><TD BGCOLOR="#cccccc">
+        <a name="disable">
+        <strong>Motta meddelelserr</strong></a><p>
+	Set denne til <em>Ja</em> for &aring; motta e-mail som sendes til denne listen.
+        Set den til <em>Nej</em> hvis du i en periode ikke &oslash;nsker at modtage e-mail som sendes til listen,
+        men alligevel ønsker at være medlem af listen. (kan være nyttig f.eks. hvis du skal p&aring; ferie)
+        Setter du den til <em>Nej</em>, skal du huske at sette den tilbage igen,
+        for den vil ikke blive sat tilbage til <em>Ja</em> automatisk.
+        </td><td bgcolor="#cccccc">
+        <mm-delivery-enable-button>Ja<br>
+        <mm-delivery-disable-button>Nei<p>
+        <mm-global-deliver-button><i>Brug p&aring; alle</i>
+        </td></tr>
+
+    <tr><TD BGCOLOR="#cccccc">
+        <strong>Sammendrag-modus</strong><p>
+	Setter du p&aring; sammendrag-modus, vil du med jaevne mellemrum (saedvanligvis en gang om dagen,
+        muligens flere gange, det kommer an p&aring; hvor meget der sendes til listen) f&aring; en
+	samle-epost som inneholder alle meldinger som blir sendt til listen, istedenfor &aring; f&aring; hver
+	enkelt melding. Hvis du aendrer fra sammendrag-modus til normal-
+	modus, vil du muligvis alligevel f&aring; en sidste e-mail med sammendrag
+	selv om du allerede da vil begynde at modtage alle mails der
+	kommer til listen.
+        </td><td bgcolor="#cccccc">
+        <MM-Undigest-Radio-Button>Av<br>
+        <MM-Digest-Radio-Button>P&aring;
+        </td></tr>
+        
+    <tr><TD BGCOLOR="#cccccc">
+        <strong>Modtage sammendrag som ren tekst eller i MIME-format?</strong><p>
+	Det kan v&aelig;re at dit e-mail program ikke st&oslash;tter sammendrag i MIME-format.
+	&Aring; modtage sammendrag i MIME-format anbefales, men f&aring;r du problemer med
+	&aring; laese e-mail i det format, kan du vaelge ren tekst her.
+        </td><td bgcolor="#cccccc">
+        <MM-Mime-Digests-Button>MIME<br>
+        <MM-Plain-Digests-Button>Ren tekst<p>
+        <mm-global-mime-button><i>Bruk p&aring; alle</i>
+        </td></tr>
+        
+    <tr><TD BGCOLOR="#cccccc">
+        <strong>Modtag dine egne mails til listen?</strong><p>
+
+        Normalt vil du modtage e-mail som du selv sender til listen.
+        Hvis du ikke vil modtage disse, b&oslash;r du velge <em>Nej</em> her.
+        </td><td bgcolor="#cccccc">
+        <mm-dont-receive-own-mail-button>Nej<br>
+        <mm-receive-own-mail-button>Ja
+        </td></tr>
+
+    <tr><TD BGCOLOR="#cccccc">
+        <strong>Modtag bekreftelse n&aring;r du sender e-mail til listen?</strong><p>
+
+        Vaelg <em>Ja</em> her hvis du &oslash;nsker &aring; f&aring; en bekreftelse hver gang du sender en e-mail til listen.
+        </td><td bgcolor="#cccccc">
+        <mm-dont-ack-posts-button>Nej<br>
+        <mm-ack-posts-button>Ja
+        </td></tr>
+
+    <tr><td bgcolor="#cccccc">
+        <strong>F&aring; dit password tilsendt jaevnligt?</strong><p>
+	En gang i m&aring;neneden kan det v&aelig;re du f&aring;r en e-mail som indeholder
+	password for alle de lister du er medlem af p&aring; dette systemet.
+	Du kan fjerne dette for denne enkelte liste her.
+        </td><td bgcolor="#cccccc">
+        <mm-dont-get-password-reminder-button>Nej<br>
+        <mm-get-password-reminder-button>Ja<p>
+        <mm-global-remind-button><i>Bruk p&aring; alle</i>
+        </td></tr>
+
+    <tr><TD BGCOLOR="#cccccc">
+        <strong>Vil du vises p&aring; listen over medlemmer af listen?</strong><p>
+	N&aring;r noen g&aring;r in p&aring; websiden for &aring; se alle medlemmer af listen, vil
+	din e-mail adresse normalt blive vist. (Men stavet p&aring; en m&aring;te maade at
+	en automatisk e-mail opsamling fra web-siden ikke kan finde sted (med efterfoelgende
+	udsendelse at spam-mail til  den), ikke vil forst&aring; at det
+	er en epostadresse.) Vaelg 'Nej' her hvis du ikke vil have at din e-mail adresse
+	skal vises p&aring; listen.
+        </td><td bgcolor="#cccccc">
+        <MM-Hide-Subscription-Button>Nei<br>
+        <MM-Public-Subscription-Button>Ja
+        </td></tr>
+
+    <tr><TD BGCOLOR="#cccccc">
+        <strong>Hvilket spr&aring;k foretrekker du?</strong><p>
+        </td><td bgcolor="#cccccc">
+        <MM-list-langs>
+        </td></tr>
+
+    <tr><td bgcolor="#cccccc">
+        <strong>Hvilke emner vil du modtage?</strong>
+        <p>Ved &aring; vaelge et eller flere emner, kan du filtrere meddelelserne som sendes til
+        e-mail listen, saa du kun vil modtage det som har interesse for deg.
+
+        <p>Hvis en melding ikke g&aring;r under nogen emner, kommer det an p&aring; innstillingen nedenfor
+        om du vil modtage meddelelsen eller ikke. Hvis du ikke vaelger nogle emner her, vil
+        du modta alle meddelelser som sendes til listen.
+        </td><td bgcolor="#cccccc">
+        <mm-topics>
+        </td></tr>
+
+    <tr><td bgcolor="#cccccc">
+        <strong>Vil du modtage mails som ikke passer under noget emne?</strong>
+        <p>Dette valget gaelder kun hvis du har valgt et eller flere emner ovenfor.
+        Det avgj&oslash;r om du skal modtage mails som ikke g&aring;r under noen emner.
+        Vaelger du <em>Nej</em> vil du ikke modtage dem, vaelger du <em>Ja</em> vil
+        du modtage dem.
+
+        <p>Hvis du ikke har valgt nogen emner i indstillingen ovenfor, vil du modtage alle
+        meldinger som sendes til listen.
+
+        </td><td bgcolor="#cccccc">
+        <mm-suppress-nonmatching-topics>Nej<br>
+        <mm-receive-nonmatching-topics>Ja
+      </td></tr>
+
+    <tr><td bgcolor="#cccccc">
+        <strong>Undg&aring; &aring; f&aring; e-mail fra listen som ogs&aring; er adressert direkte til dig?</strong><p>
+
+        Du kan velge hvad der skal ske hvis der kommer en e-mail til listen som ogsaa er
+        adressert direkte til dig (dvs. din e-mail adresse st&aring;r i <tt>To:</tt> eller <tt>Cc:</tt>
+        feltet). Vaelg <em>Ja</em> for da at undg&aring; &aring; modtage e-mail fra listen; vaelg <em>Nej</em>
+        for aligevel &aring; modtage e-mail fra listen.
+
+        <p>For specielt interessede: Hvis listen er sat op til at personificere
+        meddelelser der er sendt til listen, og du vaelger at modtage e-mail fra listen, vil hver
+        kopi faaa et <tt>X-Mailman-Copy: yes</tt> i mailheaderen.
+ 
+	</td><td bgcolor="#cccccc">
+        <mm-receive-duplicates-button>Nei<br>
+        <mm-dont-receive-duplicates-button>Ja<p>
+        <mm-global-nodupes-button><i>Sett globalt</i>
+      </td></tr>
+    <tr><TD colspan="2">
+        <center><MM-options-Submit-button></center>
+        </td></tr>
+
+</table>
+</center>
+<p>
+<MM-Form-End>
+
+<MM-Mailman-Footer>
+</body>
+</html>

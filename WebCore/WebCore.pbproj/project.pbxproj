@@ -16,7 +16,9 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = "@executable_path/../Frameworks";
 				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_LDFLAGS = "-seg1addr $(LOCAL_SEG1_ADDR)";
 				SECTORDER_FLAGS = "";
 				ZERO_LINK = YES;
 			};
@@ -32,6 +34,8 @@
 				DEPLOYMENT_LOCATION = YES;
 				DEPLOYMENT_POSTPROCESSING = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INSTALL_PATH = "@executable_path/../Frameworks";
+				OTHER_LDFLAGS = "-seg1addr $(LOCAL_SEG1_ADDR)";
 				SECTORDER_FLAGS = "";
 				ZERO_LINK = NO;
 			};
@@ -137,6 +141,7 @@
 				0867D69EFE84028FC02AAC07,
 				0867D69FFE84028FC02AAC07,
 				0867D6A0FE84028FC02AAC07,
+				255AF6590250FC030ECA149E,
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
@@ -154,6 +159,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 10.2;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "$(DEBUG_CFLAGS) -DAPPLE_CHANGES";
+				OTHER_LDFLAGS = "-no-c++filt -umbrella WebKit";
 				PRECOMPILE_PREFIX_HEADER = YES;
 				PREFIX_HEADER = WebCorePrefix.h;
 				PRODUCT_NAME = WebCore;
@@ -180,7 +186,7 @@
 	<key>CFBundleExecutable</key>
 	<string>WebCore</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2, Copyright 2004 Apple Computer, Inc.; Copyright 1997 Martin Jones &lt;mjones@kde.org&gt;; Copyright 1998, 1999 Torben Weis &lt;weis@kde.org&gt;; Copyright 1998, 1999, 2002 Waldo Bastian &lt;bastian@kde.org&gt;; Copyright 1998-2000 Lars Knoll &lt;knoll@kde.org&gt;; Copyright 1999, 2001 Antti Koivisto &lt;koivisto@kde.org&gt;; Copyright 1999-2001 Harri Porten &lt;porten@kde.org&gt;; Copyright 2000 Simon Hausmann &lt;hausmann@kde.org&gt;; Copyright 2000, 2001 Dirk Mueller &lt;mueller@kde.org&gt;; Copyright 2000, 2001 Peter Kelly &lt;pmk@post.com&gt;; Copyright 2000 Daniel Molkentin &lt;molkentin@kde.org&gt;; Copyright 2000 Stefan Schimanski &lt;schimmi@kde.org&gt;; Copyright 1998-2000 Netscape Communications Corporation; Copyright 1998, 1999, 2000 Thai Open Source Software Center Ltd and Clark Cooper; Copyright 2001, 2002 Expat maintainers.</string>
+	<string>1.2.2, Copyright 2004 Apple Computer, Inc.; Copyright 1997 Martin Jones &lt;mjones@kde.org&gt;; Copyright 1998, 1999 Torben Weis &lt;weis@kde.org&gt;; Copyright 1998, 1999, 2002 Waldo Bastian &lt;bastian@kde.org&gt;; Copyright 1998-2000 Lars Knoll &lt;knoll@kde.org&gt;; Copyright 1999, 2001 Antti Koivisto &lt;koivisto@kde.org&gt;; Copyright 1999-2001 Harri Porten &lt;porten@kde.org&gt;; Copyright 2000 Simon Hausmann &lt;hausmann@kde.org&gt;; Copyright 2000, 2001 Dirk Mueller &lt;mueller@kde.org&gt;; Copyright 2000, 2001 Peter Kelly &lt;pmk@post.com&gt;; Copyright 2000 Daniel Molkentin &lt;molkentin@kde.org&gt;; Copyright 2000 Stefan Schimanski &lt;schimmi@kde.org&gt;; Copyright 1998-2000 Netscape Communications Corporation; Copyright 1998, 1999, 2000 Thai Open Source Software Center Ltd and Clark Cooper; Copyright 2001, 2002 Expat maintainers.</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.WebCore</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -188,9 +194,9 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2</string>
+	<string>1.2.2</string>
 	<key>CFBundleVersion</key>
-	<string>125</string>
+	<string>125.6.4</string>
 </dict>
 </plist>
 ";
@@ -524,7 +530,6 @@
 		0867D69EFE84028FC02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
-				089C1668FE841158C02AAC07,
 				F5A1B04A02DE8ABA018635CA,
 				F5A1B05402DE8B46018635CA,
 				BC8F629A0405F45600A80004,
@@ -539,6 +544,7 @@
 				84C0FA38052B966D000440A1,
 				84C0FA39052B966D000440A1,
 				84C0FA3A052B966D000440A1,
+				99356E260630D9C000F78775,
 			);
 			isa = PBXResourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -803,8 +809,8 @@
 		};
 		089C1665FE841158C02AAC07 = {
 			children = (
+				99356E240630D9BF00F78775,
 				84C0FA1E052B9652000440A1,
-				089C1666FE841158C02AAC07,
 				F5A1B05302DE8B46018635CA,
 				BC8F62990405F45600A80004,
 			);
@@ -813,36 +819,30 @@
 			refType = 4;
 			sourceTree = "<group>";
 		};
-		089C1666FE841158C02AAC07 = {
-			children = (
-				089C1667FE841158C02AAC07,
-			);
-			isa = PBXVariantGroup;
-			name = InfoPlist.strings;
-			path = "";
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		089C1667FE841158C02AAC07 = {
-			fileEncoding = 10;
-			isa = PBXFileReference;
-			lastKnownFileType = text.plist.strings;
-			name = English;
-			path = English.lproj/InfoPlist.strings;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		089C1668FE841158C02AAC07 = {
-			fileRef = 089C1666FE841158C02AAC07;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 //080
 //081
 //082
 //083
 //084
+//250
+//251
+//252
+//253
+//254
+		255AF6590250FC030ECA149E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ -f ../Tools/Scripts/embed-into-alex ]; then sh ../Tools/Scripts/embed-into-alex; fi";
+		};
+//250
+//251
+//252
+//253
+//254
 //350
 //351
 //352
@@ -2051,6 +2051,41 @@
 //932
 //933
 //934
+//990
+//991
+//992
+//993
+//994
+		99356E240630D9BF00F78775 = {
+			children = (
+				99356E250630D9BF00F78775,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			path = "";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		99356E250630D9BF00F78775 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
+			name = English;
+			path = English.lproj/InfoPlist.strings;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		99356E260630D9C000F78775 = {
+			fileRef = 99356E240630D9BF00F78775;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//990
+//991
+//992
+//993
+//994
 //BC0
 //BC1
 //BC2
@@ -9724,6 +9759,8 @@
 				COPY_PHASE_STRIP = NO;
 				DEBUG_CFLAGS = "";
 				EXPORTED_SYMBOLS_FILE = WebCore.exp;
+				INSTALL_PATH = "@executable_path/../Frameworks";
+				OTHER_LDFLAGS = "-seg1addr $(LOCAL_SEG1_ADDR)";
 			};
 			isa = PBXBuildStyle;
 			name = OptimizedWithSymbols;
@@ -9986,7 +10023,7 @@
 		F8216299029F4FB501000131 = {
 			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
-			lastKnownFileType = wrapper.framework;
+			lastKnownFileType = file;
 			path = JavaScriptCore.framework;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;

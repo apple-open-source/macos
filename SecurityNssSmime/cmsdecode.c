@@ -650,8 +650,9 @@ SecCmsDecoderCancel(SecCmsDecoderContext *p7dcx)
 {
     /* XXXX what about inner decoders? running digests? decryption? */
     /* XXXX there's a leak here! */
+    if (p7dcx->dcx)
+        SEC_ASN1DecoderFinish(p7dcx->dcx);
     SecCmsMessageDestroy(p7dcx->cmsg);
-    (void)SEC_ASN1DecoderFinish(p7dcx->dcx);
     PORT_Free(p7dcx);
 }
 

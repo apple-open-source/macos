@@ -81,8 +81,8 @@ private:
 
 	void Event (Listener::Domain domain, Listener::Event whichEvent, NameValueDictionary &dictionary);
 	
-	static void AlertClients( SecKeychainEvent inEvent, pid_t inPid,
-		const Keychain& inKeychain, const Item &inItem);
+	static void AlertClients(const list<CallbackInfo> &eventCallbacks, SecKeychainEvent inEvent, pid_t inPid,
+							 const Keychain& inKeychain, const Item &inItem);
 
 	list<CallbackInfo> 		mEventCallbacks;
 	static CCallbackMgr* 	mCCallbackMgr;

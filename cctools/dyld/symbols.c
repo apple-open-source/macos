@@ -167,6 +167,9 @@ static void relocate_symbol_pointers(
     unsigned long value,
     enum bool only_lazy_pointers);
 
+static void resolve_non_lazy_symbol_pointers_in_image(
+    struct image *image);
+
 static enum bool check_libraries_for_definition_and_refernce(
     char *symbol_name,
     struct library_image *library_image);
@@ -799,15 +802,24 @@ enum bool flat_reference)
     struct symbol_list *undefined;
     struct symbol_list *new;
 
-	for(undefined = undefined_list.next;
-	    undefined != &undefined_list;
-	    undefined = undefined->next){
-	    if(undefined->name == name){
-		if(bind_fully == TRUE)
-		    undefined->bind_fully = bind_fully;
-		if(flat_reference == TRUE)
-		    undefined->flat_reference = flat_reference;
-		return;
+	/*
+	 * This loop is very time consuming. So it is only now done when the
+	 * this is a flat_reference which improves the performance of the
+	 * default two-level namespace cases.  So two-level references from the
+	 * same image (undefined->name == name) will be put on the undefined
+	 * list more than once.
+	 */
+	if(flat_reference == TRUE){
+	    for(undefined = undefined_list.next;
+		undefined != &undefined_list;
+		undefined = undefined->next){
+		if(undefined->name == name){
+		    if(bind_fully == TRUE)
+			undefined->bind_fully = bind_fully;
+		    if(flat_reference == TRUE)
+			undefined->flat_reference = flat_reference;
+		    return;
+		}
 	    }
 	}
 
@@ -1461,37 +1473,6 @@ enum bool launching_with_prebound_libraries)
 	 */
 	if(force_flat_namespace == FALSE &&
 	   (image->mh->flags & MH_TWOLEVEL) == MH_TWOLEVEL){
-	    /*
-	     * If this image has global coalesced symbols they must be added to
-	     * the being linked list even though it is defined in this module
-	     * because all references to coalesced symbols are done indirectly
-	     * and the indirect symbol pointers must get filled in.
-	     */
-	    if(image->has_coalesced_sections == TRUE){
-		for(i = dylib_module->iextdefsym;
-		    i < dylib_module->iextdefsym + dylib_module->nextdefsym;
-		    i++){
-
-		    if(is_symbol_coalesced(image, symbols + i) == TRUE){
-			/* check being_linked_list of symbols */
-			found = FALSE;
-			for(being_linked = being_linked_list.next;
-			    being_linked != &being_linked_list;
-			    being_linked = being_linked->next){
-			    if(being_linked->symbol == prev_symbol){
-				found = TRUE;
-				break;
-			    }
-			}
-			if(found == FALSE){
-			    symbol_name = strings + symbols[i].n_un.n_strx;
-			    add_to_being_linked_list(symbol_name,
-						     symbols + i, image,
-						     flat_reference);
-			}
-		    }
-		}
-	    }
 	    goto add_undefineds;
 	}
 
@@ -1743,6 +1724,14 @@ add_undefineds:
 	    SET_FULLYBOUND_STATE(*module);
 
 	/*
+	 * If either bind_fully or bind_now is TRUE then set the field
+	 * some_modules_being_bound_fully to TRUE for the image this symbol is
+	 * in so that all of the needed symbol pointers in the image are set.
+	 */
+	if(bind_fully == TRUE || bind_now == TRUE)
+	    image->some_modules_being_bound_fully = TRUE;
+
+	/*
 	 * If this module makes references to private symbols in this library
 	 * make sure they are linked in to the level needed.
 	 */
@@ -1876,6 +1865,16 @@ enum bool bind_fully)
 	    flat_reference = (image->mh->flags & MH_TWOLEVEL) != MH_TWOLEVEL;
 	else
 	    flat_reference = TRUE;
+
+	/*
+	 * If this is a two-level reference it is just added to the undefined
+	 * list.
+	 */
+	if(flat_reference == FALSE){
+	    add_to_undefined_list(symbol_name, symbol, image, bind_fully,
+				  flat_reference);
+	    return;
+	}
 	/*
 	 * Lookup the symbol to see if it is defined in an already linked (or
 	 * being linked) module.
@@ -2343,6 +2342,14 @@ add_undefineds:
 	 */
 	if(bind_fully == TRUE)
 	    SET_FULLYBOUND_STATE(object_image->module);
+
+	/*
+	 * If either bind_fully or bind_now is TRUE then set the field
+	 * some_modules_being_bound_fully to TRUE for the image this symbol is
+	 * in so that all of the needed symbol pointers in the image are set.
+	 */
+	if(bind_fully == TRUE || bind_now == TRUE)
+	    object_image->image.some_modules_being_bound_fully = TRUE;
 
 	return(TRUE);
 }
@@ -3754,6 +3761,22 @@ struct image *image)
 	if(linkedit_segment == NULL || st == NULL || dyst == NULL)
 	    return;
 
+	/*
+	 * If we are not forcing flat namespace and this is a two-level object
+	 * image other than an MH_BUNDLE (that is the executable, MH_EXECUTE) we
+	 * now just bind ALL the non-lazy symbol pointers.  To support zerolink
+	 * MH_BUNDLE files need to go through this code to allow the undefined
+	 * symbols to be placed on the undefined list and be resolved by the
+	 * handler.
+	 */
+	if(force_flat_namespace == FALSE && 
+	   (image->mh->flags & MH_TWOLEVEL) == MH_TWOLEVEL &&
+	   image->mh->filetype != MH_BUNDLE &&
+	   image->some_modules_being_bound_fully == FALSE){
+	    if(image->non_lazy_symbol_pointers_resolved == FALSE) 
+		resolve_non_lazy_symbol_pointers_in_image(image);
+	    return;
+	}
 	symbols = (struct nlist *)
 	    (image->vmaddr_slide +
 	     linkedit_segment->vmaddr +
@@ -3883,13 +3906,13 @@ struct image *image)
 }
 
 /*
- * resolve_non_lazy_symbol_pointers_in_object_image() walks through the indirect
+ * resolve_non_lazy_symbol_pointers_in_image() walks through the indirect
  * symbol table entries of non-lazy sections and sets all non-lazy pointers.
  */
 static
 void
-resolve_non_lazy_symbol_pointers_in_object_image(
-struct object_image *object_image)
+resolve_non_lazy_symbol_pointers_in_image(
+struct image *image)
 {
     unsigned long i, j, k, section_type, size, vmaddr_slide, reserved1, addr;
     struct load_command *lc;
@@ -3903,15 +3926,20 @@ struct object_image *object_image)
 
     char *symbol_name, *strings;
     unsigned long symbol_index, indirect_symtab_count;
-    unsigned long value;
+    unsigned long value, *non_lazy_symbol_pointer_addr;
     struct nlist *defined_symbol;
     module_state *defined_module;
     struct image *defined_image;
     struct library_image *defined_library_image;
+    enum bool skip_symbol_index_zero, found;
+    enum bool checked_for_symbol_index_zero_being_linked;
+    struct symbol_list *being_linked;
 
-	linkedit_segment = object_image->image.linkedit_segment;
-	st = object_image->image.st;
-	dyst = object_image->image.dyst;
+	skip_symbol_index_zero = FALSE;
+	checked_for_symbol_index_zero_being_linked = FALSE;
+	linkedit_segment = image->linkedit_segment;
+	st = image->st;
+	dyst = image->dyst;
 	/*
 	 * Object images could be loaded that do not have the proper
 	 * link edit information.
@@ -3920,17 +3948,17 @@ struct object_image *object_image)
 	    return;
 
 	symbols = (struct nlist *)
-	    (object_image->image.vmaddr_slide +
+	    (image->vmaddr_slide +
 	     linkedit_segment->vmaddr +
 	     st->symoff -
 	     linkedit_segment->fileoff);
 	strings = (char *)
-	    (object_image->image.vmaddr_slide +
+	    (image->vmaddr_slide +
 	     linkedit_segment->vmaddr +
 	     st->stroff -
 	     linkedit_segment->fileoff);
 	indirect_symtab = (unsigned long *)
-	    (object_image->image.vmaddr_slide +
+	    (image->vmaddr_slide +
 	     linkedit_segment->vmaddr +
 	     dyst->indirectsymoff -
 	     linkedit_segment->fileoff);
@@ -3940,10 +3968,10 @@ struct object_image *object_image)
 	 * Then for each section walk the indirect table entries and set the
 	 * the symbol pointer to the symbol's value.
 	 */
-	lc = (struct load_command *)((char *)object_image->image.mh +
+	lc = (struct load_command *)((char *)image->mh +
 				     sizeof(struct mach_header));
-        vmaddr_slide = object_image->image.vmaddr_slide;
-	for(i = 0; i < object_image->image.mh->ncmds; i++){
+        vmaddr_slide = image->vmaddr_slide;
+	for(i = 0; i < image->mh->ncmds; i++){
 	    switch(lc->cmd){
 	    case LC_SEGMENT:
 		sg = (struct segment_command *)lc;
@@ -3966,17 +3994,96 @@ struct object_image *object_image)
 			    if(symbol_index == INDIRECT_SYMBOL_ABS ||
 			       symbol_index == INDIRECT_SYMBOL_LOCAL)
 				continue;
+
+			    /*
+			     * There is bug a in some versions of Apple's ld(1)
+			     * when -s was used to build an executable where it
+			     * did not correctly set the symbol_index of
+			     * indirect symbols to INDIRECT_SYMBOL_LOCAL or
+			     * INDIRECT_SYMBOL_ABS correctly.  It left the
+			     * symbol_index value zero. Unfortunately this is a
+			     * valid symbol index.  So if what was really a
+			     * symbol pointer for INDIRECT_SYMBOL_LOCAL or
+			     * INDIRECT_SYMBOL_ABS is set to the value of the
+			     * symbol at index 0 and will be wrong.
+			     *
+			     * Now that this routine can be called for the
+			     * executable this shows up this problem. Previously
+			     * this problem was avoided because only symbols
+			     * on the being_linked_list every had there non-lazy
+			     * symbol pointers set.
+			     *
+			     * So to match the previously behavior we skip
+			     * setting non-lazy symbol pointers with index 0
+			     * in the executable if the symbol at index 0 is not
+			     * on the being_linked_list.
+ 			     *
+			     * Note: for defined symbols Apple's ld(1) always
+			     * sets the non-lazy pointers to the symbol's value.
+			     * And since the executable never gets slid any
+			     * symbol index for a defined symbol can skip and
+			     * the value in the non-lazy pointer left unchanged.
+			     */
+			    if(symbol_index == 0 &&
+			       skip_symbol_index_zero == TRUE)
+				continue;
+
 			    symbol = symbols + symbol_index;
 			    symbol_name = strings + symbol->n_un.n_strx;
-			    lookup_symbol(symbol_name, NULL, NULL,
+
+			    if(image == &(object_images.images[0].image) &&
+			       symbol_index == 0 &&
+			       checked_for_symbol_index_zero_being_linked ==
+			       FALSE){
+				/* check being_linked_list of symbols */
+				checked_for_symbol_index_zero_being_linked =
+				    TRUE;
+				found = FALSE;
+				for(being_linked = being_linked_list.next;
+				    being_linked != &being_linked_list;
+				    being_linked = being_linked->next){
+				    if(being_linked->image != image &&
+				       being_linked->name == symbol_name){
+					found = TRUE;
+					break;
+				    }
+				}
+				if(found == FALSE){
+				    skip_symbol_index_zero = TRUE;
+				    continue;
+				}
+			    }
+
+			    lookup_symbol(symbol_name,
+				get_primary_image(image, symbol),
+				get_hint(image, symbol),
 				get_weak(symbol), &defined_symbol,
 				&defined_module, &defined_image,
 				&defined_library_image, NULL);
+			    /*
+			     * It is possible that this is an unused non-lazy
+			     * pointer that is undefined.  If so we would crash
+			     * here if we tried to use defined_symbol->n_value
+			     * as lookup_symbol() would have set defined_symbol
+			     * to NULL.  Since this symbol should be unused just
+			     * continue and don't set this non-lazy pointer.
+			     */
+			    if(defined_symbol == NULL)
+				continue;
+
 			    value = defined_symbol->n_value;
 			    if((defined_symbol->n_type & N_TYPE) != N_ABS)
 				value += defined_image->vmaddr_slide;
-			    *((unsigned long *)(vmaddr_slide + addr +
-						(k * sizeof(long)))) = value;
+                            non_lazy_symbol_pointer_addr = (unsigned long *)
+				(vmaddr_slide + addr + (k * sizeof(long)));
+			    
+			    /*
+			     * This check avoids dirtying the page and keeps
+			     * pages clean for prebound libraries that have the
+			     * correct values.
+			     */
+                            if(*non_lazy_symbol_pointer_addr != value)
+				*non_lazy_symbol_pointer_addr = value;
 			}
 		    }
 		    s++;
@@ -3984,6 +4091,7 @@ struct object_image *object_image)
 	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
 	}
+	image->non_lazy_symbol_pointers_resolved = TRUE;
 }
 
 /*
@@ -4015,6 +4123,27 @@ struct image *image)
     struct image *primary_image;
     unsigned long i;
     enum bool match;
+
+	/*
+	 * If we are not forcing flat namespace and this is a two-level library
+	 * image we now just bind ALL the non-lazy symbol pointers.  Except if
+	 * some modules in the image are being fully bound then we need to drop
+	 * though and cause both the lazy and non-lazy symbol pointers to be
+	 * set for the symbols being linked.
+	 */
+	if(force_flat_namespace == FALSE && 
+	   (image->mh->flags & MH_TWOLEVEL) == MH_TWOLEVEL && 
+	   image->some_modules_being_bound_fully == FALSE){
+	    if(image->non_lazy_symbol_pointers_resolved == FALSE) 
+		resolve_non_lazy_symbol_pointers_in_image(image);
+	    return;
+	}
+	/*
+	 * Clear this so if other modules in this library are bound later and
+	 * they are not being bound fully, it allows this library only to have
+	 * its non-lazy symbol pointers set later.
+	 */
+        image->some_modules_being_bound_fully = FALSE;
 
 	linkedit_segment = image->linkedit_segment;
 	st = image->st;
@@ -4897,8 +5026,8 @@ struct object_image *reloc_just_this_object_image)
 	     */
 	}
 	else{
-	    resolve_non_lazy_symbol_pointers_in_object_image(
-		reloc_just_this_object_image);
+	    resolve_non_lazy_symbol_pointers_in_image(
+		&reloc_just_this_object_image->image);
 	    resolve_external_relocations_in_object_image(
 		reloc_just_this_object_image);
 	}

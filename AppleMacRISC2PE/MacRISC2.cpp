@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -104,9 +101,12 @@ bool MacRISC2PE::start(IOService *provider)
     if (tmpData == 0) return false;
     macRISC2Speed[0] = *(unsigned long *)tmpData->getBytesNoCopy();
     
-    // If this machine is a P99, P84, Q16, Q41, or Q54, it has a platform monitor, which we'll load later in this function
-    hasPMon = (!strcmp (provider_name, "PowerBook6,1")) || (!strcmp (provider_name, "PowerBook5,1")) || (!strcmp (provider_name, "PowerBook5,2")) || (!strcmp (provider_name, "PowerBook5,3")) || (!strcmp (provider_name, "PowerBook6,2"));
-   	
+    // If this machine is a P99, P84, P72D, Q16, Q41, or Q54, it has a platform monitor, which we'll load later in this function
+    hasPMon = (!strcmp (provider_name, "PowerBook6,1")) || (!strcmp (provider_name, "PowerBook5,1")) || (!strcmp (provider_name, "PowerBook5,2")) || (!strcmp (provider_name, "PowerBook5,3")) || (!strcmp (provider_name, "PowerBook6,2")) || (!strcmp (provider_name, "PowerBook6,3"));
+    
+    if (!hasPMon)
+        hasPMon = (!strcmp (provider_name, "PowerBook6,4")) || (!strcmp (provider_name, "PowerBook6,5")) || (!strcmp (provider_name, "PowerBook5,4")) || (!strcmp (provider_name, "PowerBook5,5"));
+        
 	// get uni-N version for use by platformAdjustService
 	uniNRegEntry = provider->childFromPath("uni-n", gIODTPlane);
 	if (uniNRegEntry == 0) return false;
@@ -160,8 +160,16 @@ bool MacRISC2PE::start(IOService *provider)
 					// Look for dynamic power step feature
 					stepTypeData = OSDynamicCast( OSData, powerPCEntry->getProperty( "dynamic-power-step" ));
 					if (stepTypeData)
+                                        {
 						processorSpeedChangeFlags = kProcessorBasedSpeedChange | kProcessorFast | 
 							kL3CacheEnabled | kL2CacheEnabled;
+                                                        
+                                                stepTypeData = OSDynamicCast( OSData, powerPCEntry->getProperty( "has-bus-slewing" ));
+                                                if (stepTypeData)
+                                                {
+                                                    processorSpeedChangeFlags |= kBusSlewBasedSpeedChange;
+                                                }
+                                        }
 					else {	// Look for forced-reduced-speed case
 						stepTypeData = OSDynamicCast( OSData, powerPCEntry->getProperty( "force-reduced-speed" ));
 						cpuSpeedData = OSDynamicCast( OSData, powerPCEntry->getProperty( "max-clock-frequency" ));
@@ -269,10 +277,16 @@ bool MacRISC2PE::start(IOService *provider)
 			nameValueData = OSData::withBytes(tmpName, strlen(tmpName)+1);
 			dict->setObject (nameKey, nameValueData);
 			compatKey = OSSymbol::withCStringNoCopy("compatible");
-                        if ((!strcmp(provider_name, "PowerBook5,2")) || 	// Q16
-                            (!strcmp(provider_name, "PowerBook5,3")) || 	// Q41
-                            (!strcmp(provider_name, "PowerBook6,2"))) { 	// P54
+                        if ((!strcmp(provider_name, "PowerBook5,2")) ||
+                            (!strcmp(provider_name, "PowerBook5,3")) ||
+                            (!strcmp(provider_name, "PowerBook6,2")) ||
+                            (!strcmp(provider_name, "PowerBook6,3"))) {
                             strcpy (tmpCompat, "Portable2003");
+                        } else if ((!strcmp(provider_name, "PowerBook5,4")) ||
+                            (!strcmp(provider_name, "PowerBook5,5")) ||
+                            (!strcmp(provider_name, "PowerBook6,4")) ||
+                            (!strcmp(provider_name, "PowerBook6,5"))) {
+                            strcpy (tmpCompat, "Portable2004");
                         } else {
                             strcpy (tmpCompat, provider_name);
                         }
@@ -688,6 +702,16 @@ bool MacRISC2PE::platformAdjustService(IOService *service)
 
 			// return true;             // handled by the default 'return true' at the bottom of the routine
 		}
+	}
+
+	// [3583001] P62 clock drift - add a special flag to eMac's i2c-hwclock nodes. The
+	// AppleEMacClock driver loads early (OSBundleRequired = Root) and looks for this.
+	// This is really only necessary on P62, but P86 has the same model property. It will
+	// not have a detrimental effect on P86.
+	if ( ( strcmp( "i2c-hwclock", service->getName() ) == 0 ) &&
+	     ( strcmp( "PowerMac4,4"  , provider_name      ) == 0 ) )    // UniNorth/KeyLargo-based eMacs P62,P86
+	{
+		service->setProperty( "emac-clock", true );
 	}
 
 	return true;

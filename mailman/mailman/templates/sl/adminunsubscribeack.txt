@@ -1,0 +1,1 @@
+%(member)s je bilo odjavljenih z %(listname)s.

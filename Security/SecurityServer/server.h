@@ -36,6 +36,7 @@
 #include "xdatabase.h"
 #include "authority.h"
 #include <map>
+#include "ccaudit.h"
 
 #define EQUIVALENCEDBPATH "/var/db/CodeEquivalenceDatabase"
 
@@ -81,8 +82,8 @@ public:
 		connectNewThread
 	};
 	void setupConnection(ConnectLevel type, Port servicePort, Port replyPort, Port taskPort,
-        const security_token_t &securityToken,
-		const ClientSetupInfo *info = NULL, const char *executablePath = NULL);
+        const audit_token_t &auditToken, 
+	const ClientSetupInfo *info = NULL, const char *executablePath = NULL);
 		
 	void endConnection(Port replyPort);
 	
@@ -103,7 +104,9 @@ private:
         void systemWillSleep();
     };
     SleepWatcher sleepWatcher;
-	
+
+    void initAudit(void);
+
 private:
 	Mutex lock;					// master lock
 	
@@ -131,6 +134,9 @@ private:
     
 	Authority &mAuthority;
 	CodeSignatures &mCodeSignatures;
+
+    // Per-process audit initialization.  
+    CommonCriteria::AuditSession mAudit;	
 };
 
 #endif //_H_SERVER

@@ -29,6 +29,9 @@ bin/unshunt
 bin/update
 bin/version
 bin/withlist
+bin/msgfmt.py
+bin/show_qfiles
+bin/discard
 cron/bumpdigests
 cron/checkdbs
 cron/disabled

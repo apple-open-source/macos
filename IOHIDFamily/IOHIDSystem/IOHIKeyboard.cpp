@@ -121,6 +121,7 @@ bool IOHIKeyboard::init(OSDictionary * properties)
   _keyMap       = 0;
   _keyStateSize = 4*((maxKeyCodes()+(EVK_BITS_PER_UNIT-1))/EVK_BITS_PER_UNIT);
   _keyState     = (UInt32 *) IOMalloc(_keyStateSize);
+  _codeToRepeat = (unsigned)-1;
   
   _keyboardEventTarget        = 0;
   _keyboardEventAction        = 0;
@@ -128,7 +129,7 @@ bool IOHIKeyboard::init(OSDictionary * properties)
   _keyboardSpecialEventAction = 0;
   _updateEventFlagsTarget     = 0;
   _updateEventFlagsAction     = 0;
-  
+    
   if (!_deviceLock || !_keyState)  return false;
 
   bzero(_keyState, _keyStateSize);

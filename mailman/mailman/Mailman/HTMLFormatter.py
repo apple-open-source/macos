@@ -1,17 +1,17 @@
-# Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software 
+# along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 
@@ -48,7 +48,7 @@ class HTMLFormatter:
         return Container(
             '<hr>',
             Address(
-                Container( 
+                Container(
                    innertext,
                     '<br>',
                     Link(self.GetScriptURL('admin'),
@@ -85,10 +85,11 @@ class HTMLFormatter:
             concealed = ''
         items = []
         people.sort()
+        obscure = self.obscure_addresses
         for person in people:
             id = Utils.ObscureEmail(person)
-            url = self.GetOptionsURL(person)
-            if self.obscure_addresses:
+            url = self.GetOptionsURL(person, obscure=obscure)
+            if obscure:
                 showing = Utils.ObscureEmail(person, for_text=1)
             else:
                 showing = person
@@ -266,7 +267,7 @@ class HTMLFormatter:
         text += _(''' If you leave the field blank, you will be prompted for
         your email address''')
         return text
-        
+
     def RestrictedListMessage(self, which, restriction):
         if not restriction:
             return ''
@@ -377,7 +378,7 @@ class HTMLFormatter:
             listlangs = _(Utils.GetLanguageDescr(self.preferred_language))
         else:
             listlangs = self.GetLangSelectBox(lang).Format()
-        d = { 
+        d = {
             '<mm-mailman-footer>' : self.GetMailmanFooter(),
             '<mm-list-name>' : self.real_name,
             '<mm-email-user>' : self._internal_name,

@@ -65,6 +65,7 @@ typedef struct sComData
 	unsigned long		fPID;
 	unsigned long		fPort;
 	unsigned long           fIPAddress;
+	mach_msg_audit_trailer_t fTail;
 	sObject				obj[ 10 ];
 	char				data[ 1 ];
 } sComData;
@@ -86,7 +87,8 @@ typedef struct sIPCMsg
 	unsigned long		fPort;
 	sObject				obj[ 10 ];
 	char				fData[ kIPCMsgLen ];
-	mach_msg_security_trailer_t	fTail;
+	mach_msg_audit_trailer_t	fTail;	// this is the largest trailer struct 
+						// we have the bucket large enough to receive it
 } sIPCMsg;
 
 typedef enum {
@@ -216,7 +218,7 @@ int checkpw_internal( const struct passwd* pw, const char* password )
 		msg->obj[0].length = curr;
 		
 		msg->fHeader.msgh_bits			= MACH_MSGH_BITS( MACH_MSG_TYPE_COPY_SEND, MACH_MSG_TYPE_MAKE_SEND );
-		msg->fHeader.msgh_size			= sizeof( sIPCMsg ) - sizeof( mach_msg_security_trailer_t );
+		msg->fHeader.msgh_size			= sizeof( sIPCMsg ) - sizeof( mach_msg_audit_trailer_t );
 		msg->fHeader.msgh_id			= kCheckUserNameAndPassword;
 		msg->fHeader.msgh_remote_port	= serverPort;
 		msg->fHeader.msgh_local_port	= replyPort;
@@ -238,7 +240,9 @@ int checkpw_internal( const struct passwd* pw, const char* password )
 		// get reply
 		memset( msg, 0, kIPCMsgLen );
 	
-		result = mach_msg( (mach_msg_header_t *)msg, MACH_RCV_MSG | MACH_RCV_TIMEOUT,
+		result = mach_msg( (mach_msg_header_t *)msg, 
+				    MACH_RCV_MSG | MACH_RCV_TIMEOUT | 
+				    MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AUDIT) | MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0),
 							0, kIPCMsgSize, replyPort, 300 * 1000, MACH_PORT_NULL );
 
 		if ( result != MACH_MSG_SUCCESS ) {

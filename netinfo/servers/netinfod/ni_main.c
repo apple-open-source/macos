@@ -111,8 +111,6 @@ extern void dblock_catcher(void);
 
 extern void waitforparent(void);
 
-static int standalone = 0;
-
 char **Argv;	/* used to set the information displayed with ps(1) */
 int    Argc;
 

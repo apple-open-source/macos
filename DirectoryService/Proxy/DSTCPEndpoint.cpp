@@ -44,6 +44,7 @@
 #include <sys/time.h>		// for struct timeval
 
 #include <machine/byte_order.h>
+#include <mach/mach.h>		//mach_msg_audit_trailer_t
 
 #include "DSCThread.h"		// for GetCurThreadRunState()
 #include "DSTCPEndpoint.h"
@@ -563,7 +564,7 @@ uInt32 DSTCPEndpoint::WriteData ( const void *inData, const uInt32 inSize )
 			//TODO do we need a socket level timeout here ie. setsocketopt with SO_SNDTIMEO
 			do
 			{
-				rc = ::sendto(mConnectFD, aPtr, dataSize, NULL, NULL, NULL);
+				rc = ::sendto(mConnectFD, aPtr, dataSize, 0, NULL, 0);
 				if (mAborting == true)
 				{
 					throw((sInt32)kAbortedWarning);
@@ -1079,6 +1080,7 @@ uInt32 DSTCPEndpoint::DoTCPRecvFrom ( void *ioBuffer, const uInt32 inBufferSize 
 void * DSTCPEndpoint::GetClientMessage ( void )
 {
 	sComData			   *pOutMsg			= nil;
+	sComProxyData		   *pOutProxyMsg	= nil;
 	void				   *tmpOutMsg		= nil;
 	uInt32					buffLen			= 0;
 	uInt32					readBytes		= 0;
@@ -1113,27 +1115,27 @@ void * DSTCPEndpoint::GetClientMessage ( void )
 				else
 				{
 					DecryptData(inBuffer, inLength, tmpOutMsg, buffLen);
-					pOutMsg = (sComData *) tmpOutMsg;
+					pOutProxyMsg = (sComProxyData *) tmpOutMsg;
 					if (buffLen == 0)
 					{
-						pOutMsg		= (sComData *)inBuffer;
+						pOutProxyMsg= (sComProxyData *)inBuffer;
 						inBuffer 	= nil;
 						buffLen		= inLength;
 					}
-					if (pOutMsg != nil)
+					if (pOutProxyMsg != nil)
 					{
-						if (NXSwapBigLongToHost(pOutMsg->fDataSize) > buffLen - sizeof(sComData))
+						if (NXSwapBigLongToHost(pOutProxyMsg->fDataSize) > buffLen - sizeof(sComProxyData))
 						{
 							//fprintf(stderr,"bad message fDataSize!\n");
 							//let's just throw the message out since it is probably malformed
-							free(pOutMsg);
-							pOutMsg = nil;
+							free(pOutProxyMsg);
+							pOutProxyMsg = nil;
 						}
 						//else
 						//{
-							//place the endpoint handle into the pOutMsg struct
+							//place the endpoint handle into the pOutProxyMsg struct
 							//don't create a duplicate
-							//pOutMsg->fPort = (uInt32) this; //don't need this since using direct dispatch
+							//pOutProxyMsg->fPort = (uInt32) this; //don't need this since using direct dispatch
 							//KW use of this endpoint needs to be mutex protected?
 							//not likely since we force a single thread on the open API connection
 						//}
@@ -1142,10 +1144,10 @@ void * DSTCPEndpoint::GetClientMessage ( void )
 			}
 			catch( sInt32 err )
 			{
-				if (pOutMsg != nil)
+				if (pOutProxyMsg != nil)
 				{
-					free(pOutMsg);
-					pOutMsg = nil;
+					free(pOutProxyMsg);
+					pOutProxyMsg = nil;
 				}
 				siResult = eDSTCPReceiveError; //not actually used
 			}
@@ -1154,9 +1156,15 @@ void * DSTCPEndpoint::GetClientMessage ( void )
 		}//if (inBuffer != nil)
 	}
 	
-	DSTCPEndian swapper(pOutMsg, DSTCPEndian::kSwapToHost);
+	DSTCPEndian swapper(pOutProxyMsg, DSTCPEndian::kSwapToHost);
     swapper.SwapMessage();
     
+	pOutMsg = AllocFromProxyStruct( pOutProxyMsg );
+	if (pOutProxyMsg != nil)
+	{
+		free(pOutProxyMsg);
+		pOutProxyMsg = nil;
+	}
     return( pOutMsg );
 
 } // GetClientMessage
@@ -1310,12 +1318,20 @@ sInt32 DSTCPEndpoint::SyncToMessageBody(const Boolean inStripLeadZeroes, uInt32 
 
 sInt32 DSTCPEndpoint::SendClientReply ( void *inMsg )
 {
-	uInt32 messageSize = sizeof(sComData) + ((sComData *)inMsg)->fDataLength;
+	uInt32			messageSize = 0;
+	sComProxyData  *inProxyMsg  = nil;
+	sInt32			sendResult  = eDSNoErr;
+	
+	inProxyMsg = AllocToProxyStruct( (sComData *)inMsg );
 	//let us only send the data that is present and not the entire buffer
-	((sComData *)inMsg)->fDataSize = ((sComData *)inMsg)->fDataLength;
-	DSTCPEndian swapper((sComData *)inMsg, DSTCPEndian::kSwapToBig);
+	inProxyMsg->fDataSize = inProxyMsg->fDataLength;
+	messageSize = sizeof(sComProxyData) + inProxyMsg->fDataLength;
+	DSTCPEndian swapper(inProxyMsg, DSTCPEndian::kSwapToBig);
     swapper.SwapMessage();
-    return SendBuffer(inMsg, messageSize);
+    sendResult = SendBuffer(inProxyMsg, messageSize);
+	free(inProxyMsg);
+	inProxyMsg = nil;
+	return(sendResult);
 } // SendClientReply
 
 
@@ -1326,12 +1342,20 @@ sInt32 DSTCPEndpoint::SendClientReply ( void *inMsg )
 
 sInt32 DSTCPEndpoint::SendServerMessage ( void *inMsg )
 {
-	uInt32 messageSize = sizeof(sComData) + ((sComData *)inMsg)->fDataLength;
+	uInt32			messageSize = 0;
+	sComProxyData  *inProxyMsg  = nil;
+	sInt32			sendResult  = eDSNoErr;
+
+	inProxyMsg = AllocToProxyStruct( (sComData *)inMsg );
 	//let us only send the data that is present and not the entire buffer
-	((sComData *)inMsg)->fDataSize = ((sComData *)inMsg)->fDataLength;
-	DSTCPEndian swapper((sComData *)inMsg, DSTCPEndian::kSwapToBig);
+	inProxyMsg->fDataSize = inProxyMsg->fDataLength;
+	messageSize = sizeof(sComProxyData) + inProxyMsg->fDataLength;
+	DSTCPEndian swapper(inProxyMsg, DSTCPEndian::kSwapToBig);
     swapper.SwapMessage();
-    return SendBuffer(inMsg, messageSize);
+    sendResult = SendBuffer(inProxyMsg, messageSize);
+	free(inProxyMsg);
+	inProxyMsg = nil;
+	return(sendResult);
 } // SendServerMessage
 
 
@@ -1425,6 +1449,7 @@ sInt32 DSTCPEndpoint::GetServerReply ( sComData **outMsg )
 	uInt32					readBytes 		= 0;
 	void				   *inBuffer		= nil;
 	uInt32					inLength		= 0;
+	sComProxyData		   *outProxyMsg		= nil;
 
 	//need to read a tag and then a buffer length
 	siResult = SyncToMessageBody(true, &inLength);
@@ -1447,11 +1472,11 @@ sInt32 DSTCPEndpoint::GetServerReply ( sComData **outMsg )
 			{
 				void *tmpOutMsg = nil;
 				DecryptData(inBuffer, inLength, tmpOutMsg, buffLen);
-				*outMsg = (sComData *)tmpOutMsg;
+				outProxyMsg = (sComProxyData *)tmpOutMsg;
 				if (buffLen == 0)
 				{
-					free(*outMsg);
-					*outMsg		= (sComData *)inBuffer;
+					free(outProxyMsg);
+					outProxyMsg = (sComProxyData *)inBuffer;
 					inBuffer	= nil;
 					buffLen		= inLength;
 				}
@@ -1469,10 +1494,13 @@ sInt32 DSTCPEndpoint::GetServerReply ( sComData **outMsg )
 		inBuffer = nil;
 	}
 	
-    if (*outMsg != nil)
+    if (outProxyMsg != nil)
     {
-        DSTCPEndian swapper(*outMsg, DSTCPEndian::kSwapToHost);
+        DSTCPEndian swapper(outProxyMsg, DSTCPEndian::kSwapToHost);
         swapper.SwapMessage();
+		*outMsg = AllocFromProxyStruct( outProxyMsg );
+		free(outProxyMsg);
+		outProxyMsg = nil;
     }
 
 	return( siResult );
@@ -1498,4 +1526,61 @@ uInt32 DSTCPEndpoint::GetRemoteHostIPAddress ( void )
 uInt16 DSTCPEndpoint::GetRemoteHostPort ( void )
 {
 	return ( ntohs( mRemoteSockAddr.sin_port ) );
+}
+
+//------------------------------------------------------------------------------
+//	* AllocToProxyStruct
+//
+//------------------------------------------------------------------------------
+
+sComProxyData* DSTCPEndpoint::AllocToProxyStruct ( sComData *inDataMsg )
+{
+	sComProxyData      *outProxyDataMsg = nil;
+	uInt32				objIndex		= 0;
+	
+	if (inDataMsg != nil)
+	{
+		outProxyDataMsg = (sComProxyData *)calloc( 1, sizeof(sComProxyData) + inDataMsg->fDataSize );
+		memcpy(outProxyDataMsg, inDataMsg, sizeof(sComProxyData) - kObjSize - sizeof(char));
+		memcpy( outProxyDataMsg->obj, inDataMsg->obj, kObjSize + inDataMsg->fDataSize );
+		//need to adjust the offsets since they are relative to the start of the message
+		for ( objIndex = 0; objIndex < 10; objIndex++ )
+		{
+			if ( outProxyDataMsg->obj[ objIndex ].offset != 0 )
+			{
+				outProxyDataMsg->obj[ objIndex ].offset -= sizeof(mach_msg_audit_trailer_t);
+			}
+		}
+	}
+
+	return ( outProxyDataMsg );
+}
+
+//------------------------------------------------------------------------------
+//	* AllocFromProxyStruct
+//
+//------------------------------------------------------------------------------
+
+sComData* DSTCPEndpoint::AllocFromProxyStruct ( sComProxyData *inProxyDataMsg )
+{
+	sComData		   *outDataMsg		= nil;
+	uInt32				objIndex		= 0;
+	
+	if (inProxyDataMsg != nil)
+	{
+		outDataMsg = (sComData *)calloc( 1, sizeof(sComData) + inProxyDataMsg->fDataSize );
+		memcpy(outDataMsg, inProxyDataMsg, sizeof(sComProxyData) - kObjSize - sizeof(char));
+		//outDataMsg->fTail should be all zeros due to calloc above
+		memcpy( outDataMsg->obj, inProxyDataMsg->obj, kObjSize + inProxyDataMsg->fDataSize );
+		//need to adjust the offsets since they are relative to the start of the message
+		for ( objIndex = 0; objIndex < 10; objIndex++ )
+		{
+			if ( outDataMsg->obj[ objIndex ].offset != 0 )
+			{
+				outDataMsg->obj[ objIndex ].offset += sizeof(mach_msg_audit_trailer_t);
+			}
+		}
+	}
+	
+	return ( outDataMsg );
 }

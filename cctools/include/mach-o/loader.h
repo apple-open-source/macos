@@ -128,6 +128,16 @@ struct mach_header {
 #define MH_NOFIXPREBINDING 0x400	/* do not have dyld notify the
 					   prebinding agent about this
 					   executable */
+#define MH_PREBINDABLE  0x800           /* the binary is not prebound but can
+					   have its prebinding redone. only used
+                                           when MH_PREBOUND is not set. */
+#define MH_ALLMODSBOUND 0x1000		/* indicates that this binary binds to
+                                           all two-level namespace modules of
+					   its dependent libraries. only used
+					   when MH_PREBINDABLE and MH_TWOLEVEL
+					   are both set. */ 
+#define MH_CANONICAL    0x4000		/* the binary has been canonicalized
+					   via the unprebind operation */
 /*
  * The load commands directly follow the mach_header.  The total size of all
  * of the commands is given by the sizeofcmds field in the mach_header.  All

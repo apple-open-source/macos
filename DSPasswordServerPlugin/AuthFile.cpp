@@ -176,10 +176,8 @@ void PWGlobalAccessFeaturesToString( PWGlobalAccessFeatures *inAccessFeatures, c
 void PWAccessFeaturesToString( PWAccessFeatures *inAccessFeatures, char *outString )
 {
     char temp1Str[256];
-    char temp2Str[256];
-    char temp3Str[256];
-    char temp4Str[512];
-	int historyValue = 0;
+    char temp2Str[2048];
+    char temp3Str[64];
 	
     if ( outString == NULL || inAccessFeatures == NULL )
         throw(-1);
@@ -187,8 +185,109 @@ void PWAccessFeaturesToString( PWAccessFeatures *inAccessFeatures, char *outStri
     // Boolean values are stored in the struct as single bits. They must be unsigned for
     // display.
     
+    snprintf( temp1Str, sizeof(temp1Str), "%s=%d %s=%d %s=%d ",
+                kPWPolicyStr_isDisabled, (inAccessFeatures->isDisabled != 0),
+                kPWPolicyStr_isAdminUser, (inAccessFeatures->isAdminUser != 0),
+                kPWPolicyStr_newPasswordRequired, (inAccessFeatures->newPasswordRequired != 0) );
+    
+	PWAccessFeaturesToStringWithoutStateInfo( inAccessFeatures, temp2Str );
+	
+	snprintf( temp3Str, sizeof(temp3Str), " %s=%d",
+				kPWPolicyStr_isSessionKeyAgent, (inAccessFeatures->isSessionKeyAgent != 0) );
+    
+    strcpy( outString, temp1Str );
+    strcat( outString, temp2Str );
+    strcat( outString, temp3Str );
+}
+
+
+//------------------------------------------------------------------------------------------------
+//	PWActualAccessFeaturesToString
+//
+//	Prepares the PWAccessFeatures struct and PWGlobalAccessFeatures defaults for transmission
+//	over our text-based protocol
+//------------------------------------------------------------------------------------------------
+
+void PWActualAccessFeaturesToString( PWGlobalAccessFeatures *inGAccessFeatures, PWAccessFeatures *inAccessFeatures, char *outString )
+{
+	int historyValue = 0;
+	int usingExpirationDate;
+    int usingHardExpirationDate;
+    int requiresAlpha;
+    int requiresNumeric;
+	int passwordCannotBeName;
+	UInt32 maxMinutesUntilChangePassword;
+    UInt32 maxMinutesUntilDisabled;
+    UInt32 maxMinutesOfNonUse;
+    UInt16 maxFailedLoginAttempts;
+    UInt16 minChars;
+    UInt16 maxChars;
+	
+	// TODO: get the actual time values for expiration dates
+	
+	char temp1Str[256];
+    char temp2Str[256];
+    char temp3Str[256];
+    char temp4Str[512];
+	
+    if ( outString == NULL || inAccessFeatures == NULL )
+        throw(-1);
+
+	// get values for policies that can be in either the user record
+	// or the global record
+	usingExpirationDate = (inAccessFeatures->usingExpirationDate != 0);
+	if ( usingExpirationDate == 0 )
+		usingExpirationDate = (inGAccessFeatures->usingExpirationDate != 0);
+	
+	usingHardExpirationDate = (inAccessFeatures->usingHardExpirationDate != 0);
+	if ( usingHardExpirationDate == 0 )
+		usingHardExpirationDate = (inGAccessFeatures->usingHardExpirationDate != 0);
+	
+	requiresAlpha = (inAccessFeatures->requiresAlpha != 0);
+	if ( requiresAlpha == 0 )
+		requiresAlpha = (inGAccessFeatures->requiresAlpha != 0);
+	
+	requiresNumeric = (inAccessFeatures->requiresNumeric != 0);
+	if ( requiresNumeric == 0 )
+		requiresNumeric = (inGAccessFeatures->requiresNumeric != 0);
+
+	passwordCannotBeName = (inAccessFeatures->passwordCannotBeName != 0);
+	if ( passwordCannotBeName == 0 )
+		passwordCannotBeName = (inGAccessFeatures->passwordCannotBeName != 0);
+	
+	maxMinutesUntilChangePassword = inAccessFeatures->maxMinutesUntilChangePassword;
+	if ( maxMinutesUntilChangePassword == 0 )
+		maxMinutesUntilChangePassword = inGAccessFeatures->maxMinutesUntilChangePassword;
+	
+	maxMinutesUntilDisabled = inAccessFeatures->maxMinutesUntilDisabled;
+	if ( maxMinutesUntilDisabled == 0 )
+		maxMinutesUntilDisabled = inGAccessFeatures->maxMinutesUntilDisabled;
+	
+	maxMinutesOfNonUse = inAccessFeatures->maxMinutesOfNonUse;
+	if ( maxMinutesOfNonUse == 0 )
+		maxMinutesOfNonUse = inGAccessFeatures->maxMinutesOfNonUse;
+	
+	maxFailedLoginAttempts = inAccessFeatures->maxFailedLoginAttempts;
+	if ( maxFailedLoginAttempts == 0 )
+		maxFailedLoginAttempts = inGAccessFeatures->maxFailedLoginAttempts;
+	
+	minChars = inAccessFeatures->minChars;
+	if ( minChars == 0 )
+		minChars = inGAccessFeatures->minChars;
+	
+	maxChars = inAccessFeatures->maxChars;
+	if ( maxChars == 0 )
+		maxChars = inGAccessFeatures->maxChars;
+	
+	
+    // Boolean values are stored in the struct as single bits. They must be unsigned for
+    // display.
+    
 	if ( inAccessFeatures->usingHistory )
 		historyValue = 1 + inAccessFeatures->historyCount;
+	else
+	if ( inGAccessFeatures->usingHistory )
+		historyValue = 1 + inGAccessFeatures->historyCount;
 	
     sprintf( temp1Str, "%s=%d %s=%d %s=%d %s=%d ",
                 kPWPolicyStr_isDisabled, (inAccessFeatures->isDisabled != 0),
@@ -196,18 +295,65 @@ void PWAccessFeaturesToString( PWAccessFeatures *inAccessFeatures, char *outStri
                 kPWPolicyStr_newPasswordRequired, (inAccessFeatures->newPasswordRequired != 0),
                 kPWPolicyStr_usingHistory, historyValue );
     
-    sprintf( temp2Str, "%s=%d %s=%d %s=%d %s=%d ",
+	sprintf( temp2Str, "%s=%d %s=%d %s=%d %s=%d ",
                 kPWPolicyStr_canModifyPasswordforSelf, (inAccessFeatures->canModifyPasswordforSelf != 0),
-                kPWPolicyStr_usingExpirationDate, (inAccessFeatures->usingExpirationDate != 0),
-                kPWPolicyStr_usingHardExpirationDate, (inAccessFeatures->usingHardExpirationDate != 0),
-                kPWPolicyStr_requiresAlpha, (inAccessFeatures->requiresAlpha != 0) );
+                kPWPolicyStr_usingExpirationDate, usingExpirationDate,
+                kPWPolicyStr_usingHardExpirationDate, usingHardExpirationDate,
+                kPWPolicyStr_requiresAlpha, requiresAlpha );
     
     sprintf( temp3Str, "%s=%d %s=%lu %s=%lu ",
-                kPWPolicyStr_requiresNumeric, (inAccessFeatures->requiresNumeric != 0),
+                kPWPolicyStr_requiresNumeric, requiresNumeric,
                 kPWPolicyStr_expirationDateGMT, timegm( (struct tm *)&inAccessFeatures->expirationDateGMT ),
                 kPWPolicyStr_hardExpireDateGMT, timegm( (struct tm *)&inAccessFeatures->hardExpireDateGMT ) );
     
-    sprintf( temp4Str, "%s=%lu %s=%lu %s=%lu %s=%u %s=%u %s=%u %s=%d ",
+    snprintf( temp4Str, sizeof(temp4Str), "%s=%lu %s=%lu %s=%lu %s=%u %s=%u %s=%u %s=%d %s=%d",
+                kPWPolicyStr_maxMinutesUntilChangePW, maxMinutesUntilChangePassword,
+                kPWPolicyStr_maxMinutesUntilDisabled, maxMinutesUntilDisabled,
+                kPWPolicyStr_maxMinutesOfNonUse, maxMinutesOfNonUse,
+                kPWPolicyStr_maxFailedLoginAttempts, maxFailedLoginAttempts,
+                kPWPolicyStr_minChars, minChars,
+                kPWPolicyStr_maxChars, maxChars,
+				kPWPolicyStr_passwordCannotBeName, passwordCannotBeName,
+				kPWPolicyStr_isSessionKeyAgent, (inAccessFeatures->isSessionKeyAgent != 0) );
+    
+    strcpy( outString, temp1Str );
+    strcat( outString, temp2Str );
+    strcat( outString, temp3Str );
+    strcat( outString, temp4Str );
+}
+
+
+//------------------------------------------------------------------------------------------------
+//	PWAccessFeaturesToStringWithoutStateInfo
+//
+//	Prepares the PWAccessFeatures struct for transmission over our text-based protocol
+//  Returns in <outString> the subset of policies that are true policies and not state
+//  information, such as: isDisabled, isAdminUser, and newPasswordRequired.
+//------------------------------------------------------------------------------------------------
+
+void PWAccessFeaturesToStringWithoutStateInfo( PWAccessFeatures *inAccessFeatures, char *outString )
+{
+	int historyValue = 0;
+	
+    if ( outString == NULL || inAccessFeatures == NULL )
+        throw(-1);
+	
+    // Boolean values are stored in the struct as single bits. They must be unsigned for
+    // display.
+    
+	if ( inAccessFeatures->usingHistory )
+		historyValue = 1 + inAccessFeatures->historyCount;
+	
+    snprintf( outString, 2048,
+				"%s=%d %s=%d %s=%d %s=%d %s=%d %s=%d %s=%lu %s=%lu %s=%lu %s=%lu %s=%lu %s=%u %s=%u %s=%u %s=%d",
+				kPWPolicyStr_usingHistory, historyValue,
+				kPWPolicyStr_canModifyPasswordforSelf, (inAccessFeatures->canModifyPasswordforSelf != 0),
+                kPWPolicyStr_usingExpirationDate, (inAccessFeatures->usingExpirationDate != 0),
+                kPWPolicyStr_usingHardExpirationDate, (inAccessFeatures->usingHardExpirationDate != 0),
+                kPWPolicyStr_requiresAlpha, (inAccessFeatures->requiresAlpha != 0),
+				kPWPolicyStr_requiresNumeric, (inAccessFeatures->requiresNumeric != 0),
+                kPWPolicyStr_expirationDateGMT, timegm( (struct tm *)&inAccessFeatures->expirationDateGMT ),
+                kPWPolicyStr_hardExpireDateGMT, timegm( (struct tm *)&inAccessFeatures->hardExpireDateGMT ),
                 kPWPolicyStr_maxMinutesUntilChangePW, inAccessFeatures->maxMinutesUntilChangePassword,
                 kPWPolicyStr_maxMinutesUntilDisabled, inAccessFeatures->maxMinutesUntilDisabled,
                 kPWPolicyStr_maxMinutesOfNonUse, inAccessFeatures->maxMinutesOfNonUse,
@@ -215,11 +361,6 @@ void PWAccessFeaturesToString( PWAccessFeatures *inAccessFeatures, char *outStri
                 kPWPolicyStr_minChars, inAccessFeatures->minChars,
                 kPWPolicyStr_maxChars, inAccessFeatures->maxChars,
 				kPWPolicyStr_passwordCannotBeName, (inAccessFeatures->passwordCannotBeName != 0) );
-    
-    strcpy( outString, temp1Str );
-    strcat( outString, temp2Str );
-    strcat( outString, temp3Str );
-    strcat( outString, temp4Str );
 }
 
 
@@ -253,8 +394,12 @@ Boolean StringToPWGlobalAccessFeatures( const char *inString, PWGlobalAccessFeat
     
     if ( StringToPWAccessFeatures_GetValue( usingHistory, &value ) )
 	{
-		if ( value > 0 && value < 16 )
+		if ( value > 0 )
 		{
+			// clamp to the password server's maximum value
+			if ( value > kPWFileMaxHistoryCount )
+				value = kPWFileMaxHistoryCount;
+			
 			inOutAccessFeatures->usingHistory = 1;
 			inOutAccessFeatures->historyCount = value - 1;
 		}
@@ -339,6 +484,7 @@ Boolean StringToPWAccessFeatures( const char *inString, PWAccessFeatures *inOutA
     const char *minChars = strstr( inString, kPWPolicyStr_minChars );
     const char *maxChars = strstr( inString, kPWPolicyStr_maxChars );
     const char *passwordCannotBeName = strstr( inString, kPWPolicyStr_passwordCannotBeName );
+	const char *isSessionKeyAgent = strstr( inString, kPWPolicyStr_isSessionKeyAgent );
 	const char *resetToGlobalDefaults = strstr( inString, kPWPolicyStr_resetToGlobalDefaults );
     unsigned long value;
     
@@ -353,8 +499,12 @@ Boolean StringToPWAccessFeatures( const char *inString, PWAccessFeatures *inOutA
     
     if ( StringToPWAccessFeatures_GetValue( usingHistory, &value ) )
 	{
-		if ( value > 0 && value < 16 )
+		if ( value > 0 )
 		{
+			// clamp to the password server's maximum value
+			if ( value > kPWFileMaxHistoryCount )
+				value = kPWFileMaxHistoryCount;
+			
 			inOutAccessFeatures->usingHistory = 1;
 			inOutAccessFeatures->historyCount = value - 1;
 		}
@@ -406,6 +556,9 @@ Boolean StringToPWAccessFeatures( const char *inString, PWAccessFeatures *inOutA
 	
 	if ( StringToPWAccessFeatures_GetValue( passwordCannotBeName, &value ) )
 		inOutAccessFeatures->passwordCannotBeName = value;
+	
+	if ( StringToPWAccessFeatures_GetValue( isSessionKeyAgent, &value ) )
+		inOutAccessFeatures->isSessionKeyAgent = value;
 	
 	// this policy must be processed last
 	if ( StringToPWAccessFeatures_GetValue( resetToGlobalDefaults, &value ) && value > 0 )

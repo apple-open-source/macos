@@ -21,9 +21,9 @@
 #include "libxml.h"
 
 #include <string.h>
+#include <libxml/parser.h>
 #include <libxml/hash.h>
 #include <libxml/xmlmemory.h>
-#include <libxml/parser.h>
 #include <libxml/xmlerror.h>
 #include <libxml/globals.h>
 
@@ -74,6 +74,55 @@ xmlHashComputeKey(xmlHashTablePtr table, const xmlChar *name,
 	while ((ch = *name2++) != 0) {
 	    value = value ^ ((value << 5) + (value >> 3) + (unsigned long)ch);
 	}
+    }
+    if (name3 != NULL) {
+	while ((ch = *name3++) != 0) {
+	    value = value ^ ((value << 5) + (value >> 3) + (unsigned long)ch);
+	}
+    }
+    return (value % table->size);
+}
+
+static unsigned long
+xmlHashComputeQKey(xmlHashTablePtr table,
+		   const xmlChar *prefix, const xmlChar *name,
+		   const xmlChar *prefix2, const xmlChar *name2,
+		   const xmlChar *prefix3, const xmlChar *name3) {
+    unsigned long value = 0L;
+    char ch;
+    
+    if (prefix != NULL)
+	value += 30 * (*prefix);
+    else
+	value += 30 * (*name);
+
+    if (prefix != NULL) {
+	while ((ch = *prefix++) != 0) {
+	    value = value ^ ((value << 5) + (value >> 3) + (unsigned long)ch);
+	}
+	value = value ^ ((value << 5) + (value >> 3) + (unsigned long)':');
+    }
+    if (name != NULL) {
+	while ((ch = *name++) != 0) {
+	    value = value ^ ((value << 5) + (value >> 3) + (unsigned long)ch);
+	}
+    }
+    if (prefix2 != NULL) {
+	while ((ch = *prefix2++) != 0) {
+	    value = value ^ ((value << 5) + (value >> 3) + (unsigned long)ch);
+	}
+	value = value ^ ((value << 5) + (value >> 3) + (unsigned long)':');
+    }
+    if (name2 != NULL) {
+	while ((ch = *name2++) != 0) {
+	    value = value ^ ((value << 5) + (value >> 3) + (unsigned long)ch);
+	}
+    }
+    if (prefix3 != NULL) {
+	while ((ch = *prefix3++) != 0) {
+	    value = value ^ ((value << 5) + (value >> 3) + (unsigned long)ch);
+	}
+	value = value ^ ((value << 5) + (value >> 3) + (unsigned long)':');
     }
     if (name3 != NULL) {
 	while ((ch = *name3++) != 0) {
@@ -218,18 +267,20 @@ xmlHashFree(xmlHashTablePtr table, xmlHashDeallocator f) {
     xmlHashEntryPtr iter;
     xmlHashEntryPtr next;
     int inside_table = 0;
+    int nbElems;
 
     if (table == NULL)
 	return;
     if (table->table) {
-	for(i = 0; i < table->size; i++) {
+	nbElems = table->nbElems;
+	for(i = 0; (i < table->size) && (nbElems > 0); i++) {
 	    iter = &(table->table[i]);
 	    if (iter->valid == 0)
 		continue;
 	    inside_table = 1;
 	    while (iter) {
 		next = iter->next;
-		if (f)
+		if ((f != NULL) && (iter->payload != NULL))
 		    f(iter->payload, iter->name);
 		if (iter->name)
 		    xmlFree(iter->name);
@@ -240,6 +291,7 @@ xmlHashFree(xmlHashTablePtr table, xmlHashDeallocator f) {
 		iter->payload = NULL;
 		if (!inside_table)
 		    xmlFree(iter);
+		nbElems--;
 		inside_table = 0;
 		iter = next;
 	    }
@@ -352,6 +404,41 @@ void *
 xmlHashLookup2(xmlHashTablePtr table, const xmlChar *name,
 	      const xmlChar *name2) {
     return(xmlHashLookup3(table, name, name2, NULL));
+}
+
+/**
+ * xmlHashQLookup:
+ * @table: the hash table
+ * @prefix: the prefix of the userdata
+ * @name: the name of the userdata
+ *
+ * Find the userdata specified by the QName @prefix:@name/@name.
+ *
+ * Returns the pointer to the userdata
+ */
+void *
+xmlHashQLookup(xmlHashTablePtr table, const xmlChar *prefix,
+               const xmlChar *name) {
+    return(xmlHashQLookup3(table, prefix, name, NULL, NULL, NULL, NULL));
+}
+
+/**
+ * xmlHashQLookup2:
+ * @table: the hash table
+ * @prefix: the prefix of the userdata
+ * @name: the name of the userdata
+ * @prefix2: the second prefix of the userdata
+ * @name2: a second name of the userdata
+ *
+ * Find the userdata specified by the QNames tuple
+ *
+ * Returns the pointer to the userdata
+ */
+void *
+xmlHashQLookup2(xmlHashTablePtr table, const xmlChar *prefix,
+                const xmlChar *name, const xmlChar *prefix2,
+	        const xmlChar *name2) {
+    return(xmlHashQLookup3(table, prefix, name, prefix2, name2, NULL, NULL));
 }
 
 /**
@@ -537,6 +624,45 @@ xmlHashLookup3(xmlHashTablePtr table, const xmlChar *name,
     return(NULL);
 }
 
+/**
+ * xmlHashQLookup3:
+ * @table: the hash table
+ * @prefix: the prefix of the userdata
+ * @name: the name of the userdata
+ * @prefix2: the second prefix of the userdata
+ * @name2: a second name of the userdata
+ * @prefix3: the third prefix of the userdata
+ * @name3: a third name of the userdata
+ *
+ * Find the userdata specified by the (@name, @name2, @name3) tuple.
+ *
+ * Returns the a pointer to the userdata
+ */
+void *
+xmlHashQLookup3(xmlHashTablePtr table,
+                const xmlChar *prefix, const xmlChar *name,
+		const xmlChar *prefix2, const xmlChar *name2,
+		const xmlChar *prefix3, const xmlChar *name3) {
+    unsigned long key;
+    xmlHashEntryPtr entry;
+
+    if (table == NULL)
+	return(NULL);
+    if (name == NULL)
+	return(NULL);
+    key = xmlHashComputeQKey(table, prefix, name, prefix2,
+                             name2, prefix3, name3);
+    if (table->table[key].valid == 0)
+	return(NULL);
+    for (entry = &(table->table[key]); entry != NULL; entry = entry->next) {
+	if ((xmlStrQEqual(prefix, name, entry->name)) &&
+	    (xmlStrQEqual(prefix2, name2, entry->name2)) &&
+	    (xmlStrQEqual(prefix3, name3, entry->name3)))
+	    return(entry->payload);
+    }
+    return(NULL);
+}
+
 typedef struct {
     xmlHashScanner hashscanner;
     void *data;
@@ -592,7 +718,7 @@ xmlHashScanFull(xmlHashTablePtr table, xmlHashScannerFull f, void *data) {
 	    iter = &(table->table[i]);
 	    while (iter) {
 		next = iter->next;
-		if (f)
+		if ((f != NULL) && (iter->payload != NULL))
 		    f(iter->payload, data, iter->name,
 		      iter->name2, iter->name3);
 		iter = next;
@@ -657,7 +783,8 @@ xmlHashScanFull3(xmlHashTablePtr table, const xmlChar *name,
 		next = iter->next;
 		if (((name == NULL) || (xmlStrEqual(name, iter->name))) &&
 		    ((name2 == NULL) || (xmlStrEqual(name2, iter->name2))) &&
-		    ((name3 == NULL) || (xmlStrEqual(name3, iter->name3)))) {
+		    ((name3 == NULL) || (xmlStrEqual(name3, iter->name3))) &&
+		    (iter->payload != NULL)) {
 		    f(iter->payload, data, iter->name,
 		      iter->name2, iter->name3);
 		}
@@ -790,7 +917,7 @@ xmlHashRemoveEntry3(xmlHashTablePtr table, const xmlChar *name,
             if (xmlStrEqual(entry->name, name) &&
                     xmlStrEqual(entry->name2, name2) &&
                     xmlStrEqual(entry->name3, name3)) {
-                if(f)
+                if ((f != NULL) && (entry->payload != NULL))
                     f(entry->payload, entry->name);
                 entry->payload = NULL;
                 if(entry->name)

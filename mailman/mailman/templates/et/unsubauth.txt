@@ -1,7 +1,7 @@
-%(username)s soovib lõpetada listi %(listname)s@%(hostname)s
-tellimust. Selleks on vaja teie, kui listi halduri, nõusolekut.
+%(username)s soovib lõpetada %(listname)s@%(hostname)s
+listi tellimust. Selleks on vaja sinu, kui listi halduri
+nõusolekut.
 
-Tellimuse katkestamise kinnitamiseks külastage esimesel sobival
-hetkel veebilehte
+Tellimuse lõpetamise saad kinnitada aadressil:
 
     %(admindb_url)s

@@ -127,7 +127,7 @@ rsa_generate_key(RSA *prv, RSA *pub, unsigned int bits)
 		key = RSA_generate_key(bits, 35, NULL, NULL);
 	}
 	if (key == NULL) {
-		//fatal("rsa_generate_key: key generation failed.");
+		//pwsf_fatal("rsa_generate_key: key generation failed.");
         return;
     }
     
@@ -171,7 +171,7 @@ rsa_public_encrypt(BIGNUM *out, BIGNUM *in, RSA *key)
 	int len, ilen, olen;
 
 	if (BN_num_bits(key->e) < 2 || !BN_is_odd(key->e)) {
-		//fatal("rsa_public_encrypt() exponent too small or not odd");
+		//pwsf_fatal("rsa_public_encrypt() exponent too small or not odd");
         return;
     }
     
@@ -183,7 +183,7 @@ rsa_public_encrypt(BIGNUM *out, BIGNUM *in, RSA *key)
 	BN_bn2bin(in, inbuf);
 
 	if ((len = RSA_public_encrypt(ilen, inbuf, outbuf, key, RSA_PKCS1_PADDING)) <= 0) {
-		//fatal("rsa_public_encrypt() failed");
+		//pwsf_fatal("rsa_public_encrypt() failed");
         return;
     }
     
@@ -209,7 +209,7 @@ rsa_private_decrypt(BIGNUM *out, BIGNUM *in, RSA *key)
 	BN_bn2bin(in, inbuf);
 
 	if ((len = RSA_private_decrypt(ilen, inbuf, outbuf, key, RSA_PKCS1_PADDING)) <= 0) {
-		//fatal("rsa_private_decrypt() failed");
+		//pwsf_fatal("rsa_private_decrypt() failed");
         return;
     }
     

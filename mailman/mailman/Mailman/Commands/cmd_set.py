@@ -1,4 +1,4 @@
-# Copyright (C) 2002 by the Free Software Foundation, Inc.
+# Copyright (C) 2002-2003 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -292,10 +292,16 @@ class SetCommands:
         status = self._status(res, args[0])
         if status < 0:
             return STOP
-        # sense is reversed
-        mlist.setMemberOption(self.__address, mm_cfg.DisableDelivery,
-                              not status)
-        res.results.append(_('delivery option set'))
+        # Delivery status is handled differently than other options.  If
+        # status is true (set delivery on), then we enable delivery.
+        # Otherwise, we have to use the setDeliveryStatus() interface to
+        # specify that delivery was disabled by the user.
+        if status:
+            mlist.setDeliveryStatus(self.__address, MemberAdaptor.ENABLED)
+            res.results.append(_('delivery enabled'))
+        else:
+            mlist.setDeliveryStatus(self.__address, MemberAdaptor.BYUSER)
+            res.results.append(_('delivery disabled by user'))
 
     def set_myposts(self, res, args):
         mlist = res.mlist
@@ -308,7 +314,7 @@ class SetCommands:
         mlist.setMemberOption(self.__address, mm_cfg.DontReceiveOwnPosts,
                               not status)
         res.results.append(_('myposts option set'))
-        
+
     def set_hide(self, res, args):
         mlist = res.mlist
         if len(args) <> 1:
@@ -343,7 +349,7 @@ class SetCommands:
         mlist.setMemberOption(self.__address, mm_cfg.SuppressPasswordReminder,
                               not status)
         res.results.append(_('reminder option set'))
-        
+
 
 
 def process(res, args):

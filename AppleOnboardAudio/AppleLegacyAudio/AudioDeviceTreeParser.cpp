@@ -187,7 +187,7 @@ UInt32 AudioDeviceTreeParser::getNumberOfInputs(){
     OSData *tempData;
     
     tempData = OSDynamicCast(OSData, soundEntry->getProperty(kNumInputsPropName));
-    if(tempData)
+    if (tempData)
 		result = *(UInt32 *)(tempData->getBytesNoCopy());
 
     return result; 
@@ -643,7 +643,8 @@ OSArray *AudioDeviceTreeParser::createInputsArrayWithMuxes(){
 
     if( 0 != AudioInputMuxNb)
         AudioInputs = OSArray::withCapacity(AudioInputMuxNb);
-	if (!AudioInputs) goto BAIL;	// No need to log, just abort.
+//    FailIf(!AudioInputs, BAIL);
+	if (!AudioInputs) goto BAIL;		// No need to log anything on a machine without inputs.
     
 	// get all the sound objects and do the parsing
     tempData = OSDynamicCast(OSData, soundEntry->getProperty(kSoundObjectsPropName));

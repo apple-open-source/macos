@@ -29,6 +29,10 @@
  * SUCH DAMAGE.
  */
 
+#ifdef HAVE_OPENSSL_EVP_H
+#include <openssl/evp.h>
+#endif
+
 #ifdef HAVE_SIGNING_C
 /* X509 Certificate */
 #define GENT_OTHERNAME	0
@@ -54,7 +58,7 @@ extern int eay_check_pkcs7sign __P((vchar_t *, vchar_t *, vchar_t *));
 
 /* RSA */
 extern vchar_t *eay_rsa_sign __P((vchar_t *, vchar_t *));
-extern int eay_rsa_verify __P((vchar_t *, vchar_t *, vchar_t *));
+extern int eay_rsa_verify __P((vchar_t *, vchar_t *, EVP_PKEY *));
 
 /* ASN.1 */
 extern vchar_t *eay_get_pkcs1privkey __P((char *));

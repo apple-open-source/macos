@@ -156,7 +156,12 @@ private:
 		void	DebugAPIPluginResponse			(	void		   *inData,
 													char		   *inDebugDataTag,
 													sInt32			inResult);
-
+		
+		static uInt32		AuditForThisEvent			( uInt32 inType, void *inData, char **outTextStr );
+		static tDirStatus   AuditUserOrGroupRecord		( tRecordReference inRecRef, char **outRecNameStr, char **outRecTypeStr, uInt32 *outEventCode );
+		static tDirStatus   AuditGetRecordRefInfo		( tRecordReference inRecRef, char **outRecNameStr, char **outRecTypeStr );
+		static tDirStatus   AuditGetNameFromAuthBuffer  ( tDataNodePtr inAuthMethod, tDataBufferPtr inAuthBuffer, char **outUserNameStr );
+		
 	CServerPlugin	   *fPluginPtr;
 	bool				bClosePort;
 };

@@ -25,9 +25,14 @@
 #include "notifications.h"
 #include "ucsp.h"
 #include <mach/mach_error.h>
+#include <bsm/audit.h>
+#include <bsm/audit_kevents.h>
+#include <bsm/audit_record.h>
+#include <bsm/audit_uevents.h>
+#include <bsm/libbsm.h>
+#include "ccaudit.h"
 
 using namespace MachPlusPlus;
-
 
 //
 // Construct the server object
@@ -40,6 +45,9 @@ Server::Server(Authority &authority, CodeSignatures &signatures, const char *boo
     mAuthority(authority),
 	mCodeSignatures(signatures)
 {
+
+    initAudit();
+
     // engage the subsidiary port handler for sleep notifications
     add(sleepWatcher);
 }
@@ -112,7 +120,7 @@ void Server::run()
 {
 	MachServer::run(0x10000,
         MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0) |
-        MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_SENDER));
+        MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AUDIT));
 }
 
 
@@ -157,8 +165,11 @@ boolean_t Server::handle(mach_msg_header_t *in, mach_msg_header_t *out)
 // Everything at and below that level is constructed. This is straight-forward except
 // in the case of session re-initialization (see below).
 //
+// audit_token_t.val[1] is the EUID, audit_token_t.val[2] is the EGID.  
+//
 void Server::setupConnection(ConnectLevel type, Port servicePort, Port replyPort, Port taskPort,
-    const security_token_t &securityToken, const ClientSetupInfo *info, const char *identity)
+    const audit_token_t &auditToken, 
+    const ClientSetupInfo *info, const char *identity)
 {
 	// first, make or find the process based on task port
 	StLock<Mutex> _(lock);
@@ -180,7 +191,7 @@ void Server::setupConnection(ConnectLevel type, Port servicePort, Port replyPort
 			CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
 		assert(info && identity);
 		proc = new Process(servicePort, taskPort, info, identity,
-			securityToken.val[0], securityToken.val[1]);
+			auditToken.val[1], auditToken.val[2]);
 		notifyIfDead(taskPort);
 	}
 
@@ -265,6 +276,17 @@ void Server::SleepWatcher::systemWillSleep()
     Session::lockAllDatabases(true);
 }
 
+void Server::initAudit(void)
+{
+    secdebug("SS", "initializing Common Criteria auditing");
+    mAudit.auditId(geteuid());
+    // Set the class mask so only the audit records we submit are written.
+    mAudit.eventMask().set(AUE_NULL, AUE_NULL);
+	mAudit.terminalId().set();
+    // XXX  If we use SS session IDs instead, get the RootSession ID
+    mAudit.sessionId(getpid());
+	mAudit.registerSession();
+}
 
 //
 // Return the primary Cryptographic Service Provider.

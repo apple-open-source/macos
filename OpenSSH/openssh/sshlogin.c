@@ -98,4 +98,7 @@ record_logout(pid_t pid, const char *ttyname, const char *user)
   li = login_alloc_entry(pid, user, NULL, ttyname);
   login_logout(li);
   login_free_entry(li);
+#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
+  solaris_audit_logout();
+#endif /* BSM */
 }

@@ -17,9 +17,6 @@
  *
  * daniel@veillard.com
  *
- * UTF8 string routines from:
- * "William M. Brack" <wbrack@mmm.com.hk>
- *
  * Original code for IsoLatin1 and UTF-16 by "Martin J. Duerst" <duerst@w3.org>
  */
 
@@ -65,341 +62,14 @@ static int xmlCharEncodingAliasesMax = 0;
 #if 0
 #define DEBUG_ENCODING  /* Define this to get encoding traces */
 #endif
+#else
+#ifdef LIBXML_ISO8859X_ENABLED
+static void xmlRegisterCharEncodingHandlersISO8859x (void);
+#endif
 #endif
 
 static int xmlLittleEndian = 1;
 
-/************************************************************************
- *									*
- *			Generic UTF8 handling routines			*
- *									*
- * From rfc2044: encoding of the Unicode values on UTF-8:		*
- *									*
- * UCS-4 range (hex.)           UTF-8 octet sequence (binary)		*
- * 0000 0000-0000 007F   0xxxxxxx					*
- * 0000 0080-0000 07FF   110xxxxx 10xxxxxx				*
- * 0000 0800-0000 FFFF   1110xxxx 10xxxxxx 10xxxxxx 			*
- *									*
- * I hope we won't use values > 0xFFFF anytime soon !			*
- *									*
- ************************************************************************/
-
-/**
- * xmlUTF8Strlen:
- * @utf:  a sequence of UTF-8 encoded bytes
- *
- * compute the length of an UTF8 string, it doesn't do a full UTF8
- * checking of the content of the string.
- *
- * Returns the number of characters in the string or -1 in case of error
- */
-int
-xmlUTF8Strlen(const xmlChar *utf) {
-    int ret = 0;
-
-    if (utf == NULL)
-	return(-1);
-
-    while (*utf != 0) {
-	if (utf[0] & 0x80) {
-	    if ((utf[1] & 0xc0) != 0x80)
-		return(-1);
-	    if ((utf[0] & 0xe0) == 0xe0) {
-		if ((utf[2] & 0xc0) != 0x80)
-		    return(-1);
-		if ((utf[0] & 0xf0) == 0xf0) {
-		    if ((utf[0] & 0xf8) != 0xf0 || (utf[3] & 0xc0) != 0x80)
-			return(-1);
-		    utf += 4;
-		} else {
-		    utf += 3;
-		}
-	    } else {
-		utf += 2;
-	    }
-	} else {
-	    utf++;
-	}
-	ret++;
-    }
-    return(ret);
-}
-
-/**
- * xmlGetUTF8Char:
- * @utf:  a sequence of UTF-8 encoded bytes
- * @len:  a pointer to @bytes len
- *
- * Read one UTF8 Char from @utf
- *
- * Returns the char value or -1 in case of error and update @len with the
- *        number of bytes used
- */
-int
-xmlGetUTF8Char(const unsigned char *utf, int *len) {
-    unsigned int c;
-
-    if (utf == NULL)
-	goto error;
-    if (len == NULL)
-	goto error;
-    if (*len < 1)
-	goto error;
-
-    c = utf[0];
-    if (c & 0x80) {
-	if (*len < 2)
-	    goto error;
-	if ((utf[1] & 0xc0) != 0x80)
-	    goto error;
-	if ((c & 0xe0) == 0xe0) {
-	    if (*len < 3)
-		goto error;
-	    if ((utf[2] & 0xc0) != 0x80)
-		goto error;
-	    if ((c & 0xf0) == 0xf0) {
-		if (*len < 4)
-		    goto error;
-		if ((c & 0xf8) != 0xf0 || (utf[3] & 0xc0) != 0x80)
-		    goto error;
-		*len = 4;
-		/* 4-byte code */
-		c = (utf[0] & 0x7) << 18;
-		c |= (utf[1] & 0x3f) << 12;
-		c |= (utf[2] & 0x3f) << 6;
-		c |= utf[3] & 0x3f;
-	    } else {
-	      /* 3-byte code */
-		*len = 3;
-		c = (utf[0] & 0xf) << 12;
-		c |= (utf[1] & 0x3f) << 6;
-		c |= utf[2] & 0x3f;
-	    }
-	} else {
-	  /* 2-byte code */
-	    *len = 2;
-	    c = (utf[0] & 0x1f) << 6;
-	    c |= utf[1] & 0x3f;
-	}
-    } else {
-	/* 1-byte code */
-	*len = 1;
-    }
-    return(c);
-
-error:
-    *len = 0;
-    return(-1);
-}
-
-/**
- * xmlCheckUTF8:
- * @utf: Pointer to putative utf-8 encoded string.
- *
- * Checks @utf for being valid utf-8. @utf is assumed to be
- * null-terminated. This function is not super-strict, as it will
- * allow longer utf-8 sequences than necessary. Note that Java is
- * capable of producing these sequences if provoked. Also note, this
- * routine checks for the 4-byte maximum size, but does not check for
- * 0x10ffff maximum value.
- *
- * Return value: true if @utf is valid.
- **/
-int
-xmlCheckUTF8(const unsigned char *utf)
-{
-    int ix;
-    unsigned char c;
-
-    for (ix = 0; (c = utf[ix]);) {
-        if (c & 0x80) {
-	    if ((utf[ix + 1] & 0xc0) != 0x80)
-	        return(0);
-	    if ((c & 0xe0) == 0xe0) {
-	        if ((utf[ix + 2] & 0xc0) != 0x80)
-		    return(0);
-	        if ((c & 0xf0) == 0xf0) {
-		    if ((c & 0xf8) != 0xf0 || (utf[ix + 3] & 0xc0) != 0x80)
-		        return(0);
-		    ix += 4;
-		    /* 4-byte code */
-	        } else
-		  /* 3-byte code */
-		    ix += 3;
-	    } else
-	      /* 2-byte code */
-	        ix += 2;
-	} else
-	    /* 1-byte code */
-	    ix++;
-      }
-      return(1);
-}
-
-/**
- * xmlUTF8Strsize:
- * @utf:  a sequence of UTF-8 encoded bytes
- * @len:  the number of characters in the array
- *
- * storage size of an UTF8 string
- *
- * Returns the storage size of
- * the first 'len' characters of ARRAY
- *
- */
-
-int
-xmlUTF8Strsize(const xmlChar *utf, int len) {
-    const xmlChar	*ptr=utf;
-    xmlChar	ch;
-
-    if (len <= 0)
-	return(0);
-
-    while ( len-- > 0) {
-	if ( !*ptr )
-	    break;
-	if ( (ch = *ptr++) & 0x80)
-	    while ( (ch<<=1) & 0x80 )
-		ptr++;
-    }
-    return (ptr - utf);
-}
-
-
-/**
- * xmlUTF8Strndup:
- * @utf:  the input UTF8 *
- * @len:  the len of @utf (in chars)
- *
- * a strndup for array of UTF8's
- *
- * Returns a new UTF8 * or NULL
- */
-xmlChar *
-xmlUTF8Strndup(const xmlChar *utf, int len) {
-    xmlChar *ret;
-    int i;
-    
-    if ((utf == NULL) || (len < 0)) return(NULL);
-    i = xmlUTF8Strsize(utf, len);
-    ret = (xmlChar *) xmlMalloc((i + 1) * sizeof(xmlChar));
-    if (ret == NULL) {
-        xmlGenericError(xmlGenericErrorContext,
-		"malloc of %ld byte failed\n",
-	        (len + 1) * (long)sizeof(xmlChar));
-        return(NULL);
-    }
-    memcpy(ret, utf, i * sizeof(xmlChar));
-    ret[i] = 0;
-    return(ret);
-}
-
-/**
- * xmlUTF8Strpos:
- * @utf:  the input UTF8 *
- * @pos:  the position of the desired UTF8 char (in chars)
- *
- * a function to provide the equivalent of fetching a
- * character from a string array
- *
- * Returns a pointer to the UTF8 character or NULL
- */
-xmlChar *
-xmlUTF8Strpos(const xmlChar *utf, int pos) {
-    xmlChar ch;
-
-    if (utf == NULL) return(NULL);
-    if ( (pos < 0) || (pos >= xmlUTF8Strlen(utf)) )
-	return(NULL);
-    while (pos--) {
-	if ((ch=*utf++) == 0) return(NULL);
-	if ( ch & 0x80 ) {
-	    /* if not simple ascii, verify proper format */
-	    if ( (ch & 0xc0) != 0xc0 )
-		return(NULL);
-	    /* then skip over remaining bytes for this char */
-	    while ( (ch <<= 1) & 0x80 )
-		if ( (*utf++ & 0xc0) != 0x80 )
-		    return(NULL);
-	}
-    }
-    return((xmlChar *)utf);
-}
-
-/**
- * xmlUTF8Strloc:
- * @utf:  the input UTF8 *
- * @utfchar:  the UTF8 character to be found
- *
- * a function to provide relative location of a UTF8 char
- *
- * Returns the relative character position of the desired char
- * or -1 if not found
- */
-int
-xmlUTF8Strloc(const xmlChar *utf, const xmlChar *utfchar) {
-    int i, size;
-    xmlChar ch;
-
-    if (utf==NULL || utfchar==NULL) return -1;
-    size = xmlUTF8Strsize(utfchar, 1);
-	for(i=0; (ch=*utf) != 0; i++) {
-	    if (xmlStrncmp(utf, utfchar, size)==0)
-		return(i);
-	    utf++;
-	    if ( ch & 0x80 ) {
-		/* if not simple ascii, verify proper format */
-		if ( (ch & 0xc0) != 0xc0 )
-		    return(-1);
-		/* then skip over remaining bytes for this char */
-		while ( (ch <<= 1) & 0x80 )
-		    if ( (*utf++ & 0xc0) != 0x80 )
-			return(-1);
-	    }
-	}
-
-    return(-1);
-}
-/**
- * xmlUTF8Strsub:
- * @utf:  a sequence of UTF-8 encoded bytes
- * @start: relative pos of first char
- * @len:   total number to copy
- *
- * Note:  positions are given in units of UTF-8 chars
- *
- * Returns a pointer to a newly created string
- * or NULL if any problem
- */
-
-xmlChar *
-xmlUTF8Strsub(const xmlChar *utf, int start, int len) {
-    int	    i;
-    xmlChar ch;
-
-    if (utf == NULL) return(NULL);
-    if (start < 0) return(NULL);
-    if (len < 0) return(NULL);
-
-    /*
-     * Skip over any leading chars
-     */
-    for (i = 0;i < start;i++) {
-	if ((ch=*utf++) == 0) return(NULL);
-	if ( ch & 0x80 ) {
-	    /* if not simple ascii, verify proper format */
-	    if ( (ch & 0xc0) != 0xc0 )
-		return(NULL);
-	    /* then skip over remaining bytes for this char */
-	    while ( (ch <<= 1) & 0x80 )
-		if ( (*utf++ & 0xc0) != 0x80 )
-		    return(NULL);
-	}
-    }
-
-    return(xmlUTF8Strndup(utf, len));
-}
 
 /************************************************************************
  *									*
@@ -418,8 +88,8 @@ xmlUTF8Strsub(const xmlChar *utf, int start, int len) {
  * block of chars out.
  * Returns 0 if success, or -1 otherwise
  * The value of @inlen after return is the number of octets consumed
- *     as the return value is positive, else unpredictable.
- * The value of @outlen after return is the number of ocetes consumed.
+ *     if the return value is positive, else unpredictable.
+ * The value of @outlen after return is the number of octets consumed.
  */
 static int
 asciiToUTF8(unsigned char* out, int *outlen,
@@ -458,6 +128,7 @@ asciiToUTF8(unsigned char* out, int *outlen,
     return(0);
 }
 
+#ifdef LIBXML_OUTPUT_ENABLED
 /**
  * UTF8Toascii:
  * @out:  a pointer to an array of bytes to store the result
@@ -470,8 +141,8 @@ asciiToUTF8(unsigned char* out, int *outlen,
  *
  * Returns 0 if success, -2 if the transcoding fails, or -1 otherwise
  * The value of @inlen after return is the number of octets consumed
- *     as the return value is positive, else unpredictable.
- * The value of @outlen after return is the number of ocetes consumed.
+ *     if the return value is positive, else unpredictable.
+ * The value of @outlen after return is the number of octets consumed.
  */
 static int
 UTF8Toascii(unsigned char* out, int *outlen,
@@ -540,6 +211,7 @@ UTF8Toascii(unsigned char* out, int *outlen,
     *inlen = processed - instart;
     return(0);
 }
+#endif /* LIBXML_OUTPUT_ENABLED */
 
 /**
  * isolat1ToUTF8:
@@ -552,8 +224,8 @@ UTF8Toascii(unsigned char* out, int *outlen,
  * block of chars out.
  * Returns 0 if success, or -1 otherwise
  * The value of @inlen after return is the number of octets consumed
- *     as the return value is positive, else unpredictable.
- * The value of @outlen after return is the number of ocetes consumed.
+ *     if the return value is positive, else unpredictable.
+ * The value of @outlen after return is the number of octets consumed.
  */
 int
 isolat1ToUTF8(unsigned char* out, int *outlen,
@@ -563,28 +235,23 @@ isolat1ToUTF8(unsigned char* out, int *outlen,
     unsigned char* outend = out + *outlen;
     const unsigned char* inend;
     const unsigned char* instop;
-    xmlChar c = *in;
 
     inend = in + (*inlen);
     instop = inend;
     
     while (in < inend && out < outend - 1) {
-    	if (c >= 0x80) {
-	    *out++= ((c >>  6) & 0x1F) | 0xC0;
-            *out++= (c & 0x3F) | 0x80;
+    	if (*in >= 0x80) {
+	    *out++ = (((*in) >>  6) & 0x1F) | 0xC0;
+        *out++ = ((*in) & 0x3F) | 0x80;
 	    ++in;
-	    c = *in;
 	}
 	if (instop - in > outend - out) instop = in + (outend - out); 
-	while (c < 0x80 && in < instop) {
-	    *out++ =  c;
-	    ++in;
-	    c = *in;
+	while (in < instop && *in < 0x80) {
+	    *out++ = *in++;
 	}
     }	
-    if (in < inend && out < outend && c < 0x80) {
-        *out++ =  c;
-	++in;
+    if (in < inend && out < outend && *in < 0x80) {
+        *out++ = *in++;
     }
     *outlen = out - outstart;
     *inlen = in - base;
@@ -600,10 +267,9 @@ isolat1ToUTF8(unsigned char* out, int *outlen,
  *
  * No op copy operation for UTF8 handling.
  *
- * Returns the number of byte written, or -1 by lack of space, or -2
- *     if the transcoding fails (for *in is not valid utf16 string)
+ * Returns the number of bytes written, or -1 if lack of space.
  *     The value of *inlen after return is the number of octets consumed
- *     as the return value is positive, else unpredictable.
+ *     if the return value is positive, else unpredictable.
  */
 static int
 UTF8ToUTF8(unsigned char* out, int *outlen,
@@ -629,6 +295,7 @@ UTF8ToUTF8(unsigned char* out, int *outlen,
 }
 
 
+#ifdef LIBXML_OUTPUT_ENABLED
 /**
  * UTF8Toisolat1:
  * @out:  a pointer to an array of bytes to store the result
@@ -641,8 +308,8 @@ UTF8ToUTF8(unsigned char* out, int *outlen,
  *
  * Returns 0 if success, -2 if the transcoding fails, or -1 otherwise
  * The value of @inlen after return is the number of octets consumed
- *     as the return value is positive, else unpredictable.
- * The value of @outlen after return is the number of ocetes consumed.
+ *     if the return value is positive, else unpredictable.
+ * The value of @outlen after return is the number of octets consumed.
  */
 int
 UTF8Toisolat1(unsigned char* out, int *outlen,
@@ -716,6 +383,7 @@ UTF8Toisolat1(unsigned char* out, int *outlen,
     *inlen = processed - instart;
     return(0);
 }
+#endif /* LIBXML_OUTPUT_ENABLED */
 
 /**
  * UTF16LEToUTF8:
@@ -725,14 +393,14 @@ UTF8Toisolat1(unsigned char* out, int *outlen,
  * @inlenb:  the length of @in in UTF-16LE chars
  *
  * Take a block of UTF-16LE ushorts in and try to convert it to an UTF-8
- * block of chars out. This function assume the endian property
+ * block of chars out. This function assumes the endian property
  * is the same between the native type of this machine and the
  * inputed one.
  *
- * Returns the number of byte written, or -1 by lack of space, or -2
- *     if the transcoding fails (for *in is not valid utf16 string)
+ * Returns the number of bytes written, or -1 if lack of space, or -2
+ *     if the transcoding fails (if *in is not a valid utf16 string)
  *     The value of *inlen after return is the number of octets consumed
- *     as the return value is positive, else unpredictable.
+ *     if the return value is positive, else unpredictable.
  */
 static int
 UTF16LEToUTF8(unsigned char* out, int *outlen,
@@ -805,6 +473,7 @@ UTF16LEToUTF8(unsigned char* out, int *outlen,
     return(0);
 }
 
+#ifdef LIBXML_OUTPUT_ENABLED
 /**
  * UTF8ToUTF16LE:
  * @outb:  a pointer to an array of bytes to store the result
@@ -815,7 +484,7 @@ UTF16LEToUTF8(unsigned char* out, int *outlen,
  * Take a block of UTF-8 chars in and try to convert it to an UTF-16LE
  * block of chars out.
  *
- * Returns the number of byte written, or -1 by lack of space, or -2
+ * Returns the number of bytes written, or -1 if lack of space, or -2
  *     if the transcoding failed. 
  */
 static int
@@ -824,6 +493,7 @@ UTF8ToUTF16LE(unsigned char* outb, int *outlen,
 {
     unsigned short* out = (unsigned short*) outb;
     const unsigned char* processed = in;
+    const unsigned char *const instart = in;
     unsigned short* outstart= out;
     unsigned short* outend;
     const unsigned char* inend= in+*inlen;
@@ -832,21 +502,8 @@ UTF8ToUTF16LE(unsigned char* outb, int *outlen,
     unsigned char *tmp;
     unsigned short tmp1, tmp2;
 
+    /* UTF16LE encoding has no BOM */
     if (in == NULL) {
-        /*
-	 * initialization, add the Byte Order Mark
-	 */
-        if (*outlen >= 2) {
-	    outb[0] = 0xFF;
-	    outb[1] = 0xFE;
-	    *outlen = 2;
-	    *inlen = 0;
-#ifdef DEBUG_ENCODING
-            xmlGenericError(xmlGenericErrorContext,
-		    "Added FFFE Byte Order Mark\n");
-#endif
-	    return(2);
-	}
 	*outlen = 0;
 	*inlen = 0;
 	return(0);
@@ -858,7 +515,7 @@ UTF8ToUTF16LE(unsigned char* outb, int *outlen,
       else if (d < 0xC0) {
           /* trailing byte in leading position */
 	  *outlen = (out - outstart) * 2;
-	  *inlen = processed - in;
+	  *inlen = processed - instart;
 	  return(-2);
       } else if (d < 0xE0)  { c= d & 0x1F; trailing= 1; }
       else if (d < 0xF0)  { c= d & 0x0F; trailing= 2; }
@@ -866,7 +523,7 @@ UTF8ToUTF16LE(unsigned char* outb, int *outlen,
       else {
 	/* no chance for this in UTF-16 */
 	*outlen = (out - outstart) * 2;
-	*inlen = processed - in;
+	*inlen = processed - instart;
 	return(-2);
       }
 
@@ -920,26 +577,66 @@ UTF8ToUTF16LE(unsigned char* outb, int *outlen,
 	processed = in;
     }
     *outlen = (out - outstart) * 2;
-    *inlen = processed - in;
+    *inlen = processed - instart;
     return(0);
 }
+
+/**
+ * UTF8ToUTF16:
+ * @outb:  a pointer to an array of bytes to store the result
+ * @outlen:  the length of @outb
+ * @in:  a pointer to an array of UTF-8 chars
+ * @inlen:  the length of @in
+ *
+ * Take a block of UTF-8 chars in and try to convert it to an UTF-16
+ * block of chars out.
+ *
+ * Returns the number of bytes written, or -1 if lack of space, or -2
+ *     if the transcoding failed. 
+ */
+static int
+UTF8ToUTF16(unsigned char* outb, int *outlen,
+            const unsigned char* in, int *inlen)
+{
+    if (in == NULL) {
+	/*
+	 * initialization, add the Byte Order Mark for UTF-16LE
+	 */
+        if (*outlen >= 2) {
+	    outb[0] = 0xFF;
+	    outb[1] = 0xFE;
+	    *outlen = 2;
+	    *inlen = 0;
+#ifdef DEBUG_ENCODING
+            xmlGenericError(xmlGenericErrorContext,
+		    "Added FFFE Byte Order Mark\n");
+#endif
+	    return(2);
+	}
+	*outlen = 0;
+	*inlen = 0;
+	return(0);
+    }
+    return (UTF8ToUTF16LE(outb, outlen, in, inlen));
+}
+#endif /* LIBXML_OUTPUT_ENABLED */
 
 /**
  * UTF16BEToUTF8:
  * @out:  a pointer to an array of bytes to store the result
  * @outlen:  the length of @out
- * @inb:  a pointer to an array of UTF-16 passwd as a byte array
+ * @inb:  a pointer to an array of UTF-16 passed as a byte array
  * @inlenb:  the length of @in in UTF-16 chars
  *
  * Take a block of UTF-16 ushorts in and try to convert it to an UTF-8
- * block of chars out. This function assume the endian property
+ * block of chars out. This function assumes the endian property
  * is the same between the native type of this machine and the
  * inputed one.
  *
- * Returns the number of byte written, or -1 by lack of space, or -2
- *     if the transcoding fails (for *in is not valid utf16 string)
+ * Returns the number of bytes written, or -1 if lack of space, or -2
+ *     if the transcoding fails (if *in is not a valid utf16 string)
  * The value of *inlen after return is the number of octets consumed
- *     as the return value is positive, else unpredictable.
+ *     if the return value is positive, else unpredictable.
  */
 static int
 UTF16BEToUTF8(unsigned char* out, int *outlen,
@@ -1016,6 +713,7 @@ UTF16BEToUTF8(unsigned char* out, int *outlen,
     return(0);
 }
 
+#ifdef LIBXML_OUTPUT_ENABLED
 /**
  * UTF8ToUTF16BE:
  * @outb:  a pointer to an array of bytes to store the result
@@ -1035,6 +733,7 @@ UTF8ToUTF16BE(unsigned char* outb, int *outlen,
 {
     unsigned short* out = (unsigned short*) outb;
     const unsigned char* processed = in;
+    const unsigned char *const instart = in;
     unsigned short* outstart= out;
     unsigned short* outend;
     const unsigned char* inend= in+*inlen;
@@ -1043,21 +742,8 @@ UTF8ToUTF16BE(unsigned char* outb, int *outlen,
     unsigned char *tmp;
     unsigned short tmp1, tmp2;
 
+    /* UTF-16BE has no BOM */
     if (in == NULL) {
-        /*
-	 * initialization, add the Byte Order Mark
-	 */
-        if (*outlen >= 2) {
-	    outb[0] = 0xFE;
-	    outb[1] = 0xFF;
-	    *outlen = 2;
-	    *inlen = 0;
-#ifdef DEBUG_ENCODING
-            xmlGenericError(xmlGenericErrorContext,
-		    "Added FEFF Byte Order Mark\n");
-#endif
-	    return(2);
-	}
 	*outlen = 0;
 	*inlen = 0;
 	return(0);
@@ -1069,7 +755,7 @@ UTF8ToUTF16BE(unsigned char* outb, int *outlen,
       else if (d < 0xC0)  {
           /* trailing byte in leading position */
 	  *outlen = out - outstart;
-	  *inlen = processed - in;
+	  *inlen = processed - instart;
 	  return(-2);
       } else if (d < 0xE0)  { c= d & 0x1F; trailing= 1; }
       else if (d < 0xF0)  { c= d & 0x0F; trailing= 2; }
@@ -1077,7 +763,7 @@ UTF8ToUTF16BE(unsigned char* outb, int *outlen,
       else {
           /* no chance for this in UTF-16 */
 	  *outlen = out - outstart;
-	  *inlen = processed - in;
+	  *inlen = processed - instart;
 	  return(-2);
       }
 
@@ -1128,9 +814,10 @@ UTF8ToUTF16BE(unsigned char* outb, int *outlen,
 	processed = in;
     }
     *outlen = (out - outstart) * 2;
-    *inlen = processed - in;
+    *inlen = processed - instart;
     return(0);
 }
+#endif /* LIBXML_OUTPUT_ENABLED */
 
 /************************************************************************
  *									*
@@ -1141,11 +828,11 @@ UTF8ToUTF16BE(unsigned char* outb, int *outlen,
 /**
  * xmlDetectCharEncoding:
  * @in:  a pointer to the first bytes of the XML entity, must be at least
- *       4 bytes long.
+ *       2 bytes long (at least 4 if encoding is UTF4 variant).
  * @len:  pointer to the length of the buffer
  *
  * Guess the encoding of the entity using the first bytes of the entity content
- * accordingly of the non-normative appendix F of the XML-1.0 recommendation.
+ * according to the non-normative appendix F of the XML-1.0 recommendation.
  * 
  * Returns one of the XML_CHAR_ENCODING_... values.
  */
@@ -1171,6 +858,17 @@ xmlDetectCharEncoding(const unsigned char* in, int len)
 	if ((in[0] == 0x3C) && (in[1] == 0x3F) &&
 	    (in[2] == 0x78) && (in[3] == 0x6D))
 	    return(XML_CHAR_ENCODING_UTF8);
+	/*
+	 * Although not part of the recommendation, we also
+	 * attempt an "auto-recognition" of UTF-16LE and
+	 * UTF-16BE encodings.
+	 */
+	if ((in[0] == 0x3C) && (in[1] == 0x00) &&
+	    (in[2] == 0x3F) && (in[3] == 0x00))
+	    return(XML_CHAR_ENCODING_UTF16LE);
+	if ((in[0] == 0x00) && (in[1] == 0x3C) &&
+	    (in[2] == 0x00) && (in[3] == 0x3F))
+	    return(XML_CHAR_ENCODING_UTF16BE);
     }
     if (len >= 3) {
 	/*
@@ -1181,6 +879,7 @@ xmlDetectCharEncoding(const unsigned char* in, int len)
 	    (in[2] == 0xBF))
 	    return(XML_CHAR_ENCODING_UTF8);
     }
+    /* For UTF-16 we can recognize by the BOM */
     if (len >= 2) {
 	if ((in[0] == 0xFE) && (in[1] == 0xFF))
 	    return(XML_CHAR_ENCODING_UTF16BE);
@@ -1220,7 +919,7 @@ xmlCleanupEncodingAliases(void) {
  *
  * Lookup an encoding name for the given alias.
  * 
- * Returns NULL if not found the original name otherwise
+ * Returns NULL if not found, otherwise the original name
  */
 const char *
 xmlGetEncodingAlias(const char *alias) {
@@ -1255,7 +954,7 @@ xmlGetEncodingAlias(const char *alias) {
  * @name:  the encoding name as parsed, in UTF-8 format (ASCII actually)
  * @alias:  the alias name as parsed, in UTF-8 format (ASCII actually)
  *
- * Registers and alias @alias for an encoding named @name. Existing alias
+ * Registers an alias @alias for an encoding named @name. Existing alias
  * will be overwritten.
  * 
  * Returns 0 in case of success, -1 in case of error
@@ -1346,7 +1045,7 @@ xmlDelEncodingAlias(const char *alias) {
  * xmlParseCharEncoding:
  * @name:  the encoding name as parsed, in UTF-8 format (ASCII actually)
  *
- * Compare the string to the known encoding schemes already known. Note
+ * Compare the string to the encoding schemes already known. Note
  * that the comparison is case insensitive accordingly to the section
  * [XML] 4.3.3 Character Encoding in Entities.
  * 
@@ -1617,16 +1316,34 @@ xmlInitCharEncodingHandlers(void) {
 	return;
     }
     xmlNewCharEncodingHandler("UTF-8", UTF8ToUTF8, UTF8ToUTF8);
+#ifdef LIBXML_OUTPUT_ENABLED
     xmlUTF16LEHandler = 
           xmlNewCharEncodingHandler("UTF-16LE", UTF16LEToUTF8, UTF8ToUTF16LE);
     xmlUTF16BEHandler = 
           xmlNewCharEncodingHandler("UTF-16BE", UTF16BEToUTF8, UTF8ToUTF16BE);
+    xmlNewCharEncodingHandler("UTF-16", UTF16LEToUTF8, UTF8ToUTF16);
     xmlNewCharEncodingHandler("ISO-8859-1", isolat1ToUTF8, UTF8Toisolat1);
     xmlNewCharEncodingHandler("ASCII", asciiToUTF8, UTF8Toascii);
     xmlNewCharEncodingHandler("US-ASCII", asciiToUTF8, UTF8Toascii);
 #ifdef LIBXML_HTML_ENABLED
     xmlNewCharEncodingHandler("HTML", NULL, UTF8ToHtml);
 #endif
+#else
+    xmlUTF16LEHandler = 
+          xmlNewCharEncodingHandler("UTF-16LE", UTF16LEToUTF8, NULL);
+    xmlUTF16BEHandler = 
+          xmlNewCharEncodingHandler("UTF-16BE", UTF16BEToUTF8, NULL);
+    xmlNewCharEncodingHandler("UTF-16", UTF16LEToUTF8, NULL);
+    xmlNewCharEncodingHandler("ISO-8859-1", isolat1ToUTF8, NULL);
+    xmlNewCharEncodingHandler("ASCII", asciiToUTF8, NULL);
+    xmlNewCharEncodingHandler("US-ASCII", asciiToUTF8, NULL);
+#endif /* LIBXML_OUTPUT_ENABLED */
+#ifndef LIBXML_ICONV_ENABLED
+#ifdef LIBXML_ISO8859X_ENABLED
+    xmlRegisterCharEncodingHandlersISO8859x ();
+#endif
+#endif
+
 }
 
 /**
@@ -1905,6 +1622,7 @@ xmlFindCharEncodingHandler(const char *name) {
         }
     }
 
+    /* If "none of the above", give up */
     return(NULL);
 }
 
@@ -2194,6 +1912,9 @@ retry:
     
     written = out->size - out->use;
 
+    if (written > 0)
+	written--; /* Gennady: count '/0' */
+
     /*
      * First specific handling of in = NULL, i.e. the initialization call
      */
@@ -2202,8 +1923,10 @@ retry:
 	if (handler->output != NULL) {
 	    ret = handler->output(&out->content[out->use], &written,
 				  NULL, &toconv);
-	    out->use += written;
-	    out->content[out->use] = 0;
+	    if (ret >= 0) { /* Gennady: check return value */
+		out->use += written;
+		out->content[out->use] = 0;
+	    }
 	}
 #ifdef LIBXML_ICONV_ENABLED
 	else if (handler->iconv_out != NULL) {
@@ -2376,4 +2099,1139 @@ xmlCharEncCloseFunc(xmlCharEncodingHandler *handler) {
 
     return(ret);
 }
+
+/**
+ * xmlByteConsumed:
+ * @ctxt: an XML parser context
+ *
+ * This function provides the current index of the parser relative
+ * to the start of the current entity. This function is computed in
+ * bytes from the beginning starting at zero and finishing at the
+ * size in byte of the file if parsing a file. The function is
+ * of constant cost if the input is UTF-8 but can be costly if run
+ * on non-UTF-8 input.
+ *
+ * Returns the index in bytes from the beginning of the entity or -1
+ *         in case the index could not be computed.
+ */
+long
+xmlByteConsumed(xmlParserCtxtPtr ctxt) {
+    xmlParserInputPtr in;
+    
+    if (ctxt == NULL) return(-1);
+    in = ctxt->input;
+    if (in == NULL)  return(-1);
+    if ((in->buf != NULL) && (in->buf->encoder != NULL)) {
+        unsigned int unused = 0;
+	xmlCharEncodingHandler * handler = in->buf->encoder;
+        /*
+	 * Encoding conversion, compute the number of unused original
+	 * bytes from the input not consumed and substract that from
+	 * the raw consumed value, this is not a cheap operation
+	 */
+        if (in->end - in->cur > 0) {
+	    static unsigned char convbuf[32000];
+	    unsigned const char *cur = (unsigned const char *)in->cur;
+	    int toconv = in->end - in->cur, written = 32000;
+
+	    int ret;
+
+	    if (handler->output != NULL) {
+	        do {
+		    toconv = in->end - cur;
+		    written = 32000;
+		    ret = handler->output(&convbuf[0], &written,
+				      cur, &toconv);
+		    if (ret == -1) return(-1);
+		    unused += written;
+		    cur += toconv;
+		} while (ret == -2);
+#ifdef LIBXML_ICONV_ENABLED
+	    } else if (handler->iconv_out != NULL) {
+	        do {
+		    toconv = in->end - cur;
+		    written = 32000;
+		    ret = xmlIconvWrapper(handler->iconv_out, &convbuf[0],
+	                      &written, cur, &toconv);
+		    if (ret == -1) {
+		        if (written > 0)
+			    ret = -2;
+			else
+			    return(-1);
+		    }
+		    unused += written;
+		    cur += toconv;
+		} while (ret == -2);
+#endif
+            } else {
+	        /* could not find a converter */
+	        return(-1);
+	    }
+	}
+	if (in->buf->rawconsumed < unused)
+	    return(-1);
+	return(in->buf->rawconsumed - unused);
+    }
+    return(in->consumed + (in->cur - in->base));
+}
+
+#ifndef LIBXML_ICONV_ENABLED
+#ifdef LIBXML_ISO8859X_ENABLED
+
+/**
+ * UTF8ToISO8859x:
+ * @out:  a pointer to an array of bytes to store the result
+ * @outlen:  the length of @out
+ * @in:  a pointer to an array of UTF-8 chars
+ * @inlen:  the length of @in
+ * @xlattable: the 2-level transcoding table
+ *
+ * Take a block of UTF-8 chars in and try to convert it to an ISO 8859-*
+ * block of chars out.
+ *
+ * Returns 0 if success, -2 if the transcoding fails, or -1 otherwise
+ * The value of @inlen after return is the number of octets consumed
+ *     as the return value is positive, else unpredictable.
+ * The value of @outlen after return is the number of ocetes consumed.
+ */
+static int
+UTF8ToISO8859x(unsigned char* out, int *outlen,
+              const unsigned char* in, int *inlen,
+              unsigned char const *xlattable) {
+    const unsigned char* outstart = out;
+    const unsigned char* inend;
+    const unsigned char* instart = in;
+
+    if (in == NULL) {
+        /*
+        * initialization nothing to do
+        */
+        *outlen = 0;
+        *inlen = 0;
+        return(0);
+    }
+    inend = in + (*inlen);
+    while (in < inend) {
+        unsigned char d = *in++;
+        if  (d < 0x80)  {
+            *out++ = d; 
+        } else if (d < 0xC0) {
+            /* trailing byte in leading position */
+            *outlen = out - outstart;
+            *inlen = in - instart - 1;
+            return(-2);
+        } else if (d < 0xE0) {
+            unsigned char c;
+            if (!(in < inend)) {
+                /* trailing byte not in input buffer */
+                *outlen = out - outstart;
+                *inlen = in - instart - 1;
+                return(-2);
+            }
+            c = *in++;
+            if ((c & 0xC0) != 0xC0) {
+                /* not a trailing byte */
+                *outlen = out - outstart;
+                *inlen = in - instart - 2;
+                return(-2);
+            }
+            c = c & 0x3F; 
+            d = d & 0x1F;
+            d = xlattable [48 + c + xlattable [d] * 64];
+            if (d == 0) {
+                /* not in character set */
+                *outlen = out - outstart;
+                *inlen = in - instart - 2;
+                return(-2);
+            }
+            *out++ = d; 
+        } else if (d < 0xF0) {
+            unsigned char c1;
+            unsigned char c2;
+            if (!(in < inend - 1)) {
+                /* trailing bytes not in input buffer */
+                *outlen = out - outstart;
+                *inlen = in - instart - 1;
+                return(-2);
+            }
+            c1 = *in++;
+            if ((c1 & 0xC0) != 0xC0) {
+                /* not a trailing byte (c1) */
+                *outlen = out - outstart;
+                *inlen = in - instart - 2;
+                return(-2);
+            }
+            c2 = *in++;
+            if ((c2 & 0xC0) != 0xC0) {
+                /* not a trailing byte (c2) */
+                *outlen = out - outstart;
+                *inlen = in - instart - 2;
+                return(-2);
+            }
+            c1 = c1 & 0x3F; 
+            c2 = c2 & 0x3F; 
+            d = d & 0x0F;
+            d = xlattable [48 + c2 + xlattable [48 + c1 + xlattable [32 + d] * 64] * 64];
+            if (d == 0) {
+                /* not in character set */
+                *outlen = out - outstart;
+                *inlen = in - instart - 3;
+                return(-2);
+            }
+            *out++ = d; 
+        } else {
+            /* cannot transcode >= U+010000 */
+            *outlen = out - outstart;
+            *inlen = in - instart - 1;
+            return(-2);
+        }
+    }
+    *outlen = out - outstart;
+    *inlen = in - instart;
+    return(0);
+}
+
+/**
+ * ISO8859xToUTF8
+ * @out:  a pointer to an array of bytes to store the result
+ * @outlen:  the length of @out
+ * @in:  a pointer to an array of ISO Latin 1 chars
+ * @inlen:  the length of @in
+ *
+ * Take a block of ISO 8859-* chars in and try to convert it to an UTF-8
+ * block of chars out.
+ * Returns 0 if success, or -1 otherwise
+ * The value of @inlen after return is the number of octets consumed
+ * The value of @outlen after return is the number of ocetes produced.
+ */
+static int
+ISO8859xToUTF8(unsigned char* out, int *outlen,
+              const unsigned char* in, int *inlen,
+              unsigned short const *unicodetable) {
+    unsigned char* outstart = out;
+    unsigned char* outend = out + *outlen;
+    const unsigned char* instart = in;
+    const unsigned char* inend = in + *inlen;
+    const unsigned char* instop = inend;
+    unsigned int c = *in;
+
+    while (in < inend && out < outend - 1) {
+        if (c >= 0x80) {
+            c = unicodetable [c - 0x80];
+            if (c == 0) {
+                /* undefined code point */
+                *outlen = out - outstart;
+                *inlen = in - instart;
+                return (-1);
+            } 
+            if (c < 0x800) {
+                *out++ = ((c >>  6) & 0x1F) | 0xC0;
+                *out++ = (c & 0x3F) | 0x80;
+            } else {
+                *out++ = ((c >>  12) & 0x0F) | 0xE0;
+                *out++ = ((c >>  6) & 0x3F) | 0x80;
+                *out++ = (c & 0x3F) | 0x80;
+            }    
+            ++in;
+            c = *in;
+        }
+        if (instop - in > outend - out) instop = in + (outend - out); 
+        while (c < 0x80 && in < instop) {
+            *out++ =  c;
+            ++in;
+            c = *in;
+        }
+    }   
+    if (in < inend && out < outend && c < 0x80) {
+        *out++ =  c;
+        ++in;
+    }
+    *outlen = out - outstart;
+    *inlen = in - instart;
+    return (0);
+}
+
+    
+/************************************************************************
+ * Lookup tables for ISO-8859-2..ISO-8859-16 transcoding                *
+ ************************************************************************/
+
+static unsigned short const xmlunicodetable_ISO8859_2 [128] = {
+    0x0080, 0x0081, 0x0082, 0x0083, 0x0084, 0x0085, 0x0086, 0x0087, 
+    0x0088, 0x0089, 0x008a, 0x008b, 0x008c, 0x008d, 0x008e, 0x008f, 
+    0x0090, 0x0091, 0x0092, 0x0093, 0x0094, 0x0095, 0x0096, 0x0097, 
+    0x0098, 0x0099, 0x009a, 0x009b, 0x009c, 0x009d, 0x009e, 0x009f, 
+    0x00a0, 0x0104, 0x02d8, 0x0141, 0x00a4, 0x013d, 0x015a, 0x00a7, 
+    0x00a8, 0x0160, 0x015e, 0x0164, 0x0179, 0x00ad, 0x017d, 0x017b, 
+    0x00b0, 0x0105, 0x02db, 0x0142, 0x00b4, 0x013e, 0x015b, 0x02c7, 
+    0x00b8, 0x0161, 0x015f, 0x0165, 0x017a, 0x02dd, 0x017e, 0x017c, 
+    0x0154, 0x00c1, 0x00c2, 0x0102, 0x00c4, 0x0139, 0x0106, 0x00c7, 
+    0x010c, 0x00c9, 0x0118, 0x00cb, 0x011a, 0x00cd, 0x00ce, 0x010e, 
+    0x0110, 0x0143, 0x0147, 0x00d3, 0x00d4, 0x0150, 0x00d6, 0x00d7, 
+    0x0158, 0x016e, 0x00da, 0x0170, 0x00dc, 0x00dd, 0x0162, 0x00df, 
+    0x0155, 0x00e1, 0x00e2, 0x0103, 0x00e4, 0x013a, 0x0107, 0x00e7, 
+    0x010d, 0x00e9, 0x0119, 0x00eb, 0x011b, 0x00ed, 0x00ee, 0x010f, 
+    0x0111, 0x0144, 0x0148, 0x00f3, 0x00f4, 0x0151, 0x00f6, 0x00f7, 
+    0x0159, 0x016f, 0x00fa, 0x0171, 0x00fc, 0x00fd, 0x0163, 0x02d9, 
+};
+
+static unsigned char const xmltranscodetable_ISO8859_2 [48 + 6 * 64] = {
+    "\x00\x00\x01\x05\x02\x04\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f"
+    "\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f"
+    "\xa0\x00\x00\x00\xa4\x00\x00\xa7\xa8\x00\x00\x00\x00\xad\x00\x00"
+    "\xb0\x00\x00\x00\xb4\x00\x00\x00\xb8\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\xc3\xe3\xa1\xb1\xc6\xe6\x00\x00\x00\x00\xc8\xe8\xcf\xef"
+    "\xd0\xf0\x00\x00\x00\x00\x00\x00\xca\xea\xcc\xec\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\xc5\xe5\x00\x00\xa5\xb5\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\xb7\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\xa2\xff\x00\xb2\x00\xbd\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\xa3\xb3\xd1\xf1\x00\x00\xd2\xf2\x00\x00\x00\x00\x00\x00\x00"
+    "\xd5\xf5\x00\x00\xc0\xe0\x00\x00\xd8\xf8\xa6\xb6\x00\x00\xaa\xba"
+    "\xa9\xb9\xde\xfe\xab\xbb\x00\x00\x00\x00\x00\x00\x00\x00\xd9\xf9"
+    "\xdb\xfb\x00\x00\x00\x00\x00\x00\x00\xac\xbc\xaf\xbf\xae\xbe\x00"
+    "\x00\xc1\xc2\x00\xc4\x00\x00\xc7\x00\xc9\x00\xcb\x00\xcd\xce\x00"
+    "\x00\x00\x00\xd3\xd4\x00\xd6\xd7\x00\x00\xda\x00\xdc\xdd\x00\xdf"
+    "\x00\xe1\xe2\x00\xe4\x00\x00\xe7\x00\xe9\x00\xeb\x00\xed\xee\x00"
+    "\x00\x00\x00\xf3\xf4\x00\xf6\xf7\x00\x00\xfa\x00\xfc\xfd\x00\x00"
+};
+
+static unsigned short const xmlunicodetable_ISO8859_3 [128] = {
+    0x0080, 0x0081, 0x0082, 0x0083, 0x0084, 0x0085, 0x0086, 0x0087, 
+    0x0088, 0x0089, 0x008a, 0x008b, 0x008c, 0x008d, 0x008e, 0x008f, 
+    0x0090, 0x0091, 0x0092, 0x0093, 0x0094, 0x0095, 0x0096, 0x0097, 
+    0x0098, 0x0099, 0x009a, 0x009b, 0x009c, 0x009d, 0x009e, 0x009f, 
+    0x00a0, 0x0126, 0x02d8, 0x00a3, 0x00a4, 0x0000, 0x0124, 0x00a7, 
+    0x00a8, 0x0130, 0x015e, 0x011e, 0x0134, 0x00ad, 0x0000, 0x017b, 
+    0x00b0, 0x0127, 0x00b2, 0x00b3, 0x00b4, 0x00b5, 0x0125, 0x00b7, 
+    0x00b8, 0x0131, 0x015f, 0x011f, 0x0135, 0x00bd, 0x0000, 0x017c, 
+    0x00c0, 0x00c1, 0x00c2, 0x0000, 0x00c4, 0x010a, 0x0108, 0x00c7, 
+    0x00c8, 0x00c9, 0x00ca, 0x00cb, 0x00cc, 0x00cd, 0x00ce, 0x00cf, 
+    0x0000, 0x00d1, 0x00d2, 0x00d3, 0x00d4, 0x0120, 0x00d6, 0x00d7, 
+    0x011c, 0x00d9, 0x00da, 0x00db, 0x00dc, 0x016c, 0x015c, 0x00df, 
+    0x00e0, 0x00e1, 0x00e2, 0x0000, 0x00e4, 0x010b, 0x0109, 0x00e7, 
+    0x00e8, 0x00e9, 0x00ea, 0x00eb, 0x00ec, 0x00ed, 0x00ee, 0x00ef, 
+    0x0000, 0x00f1, 0x00f2, 0x00f3, 0x00f4, 0x0121, 0x00f6, 0x00f7, 
+    0x011d, 0x00f9, 0x00fa, 0x00fb, 0x00fc, 0x016d, 0x015d, 0x02d9, 
+};
+
+static unsigned char const xmltranscodetable_ISO8859_3 [48 + 7 * 64] = {
+    "\x04\x00\x01\x06\x02\x05\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f"
+    "\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f"
+    "\xa0\x00\x00\xa3\xa4\x00\x00\xa7\xa8\x00\x00\x00\x00\xad\x00\x00"
+    "\xb0\x00\xb2\xb3\xb4\xb5\x00\xb7\xb8\x00\x00\x00\x00\xbd\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\xc6\xe6\xc5\xe5\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xd8\xf8\xab\xbb"
+    "\xd5\xf5\x00\x00\xa6\xb6\xa1\xb1\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\xa9\xb9\x00\x00\xac\xbc\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\xa2\xff\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\xf0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xfe\xaa\xba"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xdd\xfd\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xaf\xbf\x00\x00\x00"
+    "\xc0\xc1\xc2\x00\xc4\x00\x00\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf"
+    "\x00\xd1\xd2\xd3\xd4\x00\xd6\xd7\x00\xd9\xda\xdb\xdc\x00\x00\xdf"
+    "\xe0\xe1\xe2\x00\xe4\x00\x00\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef"
+    "\x00\xf1\xf2\xf3\xf4\x00\xf6\xf7\x00\xf9\xfa\xfb\xfc\x00\x00\x00"
+};
+
+static unsigned short const xmlunicodetable_ISO8859_4 [128] = {
+    0x0080, 0x0081, 0x0082, 0x0083, 0x0084, 0x0085, 0x0086, 0x0087, 
+    0x0088, 0x0089, 0x008a, 0x008b, 0x008c, 0x008d, 0x008e, 0x008f, 
+    0x0090, 0x0091, 0x0092, 0x0093, 0x0094, 0x0095, 0x0096, 0x0097, 
+    0x0098, 0x0099, 0x009a, 0x009b, 0x009c, 0x009d, 0x009e, 0x009f, 
+    0x00a0, 0x0104, 0x0138, 0x0156, 0x00a4, 0x0128, 0x013b, 0x00a7, 
+    0x00a8, 0x0160, 0x0112, 0x0122, 0x0166, 0x00ad, 0x017d, 0x00af, 
+    0x00b0, 0x0105, 0x02db, 0x0157, 0x00b4, 0x0129, 0x013c, 0x02c7, 
+    0x00b8, 0x0161, 0x0113, 0x0123, 0x0167, 0x014a, 0x017e, 0x014b, 
+    0x0100, 0x00c1, 0x00c2, 0x00c3, 0x00c4, 0x00c5, 0x00c6, 0x012e, 
+    0x010c, 0x00c9, 0x0118, 0x00cb, 0x0116, 0x00cd, 0x00ce, 0x012a, 
+    0x0110, 0x0145, 0x014c, 0x0136, 0x00d4, 0x00d5, 0x00d6, 0x00d7, 
+    0x00d8, 0x0172, 0x00da, 0x00db, 0x00dc, 0x0168, 0x016a, 0x00df, 
+    0x0101, 0x00e1, 0x00e2, 0x00e3, 0x00e4, 0x00e5, 0x00e6, 0x012f, 
+    0x010d, 0x00e9, 0x0119, 0x00eb, 0x0117, 0x00ed, 0x00ee, 0x012b, 
+    0x0111, 0x0146, 0x014d, 0x0137, 0x00f4, 0x00f5, 0x00f6, 0x00f7, 
+    0x00f8, 0x0173, 0x00fa, 0x00fb, 0x00fc, 0x0169, 0x016b, 0x02d9, 
+};
+
+static unsigned char const xmltranscodetable_ISO8859_4 [48 + 6 * 64] = {
+    "\x00\x00\x01\x05\x02\x03\x00\x00\x00\x00\x00\x04\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f"
+    "\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f"
+    "\xa0\x00\x00\x00\xa4\x00\x00\xa7\xa8\x00\x00\x00\x00\xad\x00\xaf"
+    "\xb0\x00\x00\x00\xb4\x00\x00\x00\xb8\x00\x00\x00\x00\x00\x00\x00"
+    "\xc0\xe0\x00\x00\xa1\xb1\x00\x00\x00\x00\x00\x00\xc8\xe8\x00\x00"
+    "\xd0\xf0\xaa\xba\x00\x00\xcc\xec\xca\xea\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\xab\xbb\x00\x00\x00\x00\xa5\xb5\xcf\xef\x00\x00\xc7\xe7"
+    "\x00\x00\x00\x00\x00\x00\xd3\xf3\xa2\x00\x00\xa6\xb6\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\xd1\xf1\x00\x00\x00\xbd\xbf\xd2\xf2\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\xa3\xb3\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\xa9\xb9\x00\x00\x00\x00\xac\xbc\xdd\xfd\xde\xfe\x00\x00\x00\x00"
+    "\x00\x00\xd9\xf9\x00\x00\x00\x00\x00\x00\x00\x00\x00\xae\xbe\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\xb7\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\x00\xb2\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\xc1\xc2\xc3\xc4\xc5\xc6\x00\x00\xc9\x00\xcb\x00\xcd\xce\x00"
+    "\x00\x00\x00\x00\xd4\xd5\xd6\xd7\xd8\x00\xda\xdb\xdc\x00\x00\xdf"
+    "\x00\xe1\xe2\xe3\xe4\xe5\xe6\x00\x00\xe9\x00\xeb\x00\xed\xee\x00"
+    "\x00\x00\x00\x00\xf4\xf5\xf6\xf7\xf8\x00\xfa\xfb\xfc\x00\x00\x00"
+};
+
+static unsigned short const xmlunicodetable_ISO8859_5 [128] = {
+    0x0080, 0x0081, 0x0082, 0x0083, 0x0084, 0x0085, 0x0086, 0x0087, 
+    0x0088, 0x0089, 0x008a, 0x008b, 0x008c, 0x008d, 0x008e, 0x008f, 
+    0x0090, 0x0091, 0x0092, 0x0093, 0x0094, 0x0095, 0x0096, 0x0097, 
+    0x0098, 0x0099, 0x009a, 0x009b, 0x009c, 0x009d, 0x009e, 0x009f, 
+    0x00a0, 0x0401, 0x0402, 0x0403, 0x0404, 0x0405, 0x0406, 0x0407, 
+    0x0408, 0x0409, 0x040a, 0x040b, 0x040c, 0x00ad, 0x040e, 0x040f, 
+    0x0410, 0x0411, 0x0412, 0x0413, 0x0414, 0x0415, 0x0416, 0x0417, 
+    0x0418, 0x0419, 0x041a, 0x041b, 0x041c, 0x041d, 0x041e, 0x041f, 
+    0x0420, 0x0421, 0x0422, 0x0423, 0x0424, 0x0425, 0x0426, 0x0427, 
+    0x0428, 0x0429, 0x042a, 0x042b, 0x042c, 0x042d, 0x042e, 0x042f, 
+    0x0430, 0x0431, 0x0432, 0x0433, 0x0434, 0x0435, 0x0436, 0x0437, 
+    0x0438, 0x0439, 0x043a, 0x043b, 0x043c, 0x043d, 0x043e, 0x043f, 
+    0x0440, 0x0441, 0x0442, 0x0443, 0x0444, 0x0445, 0x0446, 0x0447, 
+    0x0448, 0x0449, 0x044a, 0x044b, 0x044c, 0x044d, 0x044e, 0x044f, 
+    0x2116, 0x0451, 0x0452, 0x0453, 0x0454, 0x0455, 0x0456, 0x0457, 
+    0x0458, 0x0459, 0x045a, 0x045b, 0x045c, 0x00a7, 0x045e, 0x045f, 
+};
+
+static unsigned char const xmltranscodetable_ISO8859_5 [48 + 6 * 64] = {
+    "\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x02\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f"
+    "\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f"
+    "\xa0\x00\x00\x00\x00\x00\x00\xfd\x00\x00\x00\x00\x00\xad\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\x00\xae\xaf"
+    "\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf"
+    "\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf"
+    "\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf"
+    "\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef"
+    "\x00\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\x00\xfe\xff"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\xf0\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+};
+
+static unsigned short const xmlunicodetable_ISO8859_6 [128] = {
+    0x0080, 0x0081, 0x0082, 0x0083, 0x0084, 0x0085, 0x0086, 0x0087, 
+    0x0088, 0x0089, 0x008a, 0x008b, 0x008c, 0x008d, 0x008e, 0x008f, 
+    0x0090, 0x0091, 0x0092, 0x0093, 0x0094, 0x0095, 0x0096, 0x0097, 
+    0x0098, 0x0099, 0x009a, 0x009b, 0x009c, 0x009d, 0x009e, 0x009f, 
+    0x00a0, 0x0000, 0x0000, 0x0000, 0x00a4, 0x0000, 0x0000, 0x0000, 
+    0x0000, 0x0000, 0x0000, 0x0000, 0x060c, 0x00ad, 0x0000, 0x0000, 
+    0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 
+    0x0000, 0x0000, 0x0000, 0x061b, 0x0000, 0x0000, 0x0000, 0x061f, 
+    0x0000, 0x0621, 0x0622, 0x0623, 0x0624, 0x0625, 0x0626, 0x0627, 
+    0x0628, 0x0629, 0x062a, 0x062b, 0x062c, 0x062d, 0x062e, 0x062f, 
+    0x0630, 0x0631, 0x0632, 0x0633, 0x0634, 0x0635, 0x0636, 0x0637, 
+    0x0638, 0x0639, 0x063a, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 
+    0x0640, 0x0641, 0x0642, 0x0643, 0x0644, 0x0645, 0x0646, 0x0647, 
+    0x0648, 0x0649, 0x064a, 0x064b, 0x064c, 0x064d, 0x064e, 0x064f, 
+    0x0650, 0x0651, 0x0652, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 
+    0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 
+};
+
+static unsigned char const xmltranscodetable_ISO8859_6 [48 + 5 * 64] = {
+    "\x02\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x03\x04\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f"
+    "\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f"
+    "\xa0\x00\x00\x00\xa4\x00\x00\x00\x00\x00\x00\x00\x00\xad\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xac\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xbb\x00\x00\x00\xbf"
+    "\x00\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf"
+    "\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\x00\x00\x00\x00\x00"
+    "\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef"
+    "\xf0\xf1\xf2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+};
+
+static unsigned short const xmlunicodetable_ISO8859_7 [128] = {
+    0x0080, 0x0081, 0x0082, 0x0083, 0x0084, 0x0085, 0x0086, 0x0087, 
+    0x0088, 0x0089, 0x008a, 0x008b, 0x008c, 0x008d, 0x008e, 0x008f, 
+    0x0090, 0x0091, 0x0092, 0x0093, 0x0094, 0x0095, 0x0096, 0x0097, 
+    0x0098, 0x0099, 0x009a, 0x009b, 0x009c, 0x009d, 0x009e, 0x009f, 
+    0x00a0, 0x2018, 0x2019, 0x00a3, 0x0000, 0x0000, 0x00a6, 0x00a7, 
+    0x00a8, 0x00a9, 0x0000, 0x00ab, 0x00ac, 0x00ad, 0x0000, 0x2015, 
+    0x00b0, 0x00b1, 0x00b2, 0x00b3, 0x0384, 0x0385, 0x0386, 0x00b7, 
+    0x0388, 0x0389, 0x038a, 0x00bb, 0x038c, 0x00bd, 0x038e, 0x038f, 
+    0x0390, 0x0391, 0x0392, 0x0393, 0x0394, 0x0395, 0x0396, 0x0397, 
+    0x0398, 0x0399, 0x039a, 0x039b, 0x039c, 0x039d, 0x039e, 0x039f, 
+    0x03a0, 0x03a1, 0x0000, 0x03a3, 0x03a4, 0x03a5, 0x03a6, 0x03a7, 
+    0x03a8, 0x03a9, 0x03aa, 0x03ab, 0x03ac, 0x03ad, 0x03ae, 0x03af, 
+    0x03b0, 0x03b1, 0x03b2, 0x03b3, 0x03b4, 0x03b5, 0x03b6, 0x03b7, 
+    0x03b8, 0x03b9, 0x03ba, 0x03bb, 0x03bc, 0x03bd, 0x03be, 0x03bf, 
+    0x03c0, 0x03c1, 0x03c2, 0x03c3, 0x03c4, 0x03c5, 0x03c6, 0x03c7, 
+    0x03c8, 0x03c9, 0x03ca, 0x03cb, 0x03cc, 0x03cd, 0x03ce, 0x0000, 
+};
+
+static unsigned char const xmltranscodetable_ISO8859_7 [48 + 7 * 64] = {
+    "\x04\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x06"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f"
+    "\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f"
+    "\xa0\x00\x00\xa3\x00\x00\xa6\xa7\xa8\xa9\x00\xab\xac\xad\x00\x00"
+    "\xb0\xb1\xb2\xb3\x00\x00\x00\xb7\x00\x00\x00\xbb\x00\xbd\x00\x00"
+    "\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\xaf\x00\x00\xa1\xa2\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\xb4\xb5\xb6\x00\xb8\xb9\xba\x00\xbc\x00\xbe\xbf"
+    "\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf"
+    "\xd0\xd1\x00\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf"
+    "\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef"
+    "\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+};
+
+static unsigned short const xmlunicodetable_ISO8859_8 [128] = {
+    0x0080, 0x0081, 0x0082, 0x0083, 0x0084, 0x0085, 0x0086, 0x0087, 
+    0x0088, 0x0089, 0x008a, 0x008b, 0x008c, 0x008d, 0x008e, 0x008f, 
+    0x0090, 0x0091, 0x0092, 0x0093, 0x0094, 0x0095, 0x0096, 0x0097, 
+    0x0098, 0x0099, 0x009a, 0x009b, 0x009c, 0x009d, 0x009e, 0x009f, 
+    0x00a0, 0x0000, 0x00a2, 0x00a3, 0x00a4, 0x00a5, 0x00a6, 0x00a7, 
+    0x00a8, 0x00a9, 0x00d7, 0x00ab, 0x00ac, 0x00ad, 0x00ae, 0x00af, 
+    0x00b0, 0x00b1, 0x00b2, 0x00b3, 0x00b4, 0x00b5, 0x00b6, 0x00b7, 
+    0x00b8, 0x00b9, 0x00f7, 0x00bb, 0x00bc, 0x00bd, 0x00be, 0x0000, 
+    0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 
+    0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 
+    0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 
+    0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x2017, 
+    0x05d0, 0x05d1, 0x05d2, 0x05d3, 0x05d4, 0x05d5, 0x05d6, 0x05d7, 
+    0x05d8, 0x05d9, 0x05da, 0x05db, 0x05dc, 0x05dd, 0x05de, 0x05df, 
+    0x05e0, 0x05e1, 0x05e2, 0x05e3, 0x05e4, 0x05e5, 0x05e6, 0x05e7, 
+    0x05e8, 0x05e9, 0x05ea, 0x0000, 0x0000, 0x200e, 0x200f, 0x0000, 
+};
+
+static unsigned char const xmltranscodetable_ISO8859_8 [48 + 7 * 64] = {
+    "\x02\x00\x01\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x06\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f"
+    "\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f"
+    "\xa0\x00\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\x00\xab\xac\xad\xae\xaf"
+    "\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\x00\xbb\xbc\xbd\xbe\x00"
+    "\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\xaa\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\xba\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xfd\xfe"
+    "\x00\x00\x00\x00\x00\x00\x00\xdf\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef"
+    "\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+};
+
+static unsigned short const xmlunicodetable_ISO8859_9 [128] = {
+    0x0080, 0x0081, 0x0082, 0x0083, 0x0084, 0x0085, 0x0086, 0x0087, 
+    0x0088, 0x0089, 0x008a, 0x008b, 0x008c, 0x008d, 0x008e, 0x008f, 
+    0x0090, 0x0091, 0x0092, 0x0093, 0x0094, 0x0095, 0x0096, 0x0097, 
+    0x0098, 0x0099, 0x009a, 0x009b, 0x009c, 0x009d, 0x009e, 0x009f, 
+    0x00a0, 0x00a1, 0x00a2, 0x00a3, 0x00a4, 0x00a5, 0x00a6, 0x00a7, 
+    0x00a8, 0x00a9, 0x00aa, 0x00ab, 0x00ac, 0x00ad, 0x00ae, 0x00af, 
+    0x00b0, 0x00b1, 0x00b2, 0x00b3, 0x00b4, 0x00b5, 0x00b6, 0x00b7, 
+    0x00b8, 0x00b9, 0x00ba, 0x00bb, 0x00bc, 0x00bd, 0x00be, 0x00bf, 
+    0x00c0, 0x00c1, 0x00c2, 0x00c3, 0x00c4, 0x00c5, 0x00c6, 0x00c7, 
+    0x00c8, 0x00c9, 0x00ca, 0x00cb, 0x00cc, 0x00cd, 0x00ce, 0x00cf, 
+    0x011e, 0x00d1, 0x00d2, 0x00d3, 0x00d4, 0x00d5, 0x00d6, 0x00d7, 
+    0x00d8, 0x00d9, 0x00da, 0x00db, 0x00dc, 0x0130, 0x015e, 0x00df, 
+    0x00e0, 0x00e1, 0x00e2, 0x00e3, 0x00e4, 0x00e5, 0x00e6, 0x00e7, 
+    0x00e8, 0x00e9, 0x00ea, 0x00eb, 0x00ec, 0x00ed, 0x00ee, 0x00ef, 
+    0x011f, 0x00f1, 0x00f2, 0x00f3, 0x00f4, 0x00f5, 0x00f6, 0x00f7, 
+    0x00f8, 0x00f9, 0x00fa, 0x00fb, 0x00fc, 0x0131, 0x015f, 0x00ff, 
+};
+
+static unsigned char const xmltranscodetable_ISO8859_9 [48 + 5 * 64] = {
+    "\x00\x00\x01\x02\x03\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f"
+    "\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f"
+    "\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf"
+    "\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf"
+    "\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf"
+    "\x00\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\x00\x00\xdf"
+    "\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef"
+    "\x00\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\x00\x00\xff"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xd0\xf0"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\xdd\xfd\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xfe"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+};
+
+static unsigned short const xmlunicodetable_ISO8859_10 [128] = {
+    0x0080, 0x0081, 0x0082, 0x0083, 0x0084, 0x0085, 0x0086, 0x0087, 
+    0x0088, 0x0089, 0x008a, 0x008b, 0x008c, 0x008d, 0x008e, 0x008f, 
+    0x0090, 0x0091, 0x0092, 0x0093, 0x0094, 0x0095, 0x0096, 0x0097, 
+    0x0098, 0x0099, 0x009a, 0x009b, 0x009c, 0x009d, 0x009e, 0x009f, 
+    0x00a0, 0x0104, 0x0112, 0x0122, 0x012a, 0x0128, 0x0136, 0x00a7, 
+    0x013b, 0x0110, 0x0160, 0x0166, 0x017d, 0x00ad, 0x016a, 0x014a, 
+    0x00b0, 0x0105, 0x0113, 0x0123, 0x012b, 0x0129, 0x0137, 0x00b7, 
+    0x013c, 0x0111, 0x0161, 0x0167, 0x017e, 0x2015, 0x016b, 0x014b, 
+    0x0100, 0x00c1, 0x00c2, 0x00c3, 0x00c4, 0x00c5, 0x00c6, 0x012e, 
+    0x010c, 0x00c9, 0x0118, 0x00cb, 0x0116, 0x00cd, 0x00ce, 0x00cf, 
+    0x00d0, 0x0145, 0x014c, 0x00d3, 0x00d4, 0x00d5, 0x00d6, 0x0168, 
+    0x00d8, 0x0172, 0x00da, 0x00db, 0x00dc, 0x00dd, 0x00de, 0x00df, 
+    0x0101, 0x00e1, 0x00e2, 0x00e3, 0x00e4, 0x00e5, 0x00e6, 0x012f, 
+    0x010d, 0x00e9, 0x0119, 0x00eb, 0x0117, 0x00ed, 0x00ee, 0x00ef, 
+    0x00f0, 0x0146, 0x014d, 0x00f3, 0x00f4, 0x00f5, 0x00f6, 0x0169, 
+    0x00f8, 0x0173, 0x00fa, 0x00fb, 0x00fc, 0x00fd, 0x00fe, 0x0138, 
+};
+
+static unsigned char const xmltranscodetable_ISO8859_10 [48 + 7 * 64] = {
+    "\x00\x00\x01\x06\x02\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f"
+    "\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f"
+    "\xa0\x00\x00\x00\x00\x00\x00\xa7\x00\x00\x00\x00\x00\xad\x00\x00"
+    "\xb0\x00\x00\x00\x00\x00\x00\xb7\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\xc0\xe0\x00\x00\xa1\xb1\x00\x00\x00\x00\x00\x00\xc8\xe8\x00\x00"
+    "\xa9\xb9\xa2\xb2\x00\x00\xcc\xec\xca\xea\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\xa3\xb3\x00\x00\x00\x00\xa5\xb5\xa4\xb4\x00\x00\xc7\xe7"
+    "\x00\x00\x00\x00\x00\x00\xa6\xb6\xff\x00\x00\xa8\xb8\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\xd1\xf1\x00\x00\x00\xaf\xbf\xd2\xf2\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\xaa\xba\x00\x00\x00\x00\xab\xbb\xd7\xf7\xae\xbe\x00\x00\x00\x00"
+    "\x00\x00\xd9\xf9\x00\x00\x00\x00\x00\x00\x00\x00\x00\xac\xbc\x00"
+    "\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\xbd\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\xc1\xc2\xc3\xc4\xc5\xc6\x00\x00\xc9\x00\xcb\x00\xcd\xce\xcf"
+    "\xd0\x00\x00\xd3\xd4\xd5\xd6\x00\xd8\x00\xda\xdb\xdc\xdd\xde\xdf"
+    "\x00\xe1\xe2\xe3\xe4\xe5\xe6\x00\x00\xe9\x00\xeb\x00\xed\xee\xef"
+    "\xf0\x00\x00\xf3\xf4\xf5\xf6\x00\xf8\x00\xfa\xfb\xfc\xfd\xfe\x00"
+};
+
+static unsigned short const xmlunicodetable_ISO8859_11 [128] = {
+    0x0080, 0x0081, 0x0082, 0x0083, 0x0084, 0x0085, 0x0086, 0x0087, 
+    0x0088, 0x0089, 0x008a, 0x008b, 0x008c, 0x008d, 0x008e, 0x008f, 
+    0x0090, 0x0091, 0x0092, 0x0093, 0x0094, 0x0095, 0x0096, 0x0097, 
+    0x0098, 0x0099, 0x009a, 0x009b, 0x009c, 0x009d, 0x009e, 0x009f, 
+    0x00a0, 0x0e01, 0x0e02, 0x0e03, 0x0e04, 0x0e05, 0x0e06, 0x0e07, 
+    0x0e08, 0x0e09, 0x0e0a, 0x0e0b, 0x0e0c, 0x0e0d, 0x0e0e, 0x0e0f, 
+    0x0e10, 0x0e11, 0x0e12, 0x0e13, 0x0e14, 0x0e15, 0x0e16, 0x0e17, 
+    0x0e18, 0x0e19, 0x0e1a, 0x0e1b, 0x0e1c, 0x0e1d, 0x0e1e, 0x0e1f, 
+    0x0e20, 0x0e21, 0x0e22, 0x0e23, 0x0e24, 0x0e25, 0x0e26, 0x0e27, 
+    0x0e28, 0x0e29, 0x0e2a, 0x0e2b, 0x0e2c, 0x0e2d, 0x0e2e, 0x0e2f, 
+    0x0e30, 0x0e31, 0x0e32, 0x0e33, 0x0e34, 0x0e35, 0x0e36, 0x0e37, 
+    0x0e38, 0x0e39, 0x0e3a, 0x0000, 0x0000, 0x0000, 0x0000, 0x0e3f, 
+    0x0e40, 0x0e41, 0x0e42, 0x0e43, 0x0e44, 0x0e45, 0x0e46, 0x0e47, 
+    0x0e48, 0x0e49, 0x0e4a, 0x0e4b, 0x0e4c, 0x0e4d, 0x0e4e, 0x0e4f, 
+    0x0e50, 0x0e51, 0x0e52, 0x0e53, 0x0e54, 0x0e55, 0x0e56, 0x0e57, 
+    0x0e58, 0x0e59, 0x0e5a, 0x0e5b, 0x0000, 0x0000, 0x0000, 0x0000, 
+};
+
+static unsigned char const xmltranscodetable_ISO8859_11 [48 + 6 * 64] = {
+    "\x04\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f"
+    "\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f"
+    "\xa0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x03\x05\x00\x00\x00\x00\x00\x00"
+    "\x00\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf"
+    "\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf"
+    "\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf"
+    "\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\x00\x00\x00\x00\xdf"
+    "\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef"
+    "\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+};
+
+static unsigned short const xmlunicodetable_ISO8859_13 [128] = {
+    0x0080, 0x0081, 0x0082, 0x0083, 0x0084, 0x0085, 0x0086, 0x0087, 
+    0x0088, 0x0089, 0x008a, 0x008b, 0x008c, 0x008d, 0x008e, 0x008f, 
+    0x0090, 0x0091, 0x0092, 0x0093, 0x0094, 0x0095, 0x0096, 0x0097, 
+    0x0098, 0x0099, 0x009a, 0x009b, 0x009c, 0x009d, 0x009e, 0x009f, 
+    0x00a0, 0x201d, 0x00a2, 0x00a3, 0x00a4, 0x201e, 0x00a6, 0x00a7, 
+    0x00d8, 0x00a9, 0x0156, 0x00ab, 0x00ac, 0x00ad, 0x00ae, 0x00c6, 
+    0x00b0, 0x00b1, 0x00b2, 0x00b3, 0x201c, 0x00b5, 0x00b6, 0x00b7, 
+    0x00f8, 0x00b9, 0x0157, 0x00bb, 0x00bc, 0x00bd, 0x00be, 0x00e6, 
+    0x0104, 0x012e, 0x0100, 0x0106, 0x00c4, 0x00c5, 0x0118, 0x0112, 
+    0x010c, 0x00c9, 0x0179, 0x0116, 0x0122, 0x0136, 0x012a, 0x013b, 
+    0x0160, 0x0143, 0x0145, 0x00d3, 0x014c, 0x00d5, 0x00d6, 0x00d7, 
+    0x0172, 0x0141, 0x015a, 0x016a, 0x00dc, 0x017b, 0x017d, 0x00df, 
+    0x0105, 0x012f, 0x0101, 0x0107, 0x00e4, 0x00e5, 0x0119, 0x0113, 
+    0x010d, 0x00e9, 0x017a, 0x0117, 0x0123, 0x0137, 0x012b, 0x013c, 
+    0x0161, 0x0144, 0x0146, 0x00f3, 0x014d, 0x00f5, 0x00f6, 0x00f7, 
+    0x0173, 0x0142, 0x015b, 0x016b, 0x00fc, 0x017c, 0x017e, 0x2019, 
+};
+
+static unsigned char const xmltranscodetable_ISO8859_13 [48 + 7 * 64] = {
+    "\x00\x00\x01\x04\x06\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f"
+    "\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f"
+    "\xa0\x00\xa2\xa3\xa4\x00\xa6\xa7\x00\xa9\x00\xab\xac\xad\xae\x00"
+    "\xb0\xb1\xb2\xb3\x00\xb5\xb6\xb7\x00\xb9\x00\xbb\xbc\xbd\xbe\x00"
+    "\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\x00\x00\xb4\xa1\xa5\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\xc4\xc5\xaf\x00\x00\xc9\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\xd3\x00\xd5\xd6\xd7\xa8\x00\x00\x00\xdc\x00\x00\xdf"
+    "\x00\x00\x00\x00\xe4\xe5\xbf\x00\x00\xe9\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\xf3\x00\xf5\xf6\xf7\xb8\x00\x00\x00\xfc\x00\x00\x00"
+    "\x00\xd9\xf9\xd1\xf1\xd2\xf2\x00\x00\x00\x00\x00\xd4\xf4\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\xaa\xba\x00\x00\xda\xfa\x00\x00\x00\x00"
+    "\xd0\xf0\x00\x00\x00\x00\x00\x00\x00\x00\xdb\xfb\x00\x00\x00\x00"
+    "\x00\x00\xd8\xf8\x00\x00\x00\x00\x00\xca\xea\xdd\xfd\xde\xfe\x00"
+    "\xc2\xe2\x00\x00\xc0\xe0\xc3\xe3\x00\x00\x00\x00\xc8\xe8\x00\x00"
+    "\x00\x00\xc7\xe7\x00\x00\xcb\xeb\xc6\xe6\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\xcc\xec\x00\x00\x00\x00\x00\x00\xce\xee\x00\x00\xc1\xe1"
+    "\x00\x00\x00\x00\x00\x00\xcd\xed\x00\x00\x00\xcf\xef\x00\x00\x00"
+};
+
+static unsigned short const xmlunicodetable_ISO8859_14 [128] = {
+    0x0080, 0x0081, 0x0082, 0x0083, 0x0084, 0x0085, 0x0086, 0x0087, 
+    0x0088, 0x0089, 0x008a, 0x008b, 0x008c, 0x008d, 0x008e, 0x008f, 
+    0x0090, 0x0091, 0x0092, 0x0093, 0x0094, 0x0095, 0x0096, 0x0097, 
+    0x0098, 0x0099, 0x009a, 0x009b, 0x009c, 0x009d, 0x009e, 0x009f, 
+    0x00a0, 0x1e02, 0x1e03, 0x00a3, 0x010a, 0x010b, 0x1e0a, 0x00a7, 
+    0x1e80, 0x00a9, 0x1e82, 0x1e0b, 0x1ef2, 0x00ad, 0x00ae, 0x0178, 
+    0x1e1e, 0x1e1f, 0x0120, 0x0121, 0x1e40, 0x1e41, 0x00b6, 0x1e56, 
+    0x1e81, 0x1e57, 0x1e83, 0x1e60, 0x1ef3, 0x1e84, 0x1e85, 0x1e61, 
+    0x00c0, 0x00c1, 0x00c2, 0x00c3, 0x00c4, 0x00c5, 0x00c6, 0x00c7, 
+    0x00c8, 0x00c9, 0x00ca, 0x00cb, 0x00cc, 0x00cd, 0x00ce, 0x00cf, 
+    0x0174, 0x00d1, 0x00d2, 0x00d3, 0x00d4, 0x00d5, 0x00d6, 0x1e6a, 
+    0x00d8, 0x00d9, 0x00da, 0x00db, 0x00dc, 0x00dd, 0x0176, 0x00df, 
+    0x00e0, 0x00e1, 0x00e2, 0x00e3, 0x00e4, 0x00e5, 0x00e6, 0x00e7, 
+    0x00e8, 0x00e9, 0x00ea, 0x00eb, 0x00ec, 0x00ed, 0x00ee, 0x00ef, 
+    0x0175, 0x00f1, 0x00f2, 0x00f3, 0x00f4, 0x00f5, 0x00f6, 0x1e6b, 
+    0x00f8, 0x00f9, 0x00fa, 0x00fb, 0x00fc, 0x00fd, 0x0177, 0x00ff, 
+};
+
+static unsigned char const xmltranscodetable_ISO8859_14 [48 + 10 * 64] = {
+    "\x00\x00\x01\x09\x04\x07\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f"
+    "\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f"
+    "\xa0\x00\x00\xa3\x00\x00\x00\xa7\x00\xa9\x00\x00\x00\xad\xae\x00"
+    "\x00\x00\x00\x00\x00\x00\xb6\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x03\x08\x05\x06\x00\x00\x00\x00"
+    "\x00\x00\xa1\xa2\x00\x00\x00\x00\x00\x00\xa6\xab\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xb0\xb1"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xa4\xa5\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\xb2\xb3\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\xa8\xb8\xaa\xba\xbd\xbe\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\xac\xbc\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\xd0\xf0\xde\xfe\xaf\x00\x00\x00\x00\x00\x00\x00"
+    "\xb4\xb5\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\xb7\xb9\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\xbb\xbf\x00\x00\x00\x00\x00\x00\x00\x00\xd7\xf7\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf"
+    "\x00\xd1\xd2\xd3\xd4\xd5\xd6\x00\xd8\xd9\xda\xdb\xdc\xdd\x00\xdf"
+    "\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef"
+    "\x00\xf1\xf2\xf3\xf4\xf5\xf6\x00\xf8\xf9\xfa\xfb\xfc\xfd\x00\xff"
+};
+
+static unsigned short const xmlunicodetable_ISO8859_15 [128] = {
+    0x0080, 0x0081, 0x0082, 0x0083, 0x0084, 0x0085, 0x0086, 0x0087, 
+    0x0088, 0x0089, 0x008a, 0x008b, 0x008c, 0x008d, 0x008e, 0x008f, 
+    0x0090, 0x0091, 0x0092, 0x0093, 0x0094, 0x0095, 0x0096, 0x0097, 
+    0x0098, 0x0099, 0x009a, 0x009b, 0x009c, 0x009d, 0x009e, 0x009f, 
+    0x00a0, 0x00a1, 0x00a2, 0x00a3, 0x20ac, 0x00a5, 0x0160, 0x00a7, 
+    0x0161, 0x00a9, 0x00aa, 0x00ab, 0x00ac, 0x00ad, 0x00ae, 0x00af, 
+    0x00b0, 0x00b1, 0x00b2, 0x00b3, 0x017d, 0x00b5, 0x00b6, 0x00b7, 
+    0x017e, 0x00b9, 0x00ba, 0x00bb, 0x0152, 0x0153, 0x0178, 0x00bf, 
+    0x00c0, 0x00c1, 0x00c2, 0x00c3, 0x00c4, 0x00c5, 0x00c6, 0x00c7, 
+    0x00c8, 0x00c9, 0x00ca, 0x00cb, 0x00cc, 0x00cd, 0x00ce, 0x00cf, 
+    0x00d0, 0x00d1, 0x00d2, 0x00d3, 0x00d4, 0x00d5, 0x00d6, 0x00d7, 
+    0x00d8, 0x00d9, 0x00da, 0x00db, 0x00dc, 0x00dd, 0x00de, 0x00df, 
+    0x00e0, 0x00e1, 0x00e2, 0x00e3, 0x00e4, 0x00e5, 0x00e6, 0x00e7, 
+    0x00e8, 0x00e9, 0x00ea, 0x00eb, 0x00ec, 0x00ed, 0x00ee, 0x00ef, 
+    0x00f0, 0x00f1, 0x00f2, 0x00f3, 0x00f4, 0x00f5, 0x00f6, 0x00f7, 
+    0x00f8, 0x00f9, 0x00fa, 0x00fb, 0x00fc, 0x00fd, 0x00fe, 0x00ff, 
+};
+
+static unsigned char const xmltranscodetable_ISO8859_15 [48 + 6 * 64] = {
+    "\x00\x00\x01\x05\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f"
+    "\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f"
+    "\xa0\xa1\xa2\xa3\x00\xa5\x00\xa7\x00\xa9\xaa\xab\xac\xad\xae\xaf"
+    "\xb0\xb1\xb2\xb3\x00\xb5\xb6\xb7\x00\xb9\xba\xbb\x00\x00\x00\xbf"
+    "\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xa4\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\xbc\xbd\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\xa6\xa8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\xbe\x00\x00\x00\x00\xb4\xb8\x00"
+    "\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf"
+    "\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf"
+    "\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef"
+    "\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff"
+};
+
+static unsigned short const xmlunicodetable_ISO8859_16 [128] = {
+    0x0080, 0x0081, 0x0082, 0x0083, 0x0084, 0x0085, 0x0086, 0x0087, 
+    0x0088, 0x0089, 0x008a, 0x008b, 0x008c, 0x008d, 0x008e, 0x008f, 
+    0x0090, 0x0091, 0x0092, 0x0093, 0x0094, 0x0095, 0x0096, 0x0097, 
+    0x0098, 0x0099, 0x009a, 0x009b, 0x009c, 0x009d, 0x009e, 0x009f, 
+    0x00a0, 0x0104, 0x0105, 0x0141, 0x20ac, 0x201e, 0x0160, 0x00a7, 
+    0x0161, 0x00a9, 0x0218, 0x00ab, 0x0179, 0x00ad, 0x017a, 0x017b, 
+    0x00b0, 0x00b1, 0x010c, 0x0142, 0x017d, 0x201d, 0x00b6, 0x00b7, 
+    0x017e, 0x010d, 0x0219, 0x00bb, 0x0152, 0x0153, 0x0178, 0x017c, 
+    0x00c0, 0x00c1, 0x00c2, 0x0102, 0x00c4, 0x0106, 0x00c6, 0x00c7, 
+    0x00c8, 0x00c9, 0x00ca, 0x00cb, 0x00cc, 0x00cd, 0x00ce, 0x00cf, 
+    0x0110, 0x0143, 0x00d2, 0x00d3, 0x00d4, 0x0150, 0x00d6, 0x015a, 
+    0x0170, 0x00d9, 0x00da, 0x00db, 0x00dc, 0x0118, 0x021a, 0x00df, 
+    0x00e0, 0x00e1, 0x00e2, 0x0103, 0x00e4, 0x0107, 0x00e6, 0x00e7, 
+    0x00e8, 0x00e9, 0x00ea, 0x00eb, 0x00ec, 0x00ed, 0x00ee, 0x00ef, 
+    0x0111, 0x0144, 0x00f2, 0x00f3, 0x00f4, 0x0151, 0x00f6, 0x015b, 
+    0x0171, 0x00f9, 0x00fa, 0x00fb, 0x00fc, 0x0119, 0x021b, 0x00ff, 
+};
+
+static unsigned char const xmltranscodetable_ISO8859_16 [48 + 9 * 64] = {
+    "\x00\x00\x01\x08\x02\x03\x00\x00\x07\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f"
+    "\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f"
+    "\xa0\x00\x00\x00\x00\x00\x00\xa7\x00\xa9\x00\xab\x00\xad\x00\x00"
+    "\xb0\xb1\x00\x00\x00\x00\xb6\xb7\x00\x00\x00\xbb\x00\x00\x00\x00"
+    "\x00\x00\xc3\xe3\xa1\xa2\xc5\xe5\x00\x00\x00\x00\xb2\xb9\x00\x00"
+    "\xd0\xf0\x00\x00\x00\x00\x00\x00\xdd\xfd\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\xa3\xb3\xd1\xf1\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\xd5\xf5\xbc\xbd\x00\x00\x00\x00\x00\x00\xd7\xf7\x00\x00\x00\x00"
+    "\xa6\xa8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\xd8\xf8\x00\x00\x00\x00\x00\x00\xbe\xac\xae\xaf\xbf\xb4\xb8\x00"
+    "\x06\x00\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xa4\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xb5\xa5\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\xaa\xba\xde\xfe\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    "\xc0\xc1\xc2\x00\xc4\x00\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf"
+    "\x00\x00\xd2\xd3\xd4\x00\xd6\x00\x00\xd9\xda\xdb\xdc\x00\x00\xdf"
+    "\xe0\xe1\xe2\x00\xe4\x00\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef"
+    "\x00\x00\xf2\xf3\xf4\x00\xf6\x00\x00\xf9\xfa\xfb\xfc\x00\x00\xff"
+};
+
+
+/*
+ * auto-generated functions for ISO-8859-2 .. ISO-8859-16
+ */
+
+static int ISO8859_2ToUTF8 (unsigned char* out, int *outlen,
+    const unsigned char* in, int *inlen) {
+    return ISO8859xToUTF8 (out, outlen, in, inlen, xmlunicodetable_ISO8859_2);
+}
+static int UTF8ToISO8859_2 (unsigned char* out, int *outlen,
+    const unsigned char* in, int *inlen) {
+    return UTF8ToISO8859x (out, outlen, in, inlen, xmltranscodetable_ISO8859_2);
+}
+
+static int ISO8859_3ToUTF8 (unsigned char* out, int *outlen,
+    const unsigned char* in, int *inlen) {
+    return ISO8859xToUTF8 (out, outlen, in, inlen, xmlunicodetable_ISO8859_3);
+}
+static int UTF8ToISO8859_3 (unsigned char* out, int *outlen,
+    const unsigned char* in, int *inlen) {
+    return UTF8ToISO8859x (out, outlen, in, inlen, xmltranscodetable_ISO8859_3);
+}
+
+static int ISO8859_4ToUTF8 (unsigned char* out, int *outlen,
+    const unsigned char* in, int *inlen) {
+    return ISO8859xToUTF8 (out, outlen, in, inlen, xmlunicodetable_ISO8859_4);
+}
+static int UTF8ToISO8859_4 (unsigned char* out, int *outlen,
+    const unsigned char* in, int *inlen) {
+    return UTF8ToISO8859x (out, outlen, in, inlen, xmltranscodetable_ISO8859_4);
+}
+
+static int ISO8859_5ToUTF8 (unsigned char* out, int *outlen,
+    const unsigned char* in, int *inlen) {
+    return ISO8859xToUTF8 (out, outlen, in, inlen, xmlunicodetable_ISO8859_5);
+}
+static int UTF8ToISO8859_5 (unsigned char* out, int *outlen,
+    const unsigned char* in, int *inlen) {
+    return UTF8ToISO8859x (out, outlen, in, inlen, xmltranscodetable_ISO8859_5);
+}
+
+static int ISO8859_6ToUTF8 (unsigned char* out, int *outlen,
+    const unsigned char* in, int *inlen) {
+    return ISO8859xToUTF8 (out, outlen, in, inlen, xmlunicodetable_ISO8859_6);
+}
+static int UTF8ToISO8859_6 (unsigned char* out, int *outlen,
+    const unsigned char* in, int *inlen) {
+    return UTF8ToISO8859x (out, outlen, in, inlen, xmltranscodetable_ISO8859_6);
+}
+
+static int ISO8859_7ToUTF8 (unsigned char* out, int *outlen,
+    const unsigned char* in, int *inlen) {
+    return ISO8859xToUTF8 (out, outlen, in, inlen, xmlunicodetable_ISO8859_7);
+}
+static int UTF8ToISO8859_7 (unsigned char* out, int *outlen,
+    const unsigned char* in, int *inlen) {
+    return UTF8ToISO8859x (out, outlen, in, inlen, xmltranscodetable_ISO8859_7);
+}
+
+static int ISO8859_8ToUTF8 (unsigned char* out, int *outlen,
+    const unsigned char* in, int *inlen) {
+    return ISO8859xToUTF8 (out, outlen, in, inlen, xmlunicodetable_ISO8859_8);
+}
+static int UTF8ToISO8859_8 (unsigned char* out, int *outlen,
+    const unsigned char* in, int *inlen) {
+    return UTF8ToISO8859x (out, outlen, in, inlen, xmltranscodetable_ISO8859_8);
+}
+
+static int ISO8859_9ToUTF8 (unsigned char* out, int *outlen,
+    const unsigned char* in, int *inlen) {
+    return ISO8859xToUTF8 (out, outlen, in, inlen, xmlunicodetable_ISO8859_9);
+}
+static int UTF8ToISO8859_9 (unsigned char* out, int *outlen,
+    const unsigned char* in, int *inlen) {
+    return UTF8ToISO8859x (out, outlen, in, inlen, xmltranscodetable_ISO8859_9);
+}
+
+static int ISO8859_10ToUTF8 (unsigned char* out, int *outlen,
+    const unsigned char* in, int *inlen) {
+    return ISO8859xToUTF8 (out, outlen, in, inlen, xmlunicodetable_ISO8859_10);
+}
+static int UTF8ToISO8859_10 (unsigned char* out, int *outlen,
+    const unsigned char* in, int *inlen) {
+    return UTF8ToISO8859x (out, outlen, in, inlen, xmltranscodetable_ISO8859_10);
+}
+
+static int ISO8859_11ToUTF8 (unsigned char* out, int *outlen,
+    const unsigned char* in, int *inlen) {
+    return ISO8859xToUTF8 (out, outlen, in, inlen, xmlunicodetable_ISO8859_11);
+}
+static int UTF8ToISO8859_11 (unsigned char* out, int *outlen,
+    const unsigned char* in, int *inlen) {
+    return UTF8ToISO8859x (out, outlen, in, inlen, xmltranscodetable_ISO8859_11);
+}
+
+static int ISO8859_13ToUTF8 (unsigned char* out, int *outlen,
+    const unsigned char* in, int *inlen) {
+    return ISO8859xToUTF8 (out, outlen, in, inlen, xmlunicodetable_ISO8859_13);
+}
+static int UTF8ToISO8859_13 (unsigned char* out, int *outlen,
+    const unsigned char* in, int *inlen) {
+    return UTF8ToISO8859x (out, outlen, in, inlen, xmltranscodetable_ISO8859_13);
+}
+
+static int ISO8859_14ToUTF8 (unsigned char* out, int *outlen,
+    const unsigned char* in, int *inlen) {
+    return ISO8859xToUTF8 (out, outlen, in, inlen, xmlunicodetable_ISO8859_14);
+}
+static int UTF8ToISO8859_14 (unsigned char* out, int *outlen,
+    const unsigned char* in, int *inlen) {
+    return UTF8ToISO8859x (out, outlen, in, inlen, xmltranscodetable_ISO8859_14);
+}
+
+static int ISO8859_15ToUTF8 (unsigned char* out, int *outlen,
+    const unsigned char* in, int *inlen) {
+    return ISO8859xToUTF8 (out, outlen, in, inlen, xmlunicodetable_ISO8859_15);
+}
+static int UTF8ToISO8859_15 (unsigned char* out, int *outlen,
+    const unsigned char* in, int *inlen) {
+    return UTF8ToISO8859x (out, outlen, in, inlen, xmltranscodetable_ISO8859_15);
+}
+
+static int ISO8859_16ToUTF8 (unsigned char* out, int *outlen,
+    const unsigned char* in, int *inlen) {
+    return ISO8859xToUTF8 (out, outlen, in, inlen, xmlunicodetable_ISO8859_16);
+}
+static int UTF8ToISO8859_16 (unsigned char* out, int *outlen,
+    const unsigned char* in, int *inlen) {
+    return UTF8ToISO8859x (out, outlen, in, inlen, xmltranscodetable_ISO8859_16);
+}
+
+static void
+xmlRegisterCharEncodingHandlersISO8859x (void) {
+    xmlNewCharEncodingHandler ("ISO-8859-2", ISO8859_2ToUTF8, UTF8ToISO8859_2);
+    xmlNewCharEncodingHandler ("ISO-8859-3", ISO8859_3ToUTF8, UTF8ToISO8859_3);
+    xmlNewCharEncodingHandler ("ISO-8859-4", ISO8859_4ToUTF8, UTF8ToISO8859_4);
+    xmlNewCharEncodingHandler ("ISO-8859-5", ISO8859_5ToUTF8, UTF8ToISO8859_5);
+    xmlNewCharEncodingHandler ("ISO-8859-6", ISO8859_6ToUTF8, UTF8ToISO8859_6);
+    xmlNewCharEncodingHandler ("ISO-8859-7", ISO8859_7ToUTF8, UTF8ToISO8859_7);
+    xmlNewCharEncodingHandler ("ISO-8859-8", ISO8859_8ToUTF8, UTF8ToISO8859_8);
+    xmlNewCharEncodingHandler ("ISO-8859-9", ISO8859_9ToUTF8, UTF8ToISO8859_9);
+    xmlNewCharEncodingHandler ("ISO-8859-10", ISO8859_10ToUTF8, UTF8ToISO8859_10);
+    xmlNewCharEncodingHandler ("ISO-8859-11", ISO8859_11ToUTF8, UTF8ToISO8859_11);
+    xmlNewCharEncodingHandler ("ISO-8859-13", ISO8859_13ToUTF8, UTF8ToISO8859_13);
+    xmlNewCharEncodingHandler ("ISO-8859-14", ISO8859_14ToUTF8, UTF8ToISO8859_14);
+    xmlNewCharEncodingHandler ("ISO-8859-15", ISO8859_15ToUTF8, UTF8ToISO8859_15);
+    xmlNewCharEncodingHandler ("ISO-8859-16", ISO8859_16ToUTF8, UTF8ToISO8859_16);
+}
+
+#endif
+#endif
+
 

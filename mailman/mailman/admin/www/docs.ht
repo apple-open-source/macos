@@ -48,8 +48,18 @@ FAQ Wizard</a>.  Feel free to add or correct entries in the FAQ Wizard
 -- this is your resource for helping your colleagues.  The password is
 <em>Mailman</em> (yes, we use the honor system here).
 
-<p>For issues not covered in the FAQ, please post your questions to
-the <a href="lists.html">Mailman-Users</a> mailing list.
+<p>For issues not covered in the FAQ or documentation pages above,
+please check the
+<a href="http://mail.python.org/pipermail/mailman-users">archives</a>
+of the <a href="lists.html">Mailman-Users</a> 
+mailing list.  If your question is not covered in the documentation,
+FAQ, or list archives, then you can send your questions to the 
+<a href="http://mail.python.org/mailman/listinfo/mailman-users"
+>mailman-users</a> list.  We suggest you 
+<a href="mailto:mailman-users-join@python.org">subscribe</a> to the
+list first - then submit your question - so that your question will be
+distributed quickly to the list subscribers and replies also will be
+distributed quickly back to you.
 
 <p><a href="http://staff.imsa.edu/~ckolar/index.htm">Chris Kolar</a> has made
 available <a href="http://staff.imsa.edu/~ckolar/mailman">Mailman

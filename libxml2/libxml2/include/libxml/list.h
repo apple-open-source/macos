@@ -1,22 +1,17 @@
 /*
- * list.h: lists interfaces
+ * Summary: lists interfaces
+ * Description: this module implement the list support used in 
+ * various place in the library.
  *
- * Copyright (C) 2000 Gary Pennington and Daniel Veillard.
+ * Copy: See Copyright for the status of this software.
  *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
- * MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE. THE AUTHORS AND
- * CONTRIBUTORS ACCEPT NO RESPONSIBILITY IN ANY CONCEIVABLE MANNER.
- *
- * Author: Gary.Pennington@uk.sun.com
+ * Author: Gary Pennington <Gary.Pennington@uk.sun.com>
  */
 
 #ifndef __XML_LINK_INCLUDE__
 #define __XML_LINK_INCLUDE__
+
+#include <libxml/xmlversion.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -57,54 +52,80 @@ typedef int  (*xmlListDataCompare) (const void *data0, const void *data1);
 typedef int (*xmlListWalker) (const void *data, const void *user);
 
 /* Creation/Deletion */
-xmlListPtr	xmlListCreate		(xmlListDeallocator deallocator,
+XMLPUBFUN xmlListPtr XMLCALL
+		xmlListCreate		(xmlListDeallocator deallocator,
 	                                 xmlListDataCompare compare);
-void		xmlListDelete		(xmlListPtr l);
+XMLPUBFUN void XMLCALL		
+		xmlListDelete		(xmlListPtr l);
 
 /* Basic Operators */
-void *		xmlListSearch		(xmlListPtr l,
+XMLPUBFUN void * XMLCALL		
+		xmlListSearch		(xmlListPtr l,
 					 void *data);
-void *		xmlListReverseSearch	(xmlListPtr l,
+XMLPUBFUN void * XMLCALL		
+		xmlListReverseSearch	(xmlListPtr l,
 					 void *data);
-int		xmlListInsert		(xmlListPtr l,
+XMLPUBFUN int XMLCALL		
+		xmlListInsert		(xmlListPtr l,
 					 void *data) ;
-int		xmlListAppend		(xmlListPtr l,
+XMLPUBFUN int XMLCALL		
+		xmlListAppend		(xmlListPtr l,
 					 void *data) ;
-int		xmlListRemoveFirst	(xmlListPtr l,
+XMLPUBFUN int XMLCALL		
+		xmlListRemoveFirst	(xmlListPtr l,
 					 void *data);
-int		xmlListRemoveLast	(xmlListPtr l,
+XMLPUBFUN int XMLCALL		
+		xmlListRemoveLast	(xmlListPtr l,
 					 void *data);
-int		xmlListRemoveAll	(xmlListPtr l,
+XMLPUBFUN int XMLCALL		
+		xmlListRemoveAll	(xmlListPtr l,
 					 void *data);
-void		xmlListClear		(xmlListPtr l);
-int		xmlListEmpty		(xmlListPtr l);
-xmlLinkPtr	xmlListFront		(xmlListPtr l);
-xmlLinkPtr	xmlListEnd		(xmlListPtr l);
-int		xmlListSize		(xmlListPtr l);
+XMLPUBFUN void XMLCALL		
+		xmlListClear		(xmlListPtr l);
+XMLPUBFUN int XMLCALL		
+		xmlListEmpty		(xmlListPtr l);
+XMLPUBFUN xmlLinkPtr XMLCALL	
+		xmlListFront		(xmlListPtr l);
+XMLPUBFUN xmlLinkPtr XMLCALL	
+		xmlListEnd		(xmlListPtr l);
+XMLPUBFUN int XMLCALL		
+		xmlListSize		(xmlListPtr l);
 
-void		xmlListPopFront		(xmlListPtr l);
-void		xmlListPopBack		(xmlListPtr l);
-int		xmlListPushFront	(xmlListPtr l,
+XMLPUBFUN void XMLCALL		
+		xmlListPopFront		(xmlListPtr l);
+XMLPUBFUN void XMLCALL		
+		xmlListPopBack		(xmlListPtr l);
+XMLPUBFUN int XMLCALL		
+		xmlListPushFront	(xmlListPtr l,
 					 void *data);
-int		xmlListPushBack		(xmlListPtr l,
+XMLPUBFUN int XMLCALL		
+		xmlListPushBack		(xmlListPtr l,
 					 void *data);
 
 /* Advanced Operators */
-void		xmlListReverse		(xmlListPtr l);
-void		xmlListSort		(xmlListPtr l);
-void		xmlListWalk		(xmlListPtr l,
+XMLPUBFUN void XMLCALL		
+		xmlListReverse		(xmlListPtr l);
+XMLPUBFUN void XMLCALL		
+		xmlListSort		(xmlListPtr l);
+XMLPUBFUN void XMLCALL		
+		xmlListWalk		(xmlListPtr l,
 					 xmlListWalker walker,
 					 const void *user);
-void		xmlListReverseWalk	(xmlListPtr l,
+XMLPUBFUN void XMLCALL		
+		xmlListReverseWalk	(xmlListPtr l,
 					 xmlListWalker walker,
 					 const void *user);
-void		xmlListMerge		(xmlListPtr l1,
+XMLPUBFUN void XMLCALL		
+		xmlListMerge		(xmlListPtr l1,
 					 xmlListPtr l2);
-xmlListPtr	xmlListDup		(const xmlListPtr old);
-int		xmlListCopy		(xmlListPtr cur,
+XMLPUBFUN xmlListPtr XMLCALL	
+		xmlListDup		(const xmlListPtr old);
+XMLPUBFUN int XMLCALL		
+		xmlListCopy		(xmlListPtr cur,
 					 const xmlListPtr old);
 /* Link operators */
-void *          xmlLinkGetData          (xmlLinkPtr lk);
+XMLPUBFUN void * XMLCALL          
+		xmlLinkGetData          (xmlLinkPtr lk);
 
 /* xmlListUnique() */
 /* xmlListSwap */

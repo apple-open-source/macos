@@ -1,9 +1,0 @@
-Makefile.in
-Makefile
-testkjs
-.deps
-*-stamp
-.libs
-kjs-test.diff
-kjs-test.out
-.dirstamp

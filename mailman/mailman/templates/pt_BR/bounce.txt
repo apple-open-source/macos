@@ -3,8 +3,8 @@ discussão gerenciada pelo Mailman:
 
     Lista:       %(listname)s
     Membro:     %(addr)s
-    Ação:     Subscription %(negative)s%(did)s.
-    Razão:     Excessive or fatal bounces.
+    Ação:     Inscrição %(negative)s%(did)s.
+    Razão:    Bounces excessivos ou fatais.
     %(but)s
 
 %(reenable)s

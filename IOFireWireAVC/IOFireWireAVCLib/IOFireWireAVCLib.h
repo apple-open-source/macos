@@ -2,24 +2,21 @@
  * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ *
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ *
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
- * 
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -44,6 +41,11 @@
 /* FC65C030-D498-11D5-878D-0003934B81A0 */
 #define kIOFireWireAVCLibUnitInterfaceID CFUUIDGetConstantUUIDWithBytes(NULL, 	\
 0xFC, 0x65, 0xC0, 0x30, 0xD4, 0x98, 0x11, 0xD5, 0x87, 0x8D, 0x00, 0x03, 0x93, 0x4B, 0x81, 0xA0)
+
+// kIOFireWireAVCLibUnitInterfaceID_v2 UUID - No Throttling of AVC Commands
+/* 85B5E954-0AEF-11D8-8D19-000393914ABA */
+#define kIOFireWireAVCLibUnitInterfaceID_v2  CFUUIDGetConstantUUIDWithBytes(NULL, 	\
+0x85, 0xB5, 0xE9, 0x54, 0x0A, 0xEF, 0x11, 0xD8, 0x8D, 0x19, 0x00, 0x03, 0x93, 0x91, 0x4A, 0xBA)
 
 // Protocol type UUID
 /* B54BC8F8-D53B-11D5-A1A1-0003934B81A0 */

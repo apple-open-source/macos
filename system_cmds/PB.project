@@ -13,16 +13,18 @@
         "PROJECT_HEADERS" = (); 
         "PUBLIC_HEADERS" = (); 
         SUBPROJECTS = (
-            "dynamic_pager.tproj", 
-            "dp_notify_lib", 
             "ac.tproj", 
             "accton.tproj", 
             "arch.tproj", 
             "at.tproj", 
-            "atrun.tproj", 
+            "atrun.tproj",
+            "audit.tproj",
+            "auditd.tproj", 
             "chkpasswd.tproj", 
             "chpass.tproj", 
             "dmesg.tproj", 
+            "dp_notify_lib", 
+            "dynamic_pager.tproj", 
             "getty.tproj", 
             "hostinfo.tproj", 
             "init.tproj", 
@@ -53,8 +55,7 @@
             "fs_usage.tproj", 
             "kdump.tproj", 
             "sadc.tproj", 
-            "sar.tproj"
-        ); 
+            "sar.tproj"        ); 
     }; 
     LANGUAGE = English; 
     "LOCALIZABLE_FILES" = {}; 

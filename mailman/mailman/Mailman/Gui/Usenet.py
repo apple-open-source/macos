@@ -1,4 +1,4 @@
-# Copyright (C) 2001,2002 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2003 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -37,10 +37,12 @@ class Usenet(GUIBase):
             _('News server settings'),
 
             ('nntp_host', mm_cfg.String, WIDTH, 0,
-             _('''The Internet address of the machine your News server is
-             running on.'''),
-             _('''The News server is not part of Mailman proper.  You have to
-             already have access to a NNTP server, and that NNTP server has to
+             _('The hostname of the machine your news server is running on.'),
+             _('''This value may be either the name of your news server, or
+             optionally of the format name:port, where port is a port number.
+
+             The news server is not part of Mailman proper.  You have to
+             already have access to an NNTP server, and that NNTP server must
              recognize the machine this mailing list runs on as a machine
              capable of reading and posting news.''')),
 

@@ -1,4 +1,4 @@
-# Copyright (C) 2002 by the Free Software Foundation, Inc.
+# Copyright (C) 2002-2003 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -108,6 +108,8 @@ class GUIBase:
             return val
         if wtype == mm_cfg.Topics:
             return val
+        if wtype == mm_cfg.HeaderFilter:
+            return val
         # Should never get here
         assert 0, 'Bad gui widget type: %s' % wtype
 
@@ -138,11 +140,11 @@ class GUIBase:
             elif not cgidata.has_key(property):
                 continue
             elif isinstance(cgidata[property], ListType):
-                val = [x.value for x in cgidata[property]]
+                val = [Utils.websafe(x.value) for x in cgidata[property]]
             else:
-                val = cgidata[property].value
+                val = Utils.websafe(cgidata[property].value)
             # Coerce the value to the expected type, raising exceptions if the
-            # value is invalid
+            # value is invalid.
             try:
                 val = self._getValidValue(mlist, property, wtype, val)
             except ValueError:

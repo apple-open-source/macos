@@ -14,7 +14,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-"""Outgoing queue runner."""
+"""Archive queue runner."""
 
 import time
 from email.Utils import parsedate_tz, mktime_tz, formatdate

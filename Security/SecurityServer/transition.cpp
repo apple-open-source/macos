@@ -32,7 +32,7 @@
 //
 // Bracket Macros
 //
-#define UCSP_ARGS	mach_port_t servicePort, mach_port_t replyPort, security_token_t securityToken, \
+#define UCSP_ARGS	mach_port_t servicePort, mach_port_t replyPort, audit_token_t auditToken, \
                     CSSM_RETURN *rcode
 #define CONTEXT_ARGS Context context, Pointer contextBase, Context::Attr *attributes, mach_msg_type_number_t attrSize
 
@@ -87,7 +87,7 @@ kern_return_t ucsp_server_setup(UCSP_ARGS, mach_port_t taskPort, ClientSetupInfo
 {
 	BEGIN_IPCN
 	Server::active().setupConnection(Server::connectNewProcess, servicePort, replyPort,
-		taskPort, securityToken, &info, identity);
+		taskPort, auditToken, &info, identity);
 	END_IPCN(CSSM)
 	return KERN_SUCCESS;
 }
@@ -100,7 +100,7 @@ kern_return_t ucsp_server_setupNew(UCSP_ARGS, mach_port_t taskPort,
 	try {
 		Session *session = new DynamicSession(TaskPort(taskPort).bootstrap());
 		Server::active().setupConnection(Server::connectNewSession, session->servicePort(), replyPort,
-			taskPort, securityToken, &info, identity);
+			taskPort, auditToken, &info, identity);
 		*newServicePort = session->servicePort();
 	} catch (const MachPlusPlus::Error &err) {
 		switch (err.error) {
@@ -118,7 +118,7 @@ kern_return_t ucsp_server_setupThread(UCSP_ARGS, mach_port_t taskPort)
 {
 	BEGIN_IPCN
 	Server::active().setupConnection(Server::connectNewThread, servicePort, replyPort,
-		taskPort, securityToken);
+		taskPort, auditToken);
 	END_IPCN(CSSM)
 	return KERN_SUCCESS;
 }
@@ -644,7 +644,7 @@ kern_return_t ucsp_server_authorizationCreate(UCSP_ARGS,
 	Authorization::AuthItemSet rights(inRights), environment(inEnvironment);
 
 	*rcode = connection.process.session.authCreate(rights, environment, 
-		flags, *authorization, securityToken);
+		flags, *authorization, auditToken);
 	END_IPC(CSSM)
 }
 

@@ -1,0 +1,27 @@
+Vostè, o algú fent-se passar per vostè, ha demanat un recordatori
+de la seva clau de pas de la seva compta a la llista de correu %(fqdn_lname)s.
+
+Necessiatarà aquesta clau per tal de canviar les opcions del seu compte
+(per exemple, si vol rebre el correu de forma normal o de forma compilada en 
+un sol correu diari), i tenir aquesta clau fa més fàcil el donar-se de baixa de
+la llista de correu.
+
+Vostè està subscrit amb l'adreça: %(user)s
+
+La clau de pas de %(listname)s és: %(password)s
+
+Per canviar les opcions del seu compte, registri's i visiti la seva pàgina web d'opcions:
+
+    %(options_url)s
+
+També pot fer aquests canvis via email, enviant un missatge a:
+
+    %(requestaddr)s
+
+amb la paraula'ajuda' en el títol o bé el cos del missatge. Rebrà aleshores
+una resposta automàtica amb instruccions més detallades.
+
+Preguntes, comentaris?, si us plau, envii-ho tot a l'administrador de la 
+llista de correu  %(listname)s a la següent adreça:
+
+ %(owneraddr)s.

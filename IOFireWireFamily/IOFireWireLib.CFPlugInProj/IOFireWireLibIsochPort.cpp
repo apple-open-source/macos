@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -30,6 +27,18 @@
  *  Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
  *
  * $Log: IOFireWireLibIsochPort.cpp,v $
+ * Revision 1.33  2004/02/17 23:13:23  niels
+ * *** empty log message ***
+ *
+ * Revision 1.32  2004/02/17 23:12:27  niels
+ * *** empty log message ***
+ *
+ * Revision 1.31  2004/02/17 20:23:58  niels
+ * keep track if local isoch port has started or not to avoid leaking when stop is called on an unstarted port
+ *
+ * Revision 1.30  2003/12/19 22:07:46  niels
+ * send force stop when channel dies/system sleeps
+ *
  * Revision 1.29  2003/08/25 08:39:17  niels
  * *** empty log message ***
  *
@@ -588,6 +597,7 @@ namespace IOFireWireLib {
 	, mDeferredReleaseCount(0)
 	, mFinalizeCallback(nil)
 	, mBufferRanges( nil )
+	, mStarted( false )
 	{
 		// sorry about the spaghetti.. hope you're hungry:
 		
@@ -788,19 +798,30 @@ namespace IOFireWireLib {
 		return IsochPortCOM::Release() ;
 	}
 
-//	IOReturn
-//	LocalIsochPort :: Start()
-//	{
-//		DeviceCOM :: SPrintDCLProgram ( nil, mDCLProgram, 0 ) ;
-//		return IsochPort::Start() ;
-//	}
+	IOReturn
+	LocalIsochPort :: Start()
+	{
+		IOReturn error = IsochPort::Start() ;
+		if ( !error )
+		{
+			Lock() ;
+			mStarted = true ;
+			Unlock() ;
+		}
+		
+		return error ;
+	}
 	
 	IOReturn
 	LocalIsochPort :: Stop ()
 	{
 		Lock() ;
-		++mExpectedStopTokens ;
-		InfoLog("waiting for %lu stop tokens\n", mExpectedStopTokens) ;
+		if ( mStarted )
+		{
+			mStarted = false ;
+			++mExpectedStopTokens ;
+			InfoLog("waiting for %lu stop tokens\n", mExpectedStopTokens) ;
+		}
 		Unlock() ;
 						
 		return IsochPortCOM::Stop() ;	// call superclass Stop()
@@ -1210,6 +1231,8 @@ namespace IOFireWireLib {
 		}
 		else
 		{
+			DebugLog("unknown local isoch port interface UUID\n") ;
+			
 			* ppv = nil ;
 			result = E_NOINTERFACE ;
 		}	

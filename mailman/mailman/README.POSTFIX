@@ -7,7 +7,8 @@ GENERAL SETUP INFORMATION
 
     Mailman should work pretty much out of the box with a standard
     Postfix installation.  As of this writing I've tested it with
-    Postfix 19991231 up to pl13, and with 200010228 up to pl08.
+    Postfix 19991231 up to pl13, 200010228 up to pl08, and up to
+    Postfix 2.0.15.
 
     By default, Postfix treats -owner and -request addresses
     specially.  Since we want Postfix to deliver such messages to
@@ -53,9 +54,8 @@ INTEGRATING POSTFIX AND MAILMAN
     the case, adjust the instructions according to your use of
     configure's --prefix and --with-var-prefix options.
 
-    - If you are using Postfix-style virtual domains and you want
-      Mailman to honor your virtual domains, read the section below
-      first!
+    - If you are using virtual domains and you want Mailman to honor
+      your virtual domains, read the section below first!
 
     - Add this to the bottom of the $prefix/Mailman/mm_cfg.py file:
 
@@ -115,29 +115,40 @@ INTEGRATING POSTFIX AND MAILMAN
 
 VIRTUAL DOMAINS
 
-    Postfix supports two styles of virtual domains, called
-    "Postfix-style" and "Sendmail-style".  With the latter, all
-    aliases are visible in all domains, and nothing special need be
-    done with Mailman.
+    Postfix 2.0 supports "virtual alias domains", essentially what
+    used to be called Postfix-style virtual domains in earlier Postfix
+    versions.  To make virtual alias domains work with Mailman, you
+    need to do some setup in both Postfix and Mailman.  Mailman will
+    write all virtual alias mappings to a file called, by default,
+    /usr/local/mailman/data/virtual-mailman.  It will also use postmap
+    to create the virtual-mailman.db file that Postfix will actually
+    use.
 
-    With Postfix-style virtual domains, things are a little trickier,
-    although Mailman should work well with it.  First, you'll need to
-    add a path to Postfix's virtual_maps variable:
+    First, you need to set up the Postfix virtual alias domains as
+    described in the Postfix documentation (see Postfix's virtual(5)
+    manpage).  Note that it's your responsibility to include the
+    "virtual-alias.domain anything" line as described manpage; Mailman
+    will not include this line in virtual-mailman.  I highly encourage
+    you to make sure your virtual alias domains are working properly
+    before integrating with Mailman.
 
-    virtual_maps = <your normal virtual files>,
+    Next, add a path to Postfix's virtual_alias_maps variable,
+    pointing to the virtual-mailman file, e.g.:
+
+    virtual_alias_maps = <your normal virtual alias files>,
         hash:/usr/local/mailman/data/virtual-mailman
 
-    assuming you've installed Mailman in the default location.  Note
-    that you must follow Postfix's instructions for setting up the
-    virtual domains; get your virtual domains working in Postfix
-    first before integrating Mailman.
+    assuming you've installed Mailman in the default location.  If
+    you're using an older version of Postfix which doesn't have the
+    virtual_alias_maps variable, use the virtual_maps variable
+    instead.
 
     Next, in your mm_cfg.py file, you will want to set the variable
     POSTFIX_STYLE_VIRTUAL_DOMAINS to the list of virtual domains that
-    Mailman should update.  This may not be all of the virtual domains
-    that your Postfix installation supports!  The values in this list
-    will be matched against the host_name attribute of mailing lists
-    objects, and must be an exact match.
+    Mailman should update.  This may not be all of the virtual alias
+    domains that your Postfix installation supports!  The values in
+    this list will be matched against the host_name attribute of
+    mailing lists objects, and must be an exact match.
 
     Here's an example:
 
@@ -148,7 +159,8 @@ VIRTUAL DOMAINS
         myhostname = mail.dom1.ain
         mydomain = dom1.ain
         mydestination = $myhostname, localhost.$mydomain
-        virtual_maps = hash:/some/path/to/virtual-dom1,
+        virtual_alias_maps =
+            hash:/some/path/to/virtual-dom1,
             hash:/some/path/to/virtual-dom2,
             hash:/some/path/to/virtual-dom2
 
@@ -159,7 +171,7 @@ VIRTUAL DOMAINS
         @dom1.ain @mail.dom1.ain
 
     This tells Postfix to deliver anything addressed to dom1.ain to
-    the same mailbox at mail.dom1.com, it's default destination.
+    the same mailbox at mail.dom1.com, its default destination.
 
     In this case you would not include dom1.ain in
     POSTFIX_STYLE_VIRTUAL_DOMAINS because otherwise Mailman will write
@@ -169,7 +181,7 @@ VIRTUAL DOMAINS
         mylist-request@dom1.ain mylist-request
         # and so on...
 
-    The more specific entries trump your more general entries and thus
+    The more specific entries trump your more general entries, thus
     breaking the delivery of any dom1.ain mailing list.
 
     However, you would include dom2.ain and dom3.ain in mm_cfg.py:

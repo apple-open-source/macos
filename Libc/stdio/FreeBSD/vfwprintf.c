@@ -41,7 +41,7 @@ static char sccsid[] = "@(#)vfprintf.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 __FBSDID("FreeBSD: src/lib/libc/stdio/vfprintf.c,v 1.58 2003/04/14 11:24:53 das Exp");
 #endif
-__FBSDID("$FreeBSD: src/lib/libc/stdio/vfwprintf.c,v 1.12 2003/04/19 23:53:19 das Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/vfwprintf.c,v 1.14 2003/11/12 08:49:12 tjr Exp $");
 
 /*
  * Actual wprintf innards.
@@ -114,6 +114,7 @@ enum typeid {
 };
 
 static int	__sbprintf(FILE *, const wchar_t *, va_list);
+static wint_t	__xfputwc(wchar_t, FILE *);
 static wchar_t	*__ujtoa(uintmax_t, wchar_t *, int, int, const wchar_t *, int,
 		    char, const char *);
 static wchar_t	*__ultoa(u_long, wchar_t *, int, int, const wchar_t *, int,
@@ -153,6 +154,34 @@ __sbprintf(FILE *fp, const wchar_t *fmt, va_list ap)
 	if (fake._flags & __SERR)
 		fp->_flags |= __SERR;
 	return (ret);
+}
+
+/*
+ * Like __fputwc, but handles fake string (__SSTR) files properly.
+ * File must already be locked.
+ */
+static wint_t
+__xfputwc(wchar_t wc, FILE *fp)
+{
+	char buf[MB_LEN_MAX];
+	struct __suio uio;
+	struct __siov iov;
+	size_t i, len;
+	int ret;
+
+	if ((fp->_flags & __SSTR) == 0)
+		return (__fputwc(wc, fp));
+
+	if ((len = wcrtomb(buf, wc, NULL)) == (size_t)-1) {
+		fp->_flags |= __SERR;
+		return (WEOF);
+	}
+	uio.uio_iov = &iov;
+	uio.uio_resid = len;
+	uio.uio_iovcnt = 1;
+	iov.iov_base = buf;
+	iov.iov_len = len;
+	return (__sfvwrite(fp, &uio) != EOF ? (wint_t)wc : WEOF);
 }
 
 /*
@@ -328,7 +357,6 @@ __mbsconv(char *mbsarg, int prec)
 	wchar_t *convbuf, *wcp;
 	const char *p;
 	size_t insize, nchars, nconv;
-	mbstate_t mbs;
 
 	if (mbsarg == NULL)
 		return (NULL);
@@ -342,11 +370,10 @@ __mbsconv(char *mbsarg, int prec)
 		 * String is not guaranteed to be NUL-terminated. Find the
 		 * number of characters to print.
 		 */
-		memset(&mbs, 0, sizeof(mbs));
 		p = mbsarg;
 		insize = nchars = 0;
 		while (nchars != (size_t)prec) {
-			nconv = mbrlen(p, MB_CUR_MAX, &mbs);
+			nconv = mbrlen(p, MB_CUR_MAX, NULL);
 			if (nconv == 0 || nconv == (size_t)-1 ||
 			    nconv == (size_t)-2)
 				break;
@@ -369,9 +396,8 @@ __mbsconv(char *mbsarg, int prec)
 		return (NULL);
 	wcp = convbuf;
 	p = mbsarg;
-	memset(&mbs, 0, sizeof(mbs));
 	while (insize != 0) {
-		nconv = mbrtowc(wcp, p, insize, &mbs);
+		nconv = mbrtowc(wcp, p, insize, NULL);
 		if (nconv == 0 || nconv == (size_t)-1 || nconv == (size_t)-2)
 			break;
 		wcp++;
@@ -532,7 +558,7 @@ __vfwprintf(FILE *fp, const wchar_t *fmt0, va_list ap)
 	 */
 #define	PRINT(ptr, len)	do {			\
 	for (n3 = 0; n3 < (len); n3++)		\
-		__fputwc((ptr)[n3], fp);	\
+		__xfputwc((ptr)[n3], fp);	\
 } while (0)
 #define	PAD(howmany, with)	do {		\
 	if ((n = (howmany)) > 0) {		\

@@ -15,7 +15,7 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 dnl Process this file with autoconf to produce a configure script.
-AC_REVISION($Revision: 1.1.1.1 $)
+AC_REVISION($Revision: 1.1.1.2 $)
 AC_PREREQ(2.0)
 AC_INIT(src/common.h)
 
@@ -551,6 +551,7 @@ bin/cleanarch \
 bin/clone_member \
 bin/config_list \
 bin/convert.py \
+bin/discard \
 bin/dumpdb \
 bin/find_member \
 bin/fix_url.py \
@@ -568,6 +569,7 @@ bin/pygettext.py \
 bin/qrunner \
 bin/remove_members \
 bin/rmlist \
+bin/show_qfiles \
 bin/sync_members \
 bin/transcheck \
 bin/unshunt \
@@ -575,6 +577,7 @@ bin/update \
 bin/version \
 bin/withlist \
 bin/b4b5-archfix \
+bin/rb-archfix \
 contrib/check_perms_grsecurity.py \
 contrib/qmail-to-mailman.py \
 contrib/rotatelogs.py \

@@ -1,0 +1,11 @@
+Moderatzaileak ez du onartu %(listname)s posta zerrendara zuk egindako honako eskaera hau:
+
+    %(request)s
+
+Moderatzaileak ondoko arrazoia eman du zure eskaera gaitzesteko:
+
+"%(reason)s"
+
+Edozein galdera edo komentario izanez gero, moderatzaileari bidali, mesedez:
+
+    %(adminaddr)s

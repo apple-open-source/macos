@@ -36,6 +36,8 @@
 
 #include <SecurityNssAsn1/prerror.h>
 
+PR_BEGIN_EXTERN_C
+
 #define SEC_ERROR_BASE				(-0x2000)
 #define SEC_ERROR_LIMIT				(SEC_ERROR_BASE + 1000)
 
@@ -195,8 +197,10 @@ SEC_ERROR_BUSY                              =   (SEC_ERROR_BASE + 139)
  * Given a PRErrorCode, obtain a const C string. Not copied, not
  * to be freed by caller.
  */
-const char *SECErrorString(
-	PRErrorCode err);
+const char *SECErrorString(PRErrorCode err);
 
 #endif	__APPLE__
+
+PR_END_EXTERN_C
+
 #endif /* __SEC_ERR_H_ */

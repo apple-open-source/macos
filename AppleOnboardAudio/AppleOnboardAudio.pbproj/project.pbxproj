@@ -228,7 +228,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.AudioDeviceTreeUpdater;
-				MODULE_VERSION = 2.2.0;
+				MODULE_VERSION = 2.2.4;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -254,7 +254,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AudioDeviceTreeUpdater</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AudioDeviceTreeUpdater version 2.2.0, Copyright 2000-2003 Apple Computer, Inc.</string>
+	<string>AudioDeviceTreeUpdater version 2.2.4, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -266,11 +266,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.0</string>
+	<string>2.2.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.0</string>
+	<string>2.2.4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>Power Macintosh</key>
@@ -610,6 +610,37 @@
 			<key>IOProviderClass</key>
 			<string>IOPlatformExpertDevice</string>
 		</dict>
+		<key>PowerBook2,2</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.AudioDeviceTreeUpdater</string>
+			<key>DeviceTreePatches</key>
+			<array>
+				<dict>
+					<key>Node</key>
+					<string>sound</string>
+					<key>NodeData</key>
+					<dict>
+						<key>#-inputs</key>
+						<data>
+						AAAAAA==
+						</data>
+					</dict>
+					<key>Parent</key>
+					<string>mac-io/i2s/i2s-a</string>
+				</dict>
+			</array>
+			<key>IOClass</key>
+			<string>AudioDeviceTreeUpdater</string>
+			<key>IOMatchCategory</key>
+			<string>DTUpdate</string>
+			<key>IONameMatch</key>
+			<array>
+				<string>PowerBook2,2</string>
+			</array>
+			<key>IOProviderClass</key>
+			<string>IOPlatformExpertDevice</string>
+		</dict>
 		<key>PowerBook3,1</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
@@ -700,6 +731,37 @@
 			<key>IONameMatch</key>
 			<array>
 				<string>PowerBook3,1</string>
+			</array>
+			<key>IOProviderClass</key>
+			<string>IOPlatformExpertDevice</string>
+		</dict>
+		<key>PowerBook4,1</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.AudioDeviceTreeUpdater</string>
+			<key>DeviceTreePatches</key>
+			<array>
+				<dict>
+					<key>Node</key>
+					<string>sound</string>
+					<key>NodeData</key>
+					<dict>
+						<key>#-inputs</key>
+						<data>
+						AAAAAQ==
+						</data>
+					</dict>
+					<key>Parent</key>
+					<string>mac-io/i2s/i2s-a</string>
+				</dict>
+			</array>
+			<key>IOClass</key>
+			<string>AudioDeviceTreeUpdater</string>
+			<key>IOMatchCategory</key>
+			<string>DTUpdate</string>
+			<key>IONameMatch</key>
+			<array>
+				<string>PowerBook4,1</string>
 			</array>
 			<key>IOProviderClass</key>
 			<string>IOPlatformExpertDevice</string>
@@ -1067,11 +1129,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3</string>
+	<string>2.2.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>1.3b2</string>
+	<string>2.2.4b1</string>
 </dict>
 </plist>
 ";
@@ -1153,7 +1215,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Apple02DBDMAAudio;
-				MODULE_VERSION = 2.2.0;
+				MODULE_VERSION = 2.2.4;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1180,7 +1242,7 @@
 	<key>CFBundleExecutable</key>
 	<string>Apple02DBDMAAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Apple02DBDMAAudio version 2.2.0, Copyright 2000-2003 Apple Computer, Inc.</string>
+	<string>Apple02DBDMAAudio version 2.2.4, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1192,11 +1254,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.0</string>
+	<string>2.2.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.0</string>
+	<string>2.2.4</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.7.0d1</string>
 	<key>OSBundleLibraries</key>
@@ -1500,7 +1562,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleScreamerAudio;
-				MODULE_VERSION = 2.2.0;
+				MODULE_VERSION = 2.2.4;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1527,7 +1589,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleScreamerAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleScreamerAudio version 2.2.0, Copyright 2000-2003 Apple Computer, Inc.</string>
+	<string>AppleScreamerAudio version 2.2.4, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1539,11 +1601,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.0</string>
+	<string>2.2.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.0</string>
+	<string>2.2.4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleScreamerAudio</key>
@@ -1698,7 +1760,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleBurgundyAudio;
-				MODULE_VERSION = 2.2.0;
+				MODULE_VERSION = 2.2.4b1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1725,7 +1787,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleBurgundyAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleBurgundyAudio version 2.2.0, Copyright 2000-2003 Apple Computer, Inc.</string>
+	<string>AppleBurgundyAudio version 2.2.4, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1737,11 +1799,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.0</string>
+	<string>2.2.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.0</string>
+	<string>2.2.4b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleBurgundyAudio</key>
@@ -2064,7 +2126,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Apple02Audio;
-				MODULE_VERSION = 2.2.0b6;
+				MODULE_VERSION = 2.2.4b2;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -2098,7 +2160,7 @@
 	<key>CFBundleExecutable</key>
 	<string>Apple02Audio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Apple02Audio version 2.2.0, Copyright 2000-2003 Apple Computer, Inc.</string>
+	<string>Apple02Audio version 2.2.4, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -2110,11 +2172,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.0</string>
+	<string>2.2.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.0b6</string>
+	<string>2.2.4b2</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.7.0d1</string>
 	<key>OSBundleLibraries</key>
@@ -2911,7 +2973,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleTAS3004Audio;
-				MODULE_VERSION = 2.2.0b3;
+				MODULE_VERSION = 2.2.4b1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -2936,7 +2998,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleTAS3004Audio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleTAS3004Audio version 2.2.0, Copyright 2000-2003 Apple Computer, Inc.</string>
+	<string>AppleTAS3004Audio version 2.2.4, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -2948,11 +3010,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.0</string>
+	<string>2.2.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.0b3</string>
+	<string>2.2.4b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleTAS3004Audio</key>
@@ -2962,7 +3024,7 @@
 				<key>InputLatency</key>
 				<integer>32</integer>
 				<key>NumHardwareEQBands</key>
-				<integer>7</integer>
+				<integer>6</integer>
 				<key>OutputLatency</key>
 				<integer>31</integer>
 				<key>PluginID</key>
@@ -3077,7 +3139,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleTopazAudio;
-				MODULE_VERSION = 2.2.0b4;
+				MODULE_VERSION = 2.2.4b1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -3103,7 +3165,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleTopazAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleTopazAudio version 2.2.0, Copyright 2000-2003 Apple Computer, Inc.</string>
+	<string>AppleTopazAudio version 2.2.4, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -3115,11 +3177,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.0</string>
+	<string>2.2.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.0b4</string>
+	<string>2.2.4b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleTopazAudio</key>
@@ -3250,7 +3312,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleDBDMAAudio;
-				MODULE_VERSION = 2.2.0b3;
+				MODULE_VERSION = 2.2.4b1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -3277,7 +3339,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleDBDMAAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleDBDMAAudio version 2.2.0, Copyright 2000-2003 Apple Computer, Inc.</string>
+	<string>AppleDBDMAAudio version 2.2.4, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -3289,11 +3351,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.0</string>
+	<string>2.2.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.0b3</string>
+	<string>2.2.4b1</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>2.0.0b1</string>
 	<key>OSBundleLibraries</key>
@@ -3522,6 +3584,7 @@
 			children = (
 				8E7432060537260700A8101D,
 				8E7432070537260700A8101D,
+				94177529062CC3DC00A52754,
 			);
 			isa = PBXGroup;
 			name = AppleOnyxAudio;
@@ -3558,6 +3621,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				8E74321805372A0200A8101D,
+				9417752A062CC3DC00A52754,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -3611,7 +3675,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleOnyxAudio;
-				MODULE_VERSION = 2.2.0b4;
+				MODULE_VERSION = 2.2.4b1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -3637,7 +3701,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleOnyxAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleOnyxAudio version 2.2.0, Copyright 2000-2003 Apple Computer, Inc.</string>
+	<string>AppleOnyxAudio version 2.2.4, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -3649,11 +3713,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.0</string>
+	<string>2.2.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.0b4</string>
+	<string>2.2.4b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleOnyxAudio</key>
@@ -3661,9 +3725,9 @@
 			<key>AOAAttributes</key>
 			<dict>
 				<key>InputLatency</key>
-				<integer>25</integer>
+				<integer>18</integer>
 				<key>OutputLatency</key>
-				<integer>25</integer>
+				<integer>20</integer>
 				<key>PluginID</key>
 				<string>Onyx</string>
 				<key>SoftwareInputGain</key>
@@ -3873,6 +3937,19 @@
 //942
 //943
 //944
+		94177529062CC3DC00A52754 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = Onyx_hw.h;
+			path = AppleOnboardAudio/Onyx_hw.h;
+			refType = 4;
+		};
+		9417752A062CC3DC00A52754 = {
+			fileRef = 94177529062CC3DC00A52754;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		9418C648048BBF9800CD2551 = {
 			fileRef = 0325496AFFDDCAD711CA29EB;
 			isa = PBXBuildFile;
@@ -4178,7 +4255,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleTexas2Audio;
-				MODULE_VERSION = 2.2.0;
+				MODULE_VERSION = 2.2.4;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -4203,7 +4280,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleTexas2Audio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleTexas2Audio version 2.2.0, Copyright 2000-2003 Apple Computer, Inc.</string>
+	<string>AppleTexas2Audio version 2.2.4, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -4215,11 +4292,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.0</string>
+	<string>2.2.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.0</string>
+	<string>2.2.4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleTexas2Audio</key>
@@ -4461,7 +4538,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.VirtualAudioDriver;
-				MODULE_VERSION = 2.2.0;
+				MODULE_VERSION = 2.2.4;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -4489,7 +4566,7 @@
 	<key>CFBundleExecutable</key>
 	<string>VirtualAudioDriver</string>
 	<key>CFBundleGetInfoString</key>
-	<string>VirtualAudioDriver version 2.2.0, Copyright 2002-2003 Apple Computer, Inc.</string>
+	<string>VirtualAudioDriver version 2.2.4, Copyright 2002-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -4501,11 +4578,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.0</string>
+	<string>2.2.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.0</string>
+	<string>2.2.4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>VirtualAudioDriver</key>
@@ -5215,7 +5292,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleOnboardAudio;
-				MODULE_VERSION = 2.2.0b6;
+				MODULE_VERSION = 2.2.4b2;
 				OPTIMZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -5247,7 +5324,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleOnboardAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleOnboardAudio version 2.2.0, Copyright 2000-2003 Apple Computer, Inc.</string>
+	<string>AppleOnboardAudio version 2.2.4, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -5259,11 +5336,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.0</string>
+	<string>2.2.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.0b6</string>
+	<string>2.2.4b2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleOnboardAudioK2</key>
@@ -5648,6 +5725,320 @@
 			<string>AppleMacIODevice</string>
 			<key>Layouts</key>
 			<array>
+				<dict>
+					<key>AmpRecoveryTime</key>
+					<integer>225</integer>
+					<key>ExternalClockSelect</key>
+					<false/>
+					<key>Formats</key>
+					<array>
+						<dict>
+							<key>BitDepth</key>
+							<integer>16</integer>
+							<key>BitWidth</key>
+							<integer>16</integer>
+							<key>Channels</key>
+							<integer>2</integer>
+							<key>Encoding</key>
+							<string>PCM</string>
+							<key>IsMixable</key>
+							<true/>
+							<key>SampleRates</key>
+							<array>
+								<integer>32000</integer>
+								<integer>44100</integer>
+								<integer>48000</integer>
+							</array>
+						</dict>
+						<dict>
+							<key>BitDepth</key>
+							<integer>24</integer>
+							<key>BitWidth</key>
+							<integer>32</integer>
+							<key>Channels</key>
+							<integer>2</integer>
+							<key>Encoding</key>
+							<string>PCM</string>
+							<key>IsMixable</key>
+							<true/>
+							<key>SampleRates</key>
+							<array>
+								<integer>32000</integer>
+								<integer>44100</integer>
+								<integer>48000</integer>
+							</array>
+						</dict>
+					</array>
+					<key>HardwareObjects</key>
+					<array>
+						<string>LoadTAS</string>
+					</array>
+					<key>Headphones</key>
+					<dict>
+						<key>ClipRoutines</key>
+						<array>
+							<string>FloatToInt</string>
+						</array>
+						<key>Controls</key>
+						<array>
+							<string>Mute</string>
+							<string>Left</string>
+							<string>Right</string>
+						</array>
+						<key>PluginID</key>
+						<string>TAS</string>
+					</dict>
+					<key>Inputs</key>
+					<array>
+						<string>InternalMic</string>
+						<string>LineIn</string>
+					</array>
+					<key>InputsBitmap</key>
+					<integer>0</integer>
+					<key>IntSpeakers</key>
+					<dict>
+						<key>ClipRoutines</key>
+						<array>
+							<string>FloatToInt</string>
+						</array>
+						<key>Controls</key>
+						<array>
+							<string>Mute</string>
+							<string>Left</string>
+							<string>Right</string>
+						</array>
+						<key>PluginID</key>
+						<string>TAS</string>
+						<key>SignalProcessing</key>
+						<dict>
+							<key>SpeakerID_0</key>
+							<dict>
+								<key>SoftwareDSP</key>
+								<dict>
+									<key>Equalization</key>
+									<dict>
+										<key>Filter0</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1752195443</integer>
+											<key>Frequency</key>
+											<data>
+								Q4JXDA==
+											</data>
+											<key>Gain</key>
+											<data>
+								wHFfFg==
+											</data>
+											<key>Q</key>
+											<data>
+								PzUE8w==
+											</data>
+											<key>index</key>
+											<integer>10</integer>
+										</dict>
+										<key>Filter1</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								RBx36A==
+											</data>
+											<key>Gain</key>
+											<data>
+								wUV8WA==
+											</data>
+											<key>Q</key>
+											<data>
+								QCNw2g==
+											</data>
+											<key>index</key>
+											<integer>11</integer>
+										</dict>
+										<key>Filter2</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								RGC13w==
+											</data>
+											<key>Gain</key>
+											<data>
+								wLUHUA==
+											</data>
+											<key>Q</key>
+											<data>
+								P9oKKQ==
+											</data>
+											<key>index</key>
+											<integer>12</integer>
+										</dict>
+										<key>Filter3</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								RitgKA==
+											</data>
+											<key>Gain</key>
+											<data>
+								wSdQdQ==
+											</data>
+											<key>Q</key>
+											<data>
+								QHvZRQ==
+											</data>
+											<key>index</key>
+											<integer>13</integer>
+										</dict>
+										<key>Filter4</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								RPkXGQ==
+											</data>
+											<key>Gain</key>
+											<data>
+								wJmZmg==
+											</data>
+											<key>Q</key>
+											<data>
+								QBUVHQ==
+											</data>
+											<key>index</key>
+											<integer>14</integer>
+										</dict>
+										<key>Filter5</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								Ri9D/A==
+											</data>
+											<key>Gain</key>
+											<data>
+								wadQdQ==
+											</data>
+											<key>Q</key>
+											<data>
+								QBjaDA==
+											</data>
+											<key>index</key>
+											<integer>15</integer>
+										</dict>
+									</dict>
+									<key>GainStage</key>
+									<dict>
+										<key>LeftGain</key>
+										<data>
+								Py7Dbg==
+										</data>
+										<key>RightGain</key>
+										<data>
+								P4AAAA==
+										</data>
+									</dict>
+									<key>MultibandDRC</key>
+									<dict>
+										<key>Limiter</key>
+										<dict>
+											<key>AttackTime</key>
+											<data>
+								AAAAYA==
+											</data>
+											<key>BandIndex</key>
+											<integer>0</integer>
+											<key>Gain</key>
+											<data>
+								AAAAAA==
+											</data>
+											<key>HardLimit</key>
+											<integer>0</integer>
+											<key>LimiterType</key>
+											<integer>0</integer>
+											<key>Lookahead</key>
+											<integer>0</integer>
+											<key>Ratio</key>
+											<data>
+								AAAAWA==
+											</data>
+											<key>RatioBelow</key>
+											<data>
+								AAAAKg==
+											</data>
+											<key>ReleaseTime</key>
+											<data>
+								AAAAsA==
+											</data>
+											<key>RunInHardware</key>
+											<true/>
+											<key>Threshold</key>
+											<data>
+								AAAA1w==
+											</data>
+										</dict>
+									</dict>
+								</dict>
+								<key>maxVolumeOffset</key>
+								<integer>2</integer>
+							</dict>
+						</dict>
+					</dict>
+					<key>InternalMic</key>
+					<dict>
+						<key>ClipRoutines</key>
+						<array>
+							<string>IntToFloat</string>
+						</array>
+						<key>Controls</key>
+						<array>
+							<string>Left</string>
+							<string>Right</string>
+						</array>
+						<key>Playthrough</key>
+						<false/>
+						<key>PluginID</key>
+						<string>TAS</string>
+					</dict>
+					<key>LayoutID</key>
+					<integer>51</integer>
+					<key>LineIn</key>
+					<dict>
+						<key>ClipRoutines</key>
+						<array>
+							<string>IntToFloat</string>
+						</array>
+						<key>Controls</key>
+						<array>
+							<string>Left</string>
+							<string>Right</string>
+						</array>
+						<key>Playthrough</key>
+						<true/>
+						<key>PluginID</key>
+						<string>TAS</string>
+					</dict>
+					<key>Outputs</key>
+					<array>
+						<string>Headphones</string>
+						<string>IntSpeakers</string>
+					</array>
+					<key>OutputsBitmap</key>
+					<integer>0</integer>
+					<key>PlatformObject</key>
+					<string>KeyLargo</string>
+					<key>RecoveryOrder</key>
+					<array>
+						<string>TAS</string>
+					</array>
+					<key>TransportObject</key>
+					<string>i2s</string>
+				</dict>
 				<dict>
 					<key>AmpRecoveryTime</key>
 					<integer>225</integer>
@@ -6189,6 +6580,7 @@
 								<integer>32000</integer>
 								<integer>44100</integer>
 								<integer>48000</integer>
+								<integer>64000</integer>
 								<integer>88200</integer>
 								<integer>96000</integer>
 							</array>
@@ -6211,6 +6603,7 @@
 								<integer>32000</integer>
 								<integer>44100</integer>
 								<integer>48000</integer>
+								<integer>64000</integer>
 								<integer>88200</integer>
 								<integer>96000</integer>
 							</array>
@@ -6233,6 +6626,7 @@
 								<integer>32000</integer>
 								<integer>44100</integer>
 								<integer>48000</integer>
+								<integer>64000</integer>
 								<integer>88200</integer>
 								<integer>96000</integer>
 							</array>
@@ -6247,6 +6641,8 @@
 						<string>InternalMic</string>
 						<string>LineIn</string>
 					</array>
+					<key>InputsBitmap</key>
+					<integer>0</integer>
 					<key>IntSpeakers</key>
 					<dict>
 						<key>ClipRoutines</key>
@@ -6504,6 +6900,209 @@
 								<key>maxVolumeOffset</key>
 								<integer>-8</integer>
 							</dict>
+							<key>SpeakerID_1</key>
+							<dict>
+								<key>SoftwareDSP</key>
+								<dict>
+									<key>Equalization</key>
+									<dict>
+										<key>Filter0</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1752195443</integer>
+											<key>Frequency</key>
+											<data>
+								Q3G/tg==
+											</data>
+											<key>Gain</key>
+											<data>
+								Pz9V7Q==
+											</data>
+											<key>Q</key>
+											<data>
+								PzUE8w==
+											</data>
+											<key>index</key>
+											<integer>0</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter1</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								REVnyw==
+											</data>
+											<key>Gain</key>
+											<data>
+								wCTC4Q==
+											</data>
+											<key>Q</key>
+											<data>
+								QAe7DA==
+											</data>
+											<key>index</key>
+											<integer>1</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter2</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								RTigPQ==
+											</data>
+											<key>Gain</key>
+											<data>
+								wG8raA==
+											</data>
+											<key>Q</key>
+											<data>
+								QDdEXw==
+											</data>
+											<key>index</key>
+											<integer>2</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter3</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								RQOp3A==
+											</data>
+											<key>Gain</key>
+											<data>
+								wBohqQ==
+											</data>
+											<key>Q</key>
+											<data>
+								QK//ww==
+											</data>
+											<key>index</key>
+											<integer>3</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter4</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								RcD7lg==
+											</data>
+											<key>Gain</key>
+											<data>
+								wCTC4Q==
+											</data>
+											<key>Q</key>
+											<data>
+								QO3HvA==
+											</data>
+											<key>index</key>
+											<integer>4</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter5</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1819304307</integer>
+											<key>Frequency</key>
+											<data>
+								RoNA4Q==
+											</data>
+											<key>Gain</key>
+											<data>
+								QOyDGg==
+											</data>
+											<key>Q</key>
+											<data>
+								PzUE8w==
+											</data>
+											<key>index</key>
+											<integer>5</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+										<key>Filter6</key>
+										<dict>
+											<key>FilterType</key>
+											<integer>1885434465</integer>
+											<key>Frequency</key>
+											<data>
+								RhmF6A==
+											</data>
+											<key>Gain</key>
+											<data>
+								wQ4sSg==
+											</data>
+											<key>Q</key>
+											<data>
+								QSRQ7A==
+											</data>
+											<key>index</key>
+											<integer>6</integer>
+											<key>runInSoftware</key>
+											<true/>
+										</dict>
+									</dict>
+									<key>MultibandDRC</key>
+									<dict>
+										<key>Crossover</key>
+										<dict>
+											<key>NumberOfBands</key>
+											<integer>1</integer>
+										</dict>
+										<key>Limiter0</key>
+										<dict>
+											<key>AttackTime</key>
+											<data>
+								QOqAyQ==
+											</data>
+											<key>BandIndex</key>
+											<integer>0</integer>
+											<key>Gain</key>
+											<data>
+								P4CKUA==
+											</data>
+											<key>HardLimit</key>
+											<integer>1</integer>
+											<key>LimiterType</key>
+											<integer>1717989234</integer>
+											<key>Lookahead</key>
+											<integer>0</integer>
+											<key>Ratio</key>
+											<data>
+								QIQfaQ==
+											</data>
+											<key>RatioBelow</key>
+											<data>
+								P6QfaQ==
+											</data>
+											<key>ReleaseTime</key>
+											<data>
+								Q0aWxg==
+											</data>
+											<key>RunInHardware</key>
+											<false/>
+											<key>Threshold</key>
+											<data>
+								wR1AZQ==
+											</data>
+										</dict>
+									</dict>
+								</dict>
+								<key>maxVolumeOffset</key>
+								<integer>-8</integer>
+							</dict>
 						</dict>
 					</dict>
 					<key>InternalMic</key>
@@ -6548,8 +7147,8 @@
 						</array>
 						<key>Controls</key>
 						<array>
-							<string>Left</string>
 							<string>Mute</string>
+							<string>Left</string>
 							<string>Right</string>
 						</array>
 						<key>PluginID</key>
@@ -6557,10 +7156,12 @@
 					</dict>
 					<key>Outputs</key>
 					<array>
+						<string>DigitalOut</string>
 						<string>IntSpeakers</string>
 						<string>LineOut</string>
-						<string>DigitalOut</string>
 					</array>
+					<key>OutputsBitmap</key>
+					<integer>0</integer>
 					<key>PlatformObject</key>
 					<string>Shasta</string>
 					<key>RecoveryOrder</key>
@@ -6612,6 +7213,7 @@
 								<integer>32000</integer>
 								<integer>44100</integer>
 								<integer>48000</integer>
+								<integer>64000</integer>
 								<integer>88200</integer>
 								<integer>96000</integer>
 							</array>
@@ -6634,6 +7236,7 @@
 								<integer>32000</integer>
 								<integer>44100</integer>
 								<integer>48000</integer>
+								<integer>64000</integer>
 								<integer>88200</integer>
 								<integer>96000</integer>
 							</array>
@@ -6656,6 +7259,7 @@
 								<integer>32000</integer>
 								<integer>44100</integer>
 								<integer>48000</integer>
+								<integer>64000</integer>
 								<integer>88200</integer>
 								<integer>96000</integer>
 							</array>
@@ -6670,6 +7274,8 @@
 						<string>InternalMic</string>
 						<string>LineIn</string>
 					</array>
+					<key>InputsBitmap</key>
+					<integer>0</integer>
 					<key>IntSpeakers</key>
 					<dict>
 						<key>ClipRoutines</key>
@@ -6693,8 +7299,8 @@
 						</array>
 						<key>Controls</key>
 						<array>
-							<string>Master</string>
 							<string>Mute</string>
+							<string>Master</string>
 						</array>
 						<key>Playthrough</key>
 						<false/>
@@ -6711,11 +7317,26 @@
 						</array>
 						<key>Controls</key>
 						<array>
-							<string>Master</string>
 							<string>Mute</string>
+							<string>Master</string>
 						</array>
 						<key>Playthrough</key>
 						<false/>
+						<key>PluginID</key>
+						<string>Onyx</string>
+					</dict>
+					<key>LineOut</key>
+					<dict>
+						<key>ClipRoutines</key>
+						<array>
+							<string>FloatToInt</string>
+						</array>
+						<key>Controls</key>
+						<array>
+							<string>Mute</string>
+							<string>Left</string>
+							<string>Right</string>
+						</array>
 						<key>PluginID</key>
 						<string>Onyx</string>
 					</dict>
@@ -6736,6 +7357,8 @@
 						<string>IntSpeakers</string>
 						<string>LineOut</string>
 					</array>
+					<key>OutputsBitmap</key>
+					<integer>0</integer>
 					<key>PlatformObject</key>
 					<string>Shasta</string>
 					<key>RecoveryOrder</key>
@@ -6747,18 +7370,8 @@
 						<string>ClockLock</string>
 						<string>ClockUnLock</string>
 					</array>
-					<key>SleepOrder</key>
-					<array>
-						<integer>47</integer>
-						<integer>48</integer>
-					</array>
 					<key>TransportObject</key>
 					<string>i2s</string>
-					<key>WakeOrder</key>
-					<array>
-						<integer>48</integer>
-						<integer>47</integer>
-					</array>
 				</dict>
 			</array>
 		</dict>
@@ -6819,6 +7432,7 @@
 								<integer>32000</integer>
 								<integer>44100</integer>
 								<integer>48000</integer>
+								<integer>64000</integer>
 								<integer>88200</integer>
 								<integer>96000</integer>
 							</array>
@@ -6841,6 +7455,30 @@
 								<integer>32000</integer>
 								<integer>44100</integer>
 								<integer>48000</integer>
+								<integer>64000</integer>
+								<integer>88200</integer>
+								<integer>96000</integer>
+							</array>
+						</dict>
+						<dict>
+							<key>BitDepth</key>
+							<integer>24</integer>
+							<key>BitWidth</key>
+							<integer>32</integer>
+							<key>Channels</key>
+							<integer>2</integer>
+							<key>Encoding</key>
+							<string>AC3</string>
+							<key>IsMixable</key>
+							<false/>
+							<key>SampleRates</key>
+							<array>
+								<integer>22050</integer>
+								<integer>24000</integer>
+								<integer>32000</integer>
+								<integer>44100</integer>
+								<integer>48000</integer>
+								<integer>64000</integer>
 								<integer>88200</integer>
 								<integer>96000</integer>
 							</array>
@@ -6854,8 +7492,12 @@
 					<array>
 						<string>DigitalIn</string>
 					</array>
+					<key>InputsBitmap</key>
+					<integer>0</integer>
 					<key>LayoutID</key>
 					<integer>48</integer>
+					<key>OutputsBitmap</key>
+					<integer>0</integer>
 					<key>PlatformObject</key>
 					<string>Shasta</string>
 					<key>RecoveryOrder</key>
@@ -6867,18 +7509,10 @@
 						<string>DigitalInDetectInsert</string>
 						<string>DigitalInDetectRemove</string>
 					</array>
-					<key>SleepOrder</key>
-					<array>
-						<integer>47</integer>
-						<integer>48</integer>
-					</array>
+					<key>SleepPriority</key>
+					<integer>47</integer>
 					<key>TransportObject</key>
 					<string>i2sSlaveOnly</string>
-					<key>WakeOrder</key>
-					<array>
-						<integer>48</integer>
-						<integer>47</integer>
-					</array>
 				</dict>
 			</array>
 		</dict>
@@ -7238,7 +7872,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleTexasAudio;
-				MODULE_VERSION = 2.2.0;
+				MODULE_VERSION = 2.2.4;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -7264,7 +7898,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleTexasAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleTexasAudio version 2.2.0, Copyright 2000-2003 Apple Computer, Inc.</string>
+	<string>AppleTexasAudio version 2.2.4, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -7276,11 +7910,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.0</string>
+	<string>2.2.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.0</string>
+	<string>2.2.4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleTexasAudio</key>
@@ -7435,7 +8069,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleDallasDriver;
-				MODULE_VERSION = 2.2.0;
+				MODULE_VERSION = 2.2.4;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -7461,7 +8095,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleDallasDriver</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleDallasDriver version 2.2.0, Copyright 2000-2002 Apple Computer, Inc.</string>
+	<string>AppleDallasDriver version 2.2.4, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -7473,11 +8107,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.0</string>
+	<string>2.2.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.0</string>
+	<string>2.2.4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleDallasDriver</key>
@@ -7650,7 +8284,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleDACAAudio;
-				MODULE_VERSION = 2.2.0;
+				MODULE_VERSION = 2.2.4;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -7676,7 +8310,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleDACAAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleDACAAudio version 2.2.0, Copyright 2000-2003 Apple Computer, Inc.</string>
+	<string>AppleDACAAudio version 2.2.4, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -7688,11 +8322,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.0</string>
+	<string>2.2.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.0</string>
+	<string>2.2.4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleDACAAudio</key>
@@ -7933,7 +8567,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AudioI2SControl;
-				MODULE_VERSION = 2.2.0;
+				MODULE_VERSION = 2.2.4;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -7959,7 +8593,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AudioI2SControl</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AudioI2SControl version 2.2.0, Copyright 2000-2003 Apple Computer, Inc.</string>
+	<string>AudioI2SControl version 2.2.4, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -7971,11 +8605,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.0</string>
+	<string>2.2.4</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.0</string>
+	<string>2.2.4</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.8.1b1</string>
 	<key>OSBundleLibraries</key>

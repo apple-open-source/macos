@@ -172,6 +172,9 @@ input_userauth_request(int type, u_int32_t seq, void *ctxt)
 #ifdef USE_PAM
 			PRIVSEP(start_pam("NOUSER"));
 #endif
+#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
+			PRIVSEP(solaris_audit_bad_pw("name"));
+#endif /* BSM */
 		}
 		setproctitle("%s%s", authctxt->pw ? user : "unknown",
 		    use_privsep ? " [net]" : "");
@@ -221,8 +224,12 @@ userauth_finish(Authctxt *authctxt, int authenticated, char *method)
 
 	/* Special handling for root */
 	if (authenticated && authctxt->pw->pw_uid == 0 &&
-	    !auth_root_allowed(method))
+	    !auth_root_allowed(method)) {
 		authenticated = 0;
+#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
+		PRIVSEP(solaris_audit_not_console());
+#endif /* BSM */
+	}
 
 #ifdef USE_PAM
 	if (!use_privsep && authenticated && authctxt->user && 
@@ -256,6 +263,9 @@ userauth_finish(Authctxt *authctxt, int authenticated, char *method)
 		/* Do not count server configuration problems against the client */
 		if (!authctxt->server_caused_failure) {
 		if (authctxt->failures++ > AUTH_FAIL_MAX) {
+#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
+			PRIVSEP(solaris_audit_maxtrys());
+#endif /* BSM */
 			packet_disconnect(AUTH_FAIL_MSG, authctxt->user);
 			}
 		}
@@ -263,6 +273,9 @@ userauth_finish(Authctxt *authctxt, int authenticated, char *method)
 		if (strcmp(method, "password") == 0)
 			cray_login_failure(authctxt->user, IA_UDBERR);
 #endif /* _UNICOS */
+#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
+		PRIVSEP(solaris_audit_bad_pw("authorization"));
+#endif /* BSM */
 		methods = authmethods_get();
 		packet_start(SSH2_MSG_USERAUTH_FAILURE);
 		packet_put_cstring(methods);

@@ -1,4 +1,16 @@
-      12:26:33 PM
+      02:06:22 PM
 
-      MEMORY ALLOCATED : 0, MAX was 25892
+      MEMORY ALLOCATED : 2304, MAX was 94954
 BLOCK  NUMBER   SIZE  TYPE
+0        3260    192 malloc()  in none(0)
+1        3254    192 malloc()  in none(0)
+2        3253    192 malloc()  in none(0)
+3        3245    192 malloc()  in none(0)
+4        3223    192 malloc()  in none(0)
+5        3214    192 malloc()  in none(0)
+6        3210    192 malloc()  in none(0)
+7        3206    192 malloc()  in none(0)
+8        3198    192 malloc()  in none(0)
+9        3194    192 malloc()  in none(0)
+10       3172    192 malloc()  in none(0)
+11       3132    192 malloc()  in none(0)

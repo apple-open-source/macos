@@ -1,0 +1,8 @@
+Vi har modtaget en forespørgsel fra din adresse '%(sender)s', som kræver
+et automatisk svar fra maillisten %(listname)s. Vi har allerede fået %(num)s
+forespørgsler fra dig i dag. For at undgå problemer så som e-mail der
+sendes rundt i en uendelig løkke, vil vi ikke sende dig flere svar i dag.
+Prøv venligst igen i morgen.
+
+Hvis du mener at dette ikke er korrekt, eller hvis du har spørgsmål,
+kontakt da venligst ejeren af maillisten på %(owneremail)s.

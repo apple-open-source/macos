@@ -492,6 +492,9 @@ getpwnamallow(const char *user)
 #endif
 	struct passwd *pw;
 
+#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
+	solaris_audit_save_name(user);
+#endif /* BSM */
 	pw = getpwnam(user);
 	if (pw == NULL) {
 		log("Illegal user %.100s from %.100s",
@@ -501,18 +504,19 @@ getpwnamallow(const char *user)
 		    get_canonical_hostname(options.verify_reverse_mapping),
 		    "ssh");
 #endif
-		return (NULL);
 	}
-	if (!allowed_user(pw))
-		return (NULL);
+	if (pw != NULL && !allowed_user(pw))
+		pw = NULL;
 #ifdef HAVE_LOGIN_CAP
-	if ((lc = login_getclass(pw->pw_class)) == NULL) {
+	if (pw != NULL && (lc = login_getclass(pw->pw_class)) == NULL) {
 		debug("unable to get login class: %s", user);
-		return (NULL);
+		pw = NULL;
 	}
 #ifdef BSD_AUTH
-	if ((as = auth_open()) == NULL || auth_setpwd(as, pw) != 0 ||
-	    auth_approval(as, lc, pw->pw_name, "ssh") <= 0) {
+	as = NULL;
+	if (pw != NULL
+	    && ((as = auth_open()) == NULL || auth_setpwd(as, pw) != 0 ||
+	         auth_approval(as, lc, pw->pw_name, "ssh") <= 0)) {
 		debug("Approval failure for %s", user);
 		pw = NULL;
 	}
@@ -520,9 +524,13 @@ getpwnamallow(const char *user)
 		auth_close(as);
 #endif
 #endif
-	if (pw != NULL)
-		return (pwcopy(pw));
-	return (NULL);
+	if (pw != NULL) {
+		pw = pwcopy(pw);
+#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
+		solaris_audit_save_pw(pw);
+#endif /* BSM */
+	}
+	return (pw);
 }
 
 void

@@ -1,5 +1,5 @@
 Mailman - The GNU Mailing List Management System
-Copyright (C) 1998,1999,2000,2001,2002 Free Software Foundation, Inc.
+Copyright (C) 1998-2003 Free Software Foundation, Inc.
 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
 Ebben az állományban a GNU Mailman telepítéséhez találunk útmutatót,
@@ -73,7 +73,9 @@ olvasásra az UPGRADING állományban található fontos információkat.
       bit jogokkal. Ezzel mind a webes, mind a levelezõprogramok együtt 
       tudnak mûködni. Ha a `mailman' csoportnév már foglalt, akkor 
       bármilyen más egyedi nevet megadhatunk. Ekkor olvassuk el alább
-      a --with-groupname kapcsolónál található megjegyzést.
+      a --with-groupname kapcsolónál található megjegyzést. Az elõzõ 
+      lépésben létrehozott mailman felhasználó tagja kell, hogy legyen
+      ennek a csoportnak.
 
     - Hozzunk létre egy könyvtárat, ahová a programot telepíteni fogjuk
       (ezt a továbbiakban $prefix-nek nevezzük). A Mailman összes
@@ -317,11 +319,46 @@ olvasásra az UPGRADING állományban található fontos információkat.
 
       Ha a levelezõlistáink nyilvános archívumait különbözõ nemzeti 
       nyelveken is helyesen szeretnénk megjeleníteni, akkor fontos, hogy
-      kapcsoljuk ki a webszerverünk alapértelmezett karakterkódolását.
-      Apache esetén ehhez az "AddDefaultCharset off" sort kell elhelyezni
-      a konfigurációs állományában.
+      kapcsoljuk ki a webszerverünk alapértelmezett karakterkódolását a
+      Pipermail könyvtárra különben az archívum nem fog megfelelõen
+      megjelenni. Ha az alapértelmezett telepítési útvonalat használtuk,
+      akkor Apache esetén a következõhöz hasonló sort kell elhelyezni a
+      konfigurációs állományában:
+
+      <Directory "/usr/local/mailman/archives/public/">
+          AddDefaultCharset Off
+      </Directory>
 
       Ezek után indítsuk újra a web kiszolgálót.
+
+    - Hozzuk létre a "központi" levelezõlistát. A jelszó emlékeztetõk
+      ennek a listának a címérõl fognak érkezni. A lista neve általában
+      "mailman", de igény szerint változtatható a MAILMAN_SITE_LIST
+      változó segítségével, amelyet az mm_cfg.py (lásd késõbb) állományban
+      kell megadni.
+
+          % bin/newlist mailman
+
+      Kövessük az utasításokat és bõvebb információkért olvassuk el a
+      README.hu állományt.
+
+      Ezek után állítsuk be a központi levelezõlistát. Ebben segítségünkre
+      lehet a központi listák általános beállításait tartalmazó sablonfile,
+      a misc/sitelist.cfg állomány. A sablont a központi levelezõlistára
+      a következõ paranccsal lehet alkalmazni:
+
+	  % bin/config_list -i data/sitelist.cfg mailman
+
+      Mielõtt felhasználnánk a sablont mindenképp nézzük meg, hogy az
+      abban található beállítások megfelelnek-e nekünk (annak ellenére, 
+      hogy számos beállítást éríntetlenül hagy a sitelist.cfg fájl). Ha 
+      módosítottuk a központi listát, akkor utána el ne felejtsük az
+      adminisztrációs oldalon is leellenõrízni a beállított értékeket,
+      hogy megfelelnek-e az elvárásainknak.  
+      
+      Ezek után iratkozzunk fel erre a mailman levelezõlistára az 
+      adminisztrációs oldalon keresztül. Az e-mailben történõ feliratkozás
+      ezen a ponton még nem mûködik, így azt ne használjuk.
 
     - A crontab beállítása. A Mailman mûködéséhez számos folyamatot
       kell a cron-nak futtatnia. Régebbi verziójú Mailman frissítésekor
@@ -401,20 +438,7 @@ olvasásra az UPGRADING állományban található fontos információkat.
      változók után még megadni a következõ parancsot is:
 
       add_virtualhost(DEFAULT_URL_HOST, DEFAULT_EMAIL_HOST)
-
-   - Hozzuk létre a "központi" levelezõlistát. A jelszó emlékeztetõk
-     ennek a listának a címérõl fognak érkezni. A lista neve általában
-     "mailman", de igény szerint változtatható a MAILMAN_SITE_LIST
-     változó segítségével, amelyet az mm_cfg.py (lásd késõbb) állományban
-     kell megadni.
-
-      % bin/newlist mailman
-
-     Kövessük az utasításokat és bõvebb információkért olvassuk el a
-     README.hu állományt.
-    
-   - Ezek után iratkozzunk fel erre a mailman levelezõlistára.   
-    
+   
     
 5. Mailman finomhangolása
 

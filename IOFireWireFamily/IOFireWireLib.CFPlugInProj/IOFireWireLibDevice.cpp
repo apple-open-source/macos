@@ -901,21 +901,10 @@ namespace IOFireWireLib {
 		
 		if ( mIsOpen )
 		{
-			PhysicalAddressSpaceCreateParams	params ;
-			params.size				= inSize ;
-			params.backingStore		= inBackingStore ;
-			params.flags			= inFlags ;
-			
 			UserObjectHandle	output ;
-			IOByteCount	size = sizeof(output) ;
 			
-			if (kIOReturnSuccess  == IOConnectMethodStructureIStructureO(
-								mConnection,
-								kPhysicalAddrSpace_Allocate,
-								sizeof(params),
-								& size,
-								(void*) & params,
-								(void*) & output ))
+			if ( kIOReturnSuccess  == IOConnectMethodScalarIScalarO ( mConnection, kPhysicalAddrSpace_Allocate,
+																			3, 1, inSize, inBackingStore, inFlags, & output ) )
 			{
 				if (output)
 				{

@@ -1,0 +1,41 @@
+Version 1.2.4f1 changes
+------------------------
+- switch to xcode
+- added a Makefile and this log file
+- added power sleep/wake code (AppleRS232Power.cpp)
+- added call to initForPM() to start() to hook into power tree
+- call PMstop() in stop to detach from power tree
+- changed copywrite from 2002 to 2002-2004
+- changed ALERT macro to also log to ELG (xtrace) when appropriate
+- got rid of unused 'previous state' param/returns in scc enable/disable interrupts
+- commented out unused interrupt types in InterruptTypes enum
+- commented out NOP disable/enable scc interrupt 'kSerialInterrupt' in SccSetBaud
+- ditto in SccConfigureForMIDI
+- changed rxTimeoutHandler to be a nop if sleeping (can't really cancel timers)
+- deleted pbxbuild.sh and pbxbuild.data/* 
+- deleted AppleRS232Serial.pbproj/*
+- removed USE_WORK_LOOPS define and all the !USE_WORK_LOOPS code, it has to be on
+
+
+---------------------------------------------------------------------------------------------
+Misc Notes
+---------------------------------------------------------------------------------------------
+
+Version number checklist
+    Resources/InfoPlist.strings
+	1) CFBundleShortVersionString (*)
+	2) CFBundleGetInfoString
+    Target
+	Settings/Expert View
+	    3) MODULE_VERSION
+	Info.plist Expert View
+	    4) CFBundleGetInfoString
+	    5) CFBundleShortVersionString (*)
+	    6) CFBundleVersion
+	    
+    (*) strip build info off these
+
+NameRevs
+    cvs tag AppleRS232Serial-1-2-4f1
+
+ 	    

@@ -13,9 +13,9 @@ mensagem para %(requestaddr)s:
 
     confirm %(cookie)s
 
-Note que oa simples resposta a esta mensagem deverá funcionar com 
+Note que a simples resposta a esta mensagem deverá funcionar com 
 a maioria dos leitores de email, pois eles deixam a linha de 
-assunto da forma traducional (a palavra "Re:" não causa problemas).
+assunto da forma tradicional (a palavra "Re:" não causa problemas).
 
 Se não deseja se inscrever nesta lista, desconsidere esta 
 mensagem. Se achar que está sendo maliciosamente inscrito 

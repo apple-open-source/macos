@@ -155,7 +155,7 @@ def main():
         realname = mlist.real_name
         if not cgidata.keys():
             # If this is not a form submission (i.e. there are no keys in the
-            # form), then all we don't need to do much special.
+            # form), then we don't need to do much special.
             doc.SetTitle(_('%(realname)s Administrative Database'))
         elif not details:
             # This is a form submission
@@ -298,7 +298,9 @@ def show_pending_subs(mlist, form):
         if addr not in mlist.ban_list:
             radio += '<br>' + CheckBox('ban-%d' % id, 1).Format() + \
                      '&nbsp;' + _('Permanently ban from this list')
-        table.AddRow(['%s<br><em>%s</em>' % (addr, fullname),
+        # While the address may be a unicode, it must be ascii
+        paddr = addr.encode('us-ascii', 'replace')
+        table.AddRow(['%s<br><em>%s</em>' % (paddr, fullname),
                       radio,
                       TextBox('comment-%d' % id, size=40)
                       ])
@@ -431,7 +433,7 @@ def show_helds_overview(mlist, form):
             left.AddRow([
                 CheckBox('senderfilterp-' + qsender, 1).Format() +
                 '&nbsp;' +
-                _('Add <b>%(esender)s</b> to a sender filter')
+                _('Add <b>%(esender)s</b> to one of these sender filters:')
                 ])
             left.AddCellInfo(left.GetCurrentRowIndex(), 0, colspan=2)
             btns = hacky_radio_buttons(
@@ -470,10 +472,12 @@ def show_helds_overview(mlist, form):
                 # handled by the time we got here.
                 mlist.HandleRequest(id, mm_cfg.DISCARD)
                 continue
+            dispsubj = Utils.oneline(
+                subject, Utils.GetCharSet(mlist.preferred_language))
             t = Table(border=0)
             t.AddRow([Link(admindburl + '?msgid=%d' % id, '[%d]' % counter),
                       Bold(_('Subject:')),
-                      Utils.websafe(subject)
+                      Utils.websafe(dispsubj)
                       ])
             t.AddRow(['&nbsp;', Bold(_('Size:')), str(size) + _(' bytes')])
             if reason:
@@ -589,6 +593,14 @@ def show_post_requests(mlist, id, info, total, count, form):
         body = EMPTYSTRING.join(lines)[:mm_cfg.ADMINDB_PAGE_TEXT_LIMIT]
     else:
         body = EMPTYSTRING.join(lines)
+    # Get message charset and try encode in list charset
+    mcset = msg.get_param('charset', 'us-ascii').lower()
+    lcset = Utils.GetCharSet(mlist.preferred_language)
+    if mcset <> lcset:
+        try:
+            body = unicode(body, mcset).encode(lcset)
+        except (LookupError, UnicodeError):
+            pass
     hdrtxt = NL.join(['%s: %s' % (k, v) for k, v in msg.items()])
     hdrtxt = Utils.websafe(hdrtxt)
     # Okay, we've reconstituted the message just fine.  Now for the fun part!
@@ -596,7 +608,8 @@ def show_post_requests(mlist, id, info, total, count, form):
     t.AddRow([Bold(_('From:')), sender])
     row, col = t.GetCurrentRowIndex(), t.GetCurrentCellIndex()
     t.AddCellInfo(row, col-1, align='right')
-    t.AddRow([Bold(_('Subject:')), Utils.websafe(subject)])
+    t.AddRow([Bold(_('Subject:')),
+              Utils.websafe(Utils.oneline(subject, lcset))])
     t.AddCellInfo(row+1, col-1, align='right')
     t.AddRow([Bold(_('Reason:')), _(reason)])
     t.AddCellInfo(row+2, col-1, align='right')

@@ -1442,6 +1442,17 @@ void KWQKHTMLPart::sendResizeEvent()
     }
 }
 
+void KWQKHTMLPart::sendScrollEvent()
+{
+    KHTMLView *v = d->m_view;
+    if (v) {
+        DocumentImpl *doc = xmlDocImpl();
+        if (!doc)
+            return;
+        doc->dispatchHTMLEvent(EventImpl::SCROLL_EVENT, true, false);
+    }
+}
+
 void KWQKHTMLPart::runJavaScriptAlert(const QString &message)
 {
     QString text = message;

@@ -1,0 +1,23 @@
+Obavijest o potvrdi odjave sa %(listname)s mailing liste
+
+Primili smo zahtjev%(remote)s za brisanje vase mail adrese 
+"%(email)s" sa %(listaddr)s mailing liste.  Da biste potvrdili 
+odjavu s liste, odgovorite na ovu poruku, s time da 
+Subject: zaglavlje ostavite netaknuto. Drugi nacin je da posjetite 
+web stranicu:
+
+    %(confirmurl)s
+
+Mozete takodjer ukljuciti i sljedecu liniju -- i samo sljedecu liniju 
+-- u poruci za %(requestaddr)s:
+
+    confirm %(cookie)s
+
+Primijetite da bi samo slanje `replya' na ovu poruku trebalo raditi iz 
+vecine mail preglednika, buduci da ono obicno ostavlja Subject: liniju 
+u odgovarajucem obliku (dodatno "Re:" tekst u Subject: liniji je u redu).
+
+Ako ne zelite biti odjavljeni s ove liste, zanemarite ovu 
+poruku. Ukoliko mislite da vas je netko drugi odjavio s liste  
+ili imate neka druga pitanja, posaljite mail na: 
+%(listadmin)s.

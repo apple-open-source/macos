@@ -23,13 +23,11 @@
  * the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
  *
- * $Id: render_table.h,v 1.33 2004/01/07 01:15:20 hyatt Exp $
  */
 #ifndef RENDER_TABLE_H
 #define RENDER_TABLE_H
 
 #include <qcolor.h>
-#include <qptrvector.h>
 
 #include "render_box.h"
 #include "render_block.h"
@@ -353,7 +351,7 @@ public:
     CollapsedBorderValue collapsedRightBorder() const;
     CollapsedBorderValue collapsedTopBorder() const;
     CollapsedBorderValue collapsedBottomBorder() const;
-    virtual void collectBorders(QPtrList<CollapsedBorderValue>& borderStyles);
+    virtual void collectBorders(QValueList<CollapsedBorderValue>& borderStyles);
 
     virtual void updateFromElement();
 

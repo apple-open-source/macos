@@ -1,0 +1,11 @@
+Es necessita la seva autorització per aprobar una petició de subscripció a 
+la llista de correu :
+
+    For:  %(username)s
+    List: %(listname)s@%(hostname)s
+
+Si ho creu convenient, visiti:
+
+    %(admindb_url)s
+	
+per tal de processar la petició.

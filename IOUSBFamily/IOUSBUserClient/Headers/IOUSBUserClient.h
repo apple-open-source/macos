@@ -106,23 +106,24 @@ enum {
 #if KERNEL
 #include <IOKit/IOService.h>
 
+//================================================================================================
 //
-// This class is used to add an IOCFPlugInTypes dictionary entry to a provider's
+// This class is used to add an IOProviderMergeProperties dictionary entry to a provider's
 // property list, thus providing a tie between hardware and a CFBundle at hardware
-// load time
+// load time.  This property usually contains the user client class name and the CFPlugInTypes UUID's
+// but it can contain other properties.
+//
+//================================================================================================
 //
 class IOUSBUserClientInit : public IOService 
 {
     OSDeclareDefaultStructors(IOUSBUserClientInit);
 
 public:
-	virtual IOService*	probe(IOService* provider, SInt32* score) ;
-	virtual bool		start(IOService*	provider) ;
-	virtual bool		init(OSDictionary*	propTable) ;
-	virtual void		stop(IOService*		provider) ;
-	
-protected:
-	virtual void		mergeProperties(OSObject* dest, OSObject* src) ;
+    
+    virtual bool		start(IOService *  provider) ;
+    virtual bool 		MergeDictionaryIntoProvider(IOService *  provider, OSDictionary *  mergeDict);
+    virtual bool		MergeDictionaryIntoDictionary(OSDictionary *  sourceDictionary,  OSDictionary *  targetDictionary);
 };
 
 #endif // KERNEL

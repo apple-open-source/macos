@@ -190,6 +190,12 @@ echo "Building postinstall file..."
 cat > postinstall << _EOF
 #! /sbin/sh
 #
+audit_event=/etc/security/audit_event
+
+if [ -z "\`grep AUE_openssh \$audit_event\`" ] ; then
+	echo "32800:AUE_openssh:OpenSSH login:lo" >> \$audit_event
+fi
+#
 [ -f \${PKG_INSTALL_ROOT}${sysconfdir}/ssh_config ]  ||  \\
 	cp -p \${PKG_INSTALL_ROOT}${sysconfdir}/ssh_config.default \\
 		\${PKG_INSTALL_ROOT}${sysconfdir}/ssh_config

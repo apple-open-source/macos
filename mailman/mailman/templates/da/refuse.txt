@@ -1,0 +1,13 @@
+Din forespørgsel til listen %(listname)s:
+
+    %(request)s
+
+blev afvist af listemoderatoren. Moderatoren har følgende begrundelse
+for denne afgørelse:
+
+"%(reason)s"
+
+Spørsmål, kommentarer, eller klager over denne afgørelse skal sendes
+til listeadministratoren på følgende e-mailadresse:
+
+    %(adminaddr)s

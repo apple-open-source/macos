@@ -26,13 +26,6 @@ usually <code>/home/mailman</code></em>.
     members, select whether various notification emails are sent, and
     choose which list to add the members to.
 
-<dt><b>addlang</b>
-<dd>Use this to add language support to a specific list.  The site
-    itself must have the language pack to add already installed.  Note
-    that removing language support from a list requires you to
-    manually <tt>rm</tt> the lists/<em>yourlist</em>/<em>lang</em>
-    subdirectory.
-
 <dt><b>arch</b>
 <dd>Use this to rebuild a list's archive.  This script can't be used
     to modify a list's raw mbox file, but once you've edited the mbox

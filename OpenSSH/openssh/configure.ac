@@ -1,4 +1,4 @@
-# $Id: configure.ac,v 1.11 2003/08/09 00:04:14 nicolai Exp $
+# $Id: configure.ac,v 1.12 2004/02/27 23:27:16 nicolai Exp $
 
 AC_INIT
 AC_CONFIG_SRCDIR([ssh.c])
@@ -486,6 +486,20 @@ dnl    Checks for libutil functions
 AC_CHECK_HEADERS(libutil.h)
 AC_SEARCH_LIBS(login, util bsd, [AC_DEFINE(HAVE_LOGIN)])
 AC_CHECK_FUNCS(logout updwtmp logwtmp)
+
+dnl    Checks for libbsm functions
+AC_CHECK_HEADERS(bsm/audit.h)
+AC_CHECK_LIB(bsm, getaudit)
+AC_CHECK_FUNC(getaudit, AC_DEFINE(HAVE_GETAUDIT,
+				  1,
+				  [Define if libbsm has `getaudit'.]
+				 )
+	     )
+AC_CHECK_FUNC(getaudit_addr, AC_DEFINE(HAVE_GETAUDIT_ADDR,
+				       1,
+				       [Define if libbsm has `getaudit_addr'.]
+				      )
+	     )
 
 AC_FUNC_STRFTIME
 

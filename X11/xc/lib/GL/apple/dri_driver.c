@@ -56,6 +56,11 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #ifdef GLX_DIRECT_RENDERING
 
+/* Need to include these first to ensure we pick up the correct gl.h
+   and glext.h (from the framework) */
+#include <OpenGL/OpenGL.h>
+#include <OpenGL/CGLContext.h>
+
 #include <unistd.h>
 #include <X11/Xlibint.h>
 #include <X11/extensions/Xext.h>

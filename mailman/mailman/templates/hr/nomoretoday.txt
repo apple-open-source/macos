@@ -1,0 +1,8 @@
+Sa Vase adrese `%(sender)s' smo primili poruku u kojoj zahtjevate 
+automatski odgovor %(listname)s mailing liste. Dobili smo od vas danas
+%(num)s  takvih poruka. Da bismo izbjegli probleme kao sto su mail 
+petlje izmedju mail robota, danas vam vise necemo slati mail odgovore. 
+Molimo probajte ponovno sutra.
+
+Ako vjerujete da je ova poruka pogresna ili imate bilo kakvih pitanja, 
+obratite se vlasniku liste na %(owneremail)s.

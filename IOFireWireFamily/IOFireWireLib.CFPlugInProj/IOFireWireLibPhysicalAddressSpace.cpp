@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -116,7 +113,7 @@ namespace IOFireWireLib {
 	PhysicalAddressSpace::SGetPhysicalAddress(
 		IOFireWireLibPhysicalAddressSpaceRef self)
 	{
-		return IOFireWireIUnknown::InterfaceMap<PhysicalAddressSpace>::GetThis(self)->mSegments[0] ;
+		return IOFireWireIUnknown::InterfaceMap<PhysicalAddressSpace>::GetThis(self)->mSegments[0].location ;
 	}
 	
 	void
@@ -145,8 +142,7 @@ namespace IOFireWireLib {
 	  mKernPhysicalAddrSpaceRef(inKernPhysicalAddrSpaceRef),
 	  mSize(inSize),
 	  mBackingStore(inBackingStore),
-	  mSegments(0),
-	  mSegmentLengths(0),
+	  mSegments( NULL ),
 	  mSegmentCount(0)
 	{
 		inUserClient.AddRef() ;
@@ -161,27 +157,22 @@ namespace IOFireWireLib {
 		if ( error || mSegmentCount == 0)
 			throw error ;
 			
-		mSegments = new IOPhysicalAddress[mSegmentCount] ;
+		mSegments = new PhysicalSegment[mSegmentCount] ;
 		if (!mSegments)
-			throw kIOReturnNoMemory ;
-
-		mSegmentLengths = new IOByteCount[mSegmentCount] ;
 		{
-			if (!mSegmentLengths)
-			{
-				delete mSegments ;
-				throw kIOReturnNoMemory ;
-			}
+			throw kIOReturnNoMemory ;
 		}
 		
 		error = ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), 
-						kPhysicalAddrSpace_GetSegments, 4, 1, mKernPhysicalAddrSpaceRef,
-						mSegmentCount, mSegments, mSegmentLengths, & mSegmentCount) ;
+						kPhysicalAddrSpace_GetSegments, 3, 1, mKernPhysicalAddrSpaceRef,
+						mSegmentCount, mSegments, & mSegmentCount) ;
 
 		if (error)
+		{
 			throw error ;
+		}
 
-		mFWAddress = FWAddress(0, mSegments[0], 0) ;
+		mFWAddress = FWAddress(0, mSegments[0].location, 0) ;
 	}
 	
 	PhysicalAddressSpace::~PhysicalAddressSpace()
@@ -191,7 +182,6 @@ namespace IOFireWireLib {
 										kReleaseUserObject, 1, 0, mKernPhysicalAddrSpaceRef ) ;
 		
 		delete[] mSegments ;
-		delete[] mSegmentLengths ;
 	
 		mUserClient.Release() ;
 	}
@@ -204,8 +194,11 @@ namespace IOFireWireLib {
 	{
 		*ioSegmentCount = *ioSegmentCount <? mSegmentCount ;
 		
-		bcopy(mSegmentLengths, outSegmentLengths, (*ioSegmentCount)*sizeof(UInt32)) ;
-		bcopy(mSegments, outSegments, (*ioSegmentCount) * sizeof(IOPhysicalAddress)) ;
+		for( unsigned index=0; index < *ioSegmentCount; ++index )
+		{
+			outSegments[ index ] = mSegments[ index ].location ;
+			outSegmentLengths[ index ] = mSegments[ index ].length ;
+		}
 	}
 	
 	IOPhysicalAddress
@@ -217,19 +210,19 @@ namespace IOFireWireLib {
 	
 		if (mSegmentCount > 0)
 		{		
-			IOByteCount traversed = mSegmentLengths[0] ;
+			IOByteCount traversed = mSegments[0].length ;
 			UInt32		currentSegment = 0 ;
 			
 			while((traversed <= offset) && (currentSegment < mSegmentCount))
 			{
-				traversed += mSegmentLengths[currentSegment] ;
+				traversed += mSegments[ currentSegment ].length ;
 				++currentSegment ;
 			}	
 			
-			if (currentSegment <= mSegmentCount)
+			if ( currentSegment <= mSegmentCount )
 			{
-				*length = mSegmentLengths[currentSegment] ;
-				result =  mSegments[currentSegment] ;
+				*length = mSegments[ currentSegment ].length ;
+				result =  mSegments[ currentSegment ].location ;
 			}
 		}
 		

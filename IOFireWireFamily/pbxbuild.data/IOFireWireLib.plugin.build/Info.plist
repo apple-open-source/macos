@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOFireWireLib</string>
+	<key>CFBundleGetInfoString</key>
+	<string>IOFireWireFamily version 1.8.2, Copyright 2004 Apple Computer, Inc.</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.IOFireWireLib</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>IOFireWireLib</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.8.2</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.8.2</string>
+	<key>CFPlugInFactories</key>
+	<dict>
+		<key>A1478010-F197-11D4-A28B-000502072F80</key>
+		<string>IOFireWireLibFactory</string>
+	</dict>
+	<key>CFPlugInTypes</key>
+	<dict>
+		<key>CDCFCA94-F197-11D4-87E6-000502072F80</key>
+		<array>
+			<string>A1478010-F197-11D4-A28B-000502072F80</string>
+		</array>
+	</dict>
+	<key>Personality</key>
+	<dict>
+		<key>IOProviderClass</key>
+		<string>IOFireWireNub</string>
+	</dict>
+</dict>
+</plist>

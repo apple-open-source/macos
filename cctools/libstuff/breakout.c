@@ -30,6 +30,12 @@
 #include "stuff/round.h"
 #include "stuff/crc32.h"
 
+static void breakout_internal(
+    char *filename,
+    struct arch **archs,
+    unsigned long *narchs,
+    enum bool calculate_input_prebind_cksum,
+    struct ofile *ofile);
 static void cksum_object(
     struct arch *arch,
     enum bool calculate_input_prebind_cksum);
@@ -41,6 +47,47 @@ static struct member *new_member(
 
 __private_extern__
 struct ofile *
+breakout_mem(
+void *membuf,
+unsigned long length,
+char *filename,
+struct arch **archs,
+unsigned long *narchs,
+enum bool calculate_input_prebind_cksum)
+{
+    struct ofile *ofile;
+    unsigned long previous_errors;
+
+	*archs = NULL;
+	*narchs = 0;
+	ofile = allocate(sizeof(struct ofile));
+	
+	/*
+	 * If the file_name is NULL, we will use a dummy file name so 
+	 * that error reporting, etc. works.
+	 */
+	if(filename == NULL)
+	    filename = "(broken out from memory)";
+	
+	/*
+	 * Rely on the ofile_*() routines to do all the checking and only
+	 * return valid ofiles files broken out.
+	 */
+	if(ofile_map_from_memory((char *)membuf, length, filename, NULL, NULL,
+				 ofile, FALSE) == FALSE){
+	    free(ofile);
+	    return(NULL);
+	}
+
+	previous_errors = errors;
+	breakout_internal(filename, archs, narchs,
+			  calculate_input_prebind_cksum, ofile);
+	errors += previous_errors;
+	return(ofile);
+}
+
+__private_extern__
+struct ofile *
 breakout(
 char *filename,
 struct arch **archs,
@@ -48,12 +95,8 @@ unsigned long *narchs,
 enum bool calculate_input_prebind_cksum)
 {
     struct ofile *ofile;
-    struct arch *arch;
-    struct member *member;
-    unsigned long previous_errors, size;
-    enum bool flag;
-    struct ar_hdr *ar_hdr;
-
+    unsigned long previous_errors;
+	
 	*archs = NULL;
 	*narchs = 0;
 	ofile = allocate(sizeof(struct ofile));
@@ -67,6 +110,27 @@ enum bool calculate_input_prebind_cksum)
 	}
 
 	previous_errors = errors;
+	breakout_internal(filename, archs, narchs, 
+			  calculate_input_prebind_cksum, ofile);
+	errors += previous_errors;
+	return(ofile);
+}
+
+static 
+void 
+breakout_internal(
+char *filename,
+struct arch **archs,
+unsigned long *narchs,
+enum bool calculate_input_prebind_cksum,
+struct ofile *ofile)
+{
+    struct member *member;
+    enum bool flag;
+    struct ar_hdr *ar_hdr;
+    unsigned long size;
+    struct arch *arch;
+
 	errors = 0;
 	if(ofile->file_type == OFILE_FAT && errors == 0){
 	    /* loop through the fat architectures (can't have zero archs) */
@@ -276,8 +340,6 @@ enum bool calculate_input_prebind_cksum)
 	if(errors != 0){
 	    free_archs(*archs, *narchs);
 	}
-	errors += previous_errors;
-	return(ofile);
 }
 
 /*

@@ -3,10 +3,16 @@
 <plist version="0.9">
 <array>
         <string>/Applications/Mail.app</string>
-        <string>/Applications/iChat.app</string>
-        <string>/Applications/iSync.app</string>
         <string>/Applications/System Preferences.app</string>
-        <string>/System/Library/PrivateFrameworks/InstantMessage.framework/iChatAgent.app</string>
+        <string>/Applications/iCal.app</string>
+        <string>/Applications/iChat.app</string>
+        <string>/Applications/iMovie.app</string>
+        <string>/Applications/iPhoto.app</string>
+        <string>/Applications/iSync.app</string>
+        <string>/Applications/iTunes.app</string>
+        <string>/System/Library/CoreServices/Finder.app</string>
+        <string>/System/Library/CoreServices/MirrorAgent.app</string>
         <string>/System/Library/CoreServices/SyncServer.app</string>
+        <string>/System/Library/PrivateFrameworks/InstantMessage.framework/iChatAgent.app</string>
 </array>
 </plist>

@@ -1,0 +1,36 @@
+Benvingut a la llista de correu de %(real_name)s@%(host_name)s!
+%(welcome)s
+Per enviar missatges en aquesta llista, envii la seva adreça de email a:
+
+  %(emailaddr)s
+
+Podrà trobar informació general sobre aquesta llista a:
+
+  %(listinfo_url)s
+
+Si mai vol donar-se de baixa o canviar les seves opcions ( per exemple,
+canviar a mode de compilació, canviar la seva clau de pas, etc), visiti
+la seva pàgina de subscripció a:
+
+  %(optionsurl)s
+%(umbrella)s
+
+També pot fer aquests mateixos canvis via email, senzillament envii un missatge a:
+
+  %(real_name)s-request@%(host_name)s
+
+amb la paraula 'ajuda' en el títol o en el cos del missatge (sense les cometes),
+i rebrà un email de resposta amb instruccions.
+
+Necessita saber la seva clau de pas per poder canviar les seves opcions (fins 
+i tot per a canviar la mateixa clau de pas) o per donar-se de baixa. La seva clau és:
+
+  %(password)s
+
+Normalment, Mailman li enviarà un email mensual recordant-li la seva clau de
+pas, tot i que vostè pot deshabilitar aquesta opció si ho prefereix.
+Aquest recordatori inclourà també instruccions sobre com donar-se de baixa o 
+canviar les opcions del seu compte.
+En la seva pàgina d'opcions, hi trobarà també un botó que li permet enviar un mail
+a la seva adreça amb la seva actual clau de pas.
+

@@ -3,6 +3,7 @@ Envoyez vos messages pour la liste %(real_name)s à
 
 Pour vous (dés)abonner par le web, consultez
 	%(got_listinfo_url)s
+
 ou, par email, envoyez un message avec 'help' dans le corps
 ou dans le sujet à
 	%(got_request_email)s

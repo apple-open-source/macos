@@ -4,7 +4,7 @@ Ceci est l'aide sur les commandes par courrier pour la version
 %(version)s du gestionnaire de listes "Mailman".  Vous trouverez
 ci-dessous la description des commandes qui vous permettent d'obtenir
 des informations sur vos abonnements et d'en modifier les options pour
-les listes de ce serveur.  Chaque commande pour être placée au choix
+les listes de ce serveur.  Chaque commande peut être placée au choix
 dans l'objet ou dans le corps du message.
 
 La plupart de ces tâches peuvent être également accomplies par
@@ -29,7 +29,6 @@ Les commandes suivantes sont reconnues:
 
 Les commandes doivent être envoyées à %(requestaddr)s 
 
-Toute question ou problème à l'attention d'une personne physique doit
-être envoyée à 
+Toute question doit être envoyée à 
 
     %(adminaddr)s 

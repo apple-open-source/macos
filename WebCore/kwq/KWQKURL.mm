@@ -46,31 +46,28 @@ typedef enum {
     // ( alpha | digit | "+" | "-" | "." )
     SchemeChar = 1 << 1,
 
-    // ":"
-    Colon = 1 << 2,
-    
     // mark        = "-" | "_" | "." | "!" | "~" | "*" | "'" | "(" | ")"
     // unreserved  = alphanum | mark
     // ( unreserved | escaped | ";" | ":" | "&" | "=" | "+" | "$" | "," )
-    UserInfoChar = 1 << 3,
+    UserInfoChar = 1 << 2,
 
     // alnum | "." | "-" | "%"
     // The above is what the specification says, but we are lenient to
     // match existing practice and also allow:
     // "_"
-    HostnameChar = 1 << 4,
+    HostnameChar = 1 << 3,
 
     // hexdigit | ":" | "%"
-    IPv6Char = 1 << 5,
+    IPv6Char = 1 << 4,
 
     // "#" | "?" | "/" | nul
-    PathSegmentEndChar = 1 << 6,
+    PathSegmentEndChar = 1 << 5,
 
     // digit | "A" | "B" | "C" | "D" | "E" | "F" | "a" | "b" | "c" | "d" | "e" | "f"
-    HexDigitChar = 1 << 7,
+    HexDigitChar = 1 << 6,
 
     // not allowed in path
-    BadChar = 1 << 8
+    BadChar = 1 << 7
 
 } URLCharacterClasses;
 
@@ -106,7 +103,7 @@ static const unsigned char characterClassTable[256] = {
     /* 55  7 */ SchemeChar | UserInfoChar | HostnameChar | HexDigitChar | IPv6Char,
     /* 56  8 */ SchemeChar | UserInfoChar | HostnameChar | HexDigitChar | IPv6Char, 
     /* 57  9 */ SchemeChar | UserInfoChar | HostnameChar | HexDigitChar | IPv6Char,
-    /* 58  : */ Colon | UserInfoChar | IPv6Char,    /* 59  ; */ UserInfoChar,
+    /* 58  : */ UserInfoChar | IPv6Char,    /* 59  ; */ UserInfoChar,
     /* 60  < */ BadChar,    /* 61  = */ UserInfoChar,
     /* 62  > */ BadChar,    /* 63  ? */ PathSegmentEndChar | BadChar,
     /* 64  @ */ 0,
@@ -207,7 +204,6 @@ static int copyPathRemovingDots(char *dst, const char *src, int srcStart, int sr
 
 static inline bool isSchemeFirstChar(unsigned char c) { return characterClassTable[c] & SchemeFirstChar; }
 static inline bool isSchemeChar(unsigned char c) { return characterClassTable[c] & SchemeChar; }
-static inline bool isSchemeCharOrColon(unsigned char c) { return characterClassTable[c] & (SchemeChar | Colon); }
 static inline bool isUserInfoChar(unsigned char c) { return characterClassTable[c] & UserInfoChar; }
 static inline bool isHostnameChar(unsigned char c) { return characterClassTable[c] & HostnameChar; }
 static inline bool isIPv6Char(unsigned char c) { return characterClassTable[c] & IPv6Char; }
@@ -292,11 +288,11 @@ KURL::KURL(const KURL &base, const QString &relative, const QTextCodec *codec)
             if (relative.length() > 0 && isSchemeFirstChar(relative.at(0).latin1())) {
                 for (uint i = 1; i < relative.length(); i++) {
                     char p = relative.at(i).latin1();
-                    if (!isSchemeCharOrColon(p)) {
-                        break;
-                    }
                     if (p == ':') {
                         protocol = relative.left(i);
+                        break;
+                    }
+                    if (!isSchemeChar(p)) {
                         break;
                     }
                 }
@@ -324,11 +320,12 @@ KURL::KURL(const KURL &base, const QString &relative, const QTextCodec *codec)
     // non-scheme element.
     const char *p = str;
     if (isSchemeFirstChar(*p)) {
-        for (++p; isSchemeCharOrColon(*p); ++p) {
-            if (*p == ':') {
-                absolute = true;
-                break;
-            }
+        ++p;
+        while (isSchemeChar(*p)) {
+            ++p;
+        }
+        if (*p == ':') {
+            absolute = true;
         }
     }
         
@@ -1469,7 +1466,7 @@ QString KURL::encodeHostname(const QString &s)
 
 QMemArray<KWQIntegerPair> KURL::findHostnamesInMailToURL(const QString &s)
 {
-    // In a mailto: URL, host names come after a '@' character and end with a '>' or ',' or end of string character.
+    // In a mailto: URL, host names come after a '@' character and end with a '>' or ',' or '?' or end of string character.
     // Skip quoted strings so that characters in them don't confuse us.
     // When we find a '?' character, we are past the part of the URL that contains host names.
 
@@ -1492,13 +1489,13 @@ QMemArray<KWQIntegerPair> KURL::findHostnamesInMailToURL(const QString &s)
         if (c == '@') {
             // Find end of host name.
             int hostnameStart = p;
-            int hostnameEnd = s.find(QRegExp("[>,]"), p);
+            int hostnameEnd = s.find(QRegExp("[>,?]"), p);
             bool done;
             if (hostnameEnd == -1) {
                 hostnameEnd = s.length();
                 done = true;
             } else {
-                p = hostnameEnd + 1;
+                p = hostnameEnd;
                 done = false;
             }
 

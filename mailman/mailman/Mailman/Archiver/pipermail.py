@@ -7,7 +7,7 @@ import os
 import re
 import sys
 import time
-from email.Utils import parseaddr, parsedate_tz
+from email.Utils import parseaddr, parsedate_tz, mktime_tz
 import cPickle as pickle
 from cStringIO import StringIO
 from string import lowercase
@@ -126,9 +126,13 @@ class Database(DatabaseInterface):
         """Store article without message body to save space"""
         # TBD this is not thread safe!
         temp = article.body
+        temp2 = article.html_body
         article.body = []
+        del article.html_body
         self.articleIndex[article.msgid] = pickle.dumps(article)
         article.body = temp
+        article.html_body = temp2
+
 
 # The Article class encapsulates a single posting.  The attributes
 # are:
@@ -224,7 +228,7 @@ class Article:
                 return None
             date = parsedate_tz(datestr)
             try:
-                return time.mktime(date[:9])
+                return mktime_tz(date)
             except (TypeError, ValueError, OverflowError):
                 return None
         date = floatdate('date')
@@ -238,6 +242,9 @@ class Article:
 
     def __repr__(self):
         return '<Article ID = '+repr(self.msgid)+'>'
+
+    def finished_update_article(self):
+        pass    
 
 # Pipermail formatter class
 
@@ -486,6 +493,8 @@ class T:
                             self.update_article(arcdir, a1, L[0], L[2])
                         else:
                             del self.database.changed[key]
+            if L[0]:
+                L[0].finished_update_article()
             L = L[1:]                   # Rotate the list
             if msgid is None:
                 L.append(msgid)

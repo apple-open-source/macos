@@ -3,7 +3,6 @@ importante. Ahora la gestiona un nuevo paquete de listas de
 distribución llamado "Mailman". Esperamos que esto mejore el
 servicio y la administración de la lista.
 
-
 ¿Como le afecta esto?
 
 1) Los mensajes de correo dirigidos a la lista deben enviarse a:
@@ -16,19 +15,19 @@ en otro mensaje de correo electrónico, que puede que ya haya
 recibido. No se preocupe si se le olvida esta clave, todos los
 meses recibirá un recordatorio por correo electronico.
 
-3) Si dispone de acceso WEB, lo puede utilizar para anular su 
-subscripción a esta lista, para cambiar la forma de recepción
+3) Si dispone de acceso web, lo puede utilizar para anular su 
+subscripción de esta lista, para cambiar la forma de recepción
 de los mensajes, etc. La dirección es: 
 
     %(listinfo_url)s
 
-4) Si no dispone de acceso WEB, puede realizar estas mismas
+4) Si no dispone de acceso web, puede realizar estas mismas
 operaciones por correo electrónico.  Envíe un mensaje a
-%(requestaddr)s con  la palabra 'help' en el asunto (subject) o
+%(requestaddr)s con la palabra 'help' en el asunto (subject) o
 en el cuerpo del mensaje y recibirá un respuesta automática con
 instrucciones.
 
-Por favor, dirijase a la siguiente dirección si tiene alguna
+Por favor, diríjase a la siguiente dirección si tiene alguna
 pregunta o problema con esta nueva configuración: 
 
     %(adminaddr)s.

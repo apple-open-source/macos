@@ -1453,8 +1453,10 @@ int ppp_doconnect(struct ppp *ppp, CFDictionaryRef options, u_int8_t dialondeman
         // assume we accept all types of compression we support
 
         addparam(cmdarg, &argi, "mppe-stateless");
-        addparam(cmdarg, &argi, "mppe-128");        
-        addparam(cmdarg, &argi, "mppe-40");        
+	get_int_option(ppp, kSCEntNetPPP, CFSTR("CCPMPPE128Enabled"), options, service, &lval, 1);
+	addparam(cmdarg, &argi, lval ? "mppe-128" : "nomppe-128");        
+	get_int_option(ppp, kSCEntNetPPP, CFSTR("CCPMPPE40Enabled"), options, service, &lval, 1);
+	addparam(cmdarg, &argi, lval ? "mppe-40" : "nomppe-40");        
 
         // No authentication specified, also enforce the use of MS-CHAP
         if (auth_default)

@@ -1,0 +1,19 @@
+Ovo je podsjetnik o Vasem clanstvu koji se salje svaki mjesec 
+na mailing listi na %(hostname)s. On ukljucuje informacije o vasoj 
+pretplati i kako ga koristiti da biste istu promijenili ili se 
+odjavili s liste.
+
+Mozete posjetiti Mailmanove URL-ove da biste promijenili Vas clanski status ili 
+konfiguraciju, ukljucujuci odjavu, postavljanje digest stila dostave 
+ili onemogucavanje dostave (npr. za vrijeme godisnjeg odmora) itd.
+
+Uz URL sucelje, mozete takodjer koristiti i e-mail da biste napravili 
+navedene promjene. Za vise informacija o tome, posaljite poruku na '-request' 
+adresu liste (npr. %(exreq)s) koja sadrzi samo rijec 'help' u tijelu 
+poruke, i e-mail poruka s daljnjim instrukcijama biti ce Vam poslana.
+
+Ako imate pitanja, probleme, komentare itd., posaljite ih na 
+%(owner)s.  Hvala!
+
+Lozinka za %(useraddr)s:
+

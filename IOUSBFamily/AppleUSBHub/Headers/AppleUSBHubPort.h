@@ -97,6 +97,7 @@ private:
     bool			_getDeviceDescriptorFailed;
     UInt8			_setAddressFailed;
     UInt32			_devZeroCounter;
+    bool			_extraResetDelay;
     
     static void			PortInitEntry(OSObject *target);			// this will run on its own thread
     static void			PortStatusChangedHandlerEntry(OSObject *target);	// this will run on its own thread

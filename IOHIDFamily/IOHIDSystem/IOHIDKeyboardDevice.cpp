@@ -384,7 +384,7 @@ static unsigned char hid_adb_2_usb_keymap[] =
 	0x00,	// 49
 	0x00,	// 4a
 	0x54,	// 4b
-	0x00,	// 4c
+	0x58,	// 4c
 	0x00,	// 4d
 	0x56,	// 4e
 	0x00,	// 4f

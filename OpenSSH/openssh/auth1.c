@@ -329,8 +329,12 @@ do_authloop(Authctxt *authctxt)
 #else
 		/* Special handling for root */
 		if (authenticated && authctxt->pw->pw_uid == 0 &&
-		    !auth_root_allowed(get_authname(type)))
+		    !auth_root_allowed(get_authname(type))) {
 			authenticated = 0;
+#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
+			PRIVSEP(solaris_audit_not_console());
+#endif /* BSM */
+		}
 #endif
 #ifdef USE_PAM
 		if (!use_privsep && authenticated && 
@@ -350,8 +354,14 @@ do_authloop(Authctxt *authctxt)
 			return;
 
 		if (authctxt->failures++ > AUTH_FAIL_MAX) {
+#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
+			PRIVSEP(solaris_audit_maxtrys());
+#endif /* BSM */
 			packet_disconnect(AUTH_FAIL_MSG, authctxt->user);
 		}
+#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
+		PRIVSEP(solaris_audit_bad_pw("authorization"));
+#endif /* BSM */
 
 		packet_start(SSH_SMSG_FAILURE);
 		packet_send();

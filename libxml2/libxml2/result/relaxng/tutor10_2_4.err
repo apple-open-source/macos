@@ -1,4 +1,2 @@
-error detected at relaxng.c:6574
-Expecting no namespace for element foo
-error detected at relaxng.c:7141
-extra data on the document
+./test/relaxng/tutor10_2_4.xml:1: element foo: Relax-NG validity error : Expecting no namespace for element foo
+./test/relaxng/tutor10_2_4.xml fails to validate

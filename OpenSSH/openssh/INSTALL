@@ -99,6 +99,21 @@ authentication.  On HP-UX 11 and Solaris, the standard /etc/pam.conf
 configuration will work with sshd (sshd will match the other service
 name).
 
+If you enable BSM auditing on Solaris, you need to update audit_event(4)
+for praudit(1m) to give sensible output.  The following line needs to be
+added to /etc/security/audit_event:
+
+	32800:AUE_openssh:OpenSSH login:lo
+
+If the contrib/buildpkg.sh script is used, the included postinstall
+script will add the line for you.
+
+The BSM audit event range available for third party TCB applications is
+32768 - 65535.  Event number 32800 has been choosen for AUE_openssh.
+There is no official registry of 3rd party event numbers, so if this
+number is already in use on your system, change the value of
+AUE_openssh in openbsd-compat/bsd-solaris.h and rebuild.
+
 There are a few other options to the configure script:
 
 --with-pam enables PAM support.
@@ -217,4 +232,4 @@ Please refer to the "reporting bugs" section of the webpage at
 http://www.openssh.com/
 
 
-$Id: INSTALL,v 1.1.1.13 2003/01/23 04:34:10 zarzycki Exp $
+$Id: INSTALL,v 1.2 2004/02/27 23:27:13 nicolai Exp $

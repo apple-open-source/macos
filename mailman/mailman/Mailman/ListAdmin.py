@@ -441,7 +441,7 @@ class ListAdmin:
             assert value == mm_cfg.SUBSCRIBE
             try:
                 userdesc = UserDesc(addr, fullname, password, digest, lang)
-                self.ApprovedAddMember(userdesc)
+                self.ApprovedAddMember(userdesc, whence='via admin approval')
             except Errors.MMAlreadyAMember:
                 # User has already been subscribed, after sending the request
                 pass

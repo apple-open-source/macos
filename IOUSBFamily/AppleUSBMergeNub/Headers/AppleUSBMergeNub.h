@@ -37,7 +37,9 @@ class AppleUSBMergeNub : public IOService
     OSDeclareDefaultStructors(AppleUSBMergeNub)
     
 public:
-    IOService *	probe(IOService *provider, SInt32 *score);
+    IOService *			probe(IOService *provider, SInt32 *score);
+    virtual bool 		MergeDictionaryIntoProvider(IOService *  provider, OSDictionary *  mergeDict);
+    virtual bool		MergeDictionaryIntoDictionary(OSDictionary *  sourceDictionary,  OSDictionary *  targetDictionary);
 
 };
     

@@ -1,5 +1,0 @@
-***************
-*** 140
--                               OTHER_LDFLAGS = "-no-c++filt -seg_addr_table_filename \"${SYSTEM_LIBRARY_DIR}/PrivateFrameworks/${PRODUCT_NAME}.framework/Versions/${FRAMEWORK_VERSION}/${PRODUCT_NAME}\" -umbrella WebKit";
---- 140 -----
-+                               OTHER_LDFLAGS = "-no-c++filt -umbrella WebKit";

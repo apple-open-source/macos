@@ -647,7 +647,7 @@ DEBUGLOG( "for servIndex" );
 					selectTimeout.tv_sec = 10;
 					selectTimeout.tv_usec = 0;
 				}    
-				
+			
 				bzero( &cin, sizeof(cin) );
 				cin.sin_family = AF_INET;
 				cin.sin_addr.s_addr = htonl( INADDR_ANY );
@@ -702,8 +702,6 @@ DEBUGLOG( "for servIndex3" );
 			if ( servCount == 1 )
 				break;
 		}
-		
-DEBUGLOG( "out" );
 	}
 	catch( long error )
 	{

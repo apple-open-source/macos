@@ -3,21 +3,18 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.2 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.  
+ * Please see the License for the specific language governing rights and 
  * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
@@ -31,7 +28,7 @@
 #define	LOG_DATA	0			// logs data to the IOLog - LDEBUG must also be set
 #define DUMPALL		0			// Dumps all the data to the log - LOG_DATA must also be set
 
-#define Sleep_Time	20
+#define Sleep_Time	20			// 20 ms per iolog
 
 #if LDEBUG
     #if USE_ELG
@@ -65,7 +62,14 @@
     #undef LOG_DATA
 #endif /* LDEBUG */
 
-#define ALERT(A,B,STRING)	IOLog( "AppleRS232Serial: %8x %8x " STRING "\n", (unsigned int)(A), (unsigned int)(B) )
+#if LDEBUG && USE_ELG
+#define ALERT(A,B,STRING) do { \
+	    IOLog( "AppleRS232Serial: %8x %8x " STRING "\n", (unsigned int)(A), (unsigned int)(B) );\
+	    ELG(A,B,STRING);\
+	} while(0)
+#else
+#define ALERT(A,B,STRING) IOLog( "AppleRS232Serial: %8x %8x " STRING "\n", (unsigned int)(A), (unsigned int)(B) )
+#endif
 
 #define getDebugFlags()			(getDebugFlagsTable(getPropertyTable()))
 
@@ -111,7 +115,6 @@ enum
     R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12, R13, R14, R15
 };
 
-#define USE_WORK_LOOPS	1
 #define USE_FILTER_EVENT_SOURCES	0
 
 #define BIGGEST_EVENT		3
@@ -174,14 +177,14 @@ static inline void SynchronizeIO(void)
 
 typedef enum InterruptTypes
 {
-    kSerialInterrupts   	= 0,          	// IST Member from motherboard
-    kTxDMAInterrupts  		= 1,     	// IST Member from motherboard
-    kRxDMAInterrupts  		= 2,      	// IST Member from motherboard
-    kNoInterrupts		= 3,
+  //  kSerialInterrupts   	= 0,          	// IST Member from motherboard
+  //  kTxDMAInterrupts		= 1,     	// IST Member from motherboard
+  //  kRxDMAInterrupts		= 2,      	// IST Member from motherboard
+  //  kNoInterrupts		= 3,
     kTxInterrupts		= 4,  		//SCC chip level
     kRxInterrupts		= 5,
     kSccInterrupts		= 6,		// sets/clears chip interrupts
-    kAllInterrupts		= 7		// invokes OS enabler/disbaler
+ //   kAllInterrupts		= 7		// invokes OS enabler/disbaler
 } InterruptTypes;
 
     // SCC interrupt sources
@@ -465,15 +468,13 @@ public:
     PortInfo_t			fPort;
     IOService			*fProvider;
 
-#if USE_WORK_LOOPS
-	IOInterruptEventSource		*sccInterruptSource;
+    IOInterruptEventSource		*sccInterruptSource;
 #if USE_FILTER_EVENT_SOURCES
-	IOFilterInterruptEventSource	*txDMAInterruptSource;
-	IOFilterInterruptEventSource	*rxDMAInterruptSource;
+    IOFilterInterruptEventSource	*txDMAInterruptSource;
+    IOFilterInterruptEventSource	*rxDMAInterruptSource;
 #else
-	IOInterruptEventSource		*txDMAInterruptSource;
-	IOInterruptEventSource		*rxDMAInterruptSource;
-#endif
+    IOInterruptEventSource		*txDMAInterruptSource;
+    IOInterruptEventSource		*rxDMAInterruptSource;
 #endif
 
         // IOSerialStreamSync methods
@@ -545,6 +546,21 @@ public:
 
     static	bool		interruptFilter(OSObject *owner, IOFilterInterruptEventSource *source);
     static	void		interruptHandler(OSObject *owner, IOInterruptEventSource *source, int count);
+    
+    // power management
+    bool			initForPM(IOService *policyMaker);
+    IOReturn			setPowerState(unsigned long powerStateOrdinal, IOService *whatDevice);
+    unsigned long		powerStateForDomainState(IOPMPowerFlags domainState );
+    unsigned long		maxCapabilityForDomainState(IOPMPowerFlags domainState);
+    unsigned long		initialPowerStateForDomainState(IOPMPowerFlags domainState);
+
+    static void			handleSetPowerState(thread_call_param_t param0, thread_call_param_t param1);
+    static IOReturn		setPowerStateGated(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3);
+
+    // private power state stuff
+    thread_call_t		fPowerThreadCall;
+    bool			fWaitForGatedCmd;
+    unsigned int		fCurrentPowerState;     // current power state (0 or 1)
 
 };
 #endif

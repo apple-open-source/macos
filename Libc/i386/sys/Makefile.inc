@@ -26,7 +26,6 @@ SRCS+=  ATPgetreq.s \
 	audit.s \
 	auditctl.s \
 	auditon.s \
-	auditsvc.s \
 	bind.s \
 	cerror.s \
 	chdir.s \

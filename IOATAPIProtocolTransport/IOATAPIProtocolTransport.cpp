@@ -2,24 +2,21 @@
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ *
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ *
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
- * 
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -32,6 +29,7 @@
  *
  */
 
+#include <libkern/OSAtomic.h>
 #include <IOKit/IOMemoryDescriptor.h>
 #include <IOKit/IOCommandGate.h>
 #include <IOKit/IOWorkLoop.h>
@@ -39,7 +37,8 @@
 #include <IOKit/ata/IOATABusInfo.h>
 #include <IOKit/ata/IOATACommand.h>
 #include <IOKit/IOSyncer.h>
-#include <IOKit/scsi-commands/SCSICommandOperationCodes.h>
+#include <IOKit/scsi/SCSICommandOperationCodes.h>
+#include <IOKit/scsi/SCSITaskDefinition.h>			// Remove me when API is available for IsAutosenseRequested()
 
 #include "IOATAPIProtocolTransport.h"
 
@@ -112,6 +111,20 @@ typedef struct ATAPIConfigData ATAPIConfigData;
 
 #define kIOATAPICommandPoolSize			1
 
+enum
+{
+	kATAPICommandBusyBit			= 0,
+	kATAPIRequestSenseNeededBit		= 1
+};
+
+enum
+{
+	kATAPICommandBusyMask			= ( 1 << kATAPICommandBusyBit ),
+	kATAPIRequestSenseNeededMask	= ( 1 << kATAPIRequestSenseNeededBit )
+};
+
+#define fSemaphore		reserved->fSemaphore
+
 #define super IOSCSIProtocolServices
 OSDefineMetaClassAndStructors ( IOATAPIProtocolTransport, IOSCSIProtocolServices );
 
@@ -165,6 +178,13 @@ IOATAPIProtocolTransport::start ( IOService * provider )
 	fPhysicallyConnected 	= true;
 	fPollingThread			= NULL;
 	fResetInProgress		= false;
+	
+	reserved = IONew ( ExpansionData, 1 );
+	if ( reserved == NULL )
+	{
+		return false;
+	}
+	bzero ( reserved, sizeof ( ExpansionData ) );
 	
 	dict = OSDynamicCast ( OSDictionary, getProperty ( kIOPropertyATAPIMassStorageCharacteristics ) );
 	if ( dict != NULL )
@@ -462,6 +482,33 @@ IOATAPIProtocolTransport::stop ( IOService * provider )
 }
 
 
+//--------------------------------------------------------------------------------------
+//	¥ free	-	Called to free any resources we allocated.
+//--------------------------------------------------------------------------------------
+
+void
+IOATAPIProtocolTransport::free ( void )
+{
+	
+	if ( fCommandPool != NULL )
+	{
+		
+		fCommandPool->release ( );
+		fCommandPool = NULL;
+		
+	}
+	
+	if ( reserved != NULL )
+	{
+		IODelete ( reserved, ExpansionData, 1 );
+		reserved = NULL;
+	}
+	
+	super::free ( );
+	
+}
+
+
 #pragma mark ¥ Protected Methods
 
 
@@ -500,6 +547,31 @@ IOATAPIProtocolTransport::SendSCSICommand ( SCSITaskIdentifier request,
 
 	STATUS_LOG ( ( "IOATAPIProtocolTransport::SendSCSICommand called\n" ) );
     
+	if ( OSBitOrAtomic ( kATAPICommandBusyMask, &fSemaphore ) & kATAPICommandBusyMask )
+	{
+		STATUS_LOG ( ( "Command in use, returning false\n" ) );
+		return false;
+	}
+	
+	if ( fSemaphore & kATAPIRequestSenseNeededMask )
+	{
+		
+		STATUS_LOG ( ( "kATAPIRequestSenseNeededMask set\n" ) );
+		
+		if ( GetTaskExecutionMode ( request ) != kSCSITaskMode_Autosense )
+		{
+			
+			STATUS_LOG ( ( "Not an autosense command, returning false.\n" ) );
+			OSBitAndAtomic ( ~kATAPICommandBusyMask, &fSemaphore );
+			return false;
+			
+		}
+		
+		STATUS_LOG ( ( "Clearing kATAPIRequestSenseNeededMask.\n" ) );
+		OSBitAndAtomic ( ~kATAPIRequestSenseNeededMask, &fSemaphore );
+		
+	}
+	
 	// get command and context objects
 	cmd = GetATACommandObject ( );
 	
@@ -512,6 +584,8 @@ IOATAPIProtocolTransport::SendSCSICommand ( SCSITaskIdentifier request,
 		
 		// device is disconnected - we can not service command request
 		*serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
+		ReturnATACommandObject ( cmd );
+		OSBitAndAtomic ( ~kATAPICommandBusyMask, &fSemaphore );
 		return false;
 		
 	}
@@ -739,6 +813,14 @@ IOATAPIProtocolTransport::SCSITaskCallbackFunction ( IOATACommand * cmd,
 				
 				// CHK bit is set, so the device indicates CheckCondition
 				SetRealizedDataTransferCount ( scsiTask, bytesTransferred );
+				
+				SCSITask *	request = OSDynamicCast ( SCSITask, scsiTask );
+				
+				if ( request->IsAutosenseRequested ( ) == true )
+				{
+					OSBitOrAtomic ( kATAPIRequestSenseNeededMask, &fSemaphore );
+				}
+				
 				CompleteSCSITask ( 	scsiTask,
 									kSCSIServiceResponse_TASK_COMPLETE,
 									kSCSITaskStatus_CHECK_CONDITION );
@@ -780,6 +862,7 @@ IOATAPIProtocolTransport::CompleteSCSITask ( 	SCSITaskIdentifier	request,
 	
 	STATUS_LOG ( ( "IOATAPIProtocolTransport::CompleteSCSITask called\n" ) );
 	
+	OSBitAndAtomic ( ~kATAPICommandBusyMask, &fSemaphore );
 	CommandCompleted ( request, serviceResponse, taskStatus );
 	
 }
@@ -878,7 +961,14 @@ IOATAPIProtocolTransport::HandleProtocolServiceFeature ( SCSIProtocolFeature fea
 				if ( value != 0 )
 				{
 					
+					bool	resetOccurred = false;
+					
 					STATUS_LOG ( ( "Enabling polling of ATA Status register\n" ) );					
+					
+					fCommandGate->runAction ( ( IOCommandGate::Action )
+											  &IOATAPIProtocolTransport::sSetWakeupResetOccurred,
+											  ( void * ) resetOccurred );
+					
 					EnablePollingOfStatusRegister ( );
 					isSupported = true;
 					
@@ -1340,7 +1430,6 @@ IOATAPIProtocolTransport::GetATACommandObject ( bool blockForCommand )
 	STATUS_LOG ( ( "IOATAPIProtocolTransport::GetATACommandObject entering.\n" ) );
 		
 	cmd = ( IOATACommand * ) fCommandPool->getCommand ( blockForCommand );
-	assert ( cmd != NULL );
 	
 	return cmd;
 	
@@ -1818,7 +1907,9 @@ IOATAPIProtocolTransport::EnablePollingOfStatusRegister ( void )
 	STATUS_LOG ( ( "EnablePollingOfStatusRegister called\n" ) );
 		
 	// No reason to start a thread if we've been termintated	
-	if ( ( isInactive ( ) == false ) && fPollingThread )
+	if ( ( isInactive ( ) == false ) &&
+		 ( fPollingThread != NULL ) &&
+		 ( fWakeUpResetOccurred == false ) )
 	{
 		
 		// Retain ourselves so that this object doesn't go away
@@ -1869,8 +1960,11 @@ IOATAPIProtocolTransport::PollStatusRegister ( void * refCon )
 	
 	STATUS_LOG ( ( "PollStatusRegister called\n" ) );
 	
+	if ( fWakeUpResetOccurred == true )
+		return;
+	
 	// Get a command
-	cmd = GetATACommandObject ( );
+	cmd = fIdentifyCommand;
 	
 	clientData = ( ATAPIClientData * ) cmd->refCon;
 	
@@ -1947,9 +2041,6 @@ IOATAPIProtocolTransport::PollStatusRegisterCallback ( IOATACommand * cmd )
 	
 	// Drop the retain for this poll
 	release ( );
-	
-	// Return the command back to the pool
-	ReturnATACommandObject ( cmd );
 	
 }
 

@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -46,9 +43,12 @@ extern "C"
 {
 #include <kern/debug.h>
 
-extern void printf(const char *, ...);
+extern void  printf(const char *, ...);
 extern void *kern_os_malloc(size_t size);
-extern void kern_os_free(void * addr);
+extern void  kern_os_free(void * addr);
+#ifdef __ppc__
+extern int   get_preemption_level(void);
+#endif
 
 #define LOG		if(1) IOLog
 #define LOGNAMEREG	0
@@ -1179,6 +1179,20 @@ OSStatus    EXP(DelayForHardware)( AbsoluteTime time )
     AbsoluteTime	deadline;
 
     clock_absolutetime_interval_to_deadline( time, &deadline );
+
+#ifdef __ppc__
+    if (!get_preemption_level())
+    {
+	UInt64 nano;
+	absolutetime_to_nanoseconds(time, &nano);
+	if (nano >= 999000ULL)
+	{
+	    EXP(DelayUntil)(deadline);
+	    return (noErr);
+	}
+    }
+#endif
+
 #ifdef __ppc__
     clock_delay_until( deadline );
 #else
@@ -1189,6 +1203,20 @@ OSStatus    EXP(DelayForHardware)( AbsoluteTime time )
 	} while (AbsoluteTime_to_scalar(&now) < AbsoluteTime_to_scalar(&deadline));
     }
 #endif
+
+    return (noErr);
+}
+
+OSStatus    EXP(DelayUntil)( AbsoluteTime time )
+{
+    wait_result_t res;
+
+    res = assert_wait((event_t)&__FUNCTION__, THREAD_UNINT);
+    assert(res == THREAD_WAITING);
+    if (res == THREAD_WAITING)
+	thread_set_timer_deadline(time);
+    res = thread_block(THREAD_CONTINUE_NULL);
+    assert(res == THREAD_TIMED_OUT);
 
     return (noErr);
 }
@@ -1218,7 +1246,14 @@ OSStatus    EXP(DelayFor)( Duration theDuration )
     ms = (nano.lo / DELAY_FOR_TICK_NANO) * DELAY_FOR_TICK_MILLI;
     ms += nano.hi * NANO32_MILLI;
     if (ms)
-	IOSleep( ms);
+    {
+#ifdef __ppc__
+	if (get_preemption_level())
+	    IODelay(ms*1000);
+	else
+#endif
+	    IOSleep(ms);
+    }
 
 #else
     // Accurate, but incompatible, version
@@ -1941,6 +1976,7 @@ static FunctionEntry DriverServicesLibFuncs[] =
 	MAKEFUNC( "DurationToAbsolute", EXP(DurationToAbsolute)),
 	MAKEFUNC( "DelayForHardware", EXP(DelayForHardware)),
 	MAKEFUNC( "DelayFor", EXP(DelayFor)),
+	MAKEFUNC( "DelayUntil", EXP(DelayUntil)),
 
 	MAKEFUNC( "CurrentExecutionLevel", EXP(CurrentExecutionLevel)),
 	MAKEFUNC( "IOCommandIsComplete", EXP(IOCommandIsComplete)),

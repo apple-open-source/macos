@@ -34,6 +34,7 @@ import errno
 import time
 import cgi
 import htmlentitydefs
+import email.Header
 import email.Iterators
 from types import UnicodeType
 from string import whitespace, digits
@@ -57,6 +58,7 @@ except NameError:
     False = 0
 
 EMPTYSTRING = ''
+UEMPTYSTRING = u''
 NL = '\n'
 DOT = '.'
 IDENTCHARS = ascii_letters + digits + '_'
@@ -145,12 +147,10 @@ def wrap(text, column=70, honor_leading_ws=True):
                     if eol == 0:
                         # break on whitespace after column
                         eol = column
-                        while eol < len(text) and \
-                              text[eol] not in whitespace:
+                        while eol < len(text) and text[eol] not in whitespace:
                             eol += 1
                         bol = eol
-                        while bol < len(text) and \
-                              text[bol] in whitespace:
+                        while bol < len(text) and text[bol] in whitespace:
                             bol += 1
                         bol -= 1
                     line = text[:eol+1] + '\n'
@@ -357,7 +357,18 @@ def check_global_password(response, siteadmin=True):
 
 
 def websafe(s):
-    return cgi.escape(s, quote=1)
+    return cgi.escape(s, quote=True)
+
+
+def nntpsplit(s):
+    parts = s.split(':', 1)
+    if len(parts) == 2:
+        try:
+            return parts[0], int(parts[1])
+        except ValueError:
+            pass
+    # Use the defaults
+    return s, 119
 
 
 
@@ -381,7 +392,7 @@ def UnobscureEmail(addr):
 
 
 
-def maketext(templatefile, dict=None, raw=False, lang=None, mlist=None):
+def findtext(templatefile, dict=None, raw=False, lang=None, mlist=None):
     # Make some text from a template file.  The order of searches depends on
     # whether mlist and lang are provided.  Once the templatefile is found,
     # string substitution is performed by interpolation in `dict'.  If `raw'
@@ -426,6 +437,12 @@ def maketext(templatefile, dict=None, raw=False, lang=None, mlist=None):
     # on the above description.  Mailman's upgrade script cannot do this for
     # you.
     #
+    # The function has been revised and renamed as it now returns both the
+    # template text and the path from which it retrieved the template. The
+    # original function is now a wrapper which just returns the template text
+    # as before, by calling this renamed function and discarding the second
+    # item returned.
+    #
     # Calculate the languages to scan
     languages = []
     if lang is not None:
@@ -460,7 +477,8 @@ def maketext(templatefile, dict=None, raw=False, lang=None, mlist=None):
         # Try one last time with the distro English template, which, unless
         # you've got a really broken installation, must be there.
         try:
-            fp = open(os.path.join(mm_cfg.TEMPLATE_DIR, 'en', templatefile))
+            filename = os.path.join(mm_cfg.TEMPLATE_DIR, 'en', templatefile)
+            fp = open(filename)
         except IOError, e:
             if e.errno <> errno.ENOENT: raise
             # We never found the template.  BAD!
@@ -483,8 +501,12 @@ def maketext(templatefile, dict=None, raw=False, lang=None, mlist=None):
             syslog('error', 'broken template: %s\n%s', filename, e)
             pass
     if raw:
-        return text
-    return wrap(text)
+        return text, filename
+    return wrap(text), filename
+
+
+def maketext(templatefile, dict=None, raw=False, lang=None, mlist=None):
+    return findtext(templatefile, dict, raw, lang, mlist)[0]
 
 
 
@@ -774,6 +796,7 @@ def uncanonstr(s, lang=None):
         # Nope, it contains funny characters, so html-ref it
         return uquote(s)
 
+
 def uquote(s):
     a = []
     for c in s:
@@ -784,3 +807,15 @@ def uquote(s):
             a.append(c)
     # Join characters together and coerce to byte string
     return str(EMPTYSTRING.join(a))
+
+
+def oneline(s, cset):
+    # Decode header string in one line and convert into specified charset
+    try:
+        h = email.Header.make_header(email.Header.decode_header(s))
+        ustr = h.__unicode__()
+        line = UEMPTYSTRING.join(ustr.splitlines())
+        return line.encode(cset, 'replace')
+    except (LookupError, UnicodeError):
+        # possibly charset problem. return with undecoded string in one line.
+        return EMPTYSTRING.join(s.splitlines())

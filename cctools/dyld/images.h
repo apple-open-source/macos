@@ -122,8 +122,22 @@ struct image {
        */
       trying_to_use_prebinding_post_launch:1,
 
+      /*
+       * This is set to TRUE in resolve_non_lazy_symbol_pointers_in_image()
+       * after all the non-lazy symbol pointers in the image are set. 
+       */
+      non_lazy_symbol_pointers_resolved:1,
 
-      unused:13;
+      /*
+       * This is set to TRUE when some of the modules in an image are being
+       * fully bound. When that happens then the code in
+       * relocate_symbol_pointers_in_library_image() can't just call
+       * resolve_non_lazy_symbol_pointers_in_image() but must cause the lazy
+       * pointers for bound symbols used by the module to be set.
+       */
+      some_modules_being_bound_fully:1,
+
+      unused:11;
     /*
      * For two-level namespace images this is the array of pointers to the
      * dependent images and the count of them.

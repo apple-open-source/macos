@@ -1180,3 +1180,46 @@ mm_ssh_gssapi_localname(char **lname)
         return(0);
 }	
 #endif /* GSSAPI */
+#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
+
+void
+mm_solaris_audit_bad_pw(const char *what)
+{
+	Buffer m;
+
+	debug3("%s entering", __func__);
+
+	buffer_init(&m);
+	buffer_put_string(&m, what, strlen(what) + 1);
+
+	mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_AUDIT_BAD_PW, &m);
+	buffer_free(&m);
+}
+
+void
+mm_solaris_audit_maxtrys(void)
+{
+	Buffer m;
+
+	debug3("%s entering", __func__);
+
+	buffer_init(&m);
+
+	mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_AUDIT_MAXTRYS, &m);
+	buffer_free(&m);
+}
+
+void
+mm_solaris_audit_not_console(void)
+{
+	Buffer m;
+
+	debug3("%s entering", __func__);
+
+	buffer_init(&m);
+
+	mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_AUDIT_NOT_CONSOLE, &m);
+	buffer_free(&m);
+}
+
+#endif /* BSM */

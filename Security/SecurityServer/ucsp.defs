@@ -108,7 +108,7 @@ type ExecutablePath = c_string[*:2048];
 //
 #define UCSP_PORTS	requestport sport: mach_port_t; \
 					replyport rport: mach_port_make_send_t; \
-                    serversectoken sourceSecurity: security_token_t; \
+		    serveraudittoken sourceAudit: audit_token_t; \
 					out rcode: CSSM_RETURN
 #define IN_CONTEXT	in context: Context; in contextBase: BasePointer; in attrs: ContextAttributes
 #define IN_BLOB(name,type)	in name: type##Blob; in name##Base: type##Ptr

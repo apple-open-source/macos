@@ -131,11 +131,8 @@ bool VirtualAudioEngine::createAudioStreams(IOAudioSampleRate *initialSampleRate
         OSDictionary *formatDict;
         IOAudioSampleRate sampleRate;
         IOAudioStreamFormat initialFormat;
-        bool initialFormatSet;
         UInt32 channelID;
         char outputStreamName[20], inputStreamName[20];
-        
-        initialFormatSet = false;
         
         sampleRate.whole = 0;
         sampleRate.fraction = 0;
@@ -168,11 +165,6 @@ bool VirtualAudioEngine::createAudioStreams(IOAudioSampleRate *initialSampleRate
             FailIf (OSDynamicCast(OSDictionary, formatDict) == NULL,Error);
             
             FailIf (IOAudioStream::createFormatFromDictionary(formatDict, &format) == NULL,Error);
-			
-            
-            if (!initialFormatSet) {
-                initialFormat = format;
-            }
             
             sampleRateIterator->reset();
             while (number = (OSNumber *)sampleRateIterator->getNextObject()) {
@@ -221,6 +213,16 @@ bool VirtualAudioEngine::createAudioStreams(IOAudioSampleRate *initialSampleRate
             }
         }
         
+		initialFormat.fNumChannels = 2;
+		initialFormat.fSampleFormat = kIOAudioStreamSampleFormatLinearPCM;
+		initialFormat.fNumericRepresentation = kIOAudioStreamNumericRepresentationSignedInt;
+		initialFormat.fBitDepth = 16;
+		initialFormat.fBitWidth = 16;
+		initialFormat.fAlignment = kIOAudioStreamAlignmentHighByte;
+		initialFormat.fByteOrder = kIOAudioStreamByteOrderBigEndian;
+		initialFormat.fIsMixable = true;
+		initialFormat.fDriverTag = 0;
+
         inputStream->setFormat(&initialFormat);
         outputStream->setFormat(&initialFormat);
         

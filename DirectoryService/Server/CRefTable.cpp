@@ -198,7 +198,8 @@ tDirStatus CRefTable::VerifyReference ( tDirReference	inDirRef,
 										uInt32			inType,
 										CServerPlugin **outPlugin,
 										sInt32			inPID,
-										uInt32			inIPAddress )
+										uInt32			inIPAddress,
+										bool			inDaemonPID_OK )
 {
 	tDirStatus		siResult	= eDSNoErr;
 	sRefEntry	   *refData		= nil;
@@ -218,7 +219,11 @@ tDirStatus CRefTable::VerifyReference ( tDirReference	inDirRef,
 			//check the PIDs and IPAddresses here - both parent and child client ones
 			siResult = eDSInvalidRefType;
 			//parent client PID and IPAddress check
-			if ( (refData->fPID == inPID) && (refData->fIPAddress == inIPAddress) )
+			if ( inDaemonPID_OK && inPID == 0 )
+			{
+				siResult = eDSNoErr;
+			}
+			else if ( (refData->fPID == inPID) && (refData->fIPAddress == inIPAddress) )
 			{
 				siResult = eDSNoErr;
 			}
@@ -304,13 +309,14 @@ tDirStatus CRefTable::VerifyNodeRef (	tDirNodeReference	inDirNodeRef,
 tDirStatus CRefTable::VerifyRecordRef (	tRecordReference	inRecordRef,
 										CServerPlugin	  **outPlugin,
 										sInt32				inPID,
-										uInt32				inIPAddress )
+										uInt32				inIPAddress,
+										bool				inDaemonPID_OK )
 {
 	tDirStatus		siResult	= eDSDirSrvcNotOpened;
 
 	if ( gRefTable != nil )
 	{
-		siResult = gRefTable->VerifyReference( inRecordRef, eRecordRefType, outPlugin, inPID, inIPAddress );
+		siResult = gRefTable->VerifyReference( inRecordRef, eRecordRefType, outPlugin, inPID, inIPAddress, inDaemonPID_OK );
 	}
 
 	return( siResult );

@@ -1,0 +1,33 @@
+`%(listname)s' posta zerrenda sortu dugu zuretzat. 
+Hona hemen zerrendari buruzko oinarrizko informazioa.
+
+Zerrenda kudeatzeko zure pasahitza:
+
+    %(password)s
+
+Pasahitz hori beharko duzu posta zerrenda konfiguratzeko. Zerrenda kudeatzeko
+ere beharko duzu, esate baterako zerrenda moderatuetan mezuak onartzeko.
+
+Webgune honetan konfigura dezakezu zure posta zerrenda:
+
+    %(admin_url)s
+
+Zerrendakideen orria hauxe da: 
+
+    %(listinfo_url)s
+
+Zerrenda kudeatzeko orrialdetik alda ditzakezu beste horiek ere.
+Dena dela, ez duzu HTML jakiterik behar aldaketak egiteko.
+
+Zerrendako harpideek e-mailez ere egin ditzakete zenbait aldaketa;
+horri buruzko informazioa lor dezakezu, Gaia lerroan (subject) 
+`help' hitza duen mezua bidaliz helbide honetara:
+
+    %(requestaddr)s
+
+Harpidetza kentzeko: posta zerrendaren 'listinfo' orrialdean,
+erabiltzailearen helbide elektronikoa klikatu edo idatzi.
+Erabiltzailearen pasahitzaren lekuan zure administratzaile pasahitza idatzi.
+Harpidearen aukerak aldatzeko ere erabili dezakezu zure pasahitza.
+
+Galdera guztiak %(siteowner)s helbidera bidali, mesedez.

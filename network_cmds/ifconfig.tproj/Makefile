@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 HFILES = ifconfig.h
 
-CFILES = ifconfig.c ifmedia.c
+CFILES = ifconfig.c ifmedia.c ifvlan.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.dist ifconfig.8\
             Makefile.postamble
@@ -31,6 +31,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
+HEADER_PATHS = -I$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders
 
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc
@@ -49,3 +50,4 @@ include $(MAKEFILEDIR)/$(MAKEFILE)
 -include Makefile.postamble
 
 -include Makefile.dependencies
+

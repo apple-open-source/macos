@@ -1448,7 +1448,10 @@ main(int ac, char **av)
 
 	remote_port = get_remote_port();
 	remote_ip = get_remote_ipaddr();
-
+#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
+	solaris_audit_save_host(remote_ip);
+	solaris_audit_save_port(remote_port);
+#endif /* BSM */
 #ifdef LIBWRAP
 	/* Check whether logins are denied from this host. */
 	{
@@ -1592,6 +1595,11 @@ main(int ac, char **av)
 	}
 
  authenticated:
+
+#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
+	solaris_audit_success();
+#endif /* BSM */
+
 	/*
 	 * In privilege separation, we fork another child and prepare
 	 * file descriptor passing.

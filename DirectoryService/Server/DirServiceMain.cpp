@@ -81,8 +81,8 @@ CFRunLoopRef		gServerRunLoop = NULL;
 // Static ---------------------------------------------------------------------
 
 #warning VERIFY the version string before each distinct build submission
-static const char* strDaemonAppleVersion = "1.6";
-static const char* strDaemonBuildVersion = "255.5";
+static const char* strDaemonAppleVersion = "1.8";
+static const char* strDaemonBuildVersion = "256.6";
 
 enum
 {
@@ -521,7 +521,7 @@ int main ( int argc, char * const *argv )
 
 		// receive the kickoff message and promptly ignore it so that mach_init will not immediately restart
 		// the daemon unless a DS client actually requests it
-		status = mach_msg( (mach_msg_header_t *)&msg, MACH_RCV_MSG, 0, sizeof( sIPCMsg ), mach_init_port, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL );
+		status = mach_msg( (mach_msg_header_t *)&msg, MACH_RCV_MSG | MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AUDIT) | MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0), 0, sizeof( sIPCMsg ), mach_init_port, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL );
 		if ( status == MACH_MSG_SUCCESS )
 		{
 			//success in receiving kicker message

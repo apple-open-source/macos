@@ -1,0 +1,23 @@
+Obavijest o potvrdi pretplate na mailing listu %(listname)s
+
+Primili smo zahtjev%(remote)s za pretpletu vase mail adrese, 
+"%(email)s", na %(listaddr)s mailing listu.  Da biste potvrdili 
+dodavanje svoje mail adrese na mailing listu,  
+odgovorite na ovu poruku, zadrzavajuci Subject: zaglavlje netaknuto. 
+Mozete takodjer posjetiti i web stranicu:
+
+    %(confirmurl)s
+
+Ili ukljucite sljedecu liniju -- i samo sljedecu liniju -- u 
+poruci za %(requestaddr)s:
+
+    confirm %(cookie)s
+
+Primijetite da bi slanje `replya' na ovu poruku trebalo raditi
+iz vecine mail preglednika, buduci da to obicno ostavlja Subject: 
+liniju u ispravnom obliku (dodatno "Re:" tekst u Subject liniji je 
+u redu).
+
+Ako ne zelite biti pretplaceni na ovu listu, jednostavno 
+zanemarite ovu poruku. Ako mislite vas je na listu pretplatio netko 
+drugi ili imate neka druga pitanje, posaljite ih na %(listadmin)s.

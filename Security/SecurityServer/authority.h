@@ -35,7 +35,7 @@ class Session;
 
 class AuthorizationToken {
 public:
-	AuthorizationToken(Session &ssn, const CredentialSet &base, const security_token_t &securityToken);
+	AuthorizationToken(Session &ssn, const CredentialSet &base, const audit_token_t &auditToken);
 	~AuthorizationToken();
 
     Session &session;
@@ -60,12 +60,16 @@ public:
 	bool mayInternalize(Process &proc, bool countIt = true);
 
 	uid_t creatorUid() const	{ return mCreatorUid; }
+	uid_t creatorGid() const	{ return mCreatorGid; }
     CodeSigning::OSXCode *creatorCode() const { return mCreatorCode; }
 	pid_t creatorPid() const	{ return mCreatorPid; }
 	
+	audit_token_t creatorAuditToken() const {return mCreatorAuditToken; }
+
 	AuthItemSet infoSet(AuthorizationString tag = NULL);
     void setInfoSet(AuthItemSet &newInfoSet);
     void setCredentialInfo(const Credential &inCred);
+    void clearInfoSet();
 
 public:
 	static AuthorizationToken &find(const AuthorizationBlob &blob);
@@ -93,8 +97,11 @@ private:
 	ProcessSet mUsingProcesses;		// set of process objects using this token
 
 	uid_t mCreatorUid;				// Uid of proccess that created this authorization
+	gid_t mCreatorGid;				// Gid of proccess that created this authorization
     RefPointer<OSXCode> mCreatorCode; // code id of creator
 	pid_t mCreatorPid;				// Pid of processs that created this authorization
+
+	audit_token_t mCreatorAuditToken;	// Audit token of the process that created this authorization
 
     AuthItemSet mInfoSet;			// Side band info gathered from evaluations in this session
 

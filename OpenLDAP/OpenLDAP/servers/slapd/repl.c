@@ -312,8 +312,8 @@ replog1(
 
 			case LDAP_MOD_REPLACE:
 				fprintf( fp, "replace: %s\n", type );
-				break;
-			}
+									break;
+								}
 			if ( ml->sml_bvalues )
 				print_vals( fp, &ml->sml_desc->ad_cname, ml->sml_bvalues );
 			fprintf( fp, "-\n" );
@@ -342,8 +342,8 @@ replog1(
 					vals[1].bv_len = 0;
 					for ( an = ri->ri_attrs; an->an_name.bv_val; an++ ) {
 						if ( an->an_oc ) {
-							int i;
-							for ( i=0; a->a_vals[i].bv_val; i++ ) {
+					int i;
+					for ( i=0; a->a_vals[i].bv_val; i++ ) {
 								if ( a->a_vals[i].bv_len == an->an_name.bv_len
 									&& !strcasecmp(a->a_vals[i].bv_val,
 										an->an_name.bv_val ) ) {

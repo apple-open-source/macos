@@ -1,0 +1,13 @@
+Dette er en returmelding fra listesystemet Mailman:
+
+    Liste:        %(listname)s
+    Medlem:       %(addr)s
+    Hændelse:     Medlemsskabet %(negative)s%(did)s.
+    På grund af:  Permanent retur eller for meget retur
+    %(but)s
+
+%(reenable)s
+Meddelelsen om retur er gengivet nedenfor.
+
+Spørsmål?
+Kontakt Mailman systemadministrator på %(owneraddr)s.

@@ -1,24 +1,21 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -369,7 +366,7 @@ IOWorkLoop*
 AppleKauaiATA::getWorkLoop() const
 {
 
-	DLOG("AppleKauaiATA::getWorkLoop\n");
+	//DLOG("AppleKauaiATA::getWorkLoop\n");
 
 	IOWorkLoop* wl = _workLoop;
 
@@ -782,7 +779,7 @@ static const UInt32 UltraDMACycleValue133[kAppleKauaiUltraDMA133CycleEntries] =
 					0x00033021					// 6
 				};
 
-				
+#ifdef  ATA_DEBUG				
 				
 static const UInt16 UltraDMACycleTime100[kAppleKauaiUltraDMACycleEntries] =
 				{
@@ -806,7 +803,7 @@ static const UInt16 UltraDMACycleTime133[kAppleKauaiUltraDMA133CycleEntries] =
 					15							// mode 6
 				};
 
-				
+#endif				
 /*-----------------------------------------*/
 
 
@@ -948,7 +945,7 @@ static const UInt16 UltraDMACycleTime133[kAppleKauaiUltraDMA133CycleEntries] =
 
 	DLOG("AppleKauaiATA PIO mode %x at %ld ns selected for device: %x\n", (int)pioModeNumber, pioCycleTime, (int)unitNumber);
 	DLOG("AppleKauaiATA DMA mode %x at %ld ns selected for device: %x\n", (int)dmaModeNumber, dmaCycleTime, (int)unitNumber);
-	DLOG("AppleKauaiATA Ultra mode %x at %ld ns selected for device: %x\n", (int)ultraModeNumber, UltraDMACycleTime[ultraModeNumber], (int)unitNumber);
+	DLOG("AppleKauaiATA Ultra mode %x at %ld ns selected for device: %x\n", (int)ultraModeNumber, UltraDMACycleTime133[ultraModeNumber], (int)unitNumber);
 	DLOG("AppleKauai pio/mw cycle value = %x for unit: %x\n", 	busTimings[unitNumber].pioMWRegValue, unitNumber);
 	DLOG("AppleKauai ultra cycle value = %x for unit: %x\n", 	busTimings[unitNumber].ultraRegValue, unitNumber);
 
@@ -1207,6 +1204,25 @@ AppleKauaiATA::allocDMAChannel(void)
 IOReturn
 AppleKauaiATA::handleExecIO( void )
 {
+	
+	
+// 3571515  small DMA requests should be converted to PIO on writes to disk.
+/*	if(  (_currentCommand->getFlags() & (mATAFlagUseDMA))  
+	 && (_currentCommand->getFlags() & (mATAFlagIOWrite) )
+	 && ( _currentCommand->getByteCount() < 192 ))
+	 {
+		if(_currentCommand->getOpcode() == kATAPIFnExecIO)
+		{
+			// convert this transfer to PIO mode
+			DLOG("AppleKauaiATA convert ATAPI to PIO size = %d\n", _currentCommand->getByteCount());
+			// turn off DMA flag
+			_currentCommand->setFlags( _currentCommand->getFlags() & (~mATAFlagUseDMA) );
+			// turn off DMA bit in features register
+			_currentCommand->getTaskFilePtr()->ataTFFeatures &= 0xFE;
+		}
+	 }
+	
+*/	
 	if( ! rxFeatureOn)
 		goto preflightDone;
 	
@@ -1231,7 +1247,7 @@ AppleKauaiATA::handleExecIO( void )
 				// turn off DMA flag
 				_currentCommand->setFlags( _currentCommand->getFlags() & (~mATAFlagUseDMA) );
 				// turn off DMA bit in features register
-				_currentCommand->getTaskFilePtr()->ataTFFeatures = 0x00;
+				_currentCommand->getTaskFilePtr()->ataTFFeatures &= 0xFE;
 				goto preflightDone;
 			}
 
@@ -1279,5 +1295,253 @@ AppleKauaiATA::completeIO( IOReturn commandResult )
 
 
 	super::completeIO( commandResult );
+
+}
+
+void
+AppleKauaiATA::handleTimeout( void )
+{
+
+#ifdef  ATA_DEBUG
+
+	DLOG("AppleKauaiATA handleTimeout cmd flags %X\n", _currentCommand->getFlags() );
+	DLOG("AppleKauaiATA handleTimeout byte count%d\n", _currentCommand->getByteCount() );
+	DLOG("AppleKauaiATA handleTimeout _dmaIntExpected (true if non-zero value) = %X\n", _dmaIntExpected );
+	DLOG("AppleKauaiATA handleTimeout DMA state flag %X\n", _dmaState );
+
+	IOMemoryDescriptor* theClientBuffer = _currentCommand->getBuffer();
+
+	DLOG("AppleKauaiATA handleTimeout buffer direction %d\n" ,theClientBuffer->getDirection());
+	DLOG("AppleKauaiATA handleTimeout buffer length %d\n", theClientBuffer->getLength());
+	DLOG("AppleKauaiATA handleTimeout buffer physical address %X\n",theClientBuffer->getPhysicalAddress()); 
+
+	// dump the descriptor tables
+	
+	IODBDMADescriptor*	descPtr 		= _descriptors; 
+	
+	DLOG("AppleKauaiATA handleTimeout dumping CC chain\n");
+	DLOG("ChanStat= %lx\n", IOGetDBDMAChannelStatus(_dmaControlReg));
+	
+	for( int index = 0; index < kATAMaxDMADesc; index++)
+	{
+		
+		DLOG(" index=%d    ccOpr = %lx, ccAddr = %lx, ccCmd = %lx, ccResult= %lx \n",
+		index,
+		IOGetCCOperation( descPtr ),
+		IOGetCCAddress(descPtr),
+		IOGetCCCmdDep(descPtr),
+		IOGetCCResult(descPtr) );
+		descPtr++;
+	}
+#endif
+
+	super::handleTimeout();
+}
+
+
+/*----------------------------------------------------------------------------------------
+//	Function:		activateDMAEngine
+//	Description:	Activate the DBDMA on the ATA bus associated with current device.
+					engine will begin executing the command chain already programmed.
+//	Input:			None
+//	Output:			None
+//----------------------------------------------------------------------------------------*/
+
+void			
+AppleKauaiATA::activateDMAEngine(void)
+{
+
+	if( IOGetDBDMAChannelStatus( _dmaControlReg) & kdbdmaActive )
+	{
+		/* For multiple DMA chain execution, don't stop the DMA or the FIFOs lose data.*/
+		/* If DMA is active already (stray from an error?), shut it down cleanly. */
+		shutDownATADMA();
+	}
+	
+
+    IOSetDBDMACommandPtr( _dmaControlReg, (unsigned int) _descriptorsPhysical);
+
+
+	// set interrupt select to s7 so we can wait for the s7 bit to go hi before the no-op generates the irq
+	IOSetDBDMAWaitSelect (_dmaControlReg, kdbdmaS7 << 16);
+
+
+	/* Blastoff! */
+	//ATARecordEventMACRO(kAIMTapeName,' dma','true','StDM');
+	_dmaIntExpected = true;
+	
+	// IODBDMAStart will flush the FIFO by clearing the run-bit, causing multiple chain execution 
+	// to fail by losing whatever bytes may have accumulated in the ATA fifo.
+	
+	//IODBDMAStart(_dmaControlReg, (volatile IODBDMADescriptor *)_descriptorsPhysical);
+	IOSetDBDMAChannelControl(_dmaControlReg, IOSetDBDMAChannelControlBits( kdbdmaRun | kdbdmaWake));
+}
+
+/*---------------------------------------------------------------------------
+ *
+ *	create the DMA channel commands.
+ *
+ *
+ ---------------------------------------------------------------------------*/
+IOReturn
+AppleKauaiATA::createChannelCommands(void)
+{
+	IOMemoryDescriptor* descriptor = _currentCommand->getBuffer();
+
+	if( ! descriptor )
+	{
+	
+		DLOG("AppleKauaiATA nil DMA buffer!\n");
+		return -1;
+	}
+
+	// calculate remaining bytes in this transfer
+
+	IOByteCount bytesRemaining = _currentCommand->getByteCount() 
+								- _currentCommand->getActualTransfer();
+
+
+
+	// calculate position pointer
+	IOByteCount xfrPosition = _currentCommand->getPosition() + 
+							_currentCommand->getActualTransfer();
+
+	IOByteCount  transferSize = 0; 
+
+	// have the DMA cursor fill out the addresses in the CC table
+	// it will return the number of descriptors consumed.
+
+	UInt32 segmentCount = _DMACursor->getPhysicalSegments(
+										descriptor,
+				       					xfrPosition,
+				       					_descriptors,
+				     					kATAXferDMADesc,
+				     					bytesRemaining,  // limit to the requested number of bytes in the event the descriptors is larger
+				       					&transferSize);
+				       					
+	if( transferSize > bytesRemaining)
+	{
+		DLOG("AppleKauaiATA DMA too long!!!\n");
+		return -1;	
+	
+	}
+
+	if( segmentCount == 0)
+	{
+		DLOG("AppleKauaiATA seg count 0!!!\n");
+		return -1;	
+	
+	}
+
+
+	// check if the xfer satisfies the needed size
+	if( transferSize < bytesRemaining )
+	{
+		// indicate we need to do more DMA when the interrupt happens
+	
+		_dmaState = kATADMAActive;
+		DLOG("AppleKauaiATA will make two passes\n");
+	
+	} else {
+		
+		// transfer is satisfied and only need to check status on interrupt.
+		_dmaState = kATADMAStatus;
+		DLOG("AppleKauaiATA will make one pass\n");
+	
+	}
+
+	UInt32 command = kdbdmaOutputMore;
+
+	if( _currentCommand->getFlags() & mATAFlagIORead)
+	{
+		command = kdbdmaInputMore;
+	
+	}
+
+	DLOG("AppleKauaiATA making CC chain for %ld segs for xfersize %ld\n", segmentCount, transferSize);
+
+	// now walk the descriptor chain and insert the commands
+	for( UInt32 i = 0; i < segmentCount; i++)
+	{
+	
+		IODBDMADescriptor* currDesc = & (_descriptors[i]);
+		
+		UInt32 addr = IOGetCCAddress(currDesc);
+		UInt32 count =  IOGetCCOperation(currDesc) & kdbdmaReqCountMask;
+		OSSynchronizeIO();
+
+		// test if this is the last DMA command in this set and set the command to output last with different flags
+		if( (i == (segmentCount -1) ) )
+		{
+			if( command == kdbdmaOutputMore) 
+			{	
+				command = kdbdmaOutputLast;
+			
+			} else {
+				
+				command = kdbdmaInputLast;
+			}
+			
+			// make a descriptor with the xxxxLast command, wait for s7 and int always. 
+			IOMakeDBDMADescriptor(currDesc,
+								command,
+								kdbdmaKeyStream0,
+								kdbdmaIntAlways,
+								kdbdmaBranchNever,
+								kdbdmaWaitIfTrue,
+								count,
+								addr);
+				
+						
+					
+		} else {
+
+
+			IOMakeDBDMADescriptor(currDesc,
+								command,
+								kdbdmaKeyStream0,
+								kdbdmaIntNever,
+								kdbdmaBranchNever,
+								kdbdmaWaitNever,
+								count,
+								addr);
+		
+		
+		} //  comment out for running test 2
+		
+		DLOG("AppleKauaiATA desc# %ld at %x \n", i, currDesc );
+		DLOG("addr = %lx  count = %lx  \n", addr, count );
+		
+		DLOG("%lx  %lx  %lx  %lx\n", currDesc->operation, currDesc->address ,currDesc->cmdDep ,currDesc->result );
+		
+	}
+
+	// insert a NOP after the last data command
+	IOMakeDBDMADescriptor(&(_descriptors[segmentCount]),
+						kdbdmaNop,
+						kdbdmaKeyStream0,
+						kdbdmaIntNever,
+						kdbdmaBranchNever,
+						kdbdmaWaitNever,
+						0,
+						0);
+
+
+
+
+	// insert a stop after the NOP command
+	IOMakeDBDMADescriptor(&(_descriptors[segmentCount + 1]),
+						kdbdmaStop,
+						kdbdmaKeyStream0,
+						kdbdmaIntNever,
+						kdbdmaBranchNever,
+						kdbdmaWaitNever,
+						0,
+						0);
+
+
+	// chain is now ready for execution.
+
+	return kATANoErr;
 
 }

@@ -50,9 +50,10 @@ SETUPINSTOPTS=	--install-lib $(DESTDIR)$(PYTHONLIBDIR) \
 		--install-purelib $(DESTDIR)$(PYTHONLIBDIR) \
 		--install-data $(DESTDIR)$(PYTHONLIBDIR)
 SETUPCMD=	setup.py --quiet install $(SETUPINSTOPTS)
+PKGDIR:= 	$(shell pwd)
 
-EMAILPKG=	email-2.5.1
-JACODECSPKG=	JapaneseCodecs-1.4.9
+EMAILPKG=	email-2.5.4
+JACODECSPKG=	JapaneseCodecs-1.4.10
 KOCODECSPKG=	KoreanCodecs-2.0.5
 
 PACKAGES= $(EMAILPKG) $(JACODECSPKG) $(KOCODECSPKG)
@@ -65,6 +66,7 @@ EXEMODE=	755
 FILEMODE=	644
 DATAMODE=	664
 INSTALL_PROGRAM=$(INSTALL) -m $(EXEMODE)
+DIRSETGID=	$(CHMOD) g+s
 
 PATHSDIRS=	bin cron scripts tests
 ICONS=		$(srcdir)/*.jpg $(srcdir)/*.png
@@ -88,9 +90,12 @@ install-other:
 install-packages:
 	for p in $(PACKAGES); \
 	do \
-	    gunzip -c $(srcdir)/$$p.tar.gz | tar xf -; \
-	    (cd $$p ; umask 02 ; PYTHONPATH=$(PYTHONLIBDIR) $(PYTHON) $(SETUPCMD)); \
+	    gunzip -c $(srcdir)/$$p.tar.gz | (cd $(PKGDIR) ; tar xf -); \
+	    (cd $(PKGDIR)/$$p ; umask 022 ; PYTHONPATH=$(PYTHONLIBDIR) $(PYTHON) $(SETUPCMD)); \
 	done
+	find $(DESTDIR)$(PYTHONLIBDIR) -type d \
+	    -exec $(CHMOD) $(DIRMODE) {} \; \
+	    -exec $(DIRSETGID) {} \;
 
 finish:
 

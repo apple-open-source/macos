@@ -1,0 +1,13 @@
+Vas zahtjev na %(listname)s mailing listu
+
+    %(request)s
+
+moderator je odbio. Moderator je naveo sljedece razloge zbog kojih 
+je odbio vas zahtjev:
+
+"%(reason)s"
+
+Bilo kakva pitanja ili komentari mogu biti upuceni administratoru liste 
+na:
+
+    %(adminaddr)s

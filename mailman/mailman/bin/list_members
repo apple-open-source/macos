@@ -44,10 +44,17 @@ Where:
     --fullnames / -f
         Include the full names in the output.
 
-    --preserve
-    -p
+    --preserve / -p
         Output member addresses case preserved the way they were added to the
         list.  Otherwise, addresses are printed in all lowercase.
+
+    --invalid / -i
+        Print only the addresses in the membership list that are invalid.
+        Ignores -r, -d, -n.
+
+    --unicode / -u
+        Print addresses which are stored as Unicode objects instead of normal
+        string objects.  Ignores -r, -d, -n.
 
     --help
     -h
@@ -65,6 +72,7 @@ from types import UnicodeType
 
 import paths
 from Mailman import mm_cfg
+from Mailman import Utils
 from Mailman import MailList
 from Mailman import Errors
 from Mailman import MemberAdaptor
@@ -74,6 +82,14 @@ from email.Utils import formataddr
 
 PROGRAM = sys.argv[0]
 ENC = sys.getdefaultencoding()
+COMMASPACE = ', '
+
+try:
+    True, False
+except NameError:
+    True = 1
+    False = 0
+
 
 WHYCHOICES = {'enabled' : MemberAdaptor.ENABLED,
               'unknown' : MemberAdaptor.UNKNOWN,
@@ -103,6 +119,17 @@ def safe(s):
     return unicode(s, ENC, 'replace').encode(ENC, 'replace')
 
 
+def isinvalid(addr):
+    try:
+        Utils.ValidateEmail(addr)
+        return False
+    except Errors.EmailAddressError:
+        return True
+
+def isunicode(addr):
+    return isinstance(addr, UnicodeType)
+
+
 
 def whymatches(mlist, addr, why):
     # Return true if the `why' matches the reason the address is enabled, or
@@ -124,14 +151,16 @@ def main():
     nomail = None
     why = None
     kind = None
-    fullnames = 0
+    fullnames = False
+    invalidonly = False
+    unicodeonly = False
 
     # Throw away the first (program) argument
     args = sys.argv[1:]
     if not args:
         usage(0)
 
-    while 1:
+    while True:
         try:
             opt = args.pop(0)
         except IndexError:
@@ -139,38 +168,42 @@ def main():
         if opt in ('-h', '--help'):
             usage(0)
         elif opt in ('-f', '--fullnames'):
-            fullnames = 1
+            fullnames = True
         elif opt in ('-p', '--preserve'):
-            preserve = 1
+            preserve = True
         elif opt in ('-r', '--regular'):
-            regular = 1
+            regular = True
         elif opt in ('-o', '--output'):
             try:
                 outfile = args.pop(0)
             except IndexError:
                 usage(1)
         elif opt == '-n':
-            nomail = 1
+            nomail = True
             if args and args[0] in WHYCHOICES.keys():
                 why = args.pop(0)
         elif opt.startswith('--nomail'):
-            nomail = 1
+            nomail = True
             i = opt.find('=')
             if i >= 0:
                 why = opt[i+1:]
                 if why not in WHYCHOICES.keys():
                     usage(1, _('Bad --nomail option: %(why)s'))
         elif opt == '-d':
-            digest = 1
+            digest = True
             if args and args[0] in ('mime', 'plain'):
                 kind = args.pop(0)
         elif opt.startswith('--digest'):
-            digest = 1
+            digest = True
             i = opt.find('=')
             if i >= 0:
                 kind = opt[i+1:]
                 if kind not in ('mime', 'plain'):
                     usage(1, _('Bad --digest option: %(kind)s'))
+        elif opt in ('-i', '--invalid'):
+            invalidonly = True
+        elif opt in ('-u', '--unicode'):
+            unicodeonly = True
         else:
             # No more options left, push the last one back on the list
             args.insert(0, opt)
@@ -182,7 +215,7 @@ def main():
     listname = args[0].lower().strip()
 
     if regular is None and digest is None:
-        regular = digest = 1
+        regular = digest = True
 
     if outfile:
         try:
@@ -194,7 +227,7 @@ def main():
         fp = sys.stdout
 
     try:
-        mlist = MailList.MailList(listname, lock=0)
+        mlist = MailList.MailList(listname, lock=False)
     except Errors.MMListError, e:
         print >> sys.stderr, _('No such list: %(listname)s')
         sys.exit(1)
@@ -208,6 +241,19 @@ def main():
         rmembers = mlist.getMemberCPAddresses(rmembers)
         dmembers = mlist.getMemberCPAddresses(dmembers)
 
+    if invalidonly or unicodeonly:
+        all = rmembers + dmembers
+        all.sort()
+        for addr in all:
+            name = fullnames and mlist.getMemberName(addr) or ''
+            showit = False
+            if invalidonly and isinvalid(addr):
+                showit = True
+            if unicodeonly and isunicode(addr):
+                showit = True
+            if showit:
+                print >> fp, formataddr((safe(name), addr))
+        return
     if regular:
         rmembers.sort()
         for addr in rmembers:

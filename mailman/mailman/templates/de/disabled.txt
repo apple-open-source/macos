@@ -15,7 +15,7 @@ Sie können auch Ihre Mitgliedschafts-Seite besuchen:
     %(optionsurl)s
 
 Dort können Sie verschiedenste Einstellungen, wie den Empfang von
-Nachrichtensammlungen oder Ihre Emailadresse, konfigurieren.
+Nachrichtensammlungen oder Ihre e-Mailadresse, konfigurieren.
 Zur Erinnerung: Ihr Passwort für diese Liste lautet
 
     %(password)s

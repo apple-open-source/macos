@@ -751,7 +751,6 @@ private:
     const _Tp *_M_finish;
 };
 
-
 } // end namespace Security
 
 

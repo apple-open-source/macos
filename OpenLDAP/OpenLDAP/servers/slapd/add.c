@@ -307,11 +307,11 @@ do_add( Connection *conn, Operation *op )
 
 			if ( (*be->be_add)( be, conn, op, e ) == 0 ) {
 #ifdef SLAPD_MULTIMASTER
-				if ( !repl_user )
+			if ( !repl_user )
 #endif
-				{
+			{
 					replog( be, op, &e->e_name, &e->e_nname, e );
-				}
+			}
 				be_entry_release_w( be, conn, op, e );
 				e = NULL;
 			}

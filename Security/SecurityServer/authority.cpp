@@ -55,11 +55,13 @@ Authority::~Authority()
 //
 // Create an authorization token.
 //
-AuthorizationToken::AuthorizationToken(Session &ssn, const CredentialSet &base, const security_token_t &securityToken)
+AuthorizationToken::AuthorizationToken(Session &ssn, const CredentialSet &base, const audit_token_t &auditToken)
 	: session(ssn), mBaseCreds(base), mTransferCount(INT_MAX), 
-	mCreatorUid(securityToken.val[0]),
+	mCreatorUid(auditToken.val[1]),
+	mCreatorGid(auditToken.val[2]),
     mCreatorCode(Server::connection().process.clientCode()),
-	mCreatorPid(Server::connection().process.pid())
+	mCreatorPid(Server::connection().process.pid()),
+	mCreatorAuditToken(auditToken)
 {
     // generate our (random) handle
     Server::active().random(mHandle);
@@ -255,5 +257,13 @@ AuthorizationToken::setCredentialInfo(const Credential &inCred)
     dstInfoSet.insert(userHint);
  
 	setInfoSet(dstInfoSet);
+}
+
+void
+AuthorizationToken::clearInfoSet()
+{
+    AuthItemSet dstInfoSet;
+    secdebug("SSauth", "Authorization %p clearing context", this);
+    setInfoSet(dstInfoSet);
 }
 

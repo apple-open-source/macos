@@ -250,9 +250,10 @@ def start_runner(qrname, slice, count):
     #
     # Craft the command line arguments for the exec() call.
     rswitch = '--runner=%s:%d:%d' % (qrname, slice, count)
-    # BAW: should argv[0] be `python'?
     exe = os.path.join(mm_cfg.BIN_DIR, 'qrunner')
-    os.execl(mm_cfg.PYTHON, 'qrunner', exe, rswitch, '-s')
+    # mm_cfg.PYTHON, which is the absolute path to the Python interpreter,
+    # must be given as argv[0] due to Python's library search algorithm.
+    os.execl(mm_cfg.PYTHON, mm_cfg.PYTHON, exe, rswitch, '-s')
     # Should never get here
     raise RuntimeError, 'os.execl() failed'
 
@@ -287,6 +288,13 @@ def check_privs():
     uid = pwd.getpwnam(mm_cfg.MAILMAN_USER)[2]
     myuid = os.getuid()
     if myuid == 0:
+        groups = [x[2] for x in grp.getgrall() if mm_cfg.MAILMAN_USER in x[3]]
+        groups.append(gid)
+        try:
+            os.setgroups(groups)
+        except AttributeError:
+            # Python 2.1 doesn't have setgroups
+            syslog('error', 'Warning: unable to setgroups(%s)' % groups)
         os.setgid(gid)
         os.setuid(uid)
     elif myuid <> uid:

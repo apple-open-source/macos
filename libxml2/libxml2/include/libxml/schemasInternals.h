@@ -1,10 +1,11 @@
 /*
- * schemasInternals.h : internal interfaces for the XML Schemas handling
- *                      and schema validity checking
+ * Summary: internal interfaces for XML Schemas
+ * Description: internal interfaces for the XML Schemas handling
+ *              and schema validity checking
  *
- * See Copyright for the status of this software.
+ * Copy: See Copyright for the status of this software.
  *
- * Daniel.Veillard@w3.org
+ * Author: Daniel Veillard
  */
 
 
@@ -17,6 +18,7 @@
 
 #include <libxml/xmlregexp.h>
 #include <libxml/hash.h>
+#include <libxml/dict.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -92,30 +94,56 @@ struct _xmlSchemaAnnot {
 };
 
 /**
+ * XML_SCHEMAS_ANYATTR_SKIP:
+ *
+ * Skip unknown attribute from validation
+ */
+#define XML_SCHEMAS_ANYATTR_SKIP	1
+/**
+ * XML_SCHEMAS_ANYATTR_LAX:
+ *
+ * Ignore validation non definition on attributes
+ */
+#define XML_SCHEMAS_ANYATTR_LAX		2
+/**
+ * XML_SCHEMAS_ANYATTR_STRICT:
+ *
+ * Apply strict validation rules on attributes
+ */
+#define XML_SCHEMAS_ANYATTR_STRICT	3
+
+/**
+ * XML_SCHEMAS_ATTR_NSDEFAULT:
+ *
+ * allow elements in no namespace
+ */
+#define XML_SCHEMAS_ATTR_NSDEFAULT	1 << 7
+
+/**
+ * xmlSchemaAttribute:
  * An attribute definition.
  */
-
-#define XML_SCHEMAS_ANYATTR_SKIP	1
-#define XML_SCHEMAS_ANYATTR_LAX		2
-#define XML_SCHEMAS_ANYATTR_STRICT	3
 
 typedef struct _xmlSchemaAttribute xmlSchemaAttribute;
 typedef xmlSchemaAttribute *xmlSchemaAttributePtr;
 struct _xmlSchemaAttribute {
     xmlSchemaTypeType type;	/* The kind of type */
     struct _xmlSchemaAttribute *next;/* the next attribute if in a group ... */
-    xmlChar *name;
-    xmlChar *id;
-    xmlChar *ref;
-    xmlChar *refNs;
-    xmlChar *typeName;
-    xmlChar *typeNs;
+    const xmlChar *name;
+    const xmlChar *id;
+    const xmlChar *ref;
+    const xmlChar *refNs;
+    const xmlChar *typeName;
+    const xmlChar *typeNs;
     xmlSchemaAnnotPtr annot;
 
     xmlSchemaTypePtr base;
     int occurs;
-    xmlChar *defValue;
+    const xmlChar *defValue;
     xmlSchemaTypePtr subtypes;
+    xmlNodePtr node;
+    const xmlChar *targetNamespace;
+    int flags;
 };
 
 /**
@@ -129,13 +157,14 @@ typedef xmlSchemaAttributeGroup *xmlSchemaAttributeGroupPtr;
 struct _xmlSchemaAttributeGroup {
     xmlSchemaTypeType type;	/* The kind of type */
     struct _xmlSchemaAttribute *next;/* the next attribute if in a group ... */
-    xmlChar *name;
-    xmlChar *id;
-    xmlChar *ref;
-    xmlChar *refNs;
+    const xmlChar *name;
+    const xmlChar *id;
+    const xmlChar *ref;
+    const xmlChar *refNs;
     xmlSchemaAnnotPtr annot;
 
     xmlSchemaAttributePtr attributes;
+    xmlNodePtr node;
 };
 
 
@@ -154,10 +183,10 @@ struct _xmlSchemaAttributeGroup {
 struct _xmlSchemaType {
     xmlSchemaTypeType type;	/* The kind of type */
     struct _xmlSchemaType *next;/* the next type if in a sequence ... */
-    xmlChar *name;
-    xmlChar *id;
-    xmlChar *ref;
-    xmlChar *refNs;
+    const xmlChar *name;
+    const xmlChar *id;
+    const xmlChar *ref;
+    const xmlChar *refNs;
     xmlSchemaAnnotPtr annot;
     xmlSchemaTypePtr subtypes;
     xmlSchemaAttributePtr attributes;
@@ -167,13 +196,14 @@ struct _xmlSchemaType {
 
     int flags;
     xmlSchemaContentType contentType;
-    xmlChar *base;
-    xmlChar *baseNs;
+    const xmlChar *base;
+    const xmlChar *baseNs;
     xmlSchemaTypePtr baseType;
     xmlSchemaFacetPtr facets;
+    struct _xmlSchemaType *redef;/* possible redefinitions for the type */
 };
 
-/**
+/*
  * xmlSchemaElement:
  * An element definition.
  *
@@ -222,16 +252,22 @@ struct _xmlSchemaType {
  * the element is a reference to a type
  */
 #define XML_SCHEMAS_ELEM_REF		1 << 6
+/**
+ * XML_SCHEMAS_ELEM_NSDEFAULT:
+ *
+ * allow elements in no namespace
+ */
+#define XML_SCHEMAS_ELEM_NSDEFAULT	1 << 7
 
 typedef struct _xmlSchemaElement xmlSchemaElement;
 typedef xmlSchemaElement *xmlSchemaElementPtr;
 struct _xmlSchemaElement {
     xmlSchemaTypeType type;	/* The kind of type */
     struct _xmlSchemaType *next;/* the next type if in a sequence ... */
-    xmlChar *name;
-    xmlChar *id;
-    xmlChar *ref;
-    xmlChar *refNs;
+    const xmlChar *name;
+    const xmlChar *id;
+    const xmlChar *ref;
+    const xmlChar *refNs;
     xmlSchemaAnnotPtr annot;
     xmlSchemaTypePtr subtypes;
     xmlSchemaAttributePtr attributes;
@@ -240,13 +276,13 @@ struct _xmlSchemaElement {
     int maxOccurs;
 
     int flags;
-    xmlChar *targetNamespace;
-    xmlChar *namedType;
-    xmlChar *namedTypeNs;
-    xmlChar *substGroup;
-    xmlChar *substGroupNs;
-    xmlChar *scope;
-    xmlChar *value;
+    const xmlChar *targetNamespace;
+    const xmlChar *namedType;
+    const xmlChar *namedTypeNs;
+    const xmlChar *substGroup;
+    const xmlChar *substGroupNs;
+    const xmlChar *scope;
+    const xmlChar *value;
     struct _xmlSchemaElement *refDecl;
     xmlRegexpPtr contModel;
     xmlSchemaContentType contentType;
@@ -283,8 +319,8 @@ struct _xmlSchemaElement {
 struct _xmlSchemaFacet {
     xmlSchemaTypeType type;	/* The kind of type */
     struct _xmlSchemaFacet *next;/* the next type if in a sequence ... */
-    xmlChar *value;
-    xmlChar *id;
+    const xmlChar *value;
+    const xmlChar *id;
     xmlSchemaAnnotPtr annot;
     xmlNodePtr node;
     int fixed;
@@ -300,9 +336,9 @@ typedef struct _xmlSchemaNotation xmlSchemaNotation;
 typedef xmlSchemaNotation *xmlSchemaNotationPtr;
 struct _xmlSchemaNotation {
     xmlSchemaTypeType type;	/* The kind of type */
-    xmlChar *name;
+    const xmlChar *name;
     xmlSchemaAnnotPtr annot;
-    xmlChar *identifier;
+    const xmlChar *identifier;
 };
 
 /**
@@ -323,10 +359,10 @@ struct _xmlSchemaNotation {
  * A Schemas definition
  */
 struct _xmlSchema {
-    xmlChar *name;        /* schema name */
-    xmlChar *targetNamespace;     /* the target namespace */
-    xmlChar *version;
-    xmlChar *id;
+    const xmlChar *name;        /* schema name */
+    const xmlChar *targetNamespace;     /* the target namespace */
+    const xmlChar *version;
+    const xmlChar *id;
     xmlDocPtr doc;
     xmlSchemaAnnotPtr annot;
     int flags;
@@ -340,9 +376,13 @@ struct _xmlSchema {
     xmlHashTablePtr schemasImports;
 
     void *_private;	/* unused by the library for users or bindings */
+    xmlHashTablePtr groupDecl;
+    xmlDictPtr      dict;
+    void *includes;     /* the includes, this is opaque for now */
+    int preserve;	/* whether to free the document */
 };
 
-void	xmlSchemaFreeType	(xmlSchemaTypePtr type);
+XMLPUBFUN void XMLCALL 	xmlSchemaFreeType	(xmlSchemaTypePtr type);
 
 #ifdef __cplusplus
 }

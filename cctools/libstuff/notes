@@ -5,6 +5,17 @@
 TODO:
 - Deal with LC_PREPAGE and unknown load commands that don't need to be swapped.
 
+Changes for the 5.13.2 release (the cctools-495.3 release):
+- Modified breakout.c to include a breakout_mem() function which will perform
+  the breakout on a memory buffer, rather than reading from a file.  The 
+  internals of breakout() were moved to breakout_internal() so they could
+  be shared by both breakout() and breakout_mem().  Radar bug #3176679.
+- Modified writeout.c to include a writeout_to_mem() function which will 
+  return a vm_allocate'd buffer of the contents of the output file.  The 
+  interanls of writeout() were moved to writeout_to_mem() so that writeout() 
+  calls writeout_to_mem(), which produces the contents of the file, and
+  writeout() writes it to the output file.  Radar bug #3176679.
+
 Changes for the 5.12 release (the cctools-490 release):
 - Fixed cpusubtype_findbestarch() in best_arch.c to not select a PowerPC 970
   if not on a PowerPC 970.  And fixed it when passed the family ALL type and

@@ -31,6 +31,7 @@ var_prefix=	@VAR_PREFIX@
 DESTDIR=
 
 CC=		@CC@
+CHMOD=  	@CHMOD@
 INSTALL=	@INSTALL@
 PYTHON= 	@PYTHON@
 
@@ -65,7 +66,7 @@ DIRMODE=	775
 EXEMODE=	755
 FILEMODE=	644
 INSTALL_PROGRAM=$(INSTALL) -m $(EXEMODE)
-DIRSETGID=	chmod g+s
+DIRSETGID=	$(CHMOD) g+s
 
 DATE = $(shell python -c 'import time; print time.strftime("%d-%b-%Y"),')
 LANGPACK = README-I18N.en templates messages
@@ -85,25 +86,35 @@ install: doinstall update
 
 doinstall: $(SUBDIRS)
 	@echo "Creating architecture independent directories..."
+	@for d in $(var_prefix) $(prefix); \
+	do \
+	    dir=$(DESTDIR)$$d; \
+	    if test ! -d $$dir; then \
+		echo "Creating directory hierarchy $$dir"; \
+		$(INSTALL) -d -m $(DIRMODE) $$dir/; \
+		$(DIRSETGID) $$dir; \
+	    else true; \
+	    fi; \
+	done
 	@for d in $(VAR_DIRS); \
 	do \
 	    dir=$(DESTDIR)$(var_prefix)/$$d; \
 	    if test ! -d $$dir; then \
 		echo "Creating directory hierarchy $$dir"; \
 		$(srcdir)/mkinstalldirs $$dir; \
-		chmod $(DIRMODE) $$dir; \
+		$(CHMOD) $(DIRMODE) $$dir; \
 		$(DIRSETGID) $$dir; \
 	    else true; \
 	    fi; \
 	done
-	chmod o-r $(DESTDIR)$(var_prefix)/archives/private
+	$(CHMOD) o-r $(DESTDIR)$(var_prefix)/archives/private
 	@for d in $(ARCH_INDEP_DIRS); \
 	do \
 	    dir=$(DESTDIR)$(prefix)/$$d; \
 	    if test ! -d $$dir; then \
 		echo "Creating directory hierarchy $$dir"; \
 		$(srcdir)/mkinstalldirs $$dir; \
-		chmod $(DIRMODE) $$dir; \
+		$(CHMOD) $(DIRMODE) $$dir; \
 		$(DIRSETGID) $$dir; \
 	    else true; \
 	    fi; \
@@ -115,7 +126,7 @@ doinstall: $(SUBDIRS)
 	    if test ! -d $$dir; then \
 		echo "Creating directory hierarchy $$dir"; \
 		$(srcdir)/mkinstalldirs $$dir; \
-		chmod $(DIRMODE) $$dir; \
+		$(CHMOD) $(DIRMODE) $$dir; \
 		$(DIRSETGID) $$dir; \
 	    else true; \
 	    fi; \

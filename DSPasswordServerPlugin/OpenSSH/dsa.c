@@ -137,7 +137,7 @@ dsa_sign(
 	unsigned char *digest;
 	unsigned char *ret;
 	DSA_SIG *sig;
-	EVP_MD *evp_md = EVP_sha1();
+	const EVP_MD *evp_md = EVP_sha1();
 	EVP_MD_CTX md;
 	unsigned int rlen;
 	unsigned int slen;
@@ -156,7 +156,7 @@ dsa_sign(
 
 	sig = DSA_do_sign(digest, evp_md->md_size, key->dsa);
 	if (sig == NULL) {
-		fatal("dsa_sign: cannot sign");
+		pwsf_fatal("dsa_sign: cannot sign");
 	}
 
 	rlen = BN_num_bytes(sig->r);
@@ -206,7 +206,7 @@ dsa_verify(
 	Buffer b;
 	unsigned char *digest;
 	DSA_SIG *sig;
-	EVP_MD *evp_md = EVP_sha1();
+	const EVP_MD *evp_md = EVP_sha1();
 	EVP_MD_CTX md;
 	unsigned char *sigblob;
 	char *txt;
@@ -258,7 +258,7 @@ dsa_verify(
 	}
 
 	if (len != SIGBLOB_LEN) {
-		fatal("bad sigbloblen %d != SIGBLOB_LEN", len);
+		pwsf_fatal("bad sigbloblen %d != SIGBLOB_LEN", len);
 	}
 
 	/* parse signature */
@@ -307,10 +307,10 @@ dsa_generate_key(unsigned int bits)
 	DSA *dsa = DSA_generate_parameters(bits, NULL, 0, NULL, NULL, NULL, NULL);
 	Key *k;
 	if (dsa == NULL) {
-		fatal("DSA_generate_parameters failed");
+		pwsf_fatal("DSA_generate_parameters failed");
 	}
 	if (!DSA_generate_key(dsa)) {
-		fatal("DSA_generate_keys failed");
+		pwsf_fatal("DSA_generate_keys failed");
 	}
 
 	k = key_new(KEY_EMPTY);

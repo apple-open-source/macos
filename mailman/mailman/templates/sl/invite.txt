@@ -1,0 +1,18 @@
+Va¹ naslov je skrbnik seznama %(listname)s povabil, da se prijavi
+na po¹tni seznam %(listname)s na %(hostname)s. Vabilo sprejmete tako,
+da po¹ljete odgovor na to sporoèilo, vrstico z Zadevo pa pustite
+nespremenjeno.
+
+Obi¹èete lahko tudi stran
+
+    %(confirmurl)s
+
+ali pa vkljuèite naslednjo vrstico -- samo naslednjo vrstico --
+v sporoèilo, ki ga po¹ljete na naslov %(requestaddr)s:
+
+    confirm %(cookie)s
+
+Za veèino uporabnikov deluje ¾e 'odgovor' na to sporoèilo.
+
+Èe vas povabilo ne zanima, preprosto prezrite to sporoèilo.
+Vpra¹anja lahko po¹ljete %(listowner)s.

@@ -31,14 +31,14 @@
 
 #include <machine/byte_order.h>
 
-#include "SharedConsts.h"	// for sComData
+#include "SharedConsts.h"	// for sComProxyData
 #include "DirServicesConst.h"
 
 
 class DSTCPEndian
 {
 public:
-    DSTCPEndian(sComData* message, int direction);
+    DSTCPEndian(sComProxyData* message, int direction);
     
     void SwapMessage(void);
     
@@ -93,7 +93,7 @@ private:
     void SwapLong(void* ptr) { GetAndSwapLong(ptr); }
     void SwapShort(void* ptr) { GetAndSwapShort(ptr); }
 
-    sComData* fMessage;
+    sComProxyData* fMessage;
     bool toBig;
 };
 

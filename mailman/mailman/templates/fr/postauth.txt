@@ -6,7 +6,7 @@ pour l'envoi du message suivant vers la liste:
     Objet:  %(subject)s
     Raison: %(reason)s
 
-Quand vous le souhaitez, rendez-vous à: 
+Quand vous le souhaitez, consulter la page web : 
 
     %(admindb_url)s 
 

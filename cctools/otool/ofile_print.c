@@ -1222,6 +1222,18 @@ NS32:
 		printf(" NOFIXPREBINDING");
 		flags &= ~MH_NOFIXPREBINDING;
 	    }
+	    if(flags & MH_PREBINDABLE){
+		printf(" PREBINDABLE");
+		flags &= ~MH_PREBINDABLE;
+	    }
+	    if(flags & MH_ALLMODSBOUND){
+		printf(" ALLMODSBOUND");
+		flags &= ~MH_ALLMODSBOUND;
+	    }
+	    if(flags & MH_CANONICAL){
+		printf(" CANONICAL");
+		flags &= ~MH_CANONICAL;
+	    }
 	    if(flags != 0 || mh->flags == 0)
 		printf(" 0x%08x", (unsigned int)flags);
 	    printf("\n");

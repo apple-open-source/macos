@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -32,11 +29,13 @@
 #include <IOKit/assert.h>
 #include <IOKit/firewire/IOFireWireController.h>
 #include <IOKit/firewire/IOFWIsochChannel.h>
-#include <IOKit/firewire/IOFWIsochPort.h>
-#include <libkern/c++/OSSet.h>
-#include <libkern/c++/OSCollectionIterator.h>
+#include <IOKit/firewire/IOFWLocalIsochPort.h>
 #include <IOKit/firewire/IOFWCommand.h>
 #include <IOKit/firewire/IOFireWireDevice.h>
+#import <IOKit/firewire/IOFWDCLProgram.h>
+
+#include <libkern/c++/OSSet.h>
+#include <libkern/c++/OSCollectionIterator.h>
 #include "FWDebugging.h"
 
 OSDefineMetaClassAndStructors(IOFWIsochChannel, OSObject)
@@ -180,7 +179,16 @@ void IOFWIsochChannel::free()
 IOReturn IOFWIsochChannel::setTalker( IOFWIsochPort *talker )
 {
     fTalker = talker;
-	
+
+	IOFWLocalIsochPort * localIsochPort = OSDynamicCast( IOFWLocalIsochPort, talker ) ;
+	if ( localIsochPort )
+	{
+		IODCLProgram * program = localIsochPort->getProgramRef() ;
+
+		program->setForceStopProc( fStopProc, fStopRefCon, this ) ;
+		program->release() ;
+	}
+
     return kIOReturnSuccess;
 }
 
@@ -190,14 +198,26 @@ IOReturn IOFWIsochChannel::setTalker( IOFWIsochPort *talker )
 
 IOReturn IOFWIsochChannel::addListener( IOFWIsochPort *listener )
 {	
-	IOReturn status = kIOReturnSuccess;
+	IOReturn error = kIOReturnSuccess;
 	
     if( !fListeners->setObject( listener ) )
     {
-	    status = kIOReturnNoMemory;
+		error = kIOReturnNoMemory;
+	}
+
+	if ( !error )
+	{
+		IOFWLocalIsochPort * localIsochPort = OSDynamicCast( IOFWLocalIsochPort, listener ) ;
+		if ( localIsochPort )
+		{
+			IODCLProgram * program = localIsochPort->getProgramRef() ;
+			
+			program->setForceStopProc( fStopProc, fStopRefCon, this ) ;
+			program->release() ;
+		}
 	}
 	
-	return status;
+	return error ;
 }
 
 // start
@@ -768,7 +788,7 @@ void IOFWIsochChannel::reallocBandwidth( UInt32 generation )
 			if( newVal == oldVal ) 
 			{
 				// Channel already allocated!
-				result = kIOReturnNoSpace;
+				result = kIOFireWireChannelNotAvailable ;
 			}
 		
 			if( result == kIOReturnSuccess )
@@ -783,7 +803,7 @@ void IOFWIsochChannel::reallocBandwidth( UInt32 generation )
 			}
 		}
 		
-		if( result == kIOReturnNoSpace ) 
+		if( result == kIOFireWireChannelNotAvailable )
 		{
 			FWKLOG(( "IOFWIsochChannel::reallocBandwidth - failed to reallocate channel = %d\n", fChannel ));
 
@@ -803,7 +823,7 @@ void IOFWIsochChannel::reallocBandwidth( UInt32 generation )
 
 	IOLockUnlock( fLock );
     
-	if( result == kIOReturnNoSpace ) 
+	if( result == kIOReturnNoSpace || result == kIOFireWireChannelNotAvailable ) 
 	{
         // Couldn't reallocate bandwidth or channel
 		
@@ -813,7 +833,13 @@ void IOFWIsochChannel::reallocBandwidth( UInt32 generation )
 		// will know to release both, one, or none
 		
 		releaseChannel();
-    }    
+		
+		if ( fStopProc )
+		{
+			(*fStopProc)( fStopRefCon, this, kIOFireWireChannelNotAvailable );
+		}
+    }
+	
 }
 
 // releaseChannel

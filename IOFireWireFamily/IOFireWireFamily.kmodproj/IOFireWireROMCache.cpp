@@ -2,24 +2,21 @@
  * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ *
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ *
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
- * 
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -304,35 +301,14 @@ bool IOFireWireROMCache::hasROMChanged( const UInt32 * newBIB, UInt32 newBIBSize
 		// is this a closed, generation zero device?
 		
 		UInt32 romGeneration = (newBIB[2] & kFWBIBGeneration) >> kFWBIBGenerationPhase;
-		if( romGeneration == 0 && !fOwner->isOpen() )
+		if( romGeneration == 0 )
 		{
-			bool has_units = false;
-			
-			// does the device have any units?
-			
-			OSIterator * childIterator = fOwner->getClientIterator();
-			if( childIterator ) 
+			if( fOwner->getUnitCount() == 0 )
 			{
-				OSObject *child;
-				while( (child = childIterator->getNextObject()) ) 
-				{
-					if( OSDynamicCast(IOFireWireUnit, child) != NULL ) 
-					{
-						has_units = true;
-						break;
-					}
-				}
-				childIterator->release();
-			}
-		
-			if( !has_units )
-			{
-				// if we've got a closed generation zero device with no 
-				// units we can't assume its the same
-				
-				rom_changed = true; 
+				rom_changed = true;
 			}
 		}
+		
 	}
 	
 	// don't come back from an invalid state

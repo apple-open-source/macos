@@ -1,5 +1,7 @@
 
-Dies ist die monatliche Infomail, die Sie über Ihre Mitgliedschaften in den
+Sehr geehrter Mailinglisten Nutzer, 
+
+dies ist die monatliche Infomail, die Sie über Ihre Mitgliedschaften in den
 Mailinglisten auf dem Server %(hostname)s informiert. Mailinglisten sind
 Diskussionsrunden oder Infoverteiler von Privatpersonen, Gruppen, Vereinen 
 o.ä., in den Sie sich eingetragen haben.
@@ -9,10 +11,10 @@ wie Sie den Bezug der genannten Mailinglisten beenden, ihre
 eingetragene Mailadresse ändern lassen, bzw. andere persönliche 
 Einstellungen vornehmen lassen können.
 
-       * Wenn Sie sich austragen wollen: LESEN SIE DIESE E-MAIL! *
+       * Wenn Sie sich austragen wollen: LESEN SIE DIESE e-Mail! *
 
-Bitte antworten Sie nicht auf diese e-Mail, ohne es nicht vorher selbst
-versucht zu haben.
+Bitte antworten Sie nur auf diese e-Mail, wenn Sie es vorher selbst
+versucht haben und es wirklich Probleme gab!
 
 Zusätzlich zum Web-Interface können Sie solche Änderungen auch via Email
 vornehmen. Um detaillierte Informationen zu dieser Methode zu erhalten,
@@ -28,8 +30,14 @@ bitte an %(owner)s. Danke!
 Sie kriegen jetzt den Namen der Mailingliste, daneben das Kennwort (oft ein
 sechsstelliger Buchstabencode) aufgelistet. *UM SICH AUSZUTRAGEN* klicken Sie
 bitte auf den jeweils darunter stehenden Link und geben Sie dann das
-geforderte Kennwort ein. Achten Sie darauf, daß Ihre Mailsoftware den Link
-nicht "abschneidet"!
+geforderte Kennwort ein. 
 
-Passwörter für die Mailadresse %(useraddr)s:
+Achten Sie darauf, daß Ihre Mailsoftware den Link nicht "abschneidet" und
+dadurch zerstört!
+
+1) Klicken Sie auf den Link
+2) Geben Sie das hier genannte Codewort/Buchstabencode an
+3) Klicken Sie auf "Austragen".
+
+Listen und Passwörter für die Mailadresse %(useraddr)s:
 

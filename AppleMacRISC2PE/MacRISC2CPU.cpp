@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -81,7 +78,8 @@ bool MacRISC2CPU::start(IOService *provider)
     keyLargo_writeRegUInt8 = OSSymbol::withCString("keyLargo_writeRegUInt8");
     keyLargo_getHostKeyLargo = OSSymbol::withCString("keyLargo_getHostKeyLargo");
     keyLargo_setPowerSupply = OSSymbol::withCString("setPowerSupply");
-    UniNSetPowerState = OSSymbol::withCString(kUniNSetPowerState);
+    uniN_setPowerState = OSSymbol::withCString(kUniNSetPowerState);
+    uniN_setAACKDelay = OSSymbol::withCString(kUniNSetAACKDelay);
     
     macRISC2PE = OSDynamicCast(MacRISC2PE, getPlatform());
     if (macRISC2PE == 0) return false;
@@ -162,7 +160,13 @@ bool MacRISC2CPU::start(IOService *provider)
     // On macines with a 'vmin' property in the CPU Node we need to make sure to tell the kernel to 
     // ml_set_processor_voltage on needed processors.
     needVSetting = (provider->getProperty( "vmin" ) != 0);
-  
+
+    // While techincally the Apollo7PM machines do need AACK delay, it is already set in the bootROM
+    // since we boot slow.  We don't want the machine to switch AACKdelay off when we run DFS high so
+    // setting this to false will take care of the issue.
+        
+    needAACKDelay = false;
+    
     // Find out if this is the boot CPU.
     bootCPU = false;
     tmpData = OSDynamicCast(OSData, provider->getProperty("state"));
@@ -469,7 +473,13 @@ IOReturn MacRISC2CPU::setAggressiveness(UInt32 selector, UInt32 newLevel)
                                 if (needVSetting && (newLevel == 0))
                                          ml_set_processor_voltage(0);	// High
                                 
+                                if (needAACKDelay && (newLevel == 1))
+                                    uniN->callPlatformFunction (uniN_setAACKDelay, false, (void *)1, (void *)0, (void *)0, (void *)0);
+
 				ml_set_processor_speed(newLevel ? 1 : 0);
+                                
+                                if (needAACKDelay & (newLevel == 0))
+                                    uniN->callPlatformFunction (uniN_setAACKDelay, false, (void *)0, (void *)0, (void *)0, (void *)0);
                                 
                                 if (needVSetting && (newLevel != 0))
                                      ml_set_processor_voltage(1);	// Low
@@ -516,7 +526,7 @@ void MacRISC2CPU::initCPU(bool boot)
 
     if (!boot && bootCPU) {
 		// Tell Uni-N to enter normal mode.
-		uniN->callPlatformFunction (UniNSetPowerState, false, (void *)kUniNNormal,
+		uniN->callPlatformFunction (uniN_setPowerState, false, (void *)kUniNNormal,
 			(void *)0, (void *)0, (void *)0);
     
         if (!processorSpeedChange) {
@@ -595,7 +605,7 @@ void MacRISC2CPU::quiesceCPU(void)
 
         // Set the sleeping state for HWInit.
 		// Tell Uni-N to enter normal mode.
-		uniN->callPlatformFunction (UniNSetPowerState, false, 
+		uniN->callPlatformFunction (uniN_setPowerState, false, 
 			(void *)(processorSpeedChange ? kUniNIdle2 : kUniNSleep),
 			(void *)0, (void *)0, (void *)0);
     }

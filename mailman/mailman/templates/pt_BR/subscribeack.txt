@@ -8,7 +8,7 @@ Informações gerais sobre esta lista de discussão podem ser encontradas em:
 
   %(listinfo_url)s
 
-Se deseja se deinscrever ou modificar suas opções (eg, mudar de/para o 
+Se deseja se desinscrever ou modificar suas opções (eg, mudar de/para o 
 modo digest, modificar a senha, etc.), visite sua página de inscrição 
 em:
 
@@ -26,7 +26,7 @@ a própria senha) ou para se desinscrever. Ela é:
   %(password)s
 
 Normalmente, o Mailman lhe lembrará de suas senhas em %(host_name)s 
-uma vez por mes, mas pode desativar isto se preferir. Este lembrete 
+uma vez por mês, mas pode desativar isto se preferir. Este lembrete 
 também inclui instruções de como se desinscrever ou modificar suas
-opções de conta. Também existe um botão em sua página de opçòes que
+opções de conta. Também existe um botão em sua página de opções que
 poderá lhe enviar a senha.

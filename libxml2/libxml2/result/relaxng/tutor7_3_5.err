@@ -1,6 +1,4 @@
-error detected at relaxng.c:5813
-Internal: failed to validate type double
-error detected at relaxng.c:7073
-error validating list
-error detected at relaxng.c:6770
-Extra content for element path: text
+./test/relaxng/tutor7_3_5.xml:1: element path: Relax-NG validity error : failed to validate type double
+./test/relaxng/tutor7_3_5.xml:1: element path: Relax-NG validity error : Error validating list
+./test/relaxng/tutor7_3_5.xml:1: element path: Relax-NG validity error : Element path failed to validate content
+./test/relaxng/tutor7_3_5.xml fails to validate

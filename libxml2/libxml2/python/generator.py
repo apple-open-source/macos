@@ -4,6 +4,7 @@
 #
 
 functions = {}
+enums = {} # { enumType: { enumConstant: enumValue } }
 
 import sys
 import string
@@ -137,7 +138,8 @@ class docParser:
                     self.function_return_info = attrs['info']
                 if attrs.has_key('field'):
                     self.function_return_field = attrs['field']
-
+        elif tag == 'enum':
+            enum(attrs['type'],attrs['name'],attrs['value'])
 
     def end(self, tag):
         if debug:
@@ -167,9 +169,12 @@ class docParser:
                 
                 
 def function(name, desc, ret, args, file):
-    global functions
-
     functions[name] = (desc, ret, args, file)
+
+def enum(type, name, value):
+    if not enums.has_key(type):
+        enums[type] = {}
+    enums[type][name] = value
 
 #######################################################################
 #
@@ -268,6 +273,7 @@ py_types = {
     'xmlCatalogPtr': ('O', "catalog", "xmlCatalogPtr", "xmlCatalogPtr"),
     'FILE *': ('O', "File", "FILEPtr", "FILE *"),
     'xmlURIPtr': ('O', "URI", "xmlURIPtr", "xmlURIPtr"),
+    'xmlErrorPtr': ('O', "Error", "xmlErrorPtr", "xmlErrorPtr"),
     'xmlOutputBufferPtr': ('O', "outputBuffer", "xmlOutputBufferPtr", "xmlOutputBufferPtr"),
     'xmlParserInputBufferPtr': ('O', "inputBuffer", "xmlParserInputBufferPtr", "xmlParserInputBufferPtr"),
     'xmlRegexpPtr': ('O', "xmlReg", "xmlRegexpPtr", "xmlRegexpPtr"),
@@ -300,6 +306,33 @@ def skip_function(name):
         return 1
 #    if name[0:11] == "xmlXPathNew":
 #        return 1
+    # the next function is defined in libxml.c
+    if name == "xmlRelaxNGFreeValidCtxt":
+        return 1
+#
+# Those are skipped because the Const version is used of the bindings
+# instead.
+#
+    if name == "xmlTextReaderBaseUri":
+        return 1
+    if name == "xmlTextReaderLocalName":
+        return 1
+    if name == "xmlTextReaderName":
+        return 1
+    if name == "xmlTextReaderNamespaceUri":
+        return 1
+    if name == "xmlTextReaderPrefix":
+        return 1
+    if name == "xmlTextReaderXmlLang":
+        return 1
+    if name == "xmlTextReaderValue":
+        return 1
+    if name == "xmlOutputBufferClose": # handled by by the superclass
+        return 1
+    if name == "xmlOutputBufferFlush": # handled by by the superclass
+        return 1
+    if name == "xmlErrMemory":
+        return 1
     return 0
 
 def print_function_wrapper(name, output, export, include):
@@ -362,8 +395,8 @@ def print_function_wrapper(name, output, export, include):
 	    if args[1][1] == "char *" or args[1][1] == "xmlChar *":
 		c_call = "\n    if (%s->%s != NULL) xmlFree(%s->%s);\n" % (
 		                 args[0][0], args[1][0], args[0][0], args[1][0])
-		c_call = c_call + "    %s->%s = xmlStrdup((const xmlChar *)%s);\n" % (args[0][0],
-		                 args[1][0], args[1][0])
+		c_call = c_call + "    %s->%s = (%s)xmlStrdup((const xmlChar *)%s);\n" % (args[0][0],
+		                 args[1][0], args[1][1], args[1][0])
 	    else:
 		c_call = "\n    %s->%s = %s;\n" % (args[0][0], args[1][0],
 						   args[1][0])
@@ -443,10 +476,11 @@ def print_function_wrapper(name, output, export, include):
         return 1
 
     output.write("PyObject *\n")
-    output.write("libxml_%s(ATTRIBUTE_UNUSED PyObject *self," % (name))
+    output.write("libxml_%s(PyObject *self ATTRIBUTE_UNUSED," % (name))
+    output.write(" PyObject *args")
     if format == "":
-	output.write("ATTRIBUTE_UNUSED ")
-    output.write(" PyObject *args) {\n")
+	output.write(" ATTRIBUTE_UNUSED")
+    output.write(") {\n")
     if ret[0] != 'void':
         output.write("    PyObject *py_retval;\n")
     if c_return != "":
@@ -547,9 +581,9 @@ def buildStubs():
     wrapper = open("libxml2-py.c", "w")
     wrapper.write("/* Generated */\n\n")
     wrapper.write("#include <Python.h>\n")
-#    wrapper.write("#include \"config.h\"\n")
     wrapper.write("#include <libxml/xmlversion.h>\n")
     wrapper.write("#include <libxml/tree.h>\n")
+    wrapper.write("#include <libxml/xmlschemastypes.h>\n")
     wrapper.write("#include \"libxml_wrap.h\"\n")
     wrapper.write("#include \"libxml2-py.h\"\n\n")
     for function in functions.keys():
@@ -613,6 +647,7 @@ classes_type = {
     "htmlParserCtxt *": ("._o", "parserCtxt(_obj=%s)", "parserCtxt"),
     "xmlCatalogPtr": ("._o", "catalog(_obj=%s)", "catalog"),
     "xmlURIPtr": ("._o", "URI(_obj=%s)", "URI"),
+    "xmlErrorPtr": ("._o", "Error(_obj=%s)", "Error"),
     "xmlOutputBufferPtr": ("._o", "outputBuffer(_obj=%s)", "outputBuffer"),
     "xmlParserInputBufferPtr": ("._o", "inputBuffer(_obj=%s)", "inputBuffer"),
     "xmlRegexpPtr": ("._o", "xmlReg(_obj=%s)", "xmlReg"),
@@ -693,6 +728,9 @@ def nameFixup(name, classe, type, file):
     elif name[0:9] == "xmlURISet" and file == "python_accessor":
         func = name[6:]
         func = string.lower(func[0:1]) + func[1:]
+    elif name[0:11] == "xmlErrorGet" and file == "python_accessor":
+        func = name[11:]
+        func = string.lower(func[0:1]) + func[1:]
     elif name[0:17] == "xmlXPathParserGet" and file == "python_accessor":
         func = name[17:]
         func = string.lower(func[0:1]) + func[1:]
@@ -714,8 +752,12 @@ def nameFixup(name, classe, type, file):
         func = "regexp" + name[6:]
     elif name[0:20] == "xmlTextReaderLocator" and file == "xmlreader":
         func = name[20:]
+    elif name[0:18] == "xmlTextReaderConst" and file == "xmlreader":
+        func = name[18:]
     elif name[0:13] == "xmlTextReader" and file == "xmlreader":
         func = name[13:]
+    elif name[0:12] == "xmlReaderNew" and file == "xmlreader":
+        func = name[9:]
     elif name[0:11] == "xmlACatalog":
         func = name[11:]
         func = string.lower(func[0:1]) + func[1:]
@@ -865,8 +907,6 @@ def buildWrappers():
 		func = nameFixup(name, classe, type, file)
 		info = (1, func, name, ret, args, file)
 		function_classes[classe].append(info)
-	    if found == 1:
-		break
 	if found == 1:
 	    continue
 	if name[0:8] == "xmlXPath":
@@ -970,7 +1010,7 @@ def buildWrappers():
 		    rlist = reference_keepers[classname]
 		    for ref in rlist:
 		        classes.write("        self.%s = None\n" % ref[1])
-		classes.write("        self._o = None\n")
+		classes.write("        self._o = _obj\n")
 		classes.write("        %s.__init__(self, _obj=_obj)\n\n" % (
 			      classes_ancestor[classname]))
 		if classes_ancestor[classname] == "xmlCore" or \
@@ -1126,9 +1166,19 @@ def buildWrappers():
 			classes.write("        return ret\n");
 		classes.write("\n");
 
+    #
+    # Generate enum constants
+    #
+    for type,enum in enums.items():
+        classes.write("# %s\n" % type)
+        items = enum.items()
+        items.sort(lambda i1,i2: cmp(long(i1[1]),long(i2[1])))
+        for name,value in items:
+            classes.write("%s = %s\n" % (name,value))
+        classes.write("\n");
+
     txt.close()
     classes.close()
-
 
 buildStubs()
 buildWrappers()

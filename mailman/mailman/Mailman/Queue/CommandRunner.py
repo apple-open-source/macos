@@ -40,9 +40,10 @@ from Mailman.Logging.Syslog import syslog
 from Mailman import LockFile
 
 from email.Header import decode_header, make_header, Header
+from email.Errors import HeaderParseError
+from email.Iterators import typed_subpart_iterator
 from email.MIMEText import MIMEText
 from email.MIMEMessage import MIMEMessage
-from email.Iterators import typed_subpart_iterator
 
 NL = '\n'
 
@@ -72,9 +73,13 @@ class Results:
         # Extract the subject header and do RFC 2047 decoding.  Note that
         # Python 2.1's unicode() builtin doesn't call obj.__unicode__().
         subj = msg.get('subject', '')
-        subj = make_header(decode_header(subj)).__unicode__()
-        # Always process the Subject: header first
-        self.commands.append(subj)
+        try:
+            subj = make_header(decode_header(subj)).__unicode__()
+            # Always process the Subject: header first
+            self.commands.append(subj)
+        except HeaderParseError:
+            # We couldn't parse it so ignore the Subject header
+            pass
         # Find the first text/plain part
         part = None
         for part in typed_subpart_iterator(msg, 'text', 'plain'):

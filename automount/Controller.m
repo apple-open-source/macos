@@ -797,15 +797,13 @@ BOOL URLIsComplete(const char *url)
 		[v setMounted:YES];
 		return 0;
 	} else {
-		String *nslEntrySource = [String uniqueString:"*"];
-		if ([v mntArgs] & MNT_DONTBROWSE) urlMountFlags |= kMarkDontBrowse;
-		if ([[v source] equal:nslEntrySource]) {
-			sys_msg(debug, LOG_ERR, "No source specified for %s (URL='%s')\n", [[v link] value], [[v urlString] value]);
+		if ([v needsAuthentication]) {
+			sys_msg(debug, LOG_ERR, "Can't mount %s (URL='%s') because it might require authentication UI\n", [[v link] value], [[v urlString] value]);
 			[v setNfsStatus:NFSERR_NXIO];
 			return 1;
-		} else {
-			urlMountFlags |= kMountAtMountdir;
 		};
+		urlMountFlags |= kMountAtMountdir;
+		if ([v mntArgs] & MNT_DONTBROWSE) urlMountFlags |= kMarkDontBrowse;
 	};
 
 	s = [v server];

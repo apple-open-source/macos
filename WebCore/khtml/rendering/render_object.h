@@ -241,6 +241,10 @@ public:
     
     bool isAnonymous() const { return m_isAnonymous; }
     void setIsAnonymous(bool b) { m_isAnonymous = b; }
+    bool isAnonymousBlock() const { return m_isAnonymous && 
+                                           style()->display() == BLOCK && 
+                                           style()->styleType() == RenderStyle::NOPSEUDO &&
+                                           !isListMarker(); }
     
     bool isFloating() const { return m_floating; }
     bool isPositioned() const { return m_positioned; } // absolute or fixed positioning
@@ -589,7 +593,7 @@ public:
     virtual void setTable(RenderTable*) {};
 
     // Used by collapsed border tables.
-    virtual void collectBorders(QPtrList<CollapsedBorderValue>& borderStyles);
+    virtual void collectBorders(QValueList<CollapsedBorderValue>& borderStyles);
 
     // Repaint the entire object.  Called when, e.g., the color of a border changes, or when a border
     // style changes.

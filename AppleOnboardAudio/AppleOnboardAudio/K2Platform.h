@@ -203,7 +203,7 @@ public:
 	virtual	GpioAttributes	getDigitalInConnected();
 	virtual	GpioAttributes	getDigitalOutConnected();
 	virtual GpioAttributes	getLineInConnected();
-	virtual GpioAttributes	getLineOutConnected(bool ignoreCombo = false);
+	virtual GpioAttributes	getLineOutConnected();
 	virtual GpioAttributes 	getHeadphoneConnected();
 	virtual GpioAttributes	getSpeakerConnected();
 	virtual GpioAttributes	getCodecInterrupt();
@@ -219,7 +219,7 @@ public:
 	virtual IOReturn		setClockMux(GpioAttributes muxState);
 	virtual GpioAttributes	getClockMux();
 
-//	virtual bool	 		getInternalSpeakerID();
+	virtual GpioAttributes	getInternalSpeakerID();
 
 	//
 	// Set Interrupt Handler Methods
@@ -314,7 +314,16 @@ protected:
 	static const char * 	kAppleGPIO_UnregisterDigitalInDetect;
 
 	static const char * 	kAppleGPIO_GetComboInJackType;	
+	static const char * 	kAppleGPIO_DisableComboInSense;
+	static const char * 	kAppleGPIO_EnableComboInSense;
+	static const char * 	kAppleGPIO_RegisterComboInSense;
+	static const char * 	kAppleGPIO_UnregisterComboInSense;
+	
 	static const char * 	kAppleGPIO_GetComboOutJackType;	
+	static const char * 	kAppleGPIO_DisableComboOutSense;
+	static const char * 	kAppleGPIO_EnableComboOutSense;
+	static const char * 	kAppleGPIO_RegisterComboOutSense;
+	static const char * 	kAppleGPIO_UnregisterComboOutSense;
 
 	static const char * 	kAppleGPIO_DisableDigitalOutDetect;
 	static const char * 	kAppleGPIO_EnableDigitalOutDetect;
@@ -459,6 +468,8 @@ protected:
 
 	void *							mCodecInterruptHandler;
 	void *							mCodecErrorInterruptHandler;
+	void *							mComboInDetectInterruptHandler;
+	void *							mComboOutDetectInterruptHandler;
 	void *							mDigitalInDetectInterruptHandler;
 	void *							mDigitalOutDetectInterruptHandler;
 	void *							mHeadphoneDetectInterruptHandler;
@@ -468,6 +479,8 @@ protected:
 
 	bool							mCodecInterruptEnable;
 	bool							mCodecErrorInterruptEnable;
+	bool							mComboInDetectInterruptEnable;
+	bool							mComboOutDetectInterruptEnable;
 	bool							mDigitalInDetectInterruptEnable;
 	bool							mDigitalOutDetectInterruptEnable;
 	bool							mHeadphoneDetectInterruptEnable;

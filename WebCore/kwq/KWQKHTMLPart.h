@@ -172,6 +172,7 @@ public:
     void forceLayout();
     void forceLayoutWithPageWidthRange(float minPageWidth, float maxPageWidth);
     void sendResizeEvent();
+    void sendScrollEvent();
     void paint(QPainter *, const QRect &);
     void paintSelectionOnly(QPainter *p, const QRect &rect);
 

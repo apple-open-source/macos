@@ -184,11 +184,18 @@ parseGjobFile(char *filename) {
     xmlNsPtr ns;
     xmlNodePtr cur;
 
+#ifdef LIBXML_SAX1_ENABLED
     /*
      * build an XML tree from a the file;
      */
     doc = xmlParseFile(filename);
     if (doc == NULL) return(NULL);
+#else
+    /*
+     * the library has been compiled without some of the old interfaces
+     */
+    return(NULL);
+#endif /* LIBXML_SAX1_ENABLED */
 
     /*
      * Check the document is of the right kind
@@ -240,8 +247,10 @@ parseGjobFile(char *filename) {
         fprintf(stderr,"document of the wrong type, was '%s', Jobs expected",
 		cur->name);
 	fprintf(stderr,"xmlDocDump follows\n");
+#ifdef LIBXML_OUTPUT_ENABLED
 	xmlDocDump ( stderr, doc );
 	fprintf(stderr,"xmlDocDump finished\n");
+#endif /* LIBXML_OUTPUT_ENABLED */
 	xmlFreeDoc(doc);
 	free(ret);
 	return(NULL);

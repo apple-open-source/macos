@@ -10,6 +10,9 @@ from distutils.core import setup, Extension
 # on Windows, it is set by configure.js.
 ROOT = r'/usr' 
 
+# Thread-enabled libxml2
+with_threads = 1
+
 # If this flag is set (windows only), 
 # a private copy of the dlls are included in the package.
 # If this flag is not set, the libxml2 and libxslt
@@ -87,7 +90,7 @@ os.path.join(ROOT,'lib'),
 
 xml_files = ["libxml2-api.xml", "libxml2-python-api.xml",
              "libxml.c", "libxml.py", "libxml_wrap.h", "types.c",
-	     "xmlgenerator.py", "README", "TODO"]
+	     "xmlgenerator.py", "README", "TODO", "drv_libxml2.py"]
 
 xslt_files = ["libxslt-api.xml", "libxslt-python-api.xml",
              "libxslt.c", "libxsl.py", "libxslt_wrap.h",
@@ -166,6 +169,8 @@ c_files = ['libxml2-py.c', 'libxml.c', 'types.c' ]
 includes= [xml_includes, iconv_includes]
 libs    = [libraryPrefix + "xml2"] + platformLibs
 macros  = []
+if with_threads:
+    macros.append(('_REENTRANT','1'))
 if with_xslt == 1:
     descr = "libxml2 and libxslt package"
     if not sys.platform.startswith('win'):
@@ -194,7 +199,7 @@ extens=[Extension('libxml2mod', c_files, include_dirs=includes,
 if with_xslt == 1:
     extens.append(Extension('libxsltmod', xslt_c_files, include_dirs=includes,
 			    library_dirs=libdirs, 
-                            libraries=libs))
+                            libraries=libs, define_macros=macros))
 
 if missing("MANIFEST"):
 
@@ -221,7 +226,7 @@ else:
 setup (name = "libxml2-python",
        # On *nix, the version number is created from setup.py.in
        # On windows, it is set by configure.js
-       version = "2.5.4",
+       version = "2.6.7",
        description = descr,
        author = "Daniel Veillard",
        author_email = "veillard@redhat.com",

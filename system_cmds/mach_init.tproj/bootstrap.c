@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -55,6 +55,10 @@
 #import	<stdio.h>
 #import <libc.h>
 #import <paths.h>
+#import <pwd.h>
+
+#include <bsm/audit.h>
+#include <bsm/libbsm.h>
 
 #import "bootstrap.h"
 
@@ -74,7 +78,8 @@ const char *program_name;	/* our name for error messages */
 #define INIT_PATH	"/sbin/init"			/* default init path */
 #endif  INIT_PATH
 	
-uid_t inherited_uid;
+uid_t inherited_uid = 0;
+auditinfo_t  inherited_audit;
 mach_port_t inherited_bootstrap_port = MACH_PORT_NULL;
 boolean_t forward_ok = FALSE;
 boolean_t shutdown_in_progress = FALSE;
@@ -202,16 +207,6 @@ main(int argc, char * argv[])
 	pid = getpid();
 	if (pid == 1)
 	{
-		close(0);
-		freopen("/dev/console", "r", stdin);
-		setbuf(stdin, NULL);
-		close(1);
-		freopen("/dev/console", "w", stdout);
-		setbuf(stdout, NULL);
-		close(2);
-		freopen("/dev/console", "w", stderr);
-		setbuf(stderr, NULL);
-
 		result = mach_port_allocate(
 						mach_task_self(),
 						MACH_PORT_RIGHT_RECEIVE,
@@ -274,6 +269,14 @@ main(int argc, char * argv[])
 							bootstrap_port);
 		if (result != KERN_SUCCESS)
 			kern_fatal(result, "task_get_bootstrap_port");
+
+		close(0);
+		open("/dev/null", O_RDONLY, 0);
+		close(1);
+		open("/dev/null", O_WRONLY, 0);
+		close(2);
+		open("/dev/null", O_WRONLY, 0);
+
 	} else
 		init_notify_port = MACH_PORT_NULL;
 
@@ -330,6 +333,7 @@ main(int argc, char * argv[])
 	 */
 	bootstrap_self = mach_task_self();
 	inherited_uid = getuid();
+	getaudit(&inherited_audit);
 	init_lists();
 	init_ports();
 
@@ -406,8 +410,9 @@ main(int argc, char * argv[])
 	setenv("PATH", _PATH_STDPATH, 1);
 
 	init_errlog(pid == 0); /* are we a daemon? */
-	notice("Started with uid=%d%s%s%s",
+	notice("Started with uid=%d audit-uid=%d%s%s%s",
 		inherited_uid,
+		inherited_audit.ai_auid,
 		(register_self) ? " registered-as=" : "",
 		(register_self) ? register_name : "",
 		(debugging) ? " in debug-mode" : "");
@@ -790,6 +795,30 @@ exec_server(server_t *serverp)
 	 */
 	argv = argvize(serverp->cmd);
 	close_errlog();
+
+	/*
+	 * Set up the audit state for the user (if necessesary).
+	 */
+	if (inherited_uid == 0 &&
+	    (serverp->auinfo.ai_auid != inherited_uid ||
+	     serverp->auinfo.ai_asid != inherited_audit.ai_asid)) {
+		struct passwd *pwd = NULL;
+
+		pwd = getpwuid(serverp->auinfo.ai_auid);
+		if (pwd == NULL) {
+			unix_fatal("Disabled server %x bootstrap %x: \"%s\": getpwuid(%d) failed",
+				 serverp->port, serverp->bootstrap->bootstrap_port,
+				 serverp->cmd, serverp->auinfo.ai_auid);
+
+		} else if (au_user_mask(pwd->pw_name, &serverp->auinfo.ai_mask) != 0) {
+			unix_fatal("Disabled server %x bootstrap %x: \"%s\": au_user_mask(%s) failed",
+				 serverp->port, serverp->bootstrap->bootstrap_port,
+				 serverp->cmd, pwd->pw_name);
+		} else if (setaudit(&serverp->auinfo) != 0)
+			unix_fatal("Disabled server %x bootstrap %x: \"%s\": setaudit()",
+				 serverp->port, serverp->bootstrap->bootstrap_port,
+				 serverp->cmd);
+	}
 
 	if (serverp->uid != inherited_uid)
 		if (setuid(serverp->uid) < 0)

@@ -1,6 +1,4 @@
-error detected at relaxng.c:5813
-Internal: failed to validate type float
-error detected at relaxng.c:7073
-error validating list
-error detected at relaxng.c:6770
-Extra content for element vector: text
+./test/relaxng/tutor7_1_2.xml:1: element vector: Relax-NG validity error : failed to validate type float
+./test/relaxng/tutor7_1_2.xml:1: element vector: Relax-NG validity error : Error validating list
+./test/relaxng/tutor7_1_2.xml:1: element vector: Relax-NG validity error : Element vector failed to validate content
+./test/relaxng/tutor7_1_2.xml fails to validate

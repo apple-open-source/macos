@@ -124,11 +124,13 @@ verify_user(pw, prompt)
     (void) sigaction(SIGTSTP, &sa, &osa);
 
     /* Make sure we have at least one auth method. */
-    if (auth_switch[0].name == NULL)
+    if (auth_switch[0].name == NULL) {
+	audit_fail(pw, "No authentication methods");
     	log_error(0, "%s  %s %s",
 	    "There are no authentication methods compiled into sudo!",
 	    "If you want to turn off authentication, use the",
 	    "--disable-authentication configure option.");
+    }
 
     /* Set FLAG_ONEANDONLY if there is only one auth method. */
     if (auth_switch[1].name == NULL)
@@ -143,8 +145,10 @@ verify_user(pw, prompt)
 	    status = (auth->init)(pw, &prompt, auth);
 	    if (status == AUTH_FAILURE)
 		auth->flags &= ~FLAG_CONFIGURED;
-	    else if (status == AUTH_FATAL)	/* XXX log */
+	    else if (status == AUTH_FATAL)	/* XXX log */ {
+		audit_fail(pw, "Auth Failure");
 		exit(1);		/* assume error msg already printed */
+	    }
 
 	    if (NEEDS_USER(auth))
 		set_perms(PERM_ROOT, 0);
@@ -161,8 +165,10 @@ verify_user(pw, prompt)
 		status = (auth->setup)(pw, &prompt, auth);
 		if (status == AUTH_FAILURE)
 		    auth->flags &= ~FLAG_CONFIGURED;
-		else if (status == AUTH_FATAL)	/* XXX log */
+		else if (status == AUTH_FATAL)	/* XXX log */ {
+		    audit_fail(pw, "Auth Failure");
 		    exit(1);		/* assume error msg already printed */
+		}
 
 		if (NEEDS_USER(auth))
 		    set_perms(PERM_ROOT, 0);
@@ -203,8 +209,10 @@ verify_user(pw, prompt)
 
 	/* Exit loop on nil password, but give it a chance to match first. */
 	if (nil_pw) {
-	    if (counter == def_ival(I_PASSWD_TRIES))
+	    if (counter == def_ival(I_PASSWD_TRIES)) {
+		audit_fail(pw, "password attempt limit reached");
 		exit(1);
+	    }
 	    else
 		break;
 	}
@@ -220,8 +228,10 @@ cleanup:
 		set_perms(PERM_USER, 0);
 
 	    status = (auth->cleanup)(pw, auth);
-	    if (status == AUTH_FATAL)	/* XXX log */
+	    if (status == AUTH_FATAL)	/* XXX log */ {
+		audit_fail(pw, "Auth Failure");
 		exit(1);		/* assume error msg already printed */
+  	    }
 
 	    if (NEEDS_USER(auth))
 		set_perms(PERM_ROOT, 0);
@@ -237,10 +247,12 @@ cleanup:
 		flags = 0;
 	    else
 		flags = NO_MAIL;
+	    audit_fail(pw, "Incorrect password");
 	    log_error(flags, "%d incorrect password attempt%s",
 		def_ival(I_PASSWD_TRIES) - counter,
 		(def_ival(I_PASSWD_TRIES) - counter == 1) ? "" : "s");
 	case AUTH_FATAL:
+	    audit_fail(pw, "Auth failure");
 	    exit(1);
     }
     /* NOTREACHED */

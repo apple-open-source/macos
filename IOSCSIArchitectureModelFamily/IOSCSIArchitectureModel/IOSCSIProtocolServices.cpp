@@ -732,6 +732,25 @@ IOSCSIProtocolServices::GetTimeoutDuration ( SCSITaskIdentifier request )
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetAutosenseRequestedDataTransferCount - Gets the amount of autosense
+//											   data transfer requested.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+UInt64
+IOSCSIProtocolServices::GetAutosenseRequestedDataTransferCount (
+											SCSITaskIdentifier request )
+{
+	
+	SCSITask *	scsiRequest;
+	
+	scsiRequest = OSDynamicCast ( SCSITask, request );
+	return scsiRequest->GetAutosenseRequestedDataTransferCount ( );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	¥ SetAutoSenseData - Sets the auto sense data for this request.
 //														[DEPRECATED][PROTECTED]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -914,9 +933,50 @@ IOSCSIProtocolServices::AddSCSITaskToHeadOfQueue ( SCSITask * request )
 	
 	IOSimpleLockLock ( fQueueLock );
 	
-	// Make sure that the new request does not have a following task.
-	request->EnqueueFollowingSCSITask ( fSCSITaskQueueHead );
-	fSCSITaskQueueHead = request;
+	// If the head of the queue is NULL, there are no other tasks and so just add
+	// this task to the queue head.
+	if ( fSCSITaskQueueHead == NULL )
+	{
+		// Make sure that the new request does not have a following task.
+		request->EnqueueFollowingSCSITask ( fSCSITaskQueueHead );
+		fSCSITaskQueueHead = request;
+	}
+	// Ensure autosense gets to the very front of the queue, even if there
+	// are other tasks which are marked HEAD_OF_QUEUE. Also, if there aren't
+	// any autosense commands at the front of the queue, just enqueue it
+	// at the front.
+	else if ( ( request->GetTaskExecutionMode ( ) == kSCSITaskMode_Autosense ) ||
+		 ( fSCSITaskQueueHead->GetTaskExecutionMode ( ) != kSCSITaskMode_Autosense ) )
+	{
+		
+		// Make sure that the new request does not have a following task.
+		request->EnqueueFollowingSCSITask ( fSCSITaskQueueHead );
+		fSCSITaskQueueHead = request;
+		
+	}
+	else
+	{
+		
+		SCSITask *	prev = NULL;
+		SCSITask *	next = NULL;
+		
+		// This is a HEAD_OF_QUEUE task. Put it at the front behind
+		// any autosense tasks already queued up.
+		prev = fSCSITaskQueueHead;
+		next = prev->GetFollowingSCSITask ( );
+		
+		while ( next->GetTaskExecutionMode ( ) == kSCSITaskMode_Autosense )
+		{
+			
+			prev = next;
+			next = prev->GetFollowingSCSITask ( );
+			
+		}
+		
+		request->EnqueueFollowingSCSITask ( next );
+		prev->EnqueueFollowingSCSITask ( request );
+		
+	}
 	
 	IOSimpleLockUnlock ( fQueueLock );
 	

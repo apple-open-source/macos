@@ -87,7 +87,7 @@ public:
 	const CredentialSet &authCredentials() const	{ return mSessionCreds; }
 
 	OSStatus authCreate(const AuthItemSet &rights, const AuthItemSet &environment,
-		AuthorizationFlags flags, AuthorizationBlob &newHandle, const security_token_t &securityToken);
+		AuthorizationFlags flags, AuthorizationBlob &newHandle, const audit_token_t &auditToken);
 	void authFree(const AuthorizationBlob &auth, AuthorizationFlags flags);
 	OSStatus authGetRights(const AuthorizationBlob &auth,
 		const AuthItemSet &requestedRights, const AuthItemSet &environment,

@@ -24,14 +24,16 @@ xmllint \- command line XML tool
 
 .nf
 \fBxmllint\fR [\fB--version\fR | \fB--debug\fR | \fB--shell\fR | \fB--debugent\fR |
-        \fB--copy\fR | \fB--recover\fR | \fB--noent\fR | \fB--noout\fR | \fB--htmlout\fR
-        | \fB--nowrap\fR | \fB--valid\fR | \fB--postvalid\fR | \fB--dtdvalid
-        \fIURL\fR\fR | \fB--timing\fR | \fB--repeat\fR | \fB--insert\fR | \fB--compress\fR
-        | \fB--sgml\fR | \fB--html\fR | \fB--push\fR | \fB--memory\fR | \fB--nowarning\fR
-        | \fB--noblanks\fR | \fB--format\fR | \fB--testIO\fR | \fB--encode \fIencoding\fR\fR
+        \fB--copy\fR | \fB--recover\fR | \fB--noent\fR | \fB--nocdata\fR | \fB--nsclean\fR
+        | \fB--noout\fR | \fB--htmlout\fR | \fB--nowrap\fR | \fB--valid\fR |
+        \fB--postvalid\fR | \fB--dtdvalid \fIURL\fR\fR | \fB--dtdvalidfpi \fIFPI\fR\fR
+        | \fB--timing\fR | \fB--repeat\fR | \fB--insert\fR | \fB--compress\fR
+        | \fB--html\fR | \fB--push\fR | \fB--memory\fR | \fB--nowarning\fR |
+        \fB--noblanks\fR | \fB--format\fR | \fB--testIO\fR | \fB--encode \fIencoding\fR\fR
         | \fB--catalogs\fR | \fB--nocatalogs\fR | \fB--auto\fR | \fB--xinclude\fR
         | \fB--loaddtd\fR | \fB--dtdattr\fR | \fB--dropdtd\fR | \fB--stream\fR
-        | \fB--chkregister\fR] [\fBxmlfile\fR]
+        | \fB--chkregister\fR | \fB--relaxng\fR | \fB--schema\fR | \fB--nonet\fR]
+        [\fBxmlfile\fR]
 .fi
 
 .SH "INTRODUCTION"
@@ -73,6 +75,14 @@ Output any parsable portions of an invalid document.
 Substitute entity values for entity references. By default, xmllint leaves entity references in place.
 
 .TP
+\fB--nocdata\fR
+Substitute CDATA section by equivalent text nodes.
+
+.TP
+\fB--nsclean\fR
+Remove redundant namespace declarations.
+
+.TP
 \fB--noout\fR
 Suppress output. By default, xmllint outputs the result tree.
 
@@ -97,6 +107,10 @@ Validate after parsing is completed.
 Use the DTD specified by \fIURL\fR for validation.
 
 .TP
+\fB--dtdvalidfpi\fR \fIFPI\fR
+Use the DTD specified by the Public Identifier \fIFPI\fR for validation, note that this will require a Catalog exporting that Public Identifier to work.
+
+.TP
 \fB--timing\fR
 Output information about the time it takes xmllint to perform the various steps.
 
@@ -111,10 +125,6 @@ Test for valid insertions.
 .TP
 \fB--compress\fR
 Turn on gzip compression of output.
-
-.TP
-\fB--sgml\fR
-Use the DocBook SGML parser. This allows documents written in SGML DocBook to be converted into an in-memory tree and treated as if they were written in XML.
 
 .TP
 \fB--html\fR
@@ -138,7 +148,7 @@ Drop ignorable blank spaces.
 
 .TP
 \fB--format\fR
-Reformat and reindent the output.
+Reformat and reindent the output. The $XMLLINT_INDENT environment variable controls the indentation (default value is two spaces " ").
 
 .TP
 \fB--testIO\fR
@@ -178,11 +188,23 @@ Remove DTD from output.
 
 .TP
 \fB--stream\fR
-Use streaming API - useful for validation of files that are too large to be held in memory.
+Use streaming API - useful when used in combination with --relaxng or --valid options for validation of files that are too large to be held in memory.
 
 .TP
 \fB--chkregister\fR
 Turn on node registration. Useful for developeres testing libxml2 node tracking code.
+
+.TP
+\fB--relaxng\fR \fIschema\fR
+Use RelaxNG file named \fIschema\fR for validation.
+
+.TP
+\fB--schema\fR \fIschema\fR
+Use a W3C XML Schema file named \fIschema\fR for validation.
+
+.TP
+\fB--nonet\fR
+Do not use the Internet to fetch DTD's or entities.
 
 .SH "SHELL"
 

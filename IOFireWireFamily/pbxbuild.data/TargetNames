@@ -1,0 +1,11 @@
+if [ "${Target}" = "All" ]; then
+	Targets='IOFireWireFamily
+IOFireWireLib.plugin'
+elif [ "${Target}" = "IOFireWireFamily" ]; then
+	Targets='IOFireWireFamily'
+elif [ "${Target}" = "IOFireWireLib.plugin" ]; then
+	Targets='IOFireWireLib.plugin'
+else
+	Targets='IOFireWireFamily
+IOFireWireLib.plugin'
+fi

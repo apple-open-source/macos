@@ -200,7 +200,7 @@ IOReturn KeyLargoPlatform::performPlatformSleep ( void ) {
 
 //	--------------------------------------------------------------------------------
 IOReturn KeyLargoPlatform::performPlatformWake ( IOService * device ) {
-	registerInterrupts ( device );
+	registerInterrupts ( (IOService*)this );	//	[3585556]	registerInterrupts requires passing the platform interface object!
 	return kIOReturnSuccess;
 }
 
@@ -904,7 +904,17 @@ GpioAttributes KeyLargoPlatform::getHeadphoneConnected() {
 
 //	--------------------------------------------------------------------------------
 IOReturn KeyLargoPlatform::setHeadphoneMuteState ( GpioAttributes muteState ) {
-	return setGpioAttributes ( kGPIO_Selector_HeadphoneMute, muteState );
+	IOReturn		result = kIOReturnSuccess;
+	
+	if ( mEnableAmplifierMuteRelease || ( kGPIO_Muted == muteState ) ) {		//	[3514762]
+		if ( kGPIO_Muted == muteState ) {
+			debugIOLog ( 5, "KeyLargoPlatform::setHeadphoneMuteState ( kGPIO_Muted )" );
+		} else {
+			debugIOLog ( 5, "KeyLargoPlatform::setHeadphoneMuteState ( kGPIO_Unmuted )" );
+		}
+		result = setGpioAttributes ( kGPIO_Selector_HeadphoneMute, muteState );
+	}
+	return result;
 }
 
 //	--------------------------------------------------------------------------------
@@ -939,7 +949,17 @@ GpioAttributes KeyLargoPlatform::getLineOutConnected() {
 
 //	--------------------------------------------------------------------------------
 IOReturn KeyLargoPlatform::setLineOutMuteState ( GpioAttributes muteState ) {
-	return setGpioAttributes ( kGPIO_Selector_LineOutMute, muteState );
+	IOReturn		result = kIOReturnSuccess;
+	
+	if ( mEnableAmplifierMuteRelease || ( kGPIO_Muted == muteState ) ) {		//	[3514762]
+		if ( kGPIO_Muted == muteState ) {
+			debugIOLog ( 5, "KeyLargoPlatform::setLineOutMuteState ( kGPIO_Muted )" );
+		} else {
+			debugIOLog ( 5, "KeyLargoPlatform::setLineOutMuteState ( kGPIO_Unmuted )" );
+		}
+		result = setGpioAttributes ( kGPIO_Selector_LineOutMute, muteState );
+	}
+	return result;
 }
 
 //	--------------------------------------------------------------------------------
@@ -959,7 +979,17 @@ GpioAttributes KeyLargoPlatform::getSpeakerMuteState() {
 
 //	--------------------------------------------------------------------------------
 IOReturn KeyLargoPlatform::setSpeakerMuteState ( GpioAttributes muteState ) {
-	return setGpioAttributes ( kGPIO_Selector_SpeakerMute, muteState );
+	IOReturn		result = kIOReturnSuccess;
+	
+	if ( mEnableAmplifierMuteRelease || ( kGPIO_Muted == muteState ) ) {		//	[3514762]
+		if ( kGPIO_Muted == muteState ) {
+			debugIOLog ( 5, "KeyLargoPlatform::setSpeakerMuteState ( kGPIO_Muted )" );
+		} else {
+			debugIOLog ( 5, "KeyLargoPlatform::setSpeakerMuteState ( kGPIO_Unmuted )" );
+		}
+		result = setGpioAttributes ( kGPIO_Selector_SpeakerMute, muteState );
+	}
+	return result;
 }
 
 //	--------------------------------------------------------------------------------
@@ -1015,7 +1045,6 @@ IOReturn KeyLargoPlatform::registerInterruptHandler (IOService * theDevice, void
 		case kUnknownInterrupt:
 		default:							debugIOLog (3,  "Attempt to register unknown interrupt source" );				break;
 	}
-
 	return result;
 }
 
@@ -1086,7 +1115,7 @@ IOReturn KeyLargoPlatform::setSpeakerDetectInterruptHandler (IOService* theDevic
 		result = mWorkLoop->removeEventSource (mSpeakerDetectIntEventSource);	
 		mSpeakerDetectIntEventSource = NULL;
 	} else {
-		FailIf (NULL == mHeadphoneDetectIntProvider, Exit);
+		FailIf (NULL == mSpeakerDetectIntProvider, Exit);
 		mSpeakerDetectIntEventSource = theInterruptEventSource = IOInterruptEventSource::interruptEventSource (this,
 																				(IOInterruptEventSource::Action)interruptHandler,
 																				mSpeakerDetectIntProvider,

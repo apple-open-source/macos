@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<!DOCTYPE xsa PUBLIC "-//LM Garshol//DTD XML Software Autoupdate 1.0//EN//XML" "http://www.garshol.priv.no/download/xsa/xsa.dtd">
+<xsa>
+  <vendor>
+    <name>Daniel Veillard</name>
+    <email>daniel@veillard.com</email>
+    <url>http://veillard.com/</url>
+  </vendor>
+  <product id="libxml2">
+    <name>libxml2</name>
+    <version>2.6.7</version>
+    <last-release> Feb 23 2004</last-release>
+    <info-url>http://xmlsoft.org/</info-url>
+    <changes>   - documentation: tutorial updates (John Fleck), benchmark results
+   - xmlWriter: updates and fixes (Alfred Mickautsch, Lucas Brasilino)
+   - XPath optimization (Petr Pajas)
+   - DTD ID handling optimization
+   - bugfixes: xpath number with  &gt; 19 fractional (William Brack), push
+    mode with unescaped '&gt;' characters, fix xmllint --stream --timing, fix
+    xmllint --memory --stream memory usage, xmlAttrSerializeTxtContent
+    handling NULL, trying to fix Relax-NG/Perl interface.
+   - python: 2.3 compatibility, whitespace fixes (Malcolm Tredinnick)
+   - Added relaxng option to xmllint --shell
+
+</changes>
+  </product>
+</xsa>

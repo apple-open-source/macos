@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -70,9 +67,7 @@ bool CommandExecuted(SccChannel *Channel, UInt32 iterator);
 bool SuckDataFromTheDBDMAChain(SccChannel *Channel);
 UInt32 CommandStatus(SccChannel *Channel, UInt32 commandNumber);
 
-#if USE_WORK_LOOPS
-    void rearmRxTimer(SccChannel *Channel, UInt32 timerDelay);
-#endif
+void rearmRxTimer(SccChannel *Channel, UInt32 timerDelay);
 
     // Marco:
     // the following define forces the code to ignore that this is an APPLE
@@ -316,7 +311,7 @@ void OpenScc(SccChannel *Channel)
 
         // Eanbles the chip interrupts
         
-    SccEnableInterrupts(Channel, kSccInterrupts, 0);
+    SccEnableInterrupts(Channel, kSccInterrupts);
 
         // Free the fifo in case of leftover errors
         
@@ -341,7 +336,6 @@ void OpenScc(SccChannel *Channel)
 
 void SccCloseChannel(SccChannel *Channel)
 {
-    UInt8	dontCare;
     
     ELG(0, 0, "SccCloseChannel");
 
@@ -353,9 +347,9 @@ void SccCloseChannel(SccChannel *Channel)
         IOSleep(1000);
     }
     
-    dontCare = SccDisableInterrupts(Channel, kSccInterrupts);		// Disable scc interrupts before doing anything
-    dontCare = SccDisableInterrupts(Channel, kRxInterrupts);		// Disable the receiver
-    dontCare = SccDisableInterrupts(Channel, kTxInterrupts);		// Disable the transmitter
+    SccDisableInterrupts(Channel, kSccInterrupts);		// Disable scc interrupts before doing anything
+    SccDisableInterrupts(Channel, kRxInterrupts);		// Disable the receiver
+    SccDisableInterrupts(Channel, kTxInterrupts);		// Disable the transmitter
 
         // Disable the Wait/Request function and interrupts
         
@@ -475,8 +469,8 @@ bool SccSetParity(SccChannel *Channel, ParityType ParitySetting)
             return false;
     }
 
-    SccEnableInterrupts( Channel, kRxInterrupts, 0);
-    SccEnableInterrupts( Channel, kSccInterrupts, 0);
+    SccEnableInterrupts( Channel, kRxInterrupts);
+    SccEnableInterrupts( Channel, kSccInterrupts);
 
         // Reminds the receiver to call when a new character enters in the fifo
         
@@ -603,14 +597,13 @@ void SccChannelReset(SccChannel *Channel)
 bool SccSetBaud(SccChannel *Channel, UInt32 NewBaud)
 {
     UInt32	brgConstant;
-    UInt8	previousState;
     UInt8	wr4Mirror;
     
     ELG(0, NewBaud, "SccSetBaud");
 
         // Disables the interrupts
         
-    previousState = SccDisableInterrupts(Channel, kSerialInterrupts);
+    //SccDisableInterrupts(Channel, kSerialInterrupts);
 
         // Tricky thing this, when we wish to go up in speed we also need to switch the
         // clock generator for the via
@@ -668,7 +661,7 @@ bool SccSetBaud(SccChannel *Channel, UInt32 NewBaud)
 
         // And at the end re-enables the interrupts
         
-    SccEnableInterrupts(Channel, kSerialInterrupts, previousState);
+    //SccEnableInterrupts(Channel, kSerialInterrupts);
 
         // Set the global parameter
         
@@ -696,7 +689,6 @@ bool SccSetBaud(SccChannel *Channel, UInt32 NewBaud)
 
 bool SccConfigureForMIDI(SccChannel *Channel, UInt32 ClockMode)
 {
-    UInt8	previousState;
 
     ELG(0, ClockMode, "SccConfigureForMIDI");
 
@@ -705,7 +697,7 @@ bool SccConfigureForMIDI(SccChannel *Channel, UInt32 ClockMode)
  	
         // Disable interrupts
         
-    previousState = SccDisableInterrupts(Channel, kSerialInterrupts);
+    //SccDisableInterrupts(Channel, kSerialInterrupts);
 
         //  Set clock mode
         
@@ -731,7 +723,7 @@ bool SccConfigureForMIDI(SccChannel *Channel, UInt32 ClockMode)
     
         // Re-enable interrupts
          
-    SccEnableInterrupts(Channel, kSerialInterrupts, previousState);
+    //SccEnableInterrupts(Channel, kSerialInterrupts);
  
     return true;
      
@@ -952,7 +944,7 @@ void PPCSerialISR(OSObject *identity, void *istate, SccChannel *Channel)
         // The only reaon I am here is that I got an exteral interrupt
         
     SccHandleExtInterrupt(identity, istate, Channel);
-    SccEnableInterrupts(Channel, kSccInterrupts, 0);
+    SccEnableInterrupts(Channel, kSccInterrupts);
 
 }/* end PPCSerialISR */
 
@@ -1162,12 +1154,11 @@ bool SetUpTransmit(SccChannel *Channel)
 //
 /****************************************************************************************************/
 
-UInt8 SccDisableInterrupts(SccChannel *Channel, UInt32 WhichInts)
+void SccDisableInterrupts(SccChannel *Channel, UInt32 WhichInts)
 {
-    UInt8	previousState = 0;
     UInt8	sccState;
     
-    ELG(0, 0, "SccDisableInterrupts");
+    ELG(0, WhichInts, "SccDisableInterrupts");
 
     if (Channel->ControlRegister)
     {
@@ -1175,19 +1166,16 @@ UInt8 SccDisableInterrupts(SccChannel *Channel, UInt32 WhichInts)
         {
             case kTxInterrupts:					// Turn off tx interrupts
                 sccState = Channel->lastWR[5];
-                previousState = (UInt8)sccState;
                 SccWriteReg(Channel, R5, sccState & ~kTxEnable);
                 break;
             
             case kRxInterrupts:					// Turn off rx interrupts
                 sccState = Channel->lastWR[3];
-                previousState = (UInt8)sccState;
                 SccWriteReg(Channel, R3, sccState & ~kRxEnable);
                 break;
             
             case kSccInterrupts:				// Turn off the scc interrupt processing
                 sccState = Channel->lastWR[9];
-                previousState = (UInt8)sccState;
                 SccWriteReg(Channel, R9, sccState & ~kMIE & ~kNV);
                 break;
             
@@ -1196,7 +1184,7 @@ UInt8 SccDisableInterrupts(SccChannel *Channel, UInt32 WhichInts)
         }
     }
     
-    return previousState;
+    return;
     
 }/* end SccDisableInterrupts */
 
@@ -1214,23 +1202,23 @@ UInt8 SccDisableInterrupts(SccChannel *Channel, UInt32 WhichInts)
 //
 /****************************************************************************************************/
 
-void SccEnableInterrupts(SccChannel *Channel, UInt32 WhichInts, UInt8 previousState)
+void SccEnableInterrupts(SccChannel *Channel, UInt32 WhichInts)
 {
 
-    ELG(0, 0, "SccEnableInterrupts");
+    ELG(0, WhichInts, "SccEnableInterrupts");
 
     switch (WhichInts)
     {
-        case kTxInterrupts:					// Turn on tx interrupts (regardless of previous state)
+        case kTxInterrupts:					// Turn on tx interrupts
             SccWriteReg(Channel, R5, Channel->lastWR[5] | kTxEnable);
             break;
             
-        case kRxInterrupts:					// Turn on rx interrupts (regardless of previous state)
+        case kRxInterrupts:					// Turn on rx interrupts
             SccWriteReg(Channel, R3, Channel->lastWR[3] | kRxEnable);
             SccWriteReg(Channel, R0, kResetRxInt);
             break;
             
-        case kSccInterrupts:					// Turn on Scc interrupts (regardless of previous state)
+        case kSccInterrupts:					// Turn on Scc interrupts
             SccWriteReg(Channel, R9, Channel->lastWR[9] | kMIE | kNV);
             break;
             
@@ -1463,7 +1451,7 @@ void SccEnableDMAInterruptSources(SccChannel *Channel, bool onOff)
 
     SccWriteReg(Channel, R1, newRegisterValue);
 
-    SccEnableInterrupts(Channel, kRxInterrupts, 0);
+    SccEnableInterrupts(Channel, kRxInterrupts);
 
         // Remind the receiver to call when a new character enters the fifo
         
@@ -1721,7 +1709,7 @@ void SccdbdmaStartReception(SccChannel *Channel)
        
         // Enables the receiver and starts
         
-    SccEnableInterrupts(Channel, kRxInterrupts, 0);
+    SccEnableInterrupts(Channel, kRxInterrupts);
     IODBDMAStart(dmaInfo->dmaBase, baseCommands);
     
 }/* end SccdbdmaStartReception */
@@ -1851,12 +1839,7 @@ void SccdbdmaRxHandleCurrentPosition(SccChannel *Channel)
         
         IOLockUnlock (Channel->IODBDMARxLock);
 
-#if USE_WORK_LOOPS
         rearmRxTimer(Channel, nsec);
-#else
-        clock_interval_to_deadline(nsec, 1, &deadline);
-        thread_call_func_delayed((thread_call_func_t) SccdbdmaRxHandleCurrentPosition, Channel, deadline);
-#endif
     } else {
     
             // Ok since we didn't get anything let's stop the channel and restart for the
@@ -2365,14 +2348,14 @@ void rxTimeoutHandler(OSObject *owner, IOTimerEventSource *sender)
 	// Make sure it's me
         
     serialPortPtr = OSDynamicCast(AppleRS232Serial, owner);
-    if(serialPortPtr)
-    {		
-        SccdbdmaRxHandleCurrentPosition(&serialPortPtr->fPort);
+    if (serialPortPtr)
+    {
+	if (serialPortPtr->fCurrentPowerState)		// if not sleeping
+	    SccdbdmaRxHandleCurrentPosition(&serialPortPtr->fPort);
     }
     
 }/* end rxTimeoutHandler */
 
-#if USE_WORK_LOOPS
 /****************************************************************************************************/
 //
 //		Function:	rearmRxTimer
@@ -2393,4 +2376,4 @@ void rearmRxTimer(SccChannel *Channel, UInt32 timerDelay)
     Channel->rxTimer->setTimeout(timerDelay);
     
 }/* end rearmRxTimer */
-#endif
+

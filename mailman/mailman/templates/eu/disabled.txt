@@ -1,0 +1,22 @@
+%(listname)s posta zerrendan parte hartzeko gaitasuna kendu egin dizugu honako
+arrazoiarengatik: %(reason)s. Zerrendan duzun egoera zuzendu arte ez dizugu
+mezu gehiago bidaliko. Hau bezalako beste 
+%(noticesleft)s mezu jasoko dituzu, eta ondoren zure izena ezabatu egingo dugu zerrendatik.
+
+Berriro zerrendan parte hartu ahal izateko, erantzun mezu honi 
+(Gaia lerroa hutsik lagata), edo joan konfirmazio orrira:
+
+    %(confirmurl)s
+
+Zure bazkide orria ere bisita dezakezu:
+
+    %(optionsurl)s
+
+Orrialde horretan mezuak jasotzeko baldintzak alda ditzakezu. Besteak beste, 
+zure posta helbidea, edo mezuak bildumetan jaso nahi dituzun ala ez.  
+Gogan izan zure pasahitza %(password)s dela.
+
+
+Edozein galdera baduzu, idatzi zerrendaren kudeatzaileari:
+
+    %(owneraddr)s

@@ -333,7 +333,18 @@ int ttyopen ( TFILE *f, char *fname, int reverse, int hwfc )
     }
     else
       msg ( "Ihave exclusive use") ;
+
+    int mics;
+
+    /*
+     * Reduce the buffering of received characters so that we're better able to 
+     * respond within T30 time constraints (bugs 3555657 & 2884777).
+     */
+    mics = 500;
+    if (ioctl(fd, IOSSDATALAT, &mics) == -1)
+      msg ( "W0ioctl(IOSSDATALAT, %d) returned error - %s(%d)\n", mics, strerror(errno), errno);
   }
+
   tinit ( f, fd, reverse, hwfc ) ;
 
 #else

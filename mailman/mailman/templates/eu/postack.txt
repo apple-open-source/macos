@@ -1,0 +1,5 @@
+Gaitzat "%(subject)s" duen mezua ondo jaso dugu %(listname)s posta zerrendan.
+
+Zerrendaren informazio orria hemen: %(listinfo_url)s
+
+Zure harpidetzaren ezaugarriak: %(optionsurl)s

@@ -1,10 +1,11 @@
 /*
- * schemastypes.c : interface of the XML Schema Datatypes
- *             definition and validity checking
+ * Summary: implementation of XML Schema Datatypes
+ * Description: module providing the XML Schema Datatypes implementation
+ *              both definition and validity checking
  *
- * See Copyright for the status of this software.
+ * Copy: See Copyright for the status of this software.
  *
- * Daniel Veillard <veillard@redhat.com>
+ * Author: Daniel Veillard
  */
 
 
@@ -16,23 +17,47 @@
 #ifdef LIBXML_SCHEMAS_ENABLED
 
 #include <libxml/schemasInternals.h>
+#include <libxml/xmlschemas.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void		xmlSchemaInitTypes		(void);
-void		xmlSchemaCleanupTypes		(void);
-xmlSchemaTypePtr xmlSchemaGetPredefinedType	(const xmlChar *name,
+XMLPUBFUN void XMLCALL		
+    		xmlSchemaInitTypes		(void);
+XMLPUBFUN void XMLCALL		
+		xmlSchemaCleanupTypes		(void);
+XMLPUBFUN xmlSchemaTypePtr XMLCALL 
+		xmlSchemaGetPredefinedType	(const xmlChar *name,
 						 const xmlChar *ns);
-int		xmlSchemaValidatePredefinedType	(xmlSchemaTypePtr type,
+XMLPUBFUN int XMLCALL		
+		xmlSchemaValidatePredefinedType	(xmlSchemaTypePtr type,
 						 const xmlChar *value,
 						 xmlSchemaValPtr *val);
-int		xmlSchemaValidateFacet		(xmlSchemaTypePtr base,
+XMLPUBFUN int XMLCALL		
+		xmlSchemaValPredefTypeNode	(xmlSchemaTypePtr type,
+						 const xmlChar *value,
+						 xmlSchemaValPtr *val,
+						 xmlNodePtr node);
+XMLPUBFUN int XMLCALL		
+		xmlSchemaValidateFacet		(xmlSchemaTypePtr base,
 						 xmlSchemaFacetPtr facet,
 						 const xmlChar *value,
 						 xmlSchemaValPtr val);
-void		xmlSchemaFreeValue		(xmlSchemaValPtr val);
+XMLPUBFUN void XMLCALL		
+		xmlSchemaFreeValue		(xmlSchemaValPtr val);
+XMLPUBFUN xmlSchemaFacetPtr XMLCALL 
+		xmlSchemaNewFacet		(void);
+XMLPUBFUN int XMLCALL		
+		xmlSchemaCheckFacet		(xmlSchemaFacetPtr facet,
+						 xmlSchemaTypePtr typeDecl,
+						 xmlSchemaParserCtxtPtr ctxt,
+						 const xmlChar *name);
+XMLPUBFUN void XMLCALL		
+		xmlSchemaFreeFacet		(xmlSchemaFacetPtr facet);
+XMLPUBFUN int XMLCALL		
+		xmlSchemaCompareValues		(xmlSchemaValPtr x,
+						 xmlSchemaValPtr y);
 
 #ifdef __cplusplus
 }

@@ -18,6 +18,7 @@ code, and have assigned copyright for contributions to the FSF:
 
     Juan Carlos Rey Anaya
     Richard Barrett
+    Stephan Berndts
     Norbert Bollow
     Ben Gertzfield
     Victoriano Giralt
@@ -28,7 +29,7 @@ code, and have assigned copyright for contributions to the FSF:
     Simone Piunno
 
 Thanks also to Dragon for his winning Mailman logo contribution, and
-to Terri Oda for the neat shortcut icon.
+to Terri Oda for the neat shortcut icon and the member documentation.
 
 Control.com sponsored development of several Mailman 2.1 features,
 including topics filters, external membership sources, and initial
@@ -45,9 +46,13 @@ in answering questions on mailman-users.
     Sven Anderson
     Matthias Andree
     Anton Antonov
+    Mike Avery
     Stonewall Ballard
     Jeff Berliner
     Stuart Bishop
+    David Blomquist
+    Bojan
+    Søren Bondrup
     Alessio Bragadini
     J. D. Bronson
     Stan Bubrouski
@@ -56,23 +61,30 @@ in answering questions on mailman-users.
     Ted Cabeen
     Mentor Cana
     John Carnes
+    Claudio Cattazzo
     Donn Cave
     David Champion
     Hye-Shik Chang
     Eric D. Christensen
     Paul Cox
+    Stefaniu Criste
+    Robert Daeley
+    Ned Dawes
     Emilio Delgado
     John Dennis
     Stefan Divjak
     Maximillian Dornseif
     Fred Drake
+    Maxim Dzumanenko
     Rob Ellis
     Fil
     Patrick Finnerty
     Erik Forsberg
     Darrell Fuhriman
+    Robert Garrigós
     Carson Gaspar
     Pascal GEORGE
+    Vadim Getmanshchuk
     David Gibbs
     Terry Grace
     Federico Grau
@@ -88,15 +100,18 @@ in answering questions on mailman-users.
     Bert Hubert
     Henny Huisman
     Jeremy Hylton
+    Ikeda Soji
     Rostyk Ivantsiv
     Ron Jarrell
     Matthias Juchem
     Tamito KAJIYAMA
+    Nino Katic
     Tokio Kikuchi
     Ashley M. Kirchner
     Matthias Klose
     Harald Koch
     Chris Kolar
+    Uros Kositer
     Andrew Kuchling
     Ricardo Kustner
     L'homme Moderne
@@ -118,6 +133,8 @@ in answering questions on mailman-users.
     Nigel Metheringham
     Dan Mick
     Garey Mills
+    David Martínez Moreno
+    Jonas Muerer
     Erik Myllymaki
     Balazs Nagy
     Dale Newfield
@@ -128,18 +145,22 @@ in answering questions on mailman-users.
     Timothy O'Malley
     Jason R. Mastaler
     Michael Meltzer
+    Dirk Mueller
     "office"
     Dan Ohnesorg
     Gerald Oskoboiny
     Eva Österlind
+    Toni Panadès
     Jon Parise
     Tim Peters
     Joe Peterson
+    Piarres Beobide Egaña
     PieterB
     Rodolfo Pilas
     Skye Poier
     Martin Pool
     Don Porter
+    Francesco Potortì
     Bob Puff
     John Read
     Sean Reifschneider
@@ -156,6 +177,7 @@ in answering questions on mailman-users.
     Cabel Sasser
     Bartosz Sawicki
     Gleydson Mazioli da Silva
+    Pasi Sjöholm
     Chris Snell
     Mikhail Sobolev
     Greg Stein

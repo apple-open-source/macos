@@ -1,4 +1,4 @@
-/* $Id: openbsd-compat.h,v 1.1.1.7 2003/04/01 04:02:24 zarzycki Exp $ */
+/* $Id: openbsd-compat.h,v 1.2 2004/02/27 23:27:25 nicolai Exp $ */
 
 #ifndef _OPENBSD_H
 #define _OPENBSD_H
@@ -43,6 +43,7 @@
 
 /* Routines for a single OS platform */
 #include "bsd-cray.h"
+#include "bsd-solaris.h"
 #include "port-irix.h"
 #include "port-aix.h"
 

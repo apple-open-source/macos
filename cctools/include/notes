@@ -1,3 +1,18 @@
+Changes for the 5.13.2 release (the cctools-495.3 release):
+- Added the prototype for unprebind(3) to <mach-o/redo_prebinding.h>.  
+  Radar bug #3176679.
+- Added prototypes for the new routine breakout_mem() and writeout_to_mem()
+  to <stuff/breakout.h>.  Radar bug #3176679.
+- Added MH_PREBINDABLE, MH_ALLMODSBOUND, and MH_CANONICAL Mach-O header 
+  flags to <mach-o/loader.h>.  MH_PREBINDABLE indicates that the binary is not
+  prebound but has enough information in it to be prebound by 
+  redo_prebinding(3) or redo_prebinding(1).  MH_ALLMODSBOUND exists 
+  only in binaries with MH_PREBINDABLE also set and indicates that 
+  when this binary is reprebound, all the two-level namespace modules
+  should be bound.  MH_CANONICAL identifies a canonical form of a 
+  binary, in other words, one that has been processed by unprebind(3) or 
+  redo_prebinding(1) -u.  Radar bug #3176679.
+
 Changes for the 5.13 release (the cctools-492 release):
 - Added the #define NEXT_DEBUG_ADDRESS_TO_ASSIGN to <stuff/seg_addr_table.h>
   so that seg_addr_table(1) can layout debug and profile libraries at a lower

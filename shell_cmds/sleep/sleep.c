@@ -65,14 +65,10 @@ main(argc, argv)
 	int argc;
 	char *argv[];
 {
-#ifndef __APPLE__
 	char *arg, *temp;
 	double val, ival, fval;
 	struct timespec ntime;
 	int fracflag;
-#else
-        int secs;
-#endif
 	int ch;
 
 	(void)setlocale(LC_ALL, "");
@@ -91,10 +87,6 @@ main(argc, argv)
 	if (argc != 1)
 		usage();
 
-#ifdef __APPLE__
-        if ((secs = atoi(*argv)) > 0)
-               	(void)sleep(secs);
-#else
 	/*
 	 * Okay, why not just use atof for everything? Why bother
 	 * checking if there is a fraction in use? Because the old
@@ -130,7 +122,6 @@ main(argc, argv)
 	}
 
 	(void)nanosleep(&ntime, NULL);
-#endif
 
 	exit(0);
 	/* NOTREACHED */

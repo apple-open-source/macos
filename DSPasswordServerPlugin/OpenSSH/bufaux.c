@@ -74,7 +74,7 @@ buffer_put_bignum(Buffer *buffer, BIGNUM *value)
 	/* Get the value of in binary */
 	oi = BN_bn2bin(value, buf);
 	if (oi != bin_size)
-		fatal("buffer_put_bignum: BN_bn2bin() failed: oi %d != bin_size %d",
+		pwsf_fatal("buffer_put_bignum: BN_bn2bin() failed: oi %d != bin_size %d",
 		      oi, bin_size);
 
 	/* Store the number of bits in the buffer in two bytes, msb first. */
@@ -102,7 +102,7 @@ buffer_get_bignum(Buffer *buffer, BIGNUM *value)
 	/* Compute the number of binary bytes that follow. */
 	bytes = (bits + 7) / 8;
 	if (buffer_len(buffer) < bytes)
-		fatal("buffer_get_bignum: input buffer too small");
+		pwsf_fatal("buffer_get_bignum: input buffer too small");
 	bin = (unsigned char*) buffer_ptr(buffer);
 	BN_bin2bn(bin, bytes, value);
 	buffer_consume(buffer, bytes);
@@ -124,7 +124,7 @@ buffer_put_bignum2(Buffer *buffer, BIGNUM *value)
 	/* Get the value of in binary */
 	oi = BN_bn2bin(value, buf+1);
 	if (oi != bytes-1)
-		fatal("buffer_put_bignum: BN_bn2bin() failed: oi %d != bin_size %d",
+		pwsf_fatal("buffer_put_bignum: BN_bn2bin() failed: oi %d != bin_size %d",
 		      oi, bytes);
 	hasnohigh = (buf[1] & 0x80) ? 0 : 1;
 	if (value->neg) {
@@ -192,7 +192,7 @@ buffer_get_string(Buffer *buffer, unsigned int *length_ptr)
 	/* Get the length. */
 	len = buffer_get_int(buffer);
 	if (len > 256 * 1024)
-		fatal("Received packet with bad string length %d", len);
+		pwsf_fatal("Received packet with bad string length %d", len);
 	/* Allocate space for the string.  Add one byte for a null character. */
 	value = xmalloc(len + 1);
 	/* Get the string. */

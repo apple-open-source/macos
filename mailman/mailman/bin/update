@@ -1,6 +1,6 @@
 #! @PYTHON@
 #
-# Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -347,12 +347,16 @@ script.
         for f in os.listdir(b4_tmpl_dir):
             o_tmpl = os.path.join(b4_tmpl_dir, f)
             n_tmpl = os.path.join(new_tmpl_dir, f)
-            if not os.path.exists(n_tmpl):
-                os.rename(o_tmpl, n_tmpl)
-                print _('- moved %(o_tmpl)s to %(n_tmpl)s')
+            if os.path.exists(o_tmpl):
+                if not os.path.exists(n_tmpl):
+                    os.rename(o_tmpl, n_tmpl)
+                    print _('- moved %(o_tmpl)s to %(n_tmpl)s')
+                else:
+                    print _("""\
+- both %(o_tmpl)s and %(n_tmpl)s exist, leaving untouched""")
             else:
                 print _("""\
-- both %(o_tmpl)s and %(n_tmpl)s exist, leaving untouched""")
+- %(o_tmpl)s doesn't exist, leaving untouched""")
     #
     # Move all the templates to the en language subdirectory as required for
     # Mailman 2.1

@@ -14,7 +14,7 @@ BEGIN
 --
 -- MS 92
 --
--- $Header: /cvs/root/SecurityNssAsn1/nssDER/ASN1_Source/asn-useful.asn1,v 1.1 2003/02/19 19:06:35 dmitch Exp $
+-- $Header: /cvs/root/OBSOLETED_PROJECTS/at/Panther/SecurityNssAsn1/nssDER/ASN1_Source/asn-useful.asn1,v 1.1 2003/02/19 19:06:35 dmitch Exp $
 -- $Log: asn-useful.asn1,v $
 -- Revision 1.1  2003/02/19 19:06:35  dmitch
 -- Moved ASN source here from old Security/SecurityASN1 for documentation purposes.

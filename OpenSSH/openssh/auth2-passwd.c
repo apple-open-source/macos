@@ -55,6 +55,11 @@ userauth_passwd(Authctxt *authctxt)
 		authenticated = 1;
 	memset(password, 0, len);
 	xfree(password);
+#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
+	if (!authenticated) {
+		PRIVSEP(solaris_audit_bad_pw("password"));
+	}
+#endif /* BSM */
 	return authenticated;
 }
 

@@ -6,6 +6,9 @@
  *  Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
  * $Log: IOFWBufferFillIsochPort.h,v $
+ * Revision 1.3  2004/01/22 01:49:59  niels
+ * fix user space physical address space getPhysicalSegments
+ *
  * Revision 1.2  2003/07/21 06:52:58  niels
  * merge isoch to TOT
  *
@@ -17,8 +20,7 @@
  *
  */
 
-#import "IOFWIsochPort.h"
-//#import "IOFireWireLink.h"
+#import <IOKit/firewire/IOFWIsochPort.h>
 
 class IOFireWireBus ;
 
@@ -41,12 +43,14 @@ class IOFWBufferFillIsochPort : public IOFWIsochPort
 	
 	protected:
 	
+		IOFireWireBus *				fBus ;
 		IOByteCount					fBytesPerSecond ;
 		UInt32						fIntUSec ;
 		PacketProc *				fPacketProc ;
 		OSObject *					fTarget ;
 		IOFWIsochResourceFlags		fIsochResourceFlags ;
 		UInt32						fFlags ;
+		UInt8 *						fBackingStore ;
 	
 	protected:
 	
@@ -55,8 +59,8 @@ class IOFWBufferFillIsochPort : public IOFWIsochPort
 		// (bit n set = chan n supported)
 		virtual IOReturn					getSupported( IOFWSpeed& maxSpeed, UInt64& chanSupported ) ;
 		
-//	
-//		// Allocate hardware resources for port
+	
+		// Allocate hardware resources for port
 //		virtual IOReturn					allocatePort( IOFWSpeed speed, UInt32 chan ) ;
 //		virtual IOReturn					releasePort() ;
 //		virtual IOReturn					start() ;
@@ -77,7 +81,9 @@ class IOFWBufferFillIsochPort : public IOFWIsochPort
 		void								setFlags( UInt32 flags )										{ fFlags = flags ; }
 		UInt32								getFlags()														{ return fFlags ; }
 
-	private:
+		AbsoluteTime						getInterruptTime() ;
+		
+	protected :
 	
 		virtual bool						init( 
 													IOFireWireBus &			bus, 
@@ -85,4 +91,5 @@ class IOFWBufferFillIsochPort : public IOFWIsochPort
 													UInt32					interruptMicroseconds, 
 													PacketProc				packetProc,
 													OSObject *				target ) ;
+		virtual void						free () ;
 } ;

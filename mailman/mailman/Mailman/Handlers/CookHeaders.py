@@ -39,7 +39,7 @@ MAXLINELEN = 78
 def _isunicode(s):
     return isinstance(s, UnicodeType)
 
-def uheader(mlist, s, header_name=None, continuation_ws='\t'):
+def uheader(mlist, s, header_name=None, continuation_ws='\t', maxlinelen=None):
     # Get the charset to encode the string in.  If this is us-ascii, we'll use
     # iso-8859-1 instead, just to get a little extra coverage, and because the
     # Header class tries us-ascii first anyway.
@@ -54,8 +54,7 @@ def uheader(mlist, s, header_name=None, continuation_ws='\t'):
         codec = charset.input_codec or 'ascii'
         s = unicode(s, codec, 'replace')
     # We purposefully leave no space b/w prefix and subject!
-    return Header(s, charset, header_name=header_name,
-                  continuation_ws=continuation_ws)
+    return Header(s, charset, maxlinelen, header_name, continuation_ws)
 
 
 
@@ -164,16 +163,17 @@ def process(mlist, msg, msgdata):
     # headers by default, pissing off their users.  Too bad.  Fix the MUAs.
     if msgdata.get('_nolist') or not mlist.include_rfc2369_headers:
         return
-    # Pre-calculate
-    listid = '<%s.%s>' % (mlist.internal_name(), mlist.host_name)
+    # This will act like an email address for purposes of formataddr()
+    listid = '%s.%s' % (mlist.internal_name(), mlist.host_name)
     if mlist.description:
-        # Make sure description is properly i18n'd
-        listid_h = uheader(mlist, mlist.description, 'List-Id')
-        listid_h.append(' ' + listid, 'us-ascii')
+        # Don't wrap the header since here we just want to get it properly RFC
+        # 2047 encoded.
+        h = uheader(mlist, mlist.description, 'List-Id', maxlinelen=10000)
+        desc = str(h)
     else:
-        # For wrapping
-        listid_h = Header(listid, 'us-ascii', header_name='List-Id')
-    # We always add a List-ID: header.
+        desc = ''
+    listid_h = formataddr((desc, listid))
+    # BAW: I think the message object should handle any necessary wrapping.
     del msg['list-id']
     msg['List-Id'] = listid_h
     # For internally crafted messages, we

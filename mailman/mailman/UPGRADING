@@ -1,5 +1,5 @@
 Mailman - The GNU Mailing List Management System
-Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
+Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
 
@@ -72,11 +72,11 @@ UPGRADING FROM 2.0.x to 2.1
     upgrade, those messages will not get delivered, and I'm not
     exactly sure yet how to upgrade those pending messages.
 
-    NOTE: When upgrading to Mailman 2.1beta1, you will need to
-    regenerate your aliases files.  There have been many changes to
-    the alias names, the programs they map to, and the name of the
-    wrapper script.  See README.<yourMTA> for details of making
-    Mailman work with your mail server.
+    NOTE: When upgrading to Mailman 2.1, you will need to regenerate
+    your aliases files.  There have been many changes to the alias
+    names, the programs they map to, and the name of the wrapper
+    script.  See README.<yourMTA> for details of making Mailman work
+    with your mail server.
 
     To regenerate your aliases, use the bin/genaliases script.
 

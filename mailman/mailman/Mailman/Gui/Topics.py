@@ -1,25 +1,32 @@
-# Copyright (C) 2001,2002 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2003 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software 
+# along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 import re
 
 from Mailman import mm_cfg
+from Mailman import Utils
 from Mailman.i18n import _
 from Mailman.Logging.Syslog import syslog
 from Mailman.Gui.GUIBase import GUIBase
+
+try:
+    True, False
+except NameError:
+    True = 1
+    False = 0
 
 
 
@@ -88,7 +95,7 @@ class Topics(GUIBase):
         # We start i at 1 and keep going until we no longer find items keyed
         # with the marked tags.
         i = 1
-        while 1:
+        while True:
             deltag   = 'topic_delete_%02d' % i
             boxtag   = 'topic_box_%02d' % i
             reboxtag = 'topic_rebox_%02d' % i
@@ -96,51 +103,46 @@ class Topics(GUIBase):
             wheretag = 'topic_where_%02d' % i
             addtag   = 'topic_add_%02d' % i
             newtag   = 'topic_new_%02d' % i
-
             i += 1
             # Was this a delete?  If so, we can just ignore this entry
             if cgidata.has_key(deltag):
                 continue
-
             # Get the data for the current box
             name  = cgidata.getvalue(boxtag)
             pattern = cgidata.getvalue(reboxtag)
             desc  = cgidata.getvalue(desctag)
-
             if name is None:
                 # We came to the end of the boxes
                 break
-
             if cgidata.has_key(newtag) and (not name or not pattern):
                 # This new entry is incomplete.
                 doc.addError(_("""Topic specifications require both a name and
                 a pattern.  Incomplete topics will be ignored."""))
                 continue
-
             # Make sure the pattern was a legal regular expression
+            name = Utils.websafe(name)
             try:
                 re.compile(pattern)
             except (re.error, TypeError):
-                doc.addError(_("""The topic pattern `%(pattern)s' is not a
+                safepattern = Utils.websafe(pattern)
+                doc.addError(_("""The topic pattern '%(safepattern)s' is not a
                 legal regular expression.  It will be discarded."""))
                 continue
-
             # Was this an add item?
             if cgidata.has_key(addtag):
                 # Where should the new one be added?
                 where = cgidata.getvalue(wheretag)
                 if where == 'before':
                     # Add a new empty topics box before the current one
-                    topics.append(('', '', '', 1))
-                    topics.append((name, pattern, desc, 0))
+                    topics.append(('', '', '', True))
+                    topics.append((name, pattern, desc, False))
                     # Default is to add it after...
                 else:
-                    topics.append((name, pattern, desc, 0))
-                    topics.append(('', '', '', 1))
+                    topics.append((name, pattern, desc, False))
+                    topics.append(('', '', '', True))
             # Otherwise, just retain this one in the list
             else:
-                topics.append((name, pattern, desc, 0))
-
+                topics.append((name, pattern, desc, False))
         # Add these topics to the mailing list object, and deal with other
         # options.
         mlist.topics = topics

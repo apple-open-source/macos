@@ -1,4 +1,4 @@
-A sua autorização é necessária para a aprovação de desinscricao 
+A sua autorização é necessária para a aprovação de desinscrição 
 na lista de discussão:
 
     Por:   %(username)s

@@ -76,6 +76,7 @@ extern "C" {
 #define _notificationType		_expansionData->_notificationType
 #define _suspendInProgress		_expansionData->_suspendInProgress
 #define _portHasBeenSuspended		_expansionData->_portHasBeenSuspended
+#define _addExtraResetTime		_expansionData->_addExtraResetTime
 
 #define kNotifyTimerDelay		30000	// in milliseconds = 30 seconds
 #define kUserLoginDelay			20000	// in milliseconds = 20 seconds
@@ -1116,7 +1117,14 @@ IOUSBDevice::SetConfiguration(IOService *forClient, UInt8 configNumber, bool sta
     OSBoolean * boolObj = OSDynamicCast( OSBoolean, getProperty(kAllowConfigValueOfZero) );
     if ( boolObj && boolObj->isTrue() )
         _allowConfigValueOfZero = true;
-        
+
+    boolObj = OSDynamicCast( OSBoolean, getProperty("kNeedsExtraResetTime") );
+    if ( boolObj && boolObj->isTrue() )
+    {
+        USBLog(3,"%s[%p]::SetConfiguration  kNeedsExtraResetTime is true",getName(), this);
+        _addExtraResetTime = true;
+    }
+
     // If we're not opened by our client, we can't set the configuration
     //
     if (!isOpen(forClient))
@@ -2224,12 +2232,20 @@ IOUSBDevice::ReEnumerateDevice( UInt32 options )
         USBLog(1, "%s[%p]::ReEnumerateDevice - while terminating!", getName(), this);
         return kIOReturnNotResponding;
     }
+
+    // If we have the _addExtraResetTime, set bit 31 of the options
+    //
+    if ( _addExtraResetTime )
+    {
+        USBLog(1, "%s[%p]::ReEnumerateDevice - setting extra reset time options!", getName(), this);
+        options |= (1 << 31 );
+    }
     
     // Since we are going to re-enumerate the device, all drivers and interfaces will be
     // terminated, so we don't need to make this device synchronous.  In fact, we want it
     // async, because this device will go away.
     //
-    USBLog(3, "+%s[%p] ReEnumerateDevice for port %d", getName(), this, _portNumber );
+    USBLog(3, "+%s[%p] ReEnumerateDevice for port %d, options 0x%x", getName(), this, _portNumber, options );
     retain();
     thread_call_enter1( _doPortReEnumerateThread, (thread_call_param_t) options );
 

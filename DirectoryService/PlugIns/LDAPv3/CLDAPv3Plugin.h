@@ -341,6 +341,7 @@ protected:
                                                         CLDAPNode& inLDAPSessionMgr );
 
 	sInt32				GetRecRefLDAPMessage		(	sLDAPContextData *inRecContext,
+														int &ldapMsgId,
 														LDAPMessage **outResultMsg );
 	bool				ParseNextDHCPLDAPServerString
 													(	char **inServer,

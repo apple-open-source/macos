@@ -20,6 +20,9 @@
 #include <grp.h>
 #include <unistd.h>
 
+#include <bsm/libbsm.h>
+#include <bsm/audit_uevents.h>
+#include "ccaudit.h"
 
 //
 // Rule class
@@ -41,6 +44,7 @@ CFStringRef RuleImpl::kRuleDenyID = CFSTR(kAuthorizationRuleClassDeny);
 CFStringRef RuleImpl::kRuleUserID = CFSTR(kAuthorizationRuleClassUser);
 CFStringRef RuleImpl::kRuleDelegateID = CFSTR(kAuthorizationRightRule);
 CFStringRef RuleImpl::kRuleMechanismsID = CFSTR(kAuthorizationRuleClassMechanisms);
+
 
 string
 RuleImpl::Attribute::getString(CFDictionaryRef config, CFStringRef key, bool required = false, char *defaultValue = NULL)
@@ -434,6 +438,8 @@ RuleImpl::evaluateMechanism(const AuthItemRef &inRight, const AuthItemSet &envir
 	AuthItemSet context = auth.infoSet();
 	AuthItemSet hints = environment;
     
+    CommonCriteria::AuditRecord auditrec(auth.creatorAuditToken());
+
     AuthorizationResult result = kAuthorizationResultAllow;
     vector<string>::const_iterator currentMechanism = mEvalDef.begin();
     
@@ -489,11 +495,18 @@ RuleImpl::evaluateMechanism(const AuthItemRef &inRight, const AuthItemSet &envir
                     Credential newCredential(username, password, true); // create a new shared credential
 					
 					if (newCredential->isValid())
+					{
 						Syslog::info("authinternal authenticated user %s (uid %lu) for right %s.", newCredential->username().c_str(), newCredential->uid(), inRight->name());
+						auditrec.submit(AUE_ssauthint, CommonCriteria::errNone, inRight->name());
+					}
 					else
+					{
 						// we can't be sure that the user actually exists so inhibit logging of uid
 						Syslog::error("authinternal failed to authenticate user %s for right %s.", newCredential->username().c_str(), inRight->name());
-					
+
+						auditrec.submit(AUE_ssauthint, CommonCriteria::errInvalidCredential, inRight->name());
+					}
+
                     if (newCredential->isValid())
                     {
                         outCredentials.clear(); // only keep last one
@@ -614,17 +627,26 @@ RuleImpl::evaluateAuthorization(const AuthItemRef &inRight, const Rule &inRule,
             // fetch context and construct a credential to be tested
 			AuthItemSet inContext = auth.infoSet();
             CredentialSet newCredentials = makeCredentials(inContext);
+			// clear context after extracting credentials
+			auth.clearInfoSet(); 
             
             for (CredentialSet::const_iterator it = newCredentials.begin(); it != newCredentials.end(); ++it)
             {
                 const Credential& newCredential = *it;
+				CommonCriteria::AuditRecord auditrec(auth.creatorAuditToken());
 
 				// @@@ we log the uid a process was running under when it created the authref, which is misleading in the case of loginwindow
 				if (newCredential->isValid())
+				{
 					Syslog::info("uid %lu succeeded authenticating as user %s (uid %lu) for right %s.", auth.creatorUid(), newCredential->username().c_str(), newCredential->uid(), inRight->name());
+					auditrec.submit(AUE_ssauthorize, CommonCriteria::errNone, inRight->name());
+				}
 				else
+				{
 					// we can't be sure that the user actually exists so inhibit logging of uid
 					Syslog::error("uid %lu failed to authenticate as user %s for right %s.", auth.creatorUid(), newCredential->username().c_str(), inRight->name());
+					auditrec.submit(AUE_ssauthorize, CommonCriteria::errInvalidCredential, inRight->name());
+				}
                 
                 if (!newCredential->isValid())
                 {
@@ -639,12 +661,18 @@ RuleImpl::evaluateAuthorization(const AuthItemRef &inRight, const Rule &inRule,
                 {
 					// whack an equivalent credential, so it gets updated to a later achieved credential which must have been more stringent
                     credentials.erase(newCredential); credentials.insert(newCredential);
+ 					// use valid credential to set context info
+					auth.setCredentialInfo(newCredential);
                     secdebug("SSevalMech", "added valid credential for user %s", newCredential->username().c_str());
                     status = errAuthorizationSuccess;
                     break;
                 }
                 else
+				{
                     reason = SecurityAgent::userNotInGroup; //unacceptableUser; // userNotInGroup
+					// don't audit: we denied on the basis of something
+					// other than a bad user or password
+				}
             }
             
             if (status == errAuthorizationSuccess)
@@ -653,7 +681,10 @@ RuleImpl::evaluateAuthorization(const AuthItemRef &inRight, const Rule &inRule,
         else
             if ((status == errAuthorizationCanceled) ||
 		(status == errAuthorizationInternal))
-                break;
+			{
+				auth.clearInfoSet();
+				break;
+			}
     }
 
     // If we fell out of the loop because of too many tries, notify user
@@ -665,6 +696,7 @@ RuleImpl::evaluateAuthorization(const AuthItemRef &inRight, const Rule &inRule,
 		AuthItemRef triesHint(AGENT_HINT_TRIES, AuthValueOverlay(sizeof(tries), &tries));
 		environmentToClient.erase(triesHint); environmentToClient.insert(triesHint); // replace
         evaluateMechanism(inRight, environmentToClient, auth, credentials);
+		auth.clearInfoSet();
     }
 
 	Process &cltProc = Server::active().connection().process;
@@ -1089,6 +1121,9 @@ RuleImpl::evaluateAuthorizationOld(const AuthItemRef &inRight, const Rule &inRul
 	Credential newCredential;
 	// @@@ Keep the default reason the same, so the agent only gets userNotInGroup or invalidPassphrase
 	SecurityAgent::Reason reason = SecurityAgent::userNotInGroup;
+
+	CommonCriteria::AuditRecord auditrec(auth.creatorAuditToken());
+
 	// @@@ Hardcoded 3 tries to avoid infinite loops.
 	for (uint32_t tryCount = 0; tryCount < mTries; ++tryCount)
 	{
@@ -1099,7 +1134,10 @@ RuleImpl::evaluateAuthorizationOld(const AuthItemRef &inRight, const Rule &inRul
 
 		// Now we have successfully obtained a credential we need to make sure it authorizes the requested right
 		if (!newCredential->isValid())
+		{
 			reason = SecurityAgent::invalidPassphrase;
+			auditrec.submit(AUE_ssauthorize, CommonCriteria::errInvalidCredential, inRight->name());
+		}
 		else {
 			status = evaluateCredentialForRight(inRight, inRule, environmentToClient, now, newCredential, true);
 			if (status == errAuthorizationSuccess)
@@ -1112,14 +1150,23 @@ RuleImpl::evaluateAuthorizationOld(const AuthItemRef &inRight, const Rule &inRul
 				// add credential to authinfo
 				auth.setCredentialInfo(newCredential);
 								
+				auditrec.submit(AUE_ssauthorize, CommonCriteria::errNone, inRight->name());
 				return errAuthorizationSuccess;
 			}
 			else if (status != errAuthorizationDenied)
+			{
+				if (status == errAuthorizationCanceled)
+					auditrec.submit(AUE_ssauthorize, CommonCriteria::errUserCanceled, inRight->name());
+				// else don't audit--error not due to bad
+				// username or password
 				return status;
+			}
 		}
 		reason = SecurityAgent::userNotInGroup;
 	}
 	query.cancel(SecurityAgent::tooManyTries);
+
+	auditrec.submit(AUE_ssauthorize, CommonCriteria::errTooManyTries, inRight->name());
 	return errAuthorizationDenied;
 }
 

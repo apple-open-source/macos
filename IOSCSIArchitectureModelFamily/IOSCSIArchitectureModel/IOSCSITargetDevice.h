@@ -33,6 +33,7 @@
 #include <IOKit/IOLib.h>
 #include <IOKit/IOService.h>
 #include <IOKit/IOSyncer.h>
+#include <IOKit/IOBufferMemoryDescriptor.h>
 
 // SCSI Architecture Model Family includes
 #include <IOKit/scsi/IOSCSIPrimaryCommandsDevice.h>
@@ -106,7 +107,8 @@ private:
 	struct IOSCSITargetDeviceExpansionData { };
 	IOSCSITargetDeviceExpansionData * fIOSCSITargetDeviceReserved;
 	
-	OSSet *	fClients;
+	OSSet *						fClients;
+	IOBufferMemoryDescriptor *	fInquiryDataBuffer;
 	
 	// Target Characteristics determined from LUN 0 INQUIRY data.
 	UInt8							fTargetPeripheralDeviceType;

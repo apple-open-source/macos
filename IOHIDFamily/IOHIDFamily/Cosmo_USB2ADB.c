@@ -149,7 +149,7 @@ unsigned char hid_usb_2_adb_keymap[] =
 	DEADKEY,	// 72
 	DEADKEY,	// 73
 	DEADKEY,	// 74
-	DEADKEY,	// 75
+	0x72,		// 75
 	DEADKEY,	// 76
 	DEADKEY,	// 77
 	DEADKEY,	// 78

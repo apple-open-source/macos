@@ -39,6 +39,12 @@
 #include "IOHIDKeys.h"
 #include "IOHIDElement.h"
 
+#define kFnModifierUsagePageKey		"FnModifierUsagePage"
+#define kFnModifierUsageKey		"FnModifierUsage"
+#define kFnSpecialKeyMapKey		"FnSpecialKeyMap"
+#define	kFnNonSpecialUsageMapKey	"FnNonSpecialUsageMap"
+#define	kNumPadUsageMapKey		"NumPadUsageMap"
+
 #define super IOHIKeyboard
 
 OSDefineMetaClassAndStructors(IOHIDKeyboard, IOHIKeyboard)
@@ -46,12 +52,12 @@ OSDefineMetaClassAndStructors(IOHIDKeyboard, IOHIKeyboard)
 extern unsigned char hid_usb_2_adb_keymap[];  //In Cosmo_USB2ADB.cpp
 
 IOHIDKeyboard * 
-IOHIDKeyboard::Keyboard(OSArray *elements) 
+IOHIDKeyboard::Keyboard(OSArray *elements, IOHIDDevice *owner) 
 {
     IOHIDKeyboard *keyboard = new IOHIDKeyboard;
     
     if ((keyboard == 0) || !keyboard->init() || 
-            !keyboard->findDesiredElements(elements))
+            !keyboard->findDesiredElements(elements, owner))
     {
         if (keyboard) keyboard->release();
         return 0;
@@ -66,10 +72,22 @@ IOHIDKeyboard::init(OSDictionary *properties)
 {
   if (!super::init(properties))  return false;
     
-    _oldmodifier = 0;  
-    _asyncLEDThread = 0;
-    _ledState = 0;
-    _numLeds = 0;
+    _oldmodifier 	= 0;  
+    _asyncLEDThread 	= 0;
+    _ledState 		= 0;
+    _fKeyMode 		= 0;
+    _lastFKeyValue 	= 0;
+    _numLeds 		= 0;
+    _consumer 		= 0;
+    _publishNotify 	= 0;
+    _stickyKeysOn 	= false;
+
+    _vendorID		= 0;
+    _productID		= 0;
+    _locationID		= 0;
+    _transport		= 0;
+    
+    _keyboardLock = IORecursiveLockAlloc(); 
         
     _keyCodeArrayValuePtrArray = 0;
         
@@ -77,15 +95,16 @@ IOHIDKeyboard::init(OSDictionary *properties)
     _ledCookies[1] = -1;
     
     bzero(_modifierValuePtrs, sizeof(UInt32*)*8);
-    bzero(_ledValuePtrs, sizeof(UInt32*)*8);
+    bzero(_ledValuePtrs, sizeof(UInt32*)*2);
+    bzero(_secondaryKeys, sizeof(SecondaryKey)*255);
+    _fKeyValuePtr = 0;
     
     //This makes separate copy of ADB translation table.  Needed to allow ISO
     //  keyboards to swap two keys without affecting non-ISO keys that are
     //  also connected, or that will be plugged in later through USB ports
     bcopy(hid_usb_2_adb_keymap, _usb_2_adb_keymap, ADB_CONVERTER_LEN);
-
       
-  return true;
+    return true;
 }
 
 
@@ -94,27 +113,32 @@ IOHIDKeyboard::start(IOService *provider)
 {
     OSNumber *xml_swap_CTRL_CAPSLOCK;
     OSNumber *xml_swap_CMD_ALT;
-    OSNumber *productIDNumber;
-    OSNumber *vendorIDNumber;
+    UInt16 productIDVal;
+    UInt16 vendorIDVal;
 
     _provider = provider;
 
-    productIDNumber = OSDynamicCast(OSNumber, 
-                        _provider->getProperty(kIOHIDProductIDKey));
-    vendorIDNumber = OSDynamicCast(OSNumber, 
-                        _provider->getProperty(kIOHIDVendorIDKey));
-                                
-    _productID = productIDNumber ? productIDNumber->unsigned16BitValue() : 0;
-    _vendorID = vendorIDNumber ? vendorIDNumber->unsigned16BitValue() : 0;
+    _transport	= OSDynamicCast(OSString,provider->getProperty(kIOHIDTransportKey));
+    _vendorID	= OSDynamicCast(OSNumber,provider->getProperty(kIOHIDVendorIDKey));
+    _productID	= OSDynamicCast(OSNumber,provider->getProperty(kIOHIDProductIDKey));
+    _locationID	= OSDynamicCast(OSNumber,provider->getProperty(kIOHIDLocationIDKey));
+    
+    setProperty(kIOHIDTransportKey, _transport);
+    setProperty(kIOHIDVendorIDKey, _vendorID);
+    setProperty(kIOHIDProductIDKey, _productID);
+    setProperty(kIOHIDLocationIDKey, _locationID);
+
+    productIDVal = _productID ? _productID->unsigned16BitValue() : 0;
+    vendorIDVal = _vendorID ? _vendorID->unsigned16BitValue() : 0;
 
     if (!super::start(provider))
         return false;
     
     // Fix hardware bug in iMac USB keyboard mapping for ISO keyboards
     // This should really be done in personalities.
-    if ( ((_productID == kprodUSBAndyISOKbd) || (_productID == kprodUSBCosmoISOKbd) || 
-            (_productID == kprodQ6ISOKbd) || (_productID == kprodQ30ISOKbd))
-            && (_vendorID == kIOUSBVendorIDAppleComputer))
+    if ( ((productIDVal == kprodUSBAndyISOKbd) || (productIDVal == kprodUSBCosmoISOKbd) || 
+            (productIDVal == kprodQ6ISOKbd) || (productIDVal == kprodQ30ISOKbd))
+            && (vendorIDVal == kIOUSBVendorIDAppleComputer))
     {
             _usb_2_adb_keymap[0x35] = 0x0a;  //Cosmo key18 swaps with key74, 0a is ADB keycode
             _usb_2_adb_keymap[0x64] = 0x32;
@@ -153,14 +177,73 @@ IOHIDKeyboard::start(IOService *provider)
     }
 
     // Need separate thread to handle LED
-    _asyncLEDThread = thread_call_allocate((thread_call_func_t)AsyncLED, (thread_call_param_t)this);
+    _asyncLEDThread = thread_call_allocate((thread_call_func_t)_asyncLED, (thread_call_param_t)this);
+    
+    // Set up notification for the Consumer if there is a fnKey defined
+    if ( _fKeyValuePtr )
+    {
+        OSDictionary *	matchingDictionary;
+        
+        matchingDictionary = IOService::serviceMatching( "IOHIDConsumer" );
+        
+        if( matchingDictionary )
+        {
+            matchingDictionary->setObject(kIOHIDTransportKey, _transport);
+            matchingDictionary->setObject(kIOHIDVendorIDKey, _vendorID);
+            matchingDictionary->setObject(kIOHIDProductIDKey, _productID);
+            matchingDictionary->setObject(kIOHIDLocationIDKey, _locationID);
+    
+            _publishNotify = addNotification( gIOPublishNotification, 
+                                matchingDictionary,
+                                &IOHIDKeyboard::_publishNotificationHandler,
+                                this, 0 );                                
+        }
+        
+        findSecondaryKeys();
+        setProperty(kIOHIDFKeyModeKey, _fKeyMode, sizeof(_fKeyMode));
+    }
     
     return true;
 
 }
 
-void
-IOHIDKeyboard::stop(IOService * provider)
+bool IOHIDKeyboard::_publishNotificationHandler(
+			void * target,
+			void * /* ref */,
+			IOService * newService )
+{
+    IOHIDKeyboard * self = (IOHIDKeyboard *) target;
+
+    IORecursiveLockLock(self->_keyboardLock);
+    
+    if( OSDynamicCast(IOHIDConsumer,newService) && 
+        (self->_consumer != newService) ) 
+    {
+        
+        if( self->_consumer) {
+            if (self->_consumer->isDispatcher()) {
+                self->_consumer->stop(self);
+                self->_consumer->detach(self);
+            }
+            self->_consumer->release();
+        }
+        
+        self->_consumer = newService;
+        self->_consumer->retain();
+       
+	if ( self->_publishNotify )
+	{ 
+        	self->_publishNotify->remove();
+        	self->_publishNotify = 0;
+	}
+    }
+    
+    IORecursiveLockUnlock(self->_keyboardLock);
+
+    return true;
+}
+
+void IOHIDKeyboard::stop(IOService * provider)
 {    
     if (_asyncLEDThread)
     {
@@ -168,12 +251,22 @@ IOHIDKeyboard::stop(IOService * provider)
 	thread_call_free(_asyncLEDThread);
 	_asyncLEDThread = 0;
     }
+
+    IORecursiveLockLock(_keyboardLock);
+    if( _consumer) {
+        if (_consumer->isDispatcher()) {
+            _consumer->stop(this);
+            _consumer->detach(this);
+        }
+        _consumer->release();
+        _consumer = 0;
+    }
+    IORecursiveLockUnlock(_keyboardLock);
     
     super::stop(provider);
 }
 
-void
-IOHIDKeyboard::free()
+void IOHIDKeyboard::free()
 {
     if (_oldArraySelectors)
     {
@@ -186,24 +279,80 @@ IOHIDKeyboard::free()
         _keyCodeArrayValuePtrArray->release();
         _keyCodeArrayValuePtrArray = 0;
     }
+
+    if (_publishNotify) 
+    {
+        _publishNotify->remove();
+    	_publishNotify = 0;
+    }
+        
+    if (_keyboardLock)
+    {
+        IORecursiveLockLock(_keyboardLock);
+        IORecursiveLock* tempLock = _keyboardLock;
+	_keyboardLock = NULL;
+        IORecursiveLockUnlock(tempLock);
+	IORecursiveLockFree(tempLock);
+    }
     
     super::free();
 }
 
+bool
+IOHIDKeyboard::determineKeyboard(IOHIDDevice *owner)
+{
+    OSDictionary *	pair;
+    OSArray *		usagePairs;
+    OSNumber *		usagePage;
+    OSNumber *		usage;
+    UInt32		usageVal, usagePageVal;
+    bool		isKeyboard = false;
+            
+    usagePairs = OSDynamicCast(OSArray, owner->getProperty(kIOHIDDeviceUsagePairsKey));
+    
+    for (int i=0; usagePairs && i<usagePairs->getCount(); i++)
+    {
+        if (!(pair = usagePairs->getObject(i)))
+            continue;
+            
+        usagePage 	= pair->getObject(kIOHIDDeviceUsagePageKey);
+        usage 		= pair->getObject(kIOHIDDeviceUsageKey);
+        
+        usagePageVal 	= (usagePage) ? usagePage->unsigned32BitValue() : 0;
+        usageVal 	= (usage) ? usage->unsigned32BitValue() : 0;
+        
+        if ( (usagePageVal == kHIDPage_GenericDesktop) &&
+            ((usageVal == kHIDUsage_GD_Keyboard) || (usageVal == kHIDUsage_GD_Keypad)) )
+        {
+            isKeyboard = true;
+            break;
+        }
+    }
+
+    return isKeyboard;
+
+}
 
 bool
-IOHIDKeyboard::findDesiredElements(OSArray *elements)
+IOHIDKeyboard::findDesiredElements(OSArray *elements, IOHIDDevice *owner)
 {
-    IOHIDElement 	*element;
+    OSNumber *		fnUsage;
+    OSNumber *		fnUsagePage;    
+    IOHIDElement *	element;
     UInt32		usage, usagePage;
     UInt32		count;
-    bool		isKeyboard = false;
     
+    if (!determineKeyboard(owner))
+        return false;
+
     if (!elements)
         return false;
     
     if (!(_keyCodeArrayValuePtrArray = OSArray::withCapacity(6)))
         return false;
+        
+    fnUsage = OSDynamicCast(OSNumber, owner->getProperty(kFnModifierUsageKey));
+    fnUsagePage = OSDynamicCast(OSNumber,owner->getProperty(kFnModifierUsagePageKey));    
     
     count = elements->getCount();
     for (int i=0; i<count; i++)
@@ -211,17 +360,16 @@ IOHIDKeyboard::findDesiredElements(OSArray *elements)
         element		= elements->getObject(i);
         usagePage	= element->getUsagePage();
         usage		= element->getUsage();
+
+        if (!_fKeyValuePtr && fnUsage && fnUsagePage &&
+            (usage == fnUsage->unsigned32BitValue()) &&
+            (usagePage == fnUsagePage->unsigned32BitValue()))
+        {
+            _fKeyValuePtr = element->getElementValue()->value;
+        }                    
         
         switch (usagePage)
         {
-            case kHIDPage_GenericDesktop:
-                if ((element->getElementType() == kIOHIDElementTypeCollection) &&
-                    (element->getElementCollectionType() == kIOHIDElementCollectionTypeApplication) &&
-                    ((usage == kHIDUsage_GD_Keyboard) || (usage == kHIDUsage_GD_Keypad)))
-                {
-                    isKeyboard = true;
-                }
-                break;
             case kHIDPage_KeyboardOrKeypad:
                 // Modifier Elements
                 if ((usage >= kHIDUsage_KeyboardLeftControl) &&
@@ -232,7 +380,7 @@ IOHIDKeyboard::findDesiredElements(OSArray *elements)
                                                     element->getElementValue()->value;
                 }
                 // Key Array Element
-                else if ((element->getUsage() == 0xffffffff) && (element->getReportCount() == 1)) 
+                else if ((usage == 0xffffffff) && (element->getReportCount() == 1)) 
                 {
                     _keyCodeArrayValuePtrArray->setObject(element);
                 }
@@ -248,9 +396,11 @@ IOHIDKeyboard::findDesiredElements(OSArray *elements)
                     _numLeds++;
                 }
                 break;
+            default:
+                break;
         }
     }
-    
+
     UInt32 keyCount = _keyCodeArrayValuePtrArray->getCount();
     if (keyCount)
     {
@@ -262,7 +412,56 @@ IOHIDKeyboard::findDesiredElements(OSArray *elements)
         bzero(_oldArraySelectors, sizeof(UInt32) * keyCount);    
     }
     
-    return (isKeyboard && keyCount);
+    return (keyCount);
+}
+
+void IOHIDKeyboard::findSecondaryKeys()
+{
+    OSString *	mappingString;
+    char *	str;
+    int		i, index, count;
+    
+    mappingString = OSDynamicCast(OSString,_provider->getProperty(kNumPadUsageMapKey));
+    if (mappingString)
+    {
+        count	= mappingString->getLength();
+        str	= mappingString->getCStringNoCopy();
+        
+        for (i=0; i<count; i+=10)
+        {
+            index = strtol(&(str[i]), NULL, 16);
+            _secondaryKeys[index].bits |= kSecondaryKeyNumPad;
+            _secondaryKeys[index].numPadUsage = strtol(&(str[i+5]), NULL, 16);
+        }    
+    }
+    
+    mappingString = OSDynamicCast(OSString,_provider->getProperty(kFnSpecialKeyMapKey));
+    if (mappingString)
+    {
+        count	= mappingString->getLength();
+        str	= mappingString->getCStringNoCopy();
+        
+        for (i=0; i<count; i+=10)
+        {
+            index = strtol(&(str[i]), NULL, 16);
+            _secondaryKeys[index].bits |= kSecondaryKeyFnSpecial;
+            _secondaryKeys[index].specialKey = strtol(&(str[i+5]), NULL, 16);
+        }    
+    }
+
+    mappingString = OSDynamicCast(OSString,_provider->getProperty(kFnNonSpecialUsageMapKey));
+    if (mappingString)
+    {
+        count	= mappingString->getLength();
+        str	= mappingString->getCStringNoCopy();
+        
+        for (i=0; i<count; i+=10)
+        {
+            index = strtol(&(str[i]), NULL, 16);
+            _secondaryKeys[index].bits |= kSecondaryKeyFnNonSpecial;
+            _secondaryKeys[index].fnUsage = strtol(&(str[i+5]), NULL, 16);
+        }    
+    }
 }
 
 extern "C" { 
@@ -292,6 +491,7 @@ IOHIDKeyboard::handleReport()
     }
     if (found) return;
 
+    clock_get_uptime(&now);
 
     //Handle new key information.  The first byte is a set of bits describing
     //  which modifier keys are down.  The 2nd byte never seems to be used.
@@ -318,7 +518,6 @@ IOHIDKeyboard::handleReport()
     else //Modifiers may or may not be pressed right now
     {
 	//kprintf("mod is %x\n", modifier);
-        clock_get_uptime(&now);
 
         //left-hand CONTROL modifier key
         if ((modifier & kUSB_LEFT_CONTROL_BIT) && !(_oldmodifier & kUSB_LEFT_CONTROL_BIT))
@@ -408,7 +607,12 @@ IOHIDKeyboard::handleReport()
 	    dispatchKeyboardEvent(_usb_2_adb_keymap[0xe7], false, now); 
 	    _flower_key = false;
 	}
-
+    }
+    
+    if ( _fKeyValuePtr && ( *_fKeyValuePtr != _lastFKeyValue ) )
+    {
+        _lastFKeyValue = *_fKeyValuePtr;
+        dispatchKeyboardEvent(0x3f, _lastFKeyValue, now); 
     }
 
     //SECTION 2. Handle regular alphanumeric keys now.  Look first at previous keystrokes.
@@ -435,10 +639,10 @@ IOHIDKeyboard::handleReport()
 	{
           //еее  if ( (alpha > 0x58) && ( alpha < 0x63 ) )
           //еее      USBLog(3,"Keypad %d pressed",(alpha-0x58));
-                
-	    clock_get_uptime(&now);
-
-	    dispatchKeyboardEvent(_usb_2_adb_keymap[alpha], false, now);  //KEY UP
+            if (!filterSecondaryFnSpecialKey(&alpha, false, now))   
+                if (!filterSecondaryFnNonSpecialKey(&alpha, false, now))   
+                    if (!filterSecondaryNumPadKey(&alpha, false, now))   
+                        dispatchKeyboardEvent(_usb_2_adb_keymap[alpha], false, now);
 	}
     }
 
@@ -482,11 +686,13 @@ IOHIDKeyboard::handleReport()
 	}
 	if (!found)
 	{
-       	    clock_get_uptime(&now);
 	    //If Debugger() is triggered then I shouldn't show the restart dialog
 	    //  box, but I think developers doing kernel debugging can live with
 	    //  this minor incovenience.  Otherwise I need to do more checking here.
-	    dispatchKeyboardEvent(_usb_2_adb_keymap[alpha], true, now);
+            if (!filterSecondaryFnSpecialKey(&alpha, true, now))   
+                if (!filterSecondaryFnNonSpecialKey(&alpha, true, now))   
+                    if (!filterSecondaryNumPadKey(&alpha, true, now))   
+                        dispatchKeyboardEvent(_usb_2_adb_keymap[alpha], true, now);  //KEY UP
 	}
     }
 
@@ -501,15 +707,110 @@ IOHIDKeyboard::handleReport()
     }
 }
 
+#define SHOULD_SWAP_FN_SPECIAL_KEY(key, down)                   \
+    ((_secondaryKeys[key].bits & kSecondaryKeyFnSpecial) &&	\
+    (!( _lastFKeyValue ^ _fKeyMode ) ||	(!down &&		\
+    (_secondaryKeys[key].swapping & kSecondaryKeyFnSpecial))))
+
+#define SHOULD_SWAP_FN_NUM_PAD_KEY(key, down)                   \
+    ((_secondaryKeys[key].bits & kSecondaryKeyFnNonSpecial) &&	\
+    (( _lastFKeyValue ^ 					\
+    (_fKeyMode && _stickyKeysOn) ) || (!down && \
+    (_secondaryKeys[key].swapping & kSecondaryKeyFnNonSpecial))))
+    
+#define SHOULD_SWAP_NUM_PAD_KEY(key, down)			\
+    ((numLock() || ( !down &&					\
+    (_secondaryKeys[key].swapping & kSecondaryKeyNumPad))))
+
+bool IOHIDKeyboard::filterSecondaryFnSpecialKey(int * usage, bool down, AbsoluteTime ts)
+{
+    if ( !_fKeyValuePtr )
+        return false;
+
+    if (SHOULD_SWAP_FN_SPECIAL_KEY(*usage, down))
+    {
+        if (down)
+            _secondaryKeys[*usage].swapping |= kSecondaryKeyFnSpecial;
+        else
+            _secondaryKeys[*usage].swapping = 0; 
+
+        IORecursiveLockLock(_keyboardLock);
+        if (!_consumer)
+        {
+            _consumer = IOHIDConsumer::Dispatcher(this);
+            if (_consumer &&
+                (!_consumer->attach(this) || 
+                    !_consumer->start(this))) 
+            {
+                _consumer->release();
+                _consumer = 0;
+            }
+        }
+        
+        if (_consumer)
+        {
+            _consumer->dispatchSpecialKeyEvent(
+                            _secondaryKeys[*usage].specialKey, down, ts);
+        }
+        IORecursiveLockUnlock(_keyboardLock);
+            
+        return true;
+    }
+    
+    return false;
+}
+
+bool IOHIDKeyboard::filterSecondaryFnNonSpecialKey(int * usage, bool down, AbsoluteTime ts)
+{   
+    if ( !_fKeyValuePtr )
+        return false;
+
+    if (SHOULD_SWAP_FN_NUM_PAD_KEY(*usage, down))
+    {
+        if (down)
+            _secondaryKeys[*usage].swapping |= kSecondaryKeyFnNonSpecial;
+        else
+            _secondaryKeys[*usage].swapping = 0; 
+
+        *usage = _secondaryKeys[*usage].fnUsage;
+    }
+    
+    return false;
+}
+
+bool IOHIDKeyboard::filterSecondaryNumPadKey(int * usage, bool down, AbsoluteTime ts)
+{
+    if ( !_fKeyValuePtr )
+        return false;
+
+    if (SHOULD_SWAP_NUM_PAD_KEY(*usage, down))
+    {
+        // If the key is not a swapped numpad key, consume it
+        if (_secondaryKeys[*usage].bits & kSecondaryKeyNumPad)
+        {
+            if (down)
+                _secondaryKeys[*usage].swapping |= kSecondaryKeyNumPad;
+            else
+                _secondaryKeys[*usage].swapping = 0; 
+
+            *usage = _secondaryKeys[*usage].numPadUsage;
+        }
+        else
+            return true;
+    }
+
+    return false;
+}
+
 
 // **************************************************************************
-// AsyncLED
+// _asyncLED
 //
 // Called asynchronously to turn on/off the keyboard LED
 //
 // **************************************************************************
 void 
-IOHIDKeyboard::AsyncLED(OSObject *target)
+IOHIDKeyboard::_asyncLED(OSObject *target)
 {
     IOHIDKeyboard *me = OSDynamicCast(IOHIDKeyboard, target);
 
@@ -559,7 +860,9 @@ IOHIDKeyboard::setAlphaLockFeedback ( bool LED_state)
     if (newState != _ledState)
     {
         _ledState = newState;
-        thread_call_enter(_asyncLEDThread);
+        
+        if (_asyncLEDThread) 
+            thread_call_enter(_asyncLEDThread);
     }
 }
 
@@ -580,7 +883,9 @@ IOHIDKeyboard::setNumLockFeedback ( bool LED_state)
     if (newState != _ledState)
     {
         _ledState = newState;
-        thread_call_enter(_asyncLEDThread);
+        
+        if (_asyncLEDThread) 
+            thread_call_enter(_asyncLEDThread);
     }
 }
 
@@ -660,16 +965,18 @@ UInt32
 IOHIDKeyboard::handlerID ( void )
 {
     UInt32 ret_id = 2;  //Default for all unknown USB keyboards is 2
+    UInt16 productIDVal = _productID ? _productID->unsigned16BitValue() : 0;
+    UInt16 vendorIDVal = _vendorID ? _vendorID->unsigned16BitValue() : 0;
 
-    if (_vendorID == 0x045e)  //Microsoft ID
+    if (vendorIDVal == 0x045e)  //Microsoft ID
     {
-        if (_productID == 0x000b)   //Natural USB+PS/2 keyboard
+        if (productIDVal == 0x000b)   //Natural USB+PS/2 keyboard
             ret_id = 2;  //18 was OSX Server, now 2 is OSX Extended ADB keyboard, unknown manufacturer
     }
 
     //New feature for hardware identification using Gestalt.h values
-    if (_vendorID == kIOUSBVendorIDAppleComputer)
-        switch (_productID)
+    if (vendorIDVal == kIOUSBVendorIDAppleComputer)
+        switch (productIDVal)
         {
             case kprodUSBCosmoANSIKbd:  //Cosmo ANSI is 0x201
                     ret_id = kgestUSBCosmoANSIKbd; //0xc6
@@ -707,6 +1014,26 @@ IOHIDKeyboard::handlerID ( void )
             case kprodQ30JISKbd:  //Q30 JIS
                     ret_id = kgestQ30JISKbd;
                     break;
+            case kprodFountainANSIKbd:  //Fountain ANSI
+                    ret_id = kgestFountainANSIKbd;
+                    break;
+            case kprodFountainISOKbd:  //Fountain ISO
+                    ret_id = kgestFountainISOKbd;
+                    break;
+            case kprodFountainJISKbd:  //Fountain JIS
+                    ret_id = kgestFountainJISKbd;
+                    break;
+            case kprodSantaANSIKbd:  //Santa ANSI
+                    ret_id = kgestSantaANSIKbd;
+                    break;
+            case kprodSantaISOKbd:  //Santa ISO
+                    ret_id = kgestSantaISOKbd;
+                    break;
+            case kprodSantaJISKbd:  //Santa JIS
+                    ret_id = kgestSantaJISKbd;
+                    break;
+                    
+            
             default:  // No Gestalt.h values, but still is Apple keyboard,
                     //   so return a generic Cosmo ANSI
                     ret_id = kgestUSBCosmoANSIKbd;  
@@ -717,21 +1044,6 @@ IOHIDKeyboard::handlerID ( void )
 }
 
 
-//Get key values from ev_keymap.h
-bool 
-IOHIDKeyboard:: doesKeyLock ( unsigned key)
-{
-    switch (key) {
-	case NX_KEYTYPE_CAPS_LOCK:
-		return false;
-	case NX_KEYTYPE_NUM_LOCK:
-		return false;
-	default:
-		return false;
-    }
-}
-
-
 // *****************************************************************************
 // defaultKeymapOfLength
 // A.W. copied from ADB keyboard, I don't have time to make custom USB version
@@ -739,11 +1051,114 @@ IOHIDKeyboard:: doesKeyLock ( unsigned key)
 const unsigned char * 
 IOHIDKeyboard::defaultKeymapOfLength (UInt32 * length )
 {
+    if ( _fKeyValuePtr )
+    {
+        // this one defines the FKeyMap
+        static const unsigned char appleUSAFKeyMap[] = {
+            0x00,0x00,
+            
+            // Modifier Defs
+            0x0b,   //Number of modifier keys.  Was 7
+            //0x00,0x01,0x39,  //CAPSLOCK, uses one byte.
+            0x01,0x01,0x38,
+            0x02,0x01,0x3b,
+            0x03,0x01,0x3a,
+            0x04,0x01,0x37,
+            0x05,0x14,0x52,0x41,0x53,0x54,0x55,0x45,0x58,0x57,0x56,0x5b,0x5c,
+            0x43,0x4b,0x51,0x7b,0x7d,0x7e,0x7c,0x4e,0x59,
+            0x06,0x01,0x72,
+            0x07,0x01,0x3f, //NX_MODIFIERKEY_SECONDARYFN 8th modifier
+            0x09,0x01,0x3c, //Right shift
+            0x0a,0x01,0x3e, //Right control
+            0x0b,0x01,0x3d, //Right Option
+            0x0c,0x01,0x36, //Right Command
+            
+            // key deffs
+            0x7f,0x0d,0x00,0x61,
+            0x00,0x41,0x00,0x01,0x00,0x01,0x00,0xca,0x00,0xc7,0x00,0x01,0x00,0x01,0x0d,0x00,
+            0x73,0x00,0x53,0x00,0x13,0x00,0x13,0x00,0xfb,0x00,0xa7,0x00,0x13,0x00,0x13,0x0d,
+            0x00,0x64,0x00,0x44,0x00,0x04,0x00,0x04,0x01,0x44,0x01,0xb6,0x00,0x04,0x00,0x04,
+            0x0d,0x00,0x66,0x00,0x46,0x00,0x06,0x00,0x06,0x00,0xa6,0x01,0xac,0x00,0x06,0x00,
+                0x06,0x0d,0x00,0x68,0x00,0x48,0x00,0x08,0x00,0x08,0x00,0xe3,0x00,0xeb,0x00,0x00,
+                0x18,0x00,0x0d,0x00,0x67,0x00,0x47,0x00,0x07,0x00,0x07,0x00,0xf1,0x00,0xe1,0x00,
+                0x07,0x00,0x07,0x0d,0x00,0x7a,0x00,0x5a,0x00,0x1a,0x00,0x1a,0x00,0xcf,0x01,0x57,
+                0x00,0x1a,0x00,0x1a,0x0d,0x00,0x78,0x00,0x58,0x00,0x18,0x00,0x18,0x01,0xb4,0x01,
+                0xce,0x00,0x18,0x00,0x18,0x0d,0x00,0x63,0x00,0x43,0x00,0x03,0x00,0x03,0x01,0xe3,
+                0x01,0xd3,0x00,0x03,0x00,0x03,0x0d,0x00,0x76,0x00,0x56,0x00,0x16,0x00,0x16,0x01,
+                0xd6,0x01,0xe0,0x00,0x16,0x00,0x16,0x02,0x00,0x3c,0x00,0x3e,0x0d,0x00,0x62,0x00,
+                0x42,0x00,0x02,0x00,0x02,0x01,0xe5,0x01,0xf2,0x00,0x02,0x00,0x02,0x0d,0x00,0x71,
+                0x00,0x51,0x00,0x11,0x00,0x11,0x00,0xfa,0x00,0xea,0x00,0x11,0x00,0x11,0x0d,0x00,
+                0x77,0x00,0x57,0x00,0x17,0x00,0x17,0x01,0xc8,0x01,0xc7,0x00,0x17,0x00,0x17,0x0d,
+                0x00,0x65,0x00,0x45,0x00,0x05,0x00,0x05,0x00,0xc2,0x00,0xc5,0x00,0x05,0x00,0x05,
+                0x0d,0x00,0x72,0x00,0x52,0x00,0x12,0x00,0x12,0x01,0xe2,0x01,0xd2,0x00,0x12,0x00,
+                0x12,0x0d,0x00,0x79,0x00,0x59,0x00,0x19,0x00,0x19,0x00,0xa5,0x01,0xdb,0x00,0x19,
+                0x00,0x19,0x0d,0x00,0x74,0x00,0x54,0x00,0x14,0x00,0x14,0x01,0xe4,0x01,0xd4,0x00,
+                0x14,0x00,0x14,0x0a,0x00,0x31,0x00,0x21,0x01,0xad,0x00,0xa1,0x0e,0x00,0x32,0x00,
+                0x40,0x00,0x32,0x00,0x00,0x00,0xb2,0x00,0xb3,0x00,0x00,0x00,0x00,0x0a,0x00,0x33,
+                0x00,0x23,0x00,0xa3,0x01,0xba,0x0a,0x00,0x34,0x00,0x24,0x00,0xa2,0x00,0xa8,0x0e,
+                0x00,0x36,0x00,0x5e,0x00,0x36,0x00,0x1e,0x00,0xb6,0x00,0xc3,0x00,0x1e,0x00,0x1e,
+                0x0a,0x00,0x35,0x00,0x25,0x01,0xa5,0x00,0xbd,0x0a,0x00,0x3d,0x00,0x2b,0x01,0xb9,
+                0x01,0xb1,0x0a,0x00,0x39,0x00,0x28,0x00,0xac,0x00,0xab,0x0a,0x00,0x37,0x00,0x26,
+                0x01,0xb0,0x01,0xab,0x0e,0x00,0x2d,0x00,0x5f,0x00,0x1f,0x00,0x1f,0x00,0xb1,0x00,
+                0xd0,0x00,0x1f,0x00,0x1f,0x0a,0x00,0x38,0x00,0x2a,0x00,0xb7,0x00,0xb4,0x0a,0x00,
+                0x30,0x00,0x29,0x00,0xad,0x00,0xbb,0x0e,0x00,0x5d,0x00,0x7d,0x00,0x1d,0x00,0x1d,
+                0x00,0x27,0x00,0xba,0x00,0x1d,0x00,0x1d,0x0d,0x00,0x6f,0x00,0x4f,0x00,0x0f,0x00,
+                0x0f,0x00,0xf9,0x00,0xe9,0x00,0x0f,0x00,0x0f,0x0d,0x00,0x75,0x00,0x55,0x00,0x15,
+                0x00,0x15,0x00,0xc8,0x00,0xcd,0x00,0x15,0x00,0x15,0x0e,0x00,0x5b,0x00,0x7b,0x00,
+                0x1b,0x00,0x1b,0x00,0x60,0x00,0xaa,0x00,0x1b,0x00,0x1b,0x0d,0x00,0x69,0x00,0x49,
+                0x00,0x09,0x00,0x09,0x00,0xc1,0x00,0xf5,0x00,0x09,0x00,0x09,0x0d,0x00,0x70,0x00,
+                0x50,0x00,0x10,0x00,0x10,0x01,0x70,0x01,0x50,0x00,0x10,0x00,0x10,0x10,0x00,0x0d,
+                0x00,0x03,0x0d,0x00,0x6c,0x00,0x4c,0x00,0x0c,0x00,0x0c,0x00,0xf8,0x00,0xe8,0x00,
+                0x0c,0x00,0x0c,0x0d,0x00,0x6a,0x00,0x4a,0x00,0x0a,0x00,0x0a,0x00,0xc6,0x00,0xae,
+                0x00,0x0a,0x00,0x0a,0x0a,0x00,0x27,0x00,0x22,0x00,0xa9,0x01,0xae,0x0d,0x00,0x6b,
+                0x00,0x4b,0x00,0x0b,0x00,0x0b,0x00,0xce,0x00,0xaf,0x00,0x0b,0x00,0x0b,0x0a,0x00,
+                0x3b,0x00,0x3a,0x01,0xb2,0x01,0xa2,0x0e,0x00,0x5c,0x00,0x7c,0x00,0x1c,0x00,0x1c,
+                0x00,0xe3,0x00,0xeb,0x00,0x1c,0x00,0x1c,0x0a,0x00,0x2c,0x00,0x3c,0x00,0xcb,0x01,
+                0xa3,0x0a,0x00,0x2f,0x00,0x3f,0x01,0xb8,0x00,0xbf,0x0d,0x00,0x6e,0x00,0x4e,0x00,
+                0x0e,0x00,0x0e,0x00,0xc4,0x01,0xaf,0x00,0x0e,0x00,0x0e,0x0d,0x00,0x6d,0x00,0x4d,
+                0x00,0x0d,0x00,0x0d,0x01,0x6d,0x01,0xd8,0x00,0x0d,0x00,0x0d,0x0a,0x00,0x2e,0x00,
+                0x3e,0x00,0xbc,0x01,0xb3,0x02,0x00,0x09,0x00,0x19,0x0c,0x00,0x20,0x00,0x00,0x00,
+                0x80,0x00,0x00,0x0a,0x00,0x60,0x00,0x7e,0x00,0x60,0x01,0xbb,0x02,0x00,0x7f,0x00,
+                0x08,0xff,0x02,0x00,0x1b,0x00,0x7e,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
+                0xff,0xff,0x00,0x00,0x2e,0xff,0x00,0x00,
+                0x2a,0xff,0x00,0x00,0x2b,0xff,0x00,0x00,0x1b,0xff,0xff,0xff,0x0e,0x00,0x2f,0x00,
+                0x5c,0x00,0x2f,0x00,0x1c,0x00,0x2f,0x00,0x5c,0x00,0x00,0x0a,0x00,0x00,0x00,0x0d, //XX03
+                0xff,0x00,0x00,0x2d,0xff,0xff,0x0e,0x00,0x3d,0x00,0x7c,0x00,0x3d,0x00,0x1c,0x00,
+                0x3d,0x00,0x7c,0x00,0x00,0x18,0x46,0x00,0x00,0x30,0x00,0x00,0x31,0x00,0x00,0x32,
+                0x00,0x00,0x33,0x00,0x00,0x34,0x00,0x00,0x35,0x00,0x00,0x36,0x00,0x00,0x37,0xff,
+                0x00,0x00,0x38,0x00,0x00,0x39,0xff,0xff,0xff,0x00,0xfe,0x24,0x00,0xfe,0x25,0x00,
+                0xfe,0x26,0x00,0xfe,0x22,0x00,0xfe,0x27,0x00,0xfe,0x28,0xff,0x00,0xfe,0x2a,0xff,
+                0x00,0xfe,0x32,0x00,0xfe,0x35,0x00,0xfe,0x33,0xff,0x00,0xfe,0x29,0xff,0x00,0xfe,0x2b,0xff,
+                0x00,0xfe,0x34,0xff,0x00,0xfe,0x2e,0x00,0xfe,0x30,0x00,0xfe,0x2d,0x00,0xfe,0x23,
+                0x00,0xfe,0x2f,0x00,0xfe,0x21,0x00,0xfe,0x31,0x00,0xfe,0x20,
+                0x00,0x01,0xac, //ADB=0x7b is left arrow
+                0x00,0x01,0xae, //ADB = 0x7c is right arrow
+                0x00,0x01,0xaf, //ADB=0x7d is down arrow.  
+                0x00,0x01,0xad, //ADB=0x7e is up arrow	 
+                0x0f,0x02,0xff,0x04,            
+                0x00,0x31,0x02,0xff,0x04,0x00,0x32,0x02,0xff,0x04,0x00,0x33,0x02,0xff,0x04,0x00,
+                0x34,0x02,0xff,0x04,0x00,0x35,0x02,0xff,0x04,0x00,0x36,0x02,0xff,0x04,0x00,0x37,
+                0x02,0xff,0x04,0x00,0x38,0x02,0xff,0x04,0x00,0x39,0x02,0xff,0x04,0x00,0x30,0x02,
+                0xff,0x04,0x00,0x2d,0x02,0xff,0x04,0x00,0x3d,0x02,0xff,0x04,0x00,0x70,0x02,0xff,
+                0x04,0x00,0x5d,0x02,0xff,0x04,0x00,0x5b,
+                0x07, // following are 7 special keys
+                0x04,0x39,  //caps lock
+                0x05,0x72,  //NX_KEYTYPE_HELP is 5, ADB code is 0x72
+                0x06,0x7f,  //NX_POWER_KEY is 6, ADB code is 0x7f
+                0x07,0x4a,  //NX_KEYTYPE_MUTE is 7, ADB code is 0x4a
+                0x00,0x48,  //NX_KEYTYPE_SOUND_UP is 0, ADB code is 0x48
+                0x01,0x49,  //NX_KEYTYPE_SOUND_DOWN is 1, ADB code is 0x49
+                0x0a,0x47   //NX_KEYTYPE_NUM_LOCK is 10, ADB combines with CLEAR key for numlock
+        };
+        *length = sizeof(appleUSAFKeyMap);
+        return appleUSAFKeyMap;
+    } 
+        
     static const unsigned char appleUSAKeyMap[] = {
         0x00,0x00,
         
         // Modifier Defs
-	0x0a,   //Number of modifier keys.  Was 7
+        0x0a,   //Number of modifier keys.  Was 7
         //0x00,0x01,0x39,  //CAPSLOCK, uses one byte.
         0x01,0x01,0x38,
         0x02,0x01,0x3b,
@@ -804,7 +1219,7 @@ IOHIDKeyboard::defaultKeymapOfLength (UInt32 * length )
             0x3e,0x00,0xbc,0x01,0xb3,0x02,0x00,0x09,0x00,0x19,0x0c,0x00,0x20,0x00,0x00,0x00,
             0x80,0x00,0x00,0x0a,0x00,0x60,0x00,0x7e,0x00,0x60,0x01,0xbb,0x02,0x00,0x7f,0x00,
             0x08,0xff,0x02,0x00,0x1b,0x00,0x7e,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
-	    0xff,0xff,0x00,0x00,0x2e,0xff,0x00,0x00,
+            0xff,0xff,0x00,0x00,0x2e,0xff,0x00,0x00,
             0x2a,0xff,0x00,0x00,0x2b,0xff,0x00,0x00,0x1b,0xff,0xff,0xff,0x0e,0x00,0x2f,0x00,
             0x5c,0x00,0x2f,0x00,0x1c,0x00,0x2f,0x00,0x5c,0x00,0x00,0x0a,0x00,0x00,0x00,0x0d, //XX03
             0xff,0x00,0x00,0x2d,0xff,0xff,0x0e,0x00,0x3d,0x00,0x7c,0x00,0x3d,0x00,0x1c,0x00,
@@ -815,30 +1230,98 @@ IOHIDKeyboard::defaultKeymapOfLength (UInt32 * length )
             0x00,0xfe,0x32,0x00,0xfe,0x35,0x00,0xfe,0x33,0xff,0x00,0xfe,0x29,0xff,0x00,0xfe,0x2b,0xff,
             0x00,0xfe,0x34,0xff,0x00,0xfe,0x2e,0x00,0xfe,0x30,0x00,0xfe,0x2d,0x00,0xfe,0x23,
             0x00,0xfe,0x2f,0x00,0xfe,0x21,0x00,0xfe,0x31,0x00,0xfe,0x20,
-	    0x00,0x01,0xac, //ADB=0x7b is left arrow
-	    0x00,0x01,0xae, //ADB = 0x7c is right arrow
-	    0x00,0x01,0xaf, //ADB=0x7d is down arrow.  
-	    0x00,0x01,0xad, //ADB=0x7e is up arrow	 
-	    0x0f,0x02,0xff,0x04,            
+            0x00,0x01,0xac, //ADB=0x7b is left arrow
+            0x00,0x01,0xae, //ADB = 0x7c is right arrow
+            0x00,0x01,0xaf, //ADB=0x7d is down arrow.  
+            0x00,0x01,0xad, //ADB=0x7e is up arrow	 
+            0x0f,0x02,0xff,0x04,            
             0x00,0x31,0x02,0xff,0x04,0x00,0x32,0x02,0xff,0x04,0x00,0x33,0x02,0xff,0x04,0x00,
             0x34,0x02,0xff,0x04,0x00,0x35,0x02,0xff,0x04,0x00,0x36,0x02,0xff,0x04,0x00,0x37,
             0x02,0xff,0x04,0x00,0x38,0x02,0xff,0x04,0x00,0x39,0x02,0xff,0x04,0x00,0x30,0x02,
             0xff,0x04,0x00,0x2d,0x02,0xff,0x04,0x00,0x3d,0x02,0xff,0x04,0x00,0x70,0x02,0xff,
             0x04,0x00,0x5d,0x02,0xff,0x04,0x00,0x5b,
-0x07, // following are 7 special keys
-0x04,0x39,  //caps lock
-0x05,0x72,  //NX_KEYTYPE_HELP is 5, ADB code is 0x72
-0x06,0x7f,  //NX_POWER_KEY is 6, ADB code is 0x7f
-0x07,0x4a,  //NX_KEYTYPE_MUTE is 7, ADB code is 0x4a
-0x00,0x48,  //NX_KEYTYPE_SOUND_UP is 0, ADB code is 0x48
-0x01,0x49,  //NX_KEYTYPE_SOUND_DOWN is 1, ADB code is 0x49
-// remove arrow keys as special keys. They are generating double up/down scroll events
-// in both carbon and coco apps.
-//0x08,0x7e,  //NX_UP_ARROW_KEY is 8, ADB is 3e raw, 7e virtual (KMAP)
-//0x09,0x7d,  //NX_DOWN_ARROW_KEY is 9, ADB is 0x3d raw, 7d virtual
-0x0a,0x47   //NX_KEYTYPE_NUM_LOCK is 10, ADB combines with CLEAR key for numlock
+            0x07, // following are 7 special keys
+            0x04,0x39,  //caps lock
+            0x05,0x72,  //NX_KEYTYPE_HELP is 5, ADB code is 0x72
+            0x06,0x7f,  //NX_POWER_KEY is 6, ADB code is 0x7f
+            0x07,0x4a,  //NX_KEYTYPE_MUTE is 7, ADB code is 0x4a
+            0x00,0x48,  //NX_KEYTYPE_SOUND_UP is 0, ADB code is 0x48
+            0x01,0x49,  //NX_KEYTYPE_SOUND_DOWN is 1, ADB code is 0x49
+            0x0a,0x47   //NX_KEYTYPE_NUM_LOCK is 10, ADB combines with CLEAR key for numlock
     };
- 
-*length = sizeof(appleUSAKeyMap);
-return appleUSAKeyMap;
+    *length = sizeof(appleUSAKeyMap);
+    return appleUSAKeyMap;    
+
+}
+
+//====================================================================================================
+// setParamProperties
+//====================================================================================================
+IOReturn IOHIDKeyboard::setParamProperties( OSDictionary * dict )
+{
+    OSNumber 	*datan;
+
+    if (_keyboardLock)
+	IORecursiveLockLock (_keyboardLock);
+    
+    if ( _fKeyValuePtr )
+    {
+        if (datan = OSDynamicCast(OSNumber, dict->getObject(kIOHIDFKeyModeKey)))
+        {	
+            _fKeyMode = datan->unsigned8BitValue();
+            setProperty(kIOHIDFKeyModeKey, datan);
+        }
+    }
+    
+    if (datan = OSDynamicCast(OSNumber, dict->getObject(kIOHIDStickyKeysOnKey)))
+    {	
+	_stickyKeysOn = datan->unsigned8BitValue();
+    }
+
+    if (_keyboardLock)
+	IORecursiveLockUnlock (_keyboardLock);
+        
+    return super::setParamProperties(dict);
+    
+}
+
+//---------------------------------------------------------------------------
+// Compare the properties in the supplied table to this object's properties.
+
+static bool CompareProperty( IOService * owner, OSDictionary * matching, const char * key )
+{
+    // We return success if we match the key in the dictionary with the key in
+    // the property table, or if the prop isn't present
+    //
+    OSObject 	* value;
+    bool	matches;
+    
+    value = matching->getObject( key );
+
+    if( value)
+        matches = value->isEqualTo( owner->getProperty( key ));
+    else
+        matches = true;
+
+    return matches;
+}
+
+//====================================================================================================
+// matchPropertyTable
+//====================================================================================================
+bool IOHIDKeyboard::matchPropertyTable(OSDictionary * table, SInt32 * score)
+{
+    bool match = true;
+
+    // Ask our superclass' opinion.
+    if (super::matchPropertyTable(table, score) == false)  return false;
+
+    // Compare properties.        
+    if (!CompareProperty(this, table, kIOHIDLocationIDKey) 	||
+        !CompareProperty(this, table, kIOHIDTransportKey) 	||
+        !CompareProperty(this, table, kIOHIDVendorIDKey) 	||
+        !CompareProperty(this, table, kIOHIDProductIDKey))
+        match = false;
+
+    return match;
 }

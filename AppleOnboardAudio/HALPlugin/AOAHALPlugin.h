@@ -45,7 +45,6 @@ properties : we will define the following enhancement
 
 //#include <CoreAudio/AudioDriverPlugin.h>
 enum {
-	kAOAPropertyHeadphoneExclusive				= 'hpex',
 	kAOAPropertySelectionsReference				= 'selr',
 	kAOAPropertyPowerState						= 'powr'
 };

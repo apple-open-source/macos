@@ -1,4 +1,4 @@
-.TH REDO_PREBINDING 3 "October 3, 2002" "Apple Computer, Inc."
+.TH REDO_PREBINDING 3 "March 29, 2004" "Apple Computer, Inc."
 .SH NAME
 redo_prebinding library functions
 .SH SYNOPSIS
@@ -38,6 +38,13 @@ extern enum needs_redo_prebinding_retval needs_redo_prebinding(
 	char **error_message,
 	unsigned long expected_address,
 	cpu_type_t allow_missing_architectures);
+.sp .5
+extern enum redo_prebinding_retval unprebind(
+	const char *file_name,
+	const char *output_file,
+	const char *program_name,
+	char **error_message,
+	int zero_checksum);
 .sp .5
 extern enum object_file_type_retval object_file_type(
 	const char *file_name,
@@ -198,6 +205,57 @@ If
 is non-NULL it points to a value of the maximum bytes per second to use for
 writting the output.  If the value is ULONG_MAX then the actual bytes per
 second is returned indirectly through *throttle.
+.PP
+.IR unprebind ()
+takes a
+.I file_name
+of a binary and resets or removes prebinding information from it.  If
+.I output_file
+is not
+.SM NULL
+the updated file is written to
+.I output_file,
+if not it is written to
+.I file_name.
+If
+.IR unprebind ()
+is successful it returns
+.SM REDO_PREBINDING_SUCCESS
+otherwise it returns
+.SM REDO_PREBINDING_FAILURE.
+If the binary is already unprebound (it has the 
+.SM MH_PREBINDABLE
+flag set) then 
+.SM REDO_PREBINDING_NOT_NEEDED
+is returned.  If
+.I zero_out_prebind_checksum
+is non-zero then the cksum field of the
+.SM LC_PREBIND_CKSUM
+load command (if any) is set to zero on output, otherwise it is left alone
+(for the purpose of patching, this parameter should be non-zero, such that for binaries which
+are the same - minus prebinding - the unprebinding process produces binaries
+that are identical).
+Unprebinding slides dynamic libraries to address zero, resets prebound symbols
+to address zero and type undefined, resets symbol pointers, removes 
+.SM LC_PREBOUND_DYLIB
+commands, resets library timestamps, resets two-level hints, and updates 
+relocation entries if necessary.  Unprebound binaries have the 
+.SM MH_PREBINDABLE
+flag set, but not 
+.SM MH_PREBOUND.
+It will also set the the
+.SM MH_ALLMODSBOUND
+flag if all two-level libraries were used and all modules were found to be
+bound in the
+.SM LC_PREBOUND_DYLIB
+commands.  As unprebinding is intended to produce a canonical Mach-O 
+binary, bundles and non-prebound executables and dylibs are acceptable 
+as input.  For these files, the  unprebind operation will zero library time 
+stamps and version numbers and zero entries in the two-level hints 
+table.  These files will not gain the
+.SM MH_PREBINDABLE
+flag.  All resulting binaries successfully processed by unprebind() will have
+the MH_CANONICAL flag.
 .PP
 .IR needs_redo_prebinding()
 takes a

@@ -3,6 +3,11 @@ Links: links.h doco-links.h
 
 <h3>User Documentation</h3>
 
+<p>The <a href="mailman-member/index.html">GNU Mailman - List Member
+Manual</a> by Terri Oda takes a question-and-answer approach to
+helping end-users perform basic tasks in Mailman.  Also available
+<a href="mailman-member.pdf">in PDF format</a> (approx. 91k).
+
 <p><a href="http://staff.imsa.edu/~ckolar">Chris Kolar</a> has made
 available a <a href="http://staff.imsa.edu/~ckolar/mailman/">Mailman
 user guide</a> for end-users interacting with a Mailman system.

@@ -1,0 +1,59 @@
+Les peticions administratives es mostren en una de dues maneres possibles, en una <a
+href="%(summaryurl)s">p&agrave;gina de sumari</a>, i en una p&agrave;gina de <em>detalls</em>.
+LA p&agrave;gina de sumari cont&eacute; les peticions de subscripci&oacute; pendents,
+les peticions de baixa, i els missatges retinguts que esperen la seva aprobació, 
+ordenats per les adreces dels remitents. La p&agrave;gina de detalls cont&eacute; una
+vista m&eacute;s detallada d'aquests missatges retinguts, incloent-ne el títol sencer i un extracte
+del cos del missatge.
+
+<p>En totes les p&agrave;gines estan disponibles les següents accions:
+
+<ul>
+  <li><b>Defer</b> -- Posposar la vostra decisi&oacute; fins m&eacute;s tard. 
+    No es far&agrave; cap acci&oacute; a causa d'aquesta petici&oacute; administrativa, 
+    i en quant als missatges retinguts, encara pot reenviar-los o preservar-los.
+  <li><b>Approve</b> -- Aprovar el missatge enviant-lo cap a la llista. Per a 
+    les peticions de subscripci&oacute;, aprovi el canvi en l'status de subscripci&oacute;.
+  <li><b>Reject</b> -- Refusar el missatge enviant una nota de ref&uacute;s a 
+    la persona que el va enviar, i descartant el missatge original. Per a les 
+    peticions de subscripci&oacute;, refusi el canvi en l'status de subscripci&oacute;. 
+    En qualsevol cas hauria de donar una ra&oacute; per a tal decisi&oacute; en 
+    la caixa de texte acompanyant el missatge.
+  <li><b>Discard</b> -- Esborrar el missatge original sense enviar una nota de 
+    ref&uacute;s. Per a les peticions de subscripci&oacute;, aquesta acci&oacute; 
+    descarta la petici&oacute; sense cap notificaci&oacute; a la persona que la 
+    va fer. Aquesta &eacute;s la manera d'actuar davant de l'Spam.
+</ul>
+
+<p>Per als missatges retinguts, activi l'opci&oacute; <b>Preserve</b> si vol desar 
+  una c&ograve;pia del missatge per a l'administrador del lloc. Aix&ograve; &eacute;s 
+  molt &uacute;til per a missatges abusius que vulgui descartar, per&ograve; dels 
+  que necessita una c&ograve;pia per a posteriors inspeccions.
+<p>Activi l'opci&oacute; <b>Forward to</b>, i escrigui l'adre&ccedil;a de reenviament 
+  si vol reenviar el missatge a alg&uacute; que no estigui a la llista. Per a 
+  canviar un missatge retingut abans d'enviar-lo a la llista, s'hauria d'enviar 
+  a vost&egrave; mateix el missatge (o b&eacute; al propietari de la llista), 
+  i descartar l'original. Aleshores, quan aquest aparegui en la seva b&uacute;stia, 
+  faci els canvis i reenvii el missatge cap a la llista afegint-li el t&iacute;tol 
+  <tt>Approved:</tt> i amb la seva clau de pas de la llista com a valor. En aquest 
+  casos el comportament adeq&uuml;at seria incloure una nota en el nou missatge 
+  explicant les modificacions del texte original.
+<p>Si la persona que va enviar el missatge original &eacute;s un membre de la 
+  llista que est&agrave; sent moderat, vost&egrave; pot opcionalment treure-li 
+  la bandera que aix&iacute; ho especifica. Aix&ograve; &eacute;s &uacute;til 
+  en el cas de que la seva llista estigui configurada per a posar &quot;a proba&quot; 
+  els membres nous, i vost&egrave; ja hagi decidit que aquest membre en concret 
+  &eacute;s fiable i pot enviar missatges a la llista sense necessitat de la seva 
+  aprobaci&oacute;.
+<p>Si la persona que va enviar el missatge original no &eacute;s un membre de 
+  la llista, pot afegir la seva adre&ccedil;a d'email a un <em>filtre de remitents</em>. 
+  Els filtres de remitents es descriuen en la <a
+href="%(filterurl)s">p&agrave;gina de privacitat del filtre de remitents</a>, 
+  i poden ser d'<b>auto-accept</b> (Accepts),d'<b>auto-hold</b> (Holds), d'<b>auto-reject</b> 
+  (Rejects), o d'<b>auto-discard</b> (Discards). Aquesta opci&oacute; no estar&agrave; 
+  disponible si l'adre&ccedil;a ja est&agrave; afegida en un filtre de remitents.
+<p>Quan hagi acabat, faci click sobre el bot&oacute; <em>Submit All Data</em> 
+  que es troba tant a l'inici com en el final de la p&agrave;gina.. Aquest bot&oacute; 
+  enviar&agrave; totes les accions seleccionades de totes les peticions administratives 
+  sobre les quals ha pres decisi&oacute;.
+<p><a href="%(summaryurl)s">Tornar a la p&agrave;gina principal</a>. 

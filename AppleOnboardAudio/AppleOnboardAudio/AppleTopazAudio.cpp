@@ -220,7 +220,7 @@ IOReturn	AppleTopazAudio::setSampleRate ( UInt32 sampleRate ) {
 
 	debugIOLog ( 6, "+ AppleTopazAudio::setSampleRate ( %ld )", sampleRate );
 	FailIf ( 0 == sampleRate, Exit );
-	FailIf ( ( 198000 < sampleRate || sampleRate < 30000 ), Exit );
+	FailIf ( ( 198000 < sampleRate || sampleRate < 7800 ), Exit );
 	
 	mChannelStatus.sampleRate = sampleRate;
 	

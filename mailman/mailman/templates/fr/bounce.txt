@@ -1,4 +1,4 @@
-Ceci est un avis de rebond sur une liste Mailman: 
+Ceci est un avis d'erreur sur une liste Mailman: 
 
     Liste:      %(listname)s
     Abonné:     %(addr)s
@@ -7,7 +7,7 @@ Ceci est un avis de rebond sur une liste Mailman:
     %(but)s
 
 %(reenable)s
-Ce qui a déclenché l'avis de rebond est joint ci-dessous.
+Ce qui a déclenché l'envoi de cet avis est joint ci-dessous.
 
-Des questions?  
+Des questions ?  
 Contactez l'administrateur du site Mailman à l'adresse %(owneraddr)s.

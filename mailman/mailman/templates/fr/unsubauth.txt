@@ -4,7 +4,7 @@ de résiliation d'abonnement:
 	Par:   %(username)s
 	De:	   %(listname)s@%(hostname)s
 
-Dés que possible, visitez:
+Dès que possible, consultez la page web :
 
 	%(admindb_url)s
 

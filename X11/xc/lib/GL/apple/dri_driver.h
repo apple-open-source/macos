@@ -39,8 +39,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "Xplugin.h"
 #include "Xthreads.h"
 #include <CoreGraphics/CoreGraphics.h>
-#include <OpenGL/OpenGL.h>
-#include <OpenGL/CGLContext.h>
 
 #ifdef GLX_DIRECT_RENDERING
 

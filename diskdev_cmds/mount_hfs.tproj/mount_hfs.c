@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -256,7 +256,7 @@ void syncCreateDate(const char *mntpt, u_long localCreateTime)
  *
  * Note: unloading of encoding converter modules is done in the kernel
  */
-static void
+static int
 load_encoding(struct hfs_mnt_encoding *encp)
 {
 	int pid;
@@ -266,11 +266,14 @@ load_encoding(struct hfs_mnt_encoding *encp)
 	char kmodfile[MAXPATHLEN];
 	
 	/* MacRoman encoding (0) is built into the kernel */
-	if (encp->encoding_id == 0) return;
+	if (encp->encoding_id == 0)
+		return (0);
 
 	sprintf(kmodfile, "%sHFS_Mac%s.kext", ENCODING_MODULE_PATH, encp->encoding_name);
-	if (stat(kmodfile, &sb) == -1)
-		errx(1, "unable to find: %s", kmodfile);
+	if (stat(kmodfile, &sb) == -1) {
+		fprintf(stdout, "unable to find: %s\n", kmodfile);
+		return (-1);
+	}
 
 	loaded = 0;
 	pid = fork();
@@ -285,8 +288,11 @@ load_encoding(struct hfs_mnt_encoding *encp)
 		}
 	}
 
-	if (!loaded)
-		errx(1, "unable to load: %s", kmodfile);
+	if (!loaded) {
+		fprintf(stderr, "unable to load: %s\n", kmodfile);
+		return (-1);
+	}
+	return (0);
 }
 
 int
@@ -421,7 +427,8 @@ main(argc, argv)
 
 	/* load requested encoding (if any) for hfs volume */
 	if (encp != NULL) {
-		load_encoding(encp);
+		if (load_encoding(encp) != 0)
+			exit(1);  /* load failure */
 		args.hfs_encoding = encp->encoding_id;
 	}
 	
@@ -440,8 +447,8 @@ main(argc, argv)
 			/* Check if volume had a previous encoding preference. */
 			encp = get_encoding_pref(dev);
 			if (encp != NULL) {
-				load_encoding(encp);
-				args.hfs_encoding = encp->encoding_id;
+				if (load_encoding(encp) == 0)
+					args.hfs_encoding = encp->encoding_id;
 			}
 		}
 		/* when the mountpoint is root, use default values */
@@ -619,22 +626,25 @@ get_encoding_pref(char *dev)
 
 	/* Can only load encoding modules if root. */
 	if (geteuid() != 0)
-		goto next;
+		return (NULL);
 
 	fd = open(dev, O_RDONLY | O_NDELAY, 0);
 	if (fd == -1)
-		goto next;
+		return (NULL);
 
      	if (pread(fd, buffer, sizeof(buffer), 1024) != sizeof(buffer)) {
      		close(fd);
-		goto next;
+		return (NULL);
 	}
+    	close(fd);
+
 	mdbp = (HFSMasterDirectoryBlock *) buffer;
-	if (SWAP_BE16(mdbp->drSigWord) == kHFSSigWord) {
-		encoding = GET_HFS_TEXT_ENCODING(SWAP_BE32(mdbp->drFndrInfo[4]));
-     	}
-	close(fd);
-next:
+	if (SWAP_BE16(mdbp->drSigWord) != kHFSSigWord ||
+	    SWAP_BE16(mdbp->drEmbedSigWord) == kHFSPlusSigWord ) {
+		return (NULL);
+	}
+	encoding = GET_HFS_TEXT_ENCODING(SWAP_BE32(mdbp->drFndrInfo[4]));
+
 	if (encoding == -1) {
 		encoding = get_encoding_bias();
 		if (encoding == 0 || encoding == -1)

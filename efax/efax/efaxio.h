@@ -17,7 +17,8 @@
 
 enum promptcodes {		/* codes for modem prompts */
    BUSY = 'B', CONNECT = 'C', DATA='D', ERROR = 'E', 
-   MODULATION='M', NO = 'N', OK = 'O', RING = 'R', VCONNECT = 'V' } ;
+   MODULATION='M', NO = 'N', OK = 'O', RING = 'R', VCONNECT = 'V',
+   PLUS = '+' } ;
 
 		      /* Modem features */
 

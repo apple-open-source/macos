@@ -32,6 +32,7 @@
 #include <IOKit/hidsystem/IOHIDDescriptorParser.h>
 #include <IOKit/hidsystem/IOHIDShared.h>
 #include <IOKit/hidsystem/IOHIKeyboard.h>
+#include "IOHIDKeyboard.h"
 
 // extra includes.
 #include <libkern/OSByteOrder.h>
@@ -45,19 +46,13 @@ class IOHIDConsumer : public IOHIKeyboard
 {
     OSDeclareDefaultStructors(IOHIDConsumer)
 
-    bool				_muteIsPressed;
-    bool				_ejectIsPressed;
-    bool				_powerIsPressed;
-    bool				_playIsPressed;        
-    bool				_soundUpIsPressed;
-    bool				_soundDownIsPressed;
-    bool				_fastForwardIsPressed;
-    bool				_rewindIsPressed;
-    bool				_nextTrackIsPressed;
-    bool				_prevTrackIsPressed;
+    bool				_isDispatcher;
+    bool				_states[NX_NUMSPECIALKEYS];
     
-    unsigned				_eventFlags;
-    bool				_capsLockOn;
+    OSNumber *				_vendorID;
+    OSNumber *				_productID;
+    OSNumber *				_locationID;
+    OSString *				_transport;
     
     // Generic Deskop Element Value Ptrs
     UInt32 **				_systemPowerValuePtrs;
@@ -101,24 +96,42 @@ class IOHIDConsumer : public IOHIKeyboard
     UInt32 **				_volumeMuteValuePtrs;
     UInt32				_volumeMuteValuePtrsCount;
     
+    IOHIDKeyboard *			_keyboard;
+    IONotifier *			_publishNotify;
+    IOLock *				_keyboardLock;
+    
+    UInt32				_otherEventFlags;
+    bool				_otherCapsLockOn;
+    
     // Our implementation specific stuff.
     bool				findDesiredElements(OSArray *elements);
-    UInt32				FindKeyboardsAndGetModifiers();
+    UInt32				findKeyboardsAndGetModifiers();
+    static bool 			_publishNotificationHandler(void * target, void * ref, IOService * newService );
     
 public:
     // Allocator
     static IOHIDConsumer * 		Consumer(OSArray *elements);
+    static IOHIDConsumer * 		Dispatcher(IOService * owner);
     
     // IOService methods
     virtual bool			init(OSDictionary *properties=0);
     virtual void			free();
-    
+    virtual bool			start(IOService * provider);
+    virtual void 			stop(IOService *  provider);
+    virtual bool 			matchPropertyTable(OSDictionary * table, SInt32 * score);    
     virtual void			handleReport();
+    virtual void			dispatchSpecialKeyEvent(int key, bool down, AbsoluteTime ts);
 
    
     // IOHIKeyboard methods
     virtual const unsigned char*	defaultKeymapOfLength( UInt32 * length );
+    virtual bool 			doesKeyLock(unsigned key);
     virtual unsigned 			eventFlags();
+    virtual void 			setNumLock(bool val);
+    virtual bool 			numLock();
     virtual bool 			alphaLock();
+    virtual UInt32    			deviceType();
+    
+    inline bool				isDispatcher() const { return _isDispatcher;}
 };
 #endif /* !_IOKIT_HID_IOHIDCONSUMER_H */

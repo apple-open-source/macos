@@ -60,6 +60,9 @@
 #include <rpc/rpc.h>
 #include <rpc/pmap_clnt.h>
 
+#include <bsm/libbsm.h>
+#include <bsm/audit_uevents.h>
+
 #ifdef _OS_NEXT_
 /* Support the old rpcgen, which doesn't append the _svc suffix
  * to server side stubs.
@@ -166,13 +169,13 @@ typedef enum
 	TokenXMLDictEnd = 5,
 	TokenXMLKeyStart = 6,
 	TokenXMLKeyEnd = 7
-} token_type_t;
+} xml_token_type_t;
 
 typedef struct
 {
-	token_type_t type;
+	xml_token_type_t type;
 	char *value;
-} token_t;
+} xml_token_t;
 
 /*
  * Is this call an update from the master?
@@ -249,6 +252,40 @@ is_admin(void *ni, char *user)
 	return FALSE;
 }
 
+static void
+audit_auth(uid_t uid, char *msg, int status, int err)
+{
+	int aufd;
+	token_t *tok;
+	auditinfo_t auinfo;
+	long au_cond;
+    
+	/* If we are not auditing, don't cut an audit record; just return */
+	if (auditon(A_GETCOND, &au_cond, sizeof(long)) < 0) return;
+	if (au_cond == AUC_NOAUDIT) return;
+	if (getaudit(&auinfo) != 0) return;
+	if ((aufd = au_open()) == -1) return;
+    
+	/* The uid being authenticated */
+    tok = au_to_subject32(auinfo.ai_auid, 0, 0, uid, -1, getpid(), auinfo.ai_asid, &auinfo.ai_termid);
+    if (tok == NULL) return;
+	au_write(aufd, tok);
+
+    /* Message text */
+    if (msg != NULL)
+    {
+        tok = au_to_text(msg);
+        if (tok != NULL) au_write(aufd, tok);
+    }
+
+    /* Status and errno */
+    tok = au_to_return32(status, err);
+	if (tok != NULL) au_write(aufd, tok);
+    
+	au_close(aufd, 1, AUE_auth_user);
+	return;
+}
+
 /*
  * Authenticate a NetInfo call. Only required for write operations.
  * NetInfo uses passwords for authentications, but does not send them
@@ -306,6 +343,8 @@ authenticate(void *ni, struct svc_req *req)
 	status = ni_lookup(ni, &id, NAME_NAME, NAME_USERS, &idl);
 	if (status != NI_OK)
 	{
+        audit_auth(aup->aup_uid, "can't access /users", 1, ENOENT);
+
 		system_log(LOG_ERR,
 				"Cannot authenticate user %d from %s:%hu - no /%s "
 				"directory: %s", aup->aup_uid,
@@ -327,6 +366,7 @@ authenticate(void *ni, struct svc_req *req)
 	status = ni_lookup(ni, &id, NAME_UID, uidstr, &idl);
 	if (status != NI_OK)
 	{
+        audit_auth(aup->aup_uid, "no such user id", 1, ENOENT);
 		system_log(LOG_ERR, "Cannot find user %d from %s:%hu: %s",
 				aup->aup_uid,
 				inet_ntoa(sin->sin_addr), ntohs(sin->sin_port),
@@ -438,6 +478,7 @@ authenticate(void *ni, struct svc_req *req)
 		/*
 		 * No user with this uid with no password or a matching password
 		 */
+        audit_auth(aup->aup_uid, "authentication failed", 1, EAUTH);
 		system_log(LOG_ERR, "Authentication error for user "
 				"%d from %s:%hu",
 				aup->aup_uid,
@@ -451,6 +492,7 @@ authenticate(void *ni, struct svc_req *req)
 	status = ni_lookupprop(ni, &id, NAME_NAME, &nl);
 	if (status != NI_OK)
 	{
+        audit_auth(aup->aup_uid, "uid with no name property", 1, EAUTH);
 		system_log(LOG_ERR,
 				"User %d from %s:%hu - name prop not found during "
 				"authentication",
@@ -463,6 +505,7 @@ authenticate(void *ni, struct svc_req *req)
 
 	if (nl.ni_namelist_len == 0)
 	{
+        audit_auth(aup->aup_uid, "uid with no name value", 1, EAUTH);
 		system_log(LOG_ERR,
 				"User %d from %s:%hu - name value not found during "
 				"authentication",
@@ -492,6 +535,7 @@ authenticate(void *ni, struct svc_req *req)
 	}
 
 	auth_count[GOOD]++;
+    audit_auth(aup->aup_uid, NULL, 0, 0);
 	system_log(LOG_NOTICE,
 		"Authenticated user %s [%d] from %s:%hu", 
 		nl.ni_namelist_val[0], aup->aup_uid,
@@ -1820,9 +1864,9 @@ add_broadcast_binding(ni_name server_tag, ni_name client_tag,
 		if ((l->interface[i].flags & IFF_UP) == 0) continue;
 		if (l->interface[i].flags & IFF_LOOPBACK)
 		{
-			if (l->count == 1)
+			if ((l->count == 1) && (standalone == 0))
 			{
-				/* Special case: include loopback if it is the only interface */
+				/* Special case: include loopback if NOT standalone and it is the only interface */
 				add_binding_entry(l->interface[i].addr, server_tag, l->interface[i].addr, client_tag, addrs, stuff, naddrs);
 			}
 		}
@@ -1855,7 +1899,7 @@ add_hardwired_binding(struct in_addr server_addr, ni_name server_tag, ni_name cl
 }
 
 static void
-freeToken(token_t *t)
+freeToken(xml_token_t *t)
 {
 	if (t == NULL) return;
 	if (t->value != NULL) free(t->value);
@@ -1868,15 +1912,15 @@ freeToken(token_t *t)
  * XML tokens are any run enclosed by < and >.
  * White space includes spaces, tabs, and newlines.
  */
-static token_t *
+static xml_token_t *
 get_token_1(FILE *fp, int xword)
 {
-	token_t *t, *s;
+	xml_token_t *t, *s;
 	char c;
 	static char x = EOF;
 	int i, run, len, xml;
 
-	t = (token_t *)malloc(sizeof(token_t));
+	t = (xml_token_t *)malloc(sizeof(xml_token_t));
 	t->type = TokenNULL;
 	t->value = NULL;
 	len = 0;
@@ -1907,7 +1951,7 @@ get_token_1(FILE *fp, int xword)
 
 		if (t->value == NULL) return t;
 
-		s = (token_t *)malloc(sizeof(token_t));
+		s = (xml_token_t *)malloc(sizeof(xml_token_t));
 		s->type = TokenWord;
 		s->value = NULL;
 
@@ -1989,10 +2033,10 @@ get_token_1(FILE *fp, int xword)
 	return t;
 }	
 
-static token_t *
+static xml_token_t *
 pop_token(FILE *fp)
 {
-	token_t *t, *s;
+	xml_token_t *t, *s;
 		
 	t = get_token_1(fp, 0);
 	if (t->type != TokenWord) return t;
@@ -2050,7 +2094,7 @@ fread_plist(FILE *fp)
 {
 	ni_proplist *pl;
 	ni_property *p;
-	token_t *t;
+	xml_token_t *t;
 
 	t = pop_token(fp);
 

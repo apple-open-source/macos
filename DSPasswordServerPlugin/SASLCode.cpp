@@ -259,3 +259,242 @@ long getconn(const char *host, const char *port, int *outSocket)
 }
 
 
+
+
+/* 
+ * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer. 
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * 3. The name "Carnegie Mellon University" must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission. For permission or any other legal
+ *    details, please contact  
+ *      Office of Technology Transfer
+ *      Carnegie Mellon University
+ *      5000 Forbes Avenue
+ *      Pittsburgh, PA  15213-3890
+ *      (412) 268-4387, fax: (412) 268-7395
+ *      tech-transfer@andrew.cmu.edu
+ *
+ * 4. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by Computing Services
+ *     at Carnegie Mellon University (http://www.cmu.edu/computing/)."
+ *
+ * CARNEGIE MELLON UNIVERSITY DISCLAIMS ALL WARRANTIES WITH REGARD TO
+ * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS, IN NO EVENT SHALL CARNEGIE MELLON UNIVERSITY BE LIABLE
+ * FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+ * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ */
+ 
+
+#include "SASLCode.h"
+
+const unsigned char *COLON = (unsigned char *)":";
+
+bool UTF8_In_8859_1(const unsigned char *base, int len)
+{
+    const unsigned char *scan, *end;
+    
+    end = base + len;
+    for (scan = base; scan < end; ++scan) {
+		if (*scan > 0xC3)
+			break;			/* abort if outside 8859-1 */
+		if (*scan >= 0xC0 && *scan <= 0xC3) {
+			if (++scan == end || *scan < 0x80 || *scan > 0xBF)
+			break;
+		}
+    }
+    
+    /* if scan >= end, then this is a 8859-1 string. */
+    return (scan >= end);
+}
+
+/*
+ * if the string is entirely in the 8859-1 subset of UTF-8, then translate to
+ * 8859-1 prior to MD5
+ */
+void MD5_UTF8_8859_1(
+	MD5_CTX * ctx,
+	bool In_ISO_8859_1,
+	const unsigned char *base,
+	int len)
+{
+    const unsigned char *scan, *end;
+    unsigned char cbuf;
+    
+    end = base + len;
+    
+    /* if we found a character outside 8859-1, don't alter string */
+    if (!In_ISO_8859_1) {
+		MD5_Update(ctx, base, len);
+		return;
+    }
+    /* convert to 8859-1 prior to applying hash */
+    do {
+		for (scan = base; scan < end && *scan < 0xC0; ++scan);
+		if (scan != base)
+			MD5_Update(ctx, base, scan - base);
+		if (scan + 1 >= end)
+			break;
+		cbuf = ((scan[0] & 0x3) << 6) | (scan[1] & 0x3f);
+		MD5_Update(ctx, &cbuf, 1);
+		base = scan + 2;
+    }
+    while (base < end);
+}
+
+
+void DigestCalcSecret(
+	unsigned char *pszUserName,
+	unsigned char *pszRealm,
+	unsigned char *Password,
+	int PasswordLen,
+	HASH HA1)
+{
+    bool In_8859_1;
+    MD5_CTX Md5Ctx;
+    
+    /* Chris Newman clarified that the following text in DIGEST-MD5 spec
+       is bogus: "if name and password are both in ISO 8859-1 charset"
+       We shoud use code example instead */
+    
+	MD5_Init(&Md5Ctx);
+    
+    /* We have to convert UTF-8 to ISO-8859-1 if possible */
+    In_8859_1 = UTF8_In_8859_1(pszUserName, strlen((char *) pszUserName));
+    MD5_UTF8_8859_1(&Md5Ctx, In_8859_1,
+		    pszUserName, strlen((char *) pszUserName));
+    
+    MD5_Update(&Md5Ctx, COLON, 1);
+    
+    if (pszRealm != NULL && pszRealm[0] != '\0') {
+		/* a NULL realm is equivalent to the empty string */
+		MD5_Update(&Md5Ctx, pszRealm, strlen((char *) pszRealm));
+    }      
+    
+    MD5_Update(&Md5Ctx, COLON, 1);
+    
+    /* We have to convert UTF-8 to ISO-8859-1 if possible */
+    In_8859_1 = UTF8_In_8859_1(Password, PasswordLen);
+    MD5_UTF8_8859_1(&Md5Ctx, In_8859_1,
+		    Password, PasswordLen);
+    
+   	MD5_Final(HA1, &Md5Ctx);
+}
+
+
+void hmac_md5_init(HMAC_MD5_CTX *hmac,
+			 const unsigned char *key,
+			 int key_len)
+{
+	unsigned char k_ipad[65];    /* inner padding -
+				* key XORd with ipad
+				*/
+	unsigned char k_opad[65];    /* outer padding -
+				* key XORd with opad
+				*/
+	unsigned char tk[16];
+	int i;
+	/* if key is longer than 64 bytes reset it to key=MD5(key) */
+	if (key_len > 64) {
+	
+	MD5_CTX      tctx;
+	
+	MD5_Init(&tctx); 
+	MD5_Update(&tctx, key, key_len); 
+	MD5_Final(tk, &tctx); 
+	
+	key = tk; 
+	key_len = 16; 
+	} 
+	
+	/*
+	* the HMAC_MD5 transform looks like:
+	*
+	* MD5(K XOR opad, MD5(K XOR ipad, text))
+	*
+	* where K is an n byte key
+	* ipad is the byte 0x36 repeated 64 times
+	* opad is the byte 0x5c repeated 64 times
+	* and text is the data being protected
+	*/
+	
+	/* start out by storing key in pads */
+	memset(k_ipad, '\0', sizeof k_ipad);
+	memset(k_opad, '\0', sizeof k_opad);
+	memcpy( k_ipad, key, key_len);
+	memcpy( k_opad, key, key_len);
+	
+	/* XOR key with ipad and opad values */
+	for (i=0; i<64; i++) {
+	k_ipad[i] ^= 0x36;
+	k_opad[i] ^= 0x5c;
+	}
+	
+	MD5_Init(&hmac->ictx);                   /* init inner context */
+	MD5_Update(&hmac->ictx, k_ipad, 64);     /* apply inner pad */
+	
+	MD5_Init(&hmac->octx);                   /* init outer context */
+	MD5_Update(&hmac->octx, k_opad, 64);     /* apply outer pad */
+	
+	/* scrub the pads and key context (if used) */
+	memset(&k_ipad, 0, sizeof(k_ipad));
+	memset(&k_opad, 0, sizeof(k_opad));
+	memset(&tk, 0, sizeof(tk));
+	
+	/* and we're done. */
+}
+
+/* The precalc and import routines here rely on the fact that we pad
+ * the key out to 64 bytes and use that to initialize the md5
+ * contexts, and that updating an md5 context with 64 bytes of data
+ * leaves nothing left over; all of the interesting state is contained
+ * in the state field, and none of it is left over in the count and
+ * buffer fields.  So all we have to do is save the state field; we
+ * can zero the others when we reload it.  Which is why the decision
+ * was made to pad the key out to 64 bytes in the first place. */
+void hmac_md5_precalc(HMAC_MD5_STATE *state,
+			    const unsigned char *key,
+			    int key_len)
+{
+	HMAC_MD5_CTX hmac;
+	//unsigned loop;
+	
+	hmac_md5_init(&hmac, key, key_len);
+	
+	/*
+	for (loop = 0; loop < 4; loop++) {
+		state->istate[loop] = htonl(hmac.ictx.state[loop]);
+		state->ostate[loop] = htonl(hmac.octx.state[loop]);
+	}
+	*/
+	
+	state->istate[0] = htonl(hmac.ictx.A);
+	state->istate[1] = htonl(hmac.ictx.B);
+	state->istate[2] = htonl(hmac.ictx.C);
+	state->istate[3] = htonl(hmac.ictx.D);
+	
+	state->ostate[0] = htonl(hmac.octx.A);
+	state->ostate[1] = htonl(hmac.octx.B);
+	state->ostate[2] = htonl(hmac.octx.C);
+	state->ostate[3] = htonl(hmac.octx.D);
+	
+	memset(&hmac, 0, sizeof(hmac));
+}
+
+

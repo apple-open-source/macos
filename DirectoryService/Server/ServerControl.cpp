@@ -1798,7 +1798,7 @@ void ServerControl:: LaunchKerberosAutoConfigTool ( void )
 		sIPCMsg aMsg;
 		
 		aMsg.fHeader.msgh_bits			= MACH_MSGH_BITS( MACH_MSG_TYPE_COPY_SEND, MACH_MSG_TYPE_MAKE_SEND );
-		aMsg.fHeader.msgh_size			= sizeof(sIPCMsg) - sizeof( mach_msg_security_trailer_t );
+		aMsg.fHeader.msgh_size			= sizeof(sIPCMsg) - sizeof( mach_msg_audit_trailer_t );
 		aMsg.fHeader.msgh_id			= 0;
 		aMsg.fHeader.msgh_remote_port	= mach_init_port;
 		aMsg.fHeader.msgh_local_port	= MACH_PORT_NULL;

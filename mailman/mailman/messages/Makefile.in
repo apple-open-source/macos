@@ -43,12 +43,13 @@ OPT=		@OPT@
 CFLAGS=		$(OPT) $(DEFS)
 PACKAGEDIR= 	$(prefix)/messages
 SHELL=		/bin/sh
-DIRSETGID=	chmod g+s
+DIRSETGID=	$(CHMOD) g+s
 MSGFMT= 	@PYTHON@ ../build/bin/msgfmt.py
 MSGMERGE=	msgmerge
 
 # CVS available languages
-LANGUAGES=	cs de es et fi fr hu it ja ko lt nl no pl pt pt_BR ru sv
+LANGUAGES=	ca cs da de es et eu fi fr hr hu it ja ko lt nl no pl \
+		pt pt_BR ro ru sl sr sv uk
 LANGDIRS=	$(LANGUAGES:%=messages/%/LC_MESSAGES)
 # Human readable po file
 POFILES=	$(LANGUAGES:%=%/LC_MESSAGES/mailman.po)
@@ -91,8 +92,8 @@ doinstall: mofiles
 	    dir=$(DESTDIR)$(prefix)/$$d; \
 	    echo "Creating language directory $$dir"; \
 	    $(srcdir)/../mkinstalldirs $$dir; \
-	    chmod $(DIRMODE) $$dir; \
-	    $(DIRSETGID) $$dir; \
+	    $(CHMOD) $(DIRMODE) $$dir $$dir/..; \
+	    $(DIRSETGID) $$dir $$dir/..; \
 	done
 	@for d in $(LANGUAGES); \
 	do \
@@ -117,8 +118,10 @@ finish:
 clean:
 	-rm -f */LC_MESSAGES/mailman.mo
 
-potclean:
+fileclean:
 	-rm -f marked.files docstring.files
+
+potclean: fileclean
 	-rm -f Makefile $(POTFILE)
 
 distclean: clean potclean

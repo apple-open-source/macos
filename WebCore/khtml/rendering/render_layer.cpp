@@ -48,6 +48,7 @@
 #include "render_canvas.h"
 #include "render_arena.h"
 #include "xml/dom_docimpl.h"
+#include "xml/dom2_eventsimpl.h"
 #include "misc/htmltags.h"
 #include "html/html_blockimpl.h"
 
@@ -472,8 +473,6 @@ RenderLayer::scrollToOffset(int x, int y, bool updateScrollbars, bool repaint)
     m_scrollX = x;
     m_scrollY = y;
 
-    // FIXME: Fire the onscroll DOM event.
-
     // Update the positions of our child layers.
     for (RenderLayer* child = firstChild(); child; child = child->nextSibling())
         child->updateLayerPositions();
@@ -482,6 +481,9 @@ RenderLayer::scrollToOffset(int x, int y, bool updateScrollbars, bool repaint)
     // Move our widgets.
     m_object->updateWidgetPositions();
 #endif
+
+    // Fire the scroll DOM event.
+    m_object->element()->dispatchHTMLEvent(EventImpl::SCROLL_EVENT, true, false);
 
     // Just schedule a full repaint of our object.
     if (repaint)
@@ -914,8 +916,34 @@ RenderLayer::nodeAtPointForLayer(RenderLayer* rootLayer, RenderObject::NodeInfo&
         renderer()->nodeAtPoint(info, xMousePos, yMousePos,
                                 layerBounds.x() - renderer()->xPos(),
                                 layerBounds.y() - renderer()->yPos(),
-                                HitTestChildrenOnly))
+                                HitTestChildrenOnly)) {
+
+	// for positioned generated content, we might still not have a
+	// node by the time we get to the layer level, since none of
+	// the content in the layer has an element. So just walk up
+	// the tree.
+         if (!info.innerNode()) {
+	    for (RenderObject *r = renderer(); r != NULL; r = r->parent()) { 
+		if (r->element()) {
+		    info.setInnerNode(r->element());
+		    break;
+		}
+	    }
+	 }
+
+	 if (!info.innerNonSharedNode()) {
+	     for (RenderObject *r = renderer(); r != NULL; r = r->parent()) { 
+		 if (r->element()) {
+		     info.setInnerNonSharedNode(r->element());
+		     break;
+		 }
+	     }
+	 }
+
+
+
         return this;
+    }
         
     // Now check our negative z-index children.
     if (m_negZOrderList) {

@@ -23,9 +23,17 @@ PYTESTS=	\
     reader.py	\
     reader2.py	\
     reader3.py	\
+    reader4.py	\
+    reader5.py	\
+    reader6.py	\
+    reader7.py	\
+    walker.py	\
     ctxterror.py\
     readererr.py\
-    relaxng.py
+    relaxng.py	\
+    thread2.py \
+    tstLastError.py \
+    indexes.py
 
 XMLS=		\
     tst.xml	\
@@ -48,5 +56,5 @@ clean:
 install-data-local:
 	$(mkinstalldirs) $(DESTDIR)$(EXAMPLE_DIR)
 	-(for test in $(PYTESTS) $(XMLS); \
-	  do @INSTALL@ -m 0644 $$test $(DESTDIR)$(EXAMPLE_DIR) ; done)
+	  do @INSTALL@ -m 0644 $(srcdir)/$$test $(DESTDIR)$(EXAMPLE_DIR) ; done)
 

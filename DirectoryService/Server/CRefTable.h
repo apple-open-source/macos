@@ -113,7 +113,7 @@ public:
 
 	static tDirStatus	VerifyDirRef		( tDirReference inDirRef, CServerPlugin **outPlugin, sInt32 inPID, uInt32 inIPAddress );
 	static tDirStatus	VerifyNodeRef		( tDirNodeReference inDirNodeRef, CServerPlugin **outPlugin, sInt32 inPID, uInt32 inIPAddress );
-	static tDirStatus	VerifyRecordRef		( tRecordReference inRecordRef, CServerPlugin **outPlugin, sInt32 inPID, uInt32 inIPAddress );
+	static tDirStatus	VerifyRecordRef		( tRecordReference inRecordRef, CServerPlugin **outPlugin, sInt32 inPID, uInt32 inIPAddress, bool inDaemonPID_OK = false );
 	static tDirStatus	VerifyAttrListRef	( tAttributeListRef inAttributeListRef, CServerPlugin **outPlugin, sInt32 inPID, uInt32 inIPAddress );
 	static tDirStatus	VerifyAttrValueRef	( tAttributeValueListRef inAttributeValueListRef, CServerPlugin **outPlugin, sInt32 inPID, uInt32 inIPAddress );
 
@@ -135,7 +135,7 @@ public:
 	static void			CheckClientPIDs		( bool inUseTimeOuts, uInt32 inIPAddress, uInt32 inPIDorPort );
 
 private:
-	tDirStatus	VerifyReference		( tDirReference inDirRef, uInt32 inType, CServerPlugin **outPlugin, sInt32 inPID, uInt32 inIPAddress );
+	tDirStatus	VerifyReference		( tDirReference inDirRef, uInt32 inType, CServerPlugin **outPlugin, sInt32 inPID, uInt32 inIPAddress, bool inDaemonPID_OK = false );
 	tDirStatus	GetNewRef			( uInt32 *outRef, uInt32 inParentID, eRefTypes inType, CServerPlugin *inPlugin, sInt32 inPID, uInt32 inIPAddress );
 	tDirStatus	RemoveRef			( uInt32 inRefNum, uInt32 inType, sInt32 inPID, uInt32 inIPAddress, bool inbAtTop = false);
 	tDirStatus	SetPluginPtr		( uInt32 inRefNum, uInt32 inType, CServerPlugin *inPlugin );

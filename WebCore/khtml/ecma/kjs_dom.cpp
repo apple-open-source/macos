@@ -132,6 +132,7 @@ bool DOMNode::toBoolean(ExecState *) const
   onmove	DOMNode::OnMove			DontDelete
   onreset	DOMNode::OnReset		DontDelete
   onresize	DOMNode::OnResize		DontDelete
+  onscroll      DOMNode::OnScroll               DontDelete
   onselect	DOMNode::OnSelect		DontDelete
   onsubmit	DOMNode::OnSubmit		DontDelete
   onunload	DOMNode::OnUnload		DontDelete
@@ -232,6 +233,8 @@ Value DOMNode::getValueProperty(ExecState *exec, int token) const
     return getListener(DOM::EventImpl::RESET_EVENT);
   case OnResize:
     return getListener(DOM::EventImpl::RESIZE_EVENT);
+  case OnScroll:
+    return getListener(DOM::EventImpl::SCROLL_EVENT);
   case OnSelect:
     return getListener(DOM::EventImpl::SELECT_EVENT);
   case OnSubmit:
@@ -364,6 +367,8 @@ void DOMNode::putValue(ExecState *exec, int token, const Value& value, int /*att
   case OnResize:
     setListener(exec,DOM::EventImpl::RESIZE_EVENT,value);
     break;
+  case OnScroll:
+    setListener(exec,DOM::EventImpl::SCROLL_EVENT,value);
   case OnSelect:
     setListener(exec,DOM::EventImpl::SELECT_EVENT,value);
     break;

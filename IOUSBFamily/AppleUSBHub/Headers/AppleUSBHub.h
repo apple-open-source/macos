@@ -158,6 +158,8 @@ class AppleUSBHub : public IOService
     void		CallCheckForDeadHub(void);
 
     IOUSBHubDescriptor 	GetCachedHubDescriptor() { return _hubDescriptor; }
+    bool		MergeDictionaryIntoProvider(IOService *  provider, OSDictionary *  mergeDict);
+    bool		MergeDictionaryIntoDictionary(OSDictionary *  sourceDictionary,  OSDictionary *  targetDictionary);
     
 public:
 
