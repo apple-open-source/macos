@@ -195,6 +195,21 @@ void TransferEngine::Client::startOutput()
 
 
 //
+// Discard any data still in the input buffer.
+// This is used to cope with unexpected garbage (protocol violations
+// from the server), and shouldn't be used indiscriminately.
+//
+void TransferEngine::Client::flushInput()
+{
+    if (!mReadBuffer.isEmpty()) {
+        debug("engineio", "flushing %ld bytes of input", mReadBuffer.length());
+        mReadBuffer.clear();
+        mInputFlushed = true;	// inhibit normal buffer ops
+    }
+}
+
+
+//
 // Given that autoCopyOut mode is active, try to transfer some bytes
 // into the write buffer. This is a lazy, fast push, suitable for tacking on
 // when you are about to send data for some other reason.
@@ -272,8 +287,10 @@ void TransferEngine::Client::notify(int fd, Type type)
                 this, fd, io.iocget<int>(FIONREAD)));
     
             do {
+                mInputFlushed = false;	// preset normal
+                
                 //@@@ break out after partial buffer to give Equal Time to other transfers? good idea?!
-                if (mReadBuffer.read(*this) == 0) {
+                if (!atEnd() && mReadBuffer.read(*this) == 0 && !atEnd()) {
                     mReadBuffer.read(*this, true);
                 }
                 
@@ -286,7 +303,8 @@ void TransferEngine::Client::notify(int fd, Type type)
                     rawInputTransit();
                     break;
                 case lineInput:
-                    lineInputTransit();
+                    if (!lineInputTransit())
+                        return;		// no full line; try again later
                     break;
                 case autoReadInput:
                     autoReadInputTransit();
@@ -314,7 +332,7 @@ void TransferEngine::Client::notify(int fd, Type type)
                     assert(false);
                 }
                 if (!io)		// client has unhooked; clear buffer and exit loop
-                    mReadBuffer.clear();
+                    flushInput();
             } while (!mReadBuffer.isEmpty());
             //@@@ feed back for more output here? But also see comments above...
             //@@@ probably better to take the trip through the Selector
@@ -334,10 +352,11 @@ void TransferEngine::Client::rawInputTransit()
     IFDEBUG(debug("engineio", "%p(%d) --> %d bytes RAW",
         this, fileDesc(), io.iocget<int>(FIONREAD)));
     transit(inputAvailable, addr, length);
-    mReadBuffer.usePut(length);
+    if (!mInputFlushed)
+        mReadBuffer.useGet(length);
 }
 
-void TransferEngine::Client::lineInputTransit()
+bool TransferEngine::Client::lineInputTransit()
 {
     char *line; size_t length = mReadBuffer.length();
     mReadBuffer.locateGet(line, length);
@@ -345,7 +364,7 @@ void TransferEngine::Client::lineInputTransit()
     char *nl;
     for (nl = line; nl < line + length && *nl != '\n'; nl++) ;
     if (nl == line + length)				// no end-of-line, wait for more
-        return;
+        return false;
         
     if (nl > line && nl[-1] == '\r') {		// proper \r\n termination
         nl[-1] = '\0';						// terminate for transit convenience
@@ -356,7 +375,9 @@ void TransferEngine::Client::lineInputTransit()
         debug("engineio", "%p(%d) [IMPROPER] --> %s", this, fileDesc(), line);
         transit(inputAvailable, line, nl - line);
     }
-    mReadBuffer.useGet(nl - line + 1);
+    if (!mInputFlushed)
+        mReadBuffer.useGet(nl - line + 1);
+    return true;
 }
 
 void TransferEngine::Client::autoReadInputTransit()
@@ -369,7 +390,8 @@ void TransferEngine::Client::autoReadInputTransit()
     mReadBuffer.locateGet(data, length);
     debug("engineio", "%p(%d) --> %ld bytes autoReadInput", this, fileDesc(), length);
     mSink->consume(data, length);
-    mReadBuffer.useGet(length);
+    if (!mInputFlushed)
+        mReadBuffer.useGet(length);
     if (mResidualReadCount && (mResidualReadCount -= length) == 0)
         mMode = autoIODone;
 }

@@ -37,6 +37,7 @@
 #include <IOKit/IOMessage.h>
 #include <IOKit/IODeviceTreeSupport.h>
 
+#include <IOKit/firewire/IOFireWireLink.h>
 #include <IOKit/firewire/IOFireWireDevice.h>
 #include <IOKit/firewire/IOFireWireUnit.h>
 #include <IOKit/firewire/IOFireWireController.h>
@@ -216,6 +217,20 @@ void IOFireWireDevice::setNodeROM(UInt32 gen, UInt16 localID, const IOFWNodeScan
     setProperty(gFireWireNodeID, prop);
     prop->release();
 
+    if( fNodeID != kFWBadNodeID )
+    {
+		if( fNodeFlags & kIOFWDisableAllPhysicalAccess )
+        {
+            IOFireWireLink * fwim = fControl->getLink();
+            fwim->setNodeIDPhysicalFilter( kIOFWAllPhysicalFilters, false );
+        }
+        else if( fNodeFlags & kIOFWDisablePhysicalAccess )
+        {
+            IOFireWireLink * fwim = fControl->getLink();
+            fwim->setNodeIDPhysicalFilter( fNodeID & 63, false );
+        }
+    }
+    
     if(!info) {
         // Notify clients that current state is suspended
         messageClients(kIOMessageServiceIsSuspended);
@@ -518,7 +533,7 @@ bool IOFireWireDevice::handleOpen( IOService * forClient, IOOptionBits options, 
         if( fOpenFromUnitCount == 0 )
         {
             // if this is the first open call, actually do the open
-            ok = IOService::handleOpen( forClient, options, arg );
+            ok = IOService::handleOpen( this, options, arg );
             if( ok )
                 fOpenFromUnitCount++;
         }
@@ -567,7 +582,7 @@ void IOFireWireDevice::handleClose( IOService * forClient, IOOptionBits options 
             
             if( fOpenFromUnitCount == 0 ) // close if we're down to zero
             {
-                IOService::handleClose( forClient, options );
+                IOService::handleClose( this, options );
                 
                 // terminate if we're no longer on the bus
                 if( fNodeID == kFWBadNodeID && !isInactive() )

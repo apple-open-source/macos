@@ -98,6 +98,8 @@ public:
         
         void flushOutput(bool autoFlush = true);
         
+        void flushInput();
+        
         void tickle();
     
     private:
@@ -105,7 +107,7 @@ public:
         
     private:
         void rawInputTransit();
-        void lineInputTransit();
+        bool lineInputTransit();
         void autoReadInputTransit();
         
         void startOutput();
@@ -119,6 +121,7 @@ public:
         size_t mResidualReadCount;		// bytes left to autoReadInput (zero => unlimited)
         size_t mResidualWriteCount;		// bytes left to autoCopyOut (zero => unlimited)
         bool mAutoFlush;				// output auto-flush mode
+        bool mInputFlushed;				// transit flushed input; do not complete buffer ops
         
         FileDesc io;
         

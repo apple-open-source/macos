@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1999-2001 Apple Computer, Inc.  All rights reserved.
  *
  *  DRI: Josh de Cesare
  *
@@ -49,6 +49,10 @@
 OSDefineMetaClassAndStructors(KeyLargo, AppleMacIO);
 
 KeyLargo *gHostKeyLargo = NULL;
+
+extern "C" {
+	extern UInt32 TimeSystemBusKeyLargo ( IOLogicalAddress keyLargoBaseAddr );
+}
 
 bool KeyLargo::init(OSDictionary * properties)
 {
@@ -115,6 +119,9 @@ bool KeyLargo::start(IOService *provider)
 
   // get the base address of KeyLargo.
   keyLargoBaseAddress = fMemory->getVirtualAddress();
+
+  // Re-tune the clocks
+  AdjustBusSpeeds ( );
 
   tmpData = OSDynamicCast(OSData, provider->getProperty("device-id"));
   if (tmpData == 0) return false;
@@ -334,6 +341,8 @@ void KeyLargo::turnOffPangeaIO(bool restart)
     regTemp |= kPangeaFCR4SleepBitsSet;
     regTemp &= ~kPangeaFCR4SleepBitsClear;
     writeRegUInt32(kFCR4Offset, regTemp);
+	
+	return;
 }
 
 // Uncomment the following define if you need to see the state of
@@ -1382,3 +1391,75 @@ void KeyLargoWatchDogTimer::setWatchDogTimer(UInt32 timeOut)
   keyLargo->writeRegUInt32(kKeyLargoWatchDogEnable,
 			   (timeOut != 0) ? 1 : 0);
 }
+
+/*
+ * The bus speed values reported by Open Firmware may not be accurate enough so we calculate
+ * our own values and make them know to mach.
+ */
+void KeyLargo::AdjustBusSpeeds ( void )
+  {
+	IOInterruptState 	is;
+	IOSimpleLock		*intLock;
+	UInt32				ticks;
+	UInt64				systemBusHz, tmp64;
+	
+	intLock = IOSimpleLockAlloc();
+	if (intLock) {
+		IOSimpleLockInit (intLock);
+		is = IOSimpleLockLockDisableInterrupt(intLock);	// There shall be no interruptions
+	}
+	
+	ticks = TimeSystemBusKeyLargo (keyLargoBaseAddress);
+	if (intLock) {
+		IOSimpleLockUnlockEnableInterrupt(intLock, is);	// As you were
+		IOSimpleLockFree (intLock);
+	}
+	
+	systemBusHz = 4194300;
+	systemBusHz *= 18432000;
+	systemBusHz /= ticks;
+	
+#if 0
+	kprintf ("KeyLargo::AdjustBusSpeeds - ticks = %ld, new systemBusHz = %ld, old systemBusHz = %ld\n", ticks,
+		(UInt32)(systemBusHz & 0xFFFFFFFF), (UInt32)(gPEClockFrequencyInfo.bus_clock_rate_hz & 0xFFFFFFFF));
+
+	kprintf ("old clock frequency values:\n");
+	kprintf ("    bus_clock_rate_hz:   %ld\n", gPEClockFrequencyInfo.bus_clock_rate_hz);
+	kprintf ("    cpu_clock_rate_hz:   %ld\n", gPEClockFrequencyInfo.cpu_clock_rate_hz);
+	kprintf ("    dec_clock_rate_hz:   %ld\n", gPEClockFrequencyInfo.dec_clock_rate_hz);
+	kprintf ("    bus_clock_rate_num:  %ld\n", gPEClockFrequencyInfo.bus_clock_rate_num);
+	kprintf ("    bus_clock_rate_den:  %ld\n", gPEClockFrequencyInfo.bus_clock_rate_den);
+	kprintf ("    bus_to_cpu_rate_num: %ld\n", gPEClockFrequencyInfo.bus_to_cpu_rate_num);
+	kprintf ("    bus_to_cpu_rate_den: %ld\n", gPEClockFrequencyInfo.bus_to_cpu_rate_den);
+	kprintf ("    bus_to_dec_rate_num: %ld\n", gPEClockFrequencyInfo.bus_to_dec_rate_num);
+	kprintf ("    bus_to_dec_rate_den: %ld\n", gPEClockFrequencyInfo.bus_to_dec_rate_den);
+#endif
+
+	// Adjust the bus clock rate based on new frequency.
+	tmp64 = systemBusHz;
+	tmp64 /= gPEClockFrequencyInfo.bus_clock_rate_den;
+	gPEClockFrequencyInfo.bus_clock_rate_num = (UInt32) (tmp64 & 0xFFFFFFFF);
+	// Set the truncated numbers in gPEClockFrequencyInfo.
+	gPEClockFrequencyInfo.bus_clock_rate_hz = (UInt32) (systemBusHz & 0xFFFFFFFF);
+	//gPEClockFrequencyInfo.cpu_clock_rate_hz = tmp_cpu_speed;
+	gPEClockFrequencyInfo.dec_clock_rate_hz = (UInt32) ((systemBusHz & 0xFFFFFFFF) / 4);
+
+#if 0
+	kprintf ("new clock frequency values:\n");
+	kprintf ("    bus_clock_rate_hz:   %ld\n", gPEClockFrequencyInfo.bus_clock_rate_hz);
+	kprintf ("    cpu_clock_rate_hz:   %ld\n", gPEClockFrequencyInfo.cpu_clock_rate_hz);
+	kprintf ("    dec_clock_rate_hz:   %ld\n", gPEClockFrequencyInfo.dec_clock_rate_hz);
+	kprintf ("    bus_clock_rate_num:  %ld\n", gPEClockFrequencyInfo.bus_clock_rate_num);
+	kprintf ("    bus_clock_rate_den:  %ld\n", gPEClockFrequencyInfo.bus_clock_rate_den);
+	kprintf ("    bus_to_cpu_rate_num: %ld\n", gPEClockFrequencyInfo.bus_to_cpu_rate_num);
+	kprintf ("    bus_to_cpu_rate_den: %ld\n", gPEClockFrequencyInfo.bus_to_cpu_rate_den);
+	kprintf ("    bus_to_dec_rate_num: %ld\n", gPEClockFrequencyInfo.bus_to_dec_rate_num);
+	kprintf ("    bus_to_dec_rate_den: %ld\n", gPEClockFrequencyInfo.bus_to_dec_rate_den);
+#endif
+
+	// notify the kernel of the change
+	PE_call_timebase_callback ();
+
+	return;
+}
+

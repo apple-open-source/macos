@@ -177,7 +177,7 @@ IOReturn IOFWIsochChannel::allocateChannel()
     UInt32 generation;
     UInt32 newVal;
     FWAddress addr(kCSRRegisterSpaceBaseAddressHi, kCSRBandwidthAvailable);
-    OSIterator *listenIterator;
+    OSIterator *listenIterator = NULL;
     IOFWIsochPort *listen;
     IOFWSpeed portSpeed;
     UInt32 old[3];
@@ -224,7 +224,7 @@ IOReturn IOFWIsochChannel::allocateChannel()
                 break;
             }
             
-            allowedChans &= ((UInt64)old[1] << 32) | old[2];
+			allowedChans &= (UInt64)(old[2]) | ((UInt64)old[1] << 32);
 
             // Claim bandwidth
             tryAgain = false;
@@ -292,13 +292,15 @@ IOReturn IOFWIsochChannel::allocateChannel()
             while( (listen = (IOFWIsochPort *) listenIterator->getNextObject()) && (result == kIOReturnSuccess)) {
                 result = listen->allocatePort(fSpeed, fChannel);
             }
-            listenIterator->release();
             if(result != kIOReturnSuccess)
                 break;
         }
         if(fTalker)
             result = fTalker->allocatePort(fSpeed, fChannel);
     } while (false);
+
+    if(listenIterator)
+        listenIterator->release();
 
     if(result != kIOReturnSuccess) {
         releaseChannel();

@@ -32,6 +32,7 @@
 #include <IOKit/assert.h>
 
 #include <IOKit/IOMessage.h>
+#include <IOKit/firewire/IOFireWireLink.h>
 #include <IOKit/firewire/IOFireWireNub.h>
 #include <IOKit/firewire/IOFireWireController.h>
 #include <IOKit/firewire/IOConfigDirectory.h>
@@ -228,6 +229,32 @@ IOReturn IOFireWireNub::getConfigDirectory(IOConfigDirectory *&dir)
 {
     dir = fDirectory;
     return (kIOReturnSuccess);    
+}
+
+void IOFireWireNub::setNodeFlags( UInt32 flags )
+{
+    fNodeFlags = flags;
+    
+    // IOLog( "IOFireWireDevice::setNodeFlags fNodeFlags = 0x%08lx\n", fNodeFlags );
+    
+	if( fNodeID != kFWBadNodeID )
+    {
+		if( fNodeFlags & kIOFWDisableAllPhysicalAccess )
+        {
+            IOFireWireLink * fwim = fControl->getLink();
+            fwim->setNodeIDPhysicalFilter( kIOFWAllPhysicalFilters, false );
+        }
+        else if( fNodeFlags & kIOFWDisablePhysicalAccess )
+        {
+            IOFireWireLink * fwim = fControl->getLink();
+            fwim->setNodeIDPhysicalFilter( fNodeID & 63, false );
+        }
+    }
+}
+
+UInt32 IOFireWireNub::getNodeFlags( void )
+{
+    return fNodeFlags;
 }
 
 /**

@@ -266,6 +266,7 @@ IOSCSIProtocolInterface::finalize ( IOOptionBits options )
 			{
 				IOSleep ( 1 );
 			}
+			
 			else
 			{
 				break;
@@ -420,12 +421,14 @@ IOSCSIProtocolInterface::sPowerManagement ( thread_call_param_t whichDevice )
 		self->release ( );
 		
 	}
+	
 	else
-        {
-            
-            self->fPowerTransitionInProgress = false;
-            
-        }
+	{
+		
+		self->fPowerTransitionInProgress = false;
+	    
+	}
+	
 }
 
 

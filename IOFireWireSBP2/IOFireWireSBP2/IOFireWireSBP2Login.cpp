@@ -757,9 +757,9 @@ void IOFireWireSBP2Login::free( void )
 	if( fORBSetIterator )
 	{
 		IOFireWireSBP2ORB * item = NULL;
-        fORBSetIterator->reset();		
 		do
 		{
+            fORBSetIterator->reset();	
 			item = (IOFireWireSBP2ORB *)fORBSetIterator->getNextObject();
 			if( item )
 				item->release();

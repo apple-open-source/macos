@@ -32,6 +32,11 @@
 #include <IOKit/IOService.h>
 #include <IOKit/firewire/IOFireWireController.h>
 
+enum
+{
+	kIOFWAllPhysicalFilters = 64
+};
+
 struct IOFWNodeScan;
 
 class IOFireWireLink : public IOService
@@ -133,6 +138,20 @@ public:
     
     // FireWire wants an IOFWWorkLoop
     virtual IOFWWorkLoop *getFireWireWorkLoop() const;
+    
+    virtual void setNodeIDPhysicalFilter( UInt16 nodeID, bool state ) =0;
+
+private:
+    OSMetaClassDeclareReservedUnused(IOFireWireLink, 0);
+    OSMetaClassDeclareReservedUnused(IOFireWireLink, 1);
+    OSMetaClassDeclareReservedUnused(IOFireWireLink, 2);
+    OSMetaClassDeclareReservedUnused(IOFireWireLink, 3);
+    OSMetaClassDeclareReservedUnused(IOFireWireLink, 4);
+    OSMetaClassDeclareReservedUnused(IOFireWireLink, 5);
+    OSMetaClassDeclareReservedUnused(IOFireWireLink, 6);
+    OSMetaClassDeclareReservedUnused(IOFireWireLink, 7);
+    OSMetaClassDeclareReservedUnused(IOFireWireLink, 8);
+	
 };
 
 #endif /* ! _IOKIT_IOFireWireLink_H */

@@ -87,7 +87,24 @@ IOSCSIMultimediaCommandsDevice::GetInitialPowerState ( void )
 UInt32
 IOSCSIMultimediaCommandsDevice::GetNumberOfPowerStateTransitions ( void )
 {
-    return ( kMMCPowerStateActive - kMMCPowerStateSleep );
+	
+	UInt32		numTransitions 	= 0;
+	bool		state 			= false;
+	
+	// If someone has us opened exclusively, we do not want to change
+	// power states, so we just return 0 power state changes. Otherwise,
+	// we return the normal number of power transitions from active state
+	// to sleep state.
+
+	
+	state = HandleGetUserClientExclusivityState ( );
+	if ( state == false )
+	{
+		numTransitions = kMMCPowerStateActive - kMMCPowerStateSleep;
+	}
+	
+    return numTransitions;
+	
 }
 
 
@@ -519,7 +536,7 @@ IOSCSIMultimediaCommandsDevice::HandlePowerChange ( void )
 						}
 						
 					}
-					
+								
 				}
 				
 				fCurrentPowerState = kMMCPowerStateStandby;
@@ -567,39 +584,21 @@ IOSCSIMultimediaCommandsDevice::HandlePowerChange ( void )
 			{
 				
 				STATUS_LOG ( ( "case kMMCPowerStateActive\n" ) );
-				
-				if ( fDeviceSupportsPowerConditions )
-				{
-					
-					STATUS_LOG ( ( "Sending START_STOP_UNIT to drive to put it in active mode\n" ) );
-					
-					if ( START_STOP_UNIT ( request, 0, 0x01, 0, 0, 0 ) == true )
-					{
-						
-						serviceResponse = SendCommand ( request, 0 );
-						
-					}
-				
-				}
-				
+                                
 				if ( fMediaPresent == true )
 				{
 					
-					STATUS_LOG ( ( "Sending START_STOP_UNIT to drive to make media ready\n" ) );
-					
-					if ( START_STOP_UNIT ( request, 0, 0, 0, 1, 0 ) == true )
+					if ( ( fMediaBlockSize * fMediaBlockCount ) != 0 )
 					{
 						
-						serviceResponse = SendCommand ( request, 0 );
-						
-					}
-					
-					if ( fCurrentDiscSpeed != 0 )
-					{
-						
-						// Since the device is being returned to active state, make sure that 
-						// the drive speed is restored to what it was.				
-						SetMediaAccessSpeed ( fCurrentDiscSpeed );
+						if ( fCurrentDiscSpeed != 0 )
+						{
+							
+							// Since the device is being returned to active state, make sure that 
+							// the drive speed is restored to what it was.				
+							SetMediaAccessSpeed ( fCurrentDiscSpeed );
+							
+						}
 						
 					}
 					
@@ -880,4 +879,3 @@ IOSCSIMultimediaCommandsDevice::GetCurrentPowerStateOfDrive ( UInt32 * powerStat
 	
 	return status;
 	
-}

@@ -290,7 +290,8 @@ bool IODisplay::start( IOService * provider )
 
 void IODisplay::stop( IOService * provider )
 {
-    PMstop();
+    if( pm_vars)
+        PMstop();
     if( fNotifier) {
         fNotifier->remove();
         fNotifier = 0;

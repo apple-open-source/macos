@@ -672,7 +672,7 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 	if ( inqData == NULL )
 	{
 		
-		STATUS_LOG ( ( "%s: Couldn't allocate Inquiry buffer.\n", getName ( ) ) );
+		ERROR_LOG ( ( "%s: Couldn't allocate Inquiry buffer.\n", getName ( ) ) );
 		return false;
 		
 	}
@@ -681,7 +681,7 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 	if ( bufferDesc == NULL )
 	{
 		
-		STATUS_LOG ( ( "%s: Couldn't allocate Inquiry buffer descriptor.\n", getName ( ) ) );
+		ERROR_LOG ( ( "%s: Couldn't allocate Inquiry buffer descriptor.\n", getName ( ) ) );
 		IOFree ( ( void * ) inqData, inqDataCount );
 		inqData = NULL;
 		return false;

@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <syslog.h>	// Debug messages
+#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
 #include <IOKit/DV/IOFWDVClient.h>
 #include <IOKit/IOMessage.h>
@@ -70,7 +71,6 @@ static int exec_cmd(UInt32 cmd, UInt32 dev)
         
     err = io_connect_method_scalarI_scalarO(devices[dev].fConnection, cmd, NULL, 0,
         NULL, &size);
-
     return err;
 }    
 
@@ -144,7 +144,7 @@ static void deviceArrived(void *refcon, io_iterator_t iterator )
         int refound = 0;
         int device;
  
-       // syslog(LOG_INFO, "object 0x%x arrived!\n", obj);
+        // syslog(LOG_INFO, "object 0x%x arrived!\n", obj);
         err = IORegistryEntryCreateCFProperties(obj, &properties, kCFAllocatorDefault, kNilOptions);
 
         dataDesc = (CFNumberRef)CFDictionaryGetValue(properties, CFSTR("GUID"));
@@ -175,8 +175,8 @@ static void deviceArrived(void *refcon, io_iterator_t iterator )
         fNumAlive++;
         if(!refound)
             fNumDevices++;
-  //      syslog(LOG_INFO, "Found a device, GUID: 0x%x%08x name: %s\n",
-  //              (UInt32)(GUID>>32), (UInt32)(GUID & 0xffffffff), devices[device].fName);
+        //syslog(LOG_INFO, "Found a device, GUID: 0x%x%08x name: %s\n",
+        //        (UInt32)(GUID>>32), (UInt32)(GUID & 0xffffffff), devices[device].fName);
             
         {
             // post a DV event to let the curious know...
@@ -361,7 +361,8 @@ UInt32 DVCountDevices( void )
         if(err == MACH_MSG_SUCCESS && msg.msgHdr.msgh_id == kOSNotificationMessageID)
             IODispatchCalloutFromMessage(NULL, &msg.msgHdr, sNotifyPort);
     }
-    return fNumAlive;
+    // Return total number of devices, not just the number currently connected.
+    return fNumDevices;
 }
 
 OSErr DVGetIndDevice( DVDeviceID * pDVDevice, UInt32 index )
@@ -431,8 +432,7 @@ OSErr DVOpenDriver( DVDeviceID deviceID, DVDeviceRefNum *pRefNum )
     } while (0);
     
     if(err != kIOReturnSuccess) {
-        mach_error("DVFamily : error opening device:", err);
-        printf("DVFamily : For device %ld\n", deviceID);
+        syslog(LOG_INFO, "error opening DV device: %x", err);
         DVCountDevices();	// Update device states
     }
     return err; // FIXME
@@ -471,7 +471,6 @@ OSErr DVGetDeviceStandard(DVDeviceRefNum refNum, UInt32 * pStandard )
     transactionParams.responseHandler       = nil;
     
     theErr = DVDoAVCTransaction(refNum, &transactionParams );
-
     currentSignal = ((responseBuffer[ 2 ] << 8) | responseBuffer[ 3 ]);
     AVCStatus = responseBuffer[ 0 ];
 

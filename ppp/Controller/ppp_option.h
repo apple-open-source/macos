@@ -80,7 +80,9 @@
 #define OPT_LCP_RCACCM_DEF 		PPP_LCP_ACCM_NONE	// default asyncmap value
 #define OPT_LCP_TXACCM_DEF 		PPP_LCP_ACCM_NONE	// default asyncmap value
 #define OPT_LCP_MRU_DEF 		1500
+#define OPT_LCP_MRU_PPPoE_DEF           1492    /* use standart PPPoE MTU */
 #define OPT_LCP_MTU_DEF 		1500
+#define OPT_LCP_MTU_PPPoE_DEF           1492    /* use standart PPPoE MTU */
 #define OPT_LCP_ECHOINTERVAL_DEF	10
 #define OPT_LCP_ECHOFAILURE_DEF		4
 

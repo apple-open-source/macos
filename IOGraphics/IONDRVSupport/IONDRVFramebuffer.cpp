@@ -37,6 +37,7 @@
 #include <IOKit/IOLocks.h>
 #include <IOKit/pwr_mgt/RootDomain.h>
 #include <IOKit/ndrvsupport/IONDRVFramebuffer.h>
+#include <IOKit/graphics/IOGraphicsInterfaceTypes.h>
 #include <IOKit/pci/IOAGPDevice.h>
 #include <IOKit/assert.h>
 

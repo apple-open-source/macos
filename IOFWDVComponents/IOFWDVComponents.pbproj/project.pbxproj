@@ -350,11 +350,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.0</string>
+	<string>1.1.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.0d22</string>
+	<string>1.1.1d25</string>
 	<key>CarbonLazyValues</key>
 	<dict>
 		<key>CodeFragmentManager</key>
@@ -371,9 +371,9 @@
 		01CE0AB8FFF92E6711CE206D = {
 			buildActionMask = 2147483647;
 			files = (
-				01CE0ABDFFF92EA411CE206D,
-				01CE0ABEFFF92EA411CE206D,
 				01CED3840003BB8C11CE206E,
+				8C31838A015FDAE804CE206D,
+				8C31838B015FDAE804CE206D,
 			);
 			isa = PBXHeadersBuildPhase;
 			name = Headers;
@@ -410,24 +410,6 @@
 			);
 			isa = PBXRezBuildPhase;
 			name = "ResourceManager Resources";
-		};
-		01CE0ABDFFF92EA411CE206D = {
-			fileRef = 02C3D649FF65A4E811CA29CE;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-					Public,
-				);
-			};
-		};
-		01CE0ABEFFF92EA411CE206D = {
-			fileRef = 0C08A46BFF67027911CA29CE;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-					Public,
-				);
-			};
 		};
 		01CE0ABFFFF92EA411CE206D = {
 			fileRef = 02C3D62FFF65998A11CA29CE;
@@ -466,6 +448,8 @@
 			fileRef = 01CED3830003BB8C11CE206E;
 			isa = PBXBuildFile;
 			settings = {
+				ATTRIBUTES = (
+				);
 			};
 		};
 		01D7427BFF9D28DA11CE206C = {
@@ -577,11 +561,6 @@
 				ATTRIBUTES = (
 				);
 			};
-		};
-		01FFD70DFFF9789111CE206D = {
-			isa = PBXFileReference;
-			path = DVComponentVectors.s;
-			refType = 4;
 		};
 //010
 //011
@@ -1058,6 +1037,7 @@
 				0AF09529FF7AC41311CA29CE,
 				0AF09527FF7AC40511CA29CE,
 				0AF09528FF7AC40511CA29CE,
+				8C31838D015FE43904CE206D,
 			);
 			isa = PBXFrameworksBuildPhase;
 			name = "Frameworks & Libraries";
@@ -1179,11 +1159,11 @@
 	<key>CFBundlePackageType</key>
 	<string>thng</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.0</string>
+	<string>1.1.1</string>
 	<key>CFBundleSignature</key>
 	<string>appl</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.0d22</string>
+	<string>1.1.1d25</string>
 </dict>
 </plist>
 ";
@@ -1295,7 +1275,6 @@
 				0C08A46BFF67027911CA29CE,
 				04B6B6E4FF76D54211CA29CE,
 				01151960FF76ADBC11CA29CE,
-				01FFD70DFFF9789111CE206D,
 				01FFD70AFFF9745011CE206D,
 				01CED3830003BB8C11CE206E,
 				0647D2F4007A85AF11CE206D,
@@ -1493,11 +1472,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.0</string>
+	<string>1.1.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.0d22</string>
+	<string>1.1.1d25</string>
 </dict>
 </plist>
 ";
@@ -1601,6 +1580,48 @@
 //8C2
 //8C3
 //8C4
+		8C31838A015FDAE804CE206D = {
+			fileRef = 0C08A46BFF67027911CA29CE;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		8C31838B015FDAE804CE206D = {
+			fileRef = 02C3D649FF65A4E811CA29CE;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		8C31838D015FE43904CE206D = {
+			fileRef = 04D734D2FFF9388111CE206D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8C31B6240156C42004CE206D = {
+			fileRef = 08EA7FFBFE8413EDC02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8C31B6250156C42004CE206D = {
+			fileRef = 02C3D63AFF659AA611CA29CE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8C31B6260156C42004CE206D = {
+			fileRef = 02C3D64FFF65A66F11CA29CE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		8C51CC6E00BDDF9504CE206D = {
 			fileRef = 038A4B80FFF9353B11CE206D;
 			isa = PBXBuildFile;
@@ -1687,6 +1708,9 @@
 			files = (
 				8CA281EF00E2C05904CE206D,
 				8CA281F000E2C05904CE206D,
+				8C31B6240156C42004CE206D,
+				8C31B6250156C42004CE206D,
+				8C31B6260156C42004CE206D,
 			);
 			isa = PBXFrameworksBuildPhase;
 			name = "Frameworks & Libraries";

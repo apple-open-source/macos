@@ -12,7 +12,7 @@
 			PBXWorkspaceConfiguration = {
 				ContentSize = "{1024, 660}";
 				LeftSlideOut = {
-					ActiveTab = 0;
+					ActiveTab = 3;
 					Frame = "{{0, 23}, {1024, 637}}";
 					Split0 = {
 						Frame = "{{225, 0}, {799, 637}}";
@@ -37,7 +37,10 @@
 								Tab0 = {
 									Frame = "{{0, 0}, {100, 50}}";
 								};
-								TabCount = 1;
+								Tab1 = {
+									Frame = "{{0, 0}, {100, 50}}";
+								};
+								TabCount = 2;
 							};
 							Frame = "{{0, 0}, {484, 208}}";
 							LauncherConfigVersion = 4;
@@ -50,40 +53,48 @@
 							};
 						};
 						Tab2 = {
-							BuildMessageFrame = "{{0, 0}, {1113, 106}}";
-							BuildTranscriptFrame = "{{0, 115}, {1113, 78}}";
-							Frame = "{{0, 0}, {1109, 191}}";
+							BuildMessageFrame = "{{0, 0}, {801, 106}}";
+							BuildTranscriptFrame = "{{0, 115}, {801, 78}}";
+							Frame = "{{0, 0}, {799, 191}}";
 						};
 						Tab3 = {
-							Frame = "{{0, 0}, {721, 213}}";
+							Frame = "{{0, 0}, {799, 213}}";
 						};
 						TabCount = 4;
 					};
 					SplitCount = 1;
 					Tab0 = {
-						Frame = "{{0, 0}, {200, 637}}";
+						Frame = "{{0, 0}, {245, 637}}";
 					};
 					Tab1 = {
+						ClassesFrame = "{{0, 0}, {202, 56}}";
 						Frame = "{{0, 0}, {200, 100}}";
+						MembersFrame = "{{0, 65}, {202, 35}}";
+						OptionsSetName = "Default Options";
 					};
 					Tab2 = {
 						Frame = "{{0, 0}, {200, 100}}";
+					};
+					Tab3 = {
+						Frame = "{{0, 0}, {200, 637}}";
 						Split0 = {
-							Frame = "{{0, 0}, {200, 45}}";
+							Frame = "{{0, 0}, {200, 310}}";
 						};
 						Split1 = {
-							Frame = "{{0, 54}, {200, 46}}";
+							Frame = "{{0, 319}, {200, 318}}";
 						};
 						SplitCount = 2;
 					};
-					Tab3 = {
+					Tab4 = {
 						Frame = "{{0, 0}, {250, 100}}";
 					};
-					TabCount = 4;
+					TabCount = 5;
 				};
-				WindowLoc = "{-2, 1}";
+				WindowLocation = "{31, 127}";
 			};
 		};
+		wantsIndex = 1;
+		wantsSCM = -1;
 	};
 	00F0F452FFCA255711CE233C = {
 		activeExec = 0;

@@ -27,6 +27,8 @@
  *
  */
 
+
+//#define IOASSERT 1	// Set to 1 to activate assert()
 #include <IOKit/assert.h>
 #include <IOKit/IOSyncer.h>
 #include <IOKit/IOWorkLoop.h>
@@ -54,6 +56,7 @@ bool IOFWCmdQ::executeQueue(bool all)
             fTail = NULL;
         fHead = newHead;
 
+        cmd->fQueue = NULL;	// Not on this queue anymore
         cmd->startExecution();
         if(!all)
             break;
@@ -230,7 +233,9 @@ IOReturn IOFWCommand::cancel(IOReturn reason)
 void IOFWCommand::setHead(IOFWCmdQ &queue)
 {
     IOFWCommand *oldHead;
+    assert(fQueue == NULL);
     oldHead = queue.fHead;
+
     queue.fHead = this;
     fQueue = &queue;
     fQueuePrev = NULL;
@@ -245,6 +250,7 @@ void IOFWCommand::setHead(IOFWCmdQ &queue)
 void IOFWCommand::insertAfter(IOFWCommand &prev)
 {
     IOFWCommand *next;
+    assert(fQueue == NULL);
     next = prev.fQueueNext;
     fQueue = prev.fQueue;
     prev.fQueueNext = this;

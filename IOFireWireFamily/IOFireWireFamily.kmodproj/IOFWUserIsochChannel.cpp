@@ -124,7 +124,7 @@ IOFWUserIsochChannel::userAllocateChannelBegin(
 				if(kIOReturnSuccess != result) {
 					break;
 				}
-				allowedChans &= old[1] | ((UInt64)old[2] << 32);
+				allowedChans &= (UInt64)(old[2]) | ((UInt64)old[1] << 32);
 	
 				// Claim bandwidth
 				tryAgain = false;

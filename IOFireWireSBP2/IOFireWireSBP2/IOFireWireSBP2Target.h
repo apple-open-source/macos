@@ -31,6 +31,11 @@
 #include <IOKit/firewire/IOFireWireUnit.h>
 #include <IOKit/IOService.h>
 
+enum
+{
+    kIOFWSBP2FailsOnAckBusy = (1 << 0)
+};
+
 /*!
     @class IOFireWireSBP2Target
     @abstract Serves as bridge between IOFireWireUnit and IOFireWireLUN.
@@ -69,7 +74,8 @@ protected:
     bool 				fOpenFromTarget;
     UInt32				fOpenFromLUNCount;    
     IOFireWireUnit * 	fProviderUnit;
-
+    UInt32				fFlags;
+    
 	/////////////////////////////////////////
 	// private internals
 	
@@ -156,6 +162,12 @@ public:
 	*/
 	
 	virtual bool matchPropertyTable( OSDictionary * table );
+
+    virtual void setTargetFlags( UInt32 flags );
+    virtual UInt32 getTargetFlags( void );
+
+protected:
+    virtual void configurePhysicalFilter( void );
 
 protected:
 

@@ -38,187 +38,6 @@
 #include <IOKit/firewire/IOFireWireController.h>
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-// Commands to control isoch bus hardware
-
-class IOFWAllocIsoHWCommand : public IOFWBusCommand
-{
-    OSDeclareDefaultStructors(IOFWAllocIsoHWCommand)
-
-protected:
-    IODCLProgram *	fProgram;
-    IOFWSpeed		fSpeed;
-    UInt32		fChan;
-
-public:
-    virtual IOReturn	execute();
-    virtual bool	init(IODCLProgram *program, IOFireWireController *control,
-				IOFWSpeed speed, UInt32 chan,
-				FWBusCallback completion=NULL, void *refcon=NULL);
-};
-
-OSDefineMetaClassAndStructors(IOFWAllocIsoHWCommand, IOFWBusCommand)
-
-bool IOFWAllocIsoHWCommand::init(IODCLProgram *program,
-				IOFireWireController *control,
-				IOFWSpeed speed, UInt32 chan,
-				FWBusCallback completion, void *refcon)
-{
-    if(!IOFWBusCommand::initWithController(control, completion, refcon))
-	return false;
-    fProgram = program;
-    fSpeed = speed;
-    fChan = chan;
-    return true;
-}
-
-IOReturn IOFWAllocIsoHWCommand::execute()
-{
-    return complete(fProgram->allocateHW(fSpeed, fChan));
-}
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-class IOFWReleaseIsoHWCommand : public IOFWBusCommand
-{
-    OSDeclareDefaultStructors(IOFWReleaseIsoHWCommand)
-
-protected:
-    IODCLProgram *	fProgram;
-
-public:
-    virtual IOReturn	execute();
-    virtual bool	init(IODCLProgram *program, IOFireWireController *control,
-				FWBusCallback completion=NULL, void *refcon=NULL);
-};
-
-OSDefineMetaClassAndStructors(IOFWReleaseIsoHWCommand, IOFWBusCommand)
-
-bool IOFWReleaseIsoHWCommand::init(IODCLProgram *program,
-				IOFireWireController *control,
-				FWBusCallback completion, void *refcon)
-{
-    if(!IOFWBusCommand::initWithController(control, completion, refcon))
-	return false;
-    fProgram = program;
-    return true;
-}
-
-IOReturn IOFWReleaseIsoHWCommand::execute()
-{
-    return complete(fProgram->releaseHW());
-}
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-class IOFWStartIsoHWCommand : public IOFWBusCommand
-{
-    OSDeclareDefaultStructors(IOFWStartIsoHWCommand)
-
-protected:
-    IODCLProgram *	fProgram;
-
-public:
-    virtual IOReturn	execute();
-    virtual bool	init(IODCLProgram *program, IOFireWireController *control,
-				FWBusCallback completion=NULL, void *refcon=NULL);
-};
-
-OSDefineMetaClassAndStructors(IOFWStartIsoHWCommand, IOFWBusCommand)
-
-bool IOFWStartIsoHWCommand::init(IODCLProgram *program,
-				IOFireWireController *control,
-				FWBusCallback completion, void *refcon)
-{
-    if(!IOFWBusCommand::initWithController(control, completion, refcon))
-	return false;
-    fProgram = program;
-    return true;
-}
-
-IOReturn IOFWStartIsoHWCommand::execute()
-{
-    return complete(fProgram->start());
-}
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-class IOFWStopIsoHWCommand : public IOFWBusCommand
-{
-    OSDeclareDefaultStructors(IOFWStopIsoHWCommand)
-
-protected:
-    IODCLProgram *	fProgram;
-
-public:
-    virtual IOReturn	execute();
-    virtual bool	init(IODCLProgram *program, IOFireWireController *control,
-				FWBusCallback completion=NULL, void *refcon=NULL);
-};
-
-OSDefineMetaClassAndStructors(IOFWStopIsoHWCommand, IOFWBusCommand)
-
-bool IOFWStopIsoHWCommand::init(IODCLProgram *program,
-				IOFireWireController *control,
-				FWBusCallback completion, void *refcon)
-{
-    if(!IOFWBusCommand::initWithController(control, completion, refcon))
-	return false;
-    fProgram = program;
-    return true;
-}
-
-IOReturn IOFWStopIsoHWCommand::execute()
-{
-    fProgram->stop();
-    return complete(kIOReturnSuccess);
-}
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-class IOFWNotifyIsoHWCommand : public IOFWBusCommand
-{
-    OSDeclareDefaultStructors(IOFWNotifyIsoHWCommand)
-
-protected:
-    IODCLProgram *	fProgram;
-    UInt32		fType;
-    DCLCommandPtr *	fDCLCommandList;
-    UInt32		fNumDCLCommands;
-    
-public:
-    virtual IOReturn	execute();
-    virtual bool	init(IODCLProgram *program, IOFireWireController *control,
-                      		UInt32 notificationType,
-				DCLCommandPtr *dclCommandList, UInt32 numDCLCommands,
-                                FWBusCallback completion=NULL, void *refcon=NULL);
-};
-
-OSDefineMetaClassAndStructors(IOFWNotifyIsoHWCommand, IOFWBusCommand)
-
-bool IOFWNotifyIsoHWCommand::init(IODCLProgram *program,
-                                IOFireWireController *control,
-				UInt32 notificationType,
-				DCLCommandPtr *dclCommandList, UInt32 numDCLCommands,
-                                FWBusCallback completion, void *refcon)
-{
-    if(!IOFWBusCommand::initWithController(control, completion, refcon))
-        return false;
-    fProgram = program;
-    fType = notificationType;
-    fDCLCommandList = dclCommandList;
-    fNumDCLCommands = numDCLCommands;
-    return true;
-}
-
-IOReturn IOFWNotifyIsoHWCommand::execute()
-{
-    return complete(fProgram->notify(fType,
-                                     fDCLCommandList, fNumDCLCommands));
-}
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 OSDefineMetaClass( IOFWIsochPort, OSObject )
 OSDefineAbstractStructors(IOFWIsochPort, OSObject)
 OSMetaClassDefineReservedUnused(IOFWIsochPort, 0);
@@ -263,20 +82,11 @@ IOReturn IOFWLocalIsochPort::getSupported(IOFWSpeed &maxSpeed, UInt64 &chanSuppo
 IOReturn IOFWLocalIsochPort::allocatePort(IOFWSpeed speed, UInt32 chan)
 {
     IOReturn res;
-    IOFWAllocIsoHWCommand *allocHW;
 
-    allocHW = new IOFWAllocIsoHWCommand();
-	if(NULL == allocHW)
-		return kIOReturnNoMemory;
-	if(!allocHW->init(fProgram, fControl, speed, chan)) {
-		allocHW->release();
-		return kIOReturnNoMemory;
-    }
-    allocHW->submit();
-
-    res = allocHW->getStatus();
-    allocHW->release();
-
+    fControl->closeGate();
+    res = fProgram->allocateHW(speed, chan);
+    fControl->openGate();
+    
     if(kIOReturnSuccess != res)
 		return res; 
 		
@@ -287,83 +97,40 @@ IOReturn IOFWLocalIsochPort::allocatePort(IOFWSpeed speed, UInt32 chan)
 
 IOReturn IOFWLocalIsochPort::releasePort()
 {
-    IOFWReleaseIsoHWCommand *releaseHW;
     IOReturn res;
 
-    releaseHW = new IOFWReleaseIsoHWCommand();
-    if(NULL == releaseHW)
-	return kIOReturnNoMemory;
-    if(!releaseHW->init(fProgram, fControl)) {
-        releaseHW->release();
-	return kIOReturnNoMemory;
-    }
-    releaseHW->submit();
-
-    res = releaseHW->getStatus();
-    releaseHW->release();
+    fControl->closeGate();
+    res = fProgram->releaseHW();
+    fControl->openGate();
     return res;
 }
 
 IOReturn IOFWLocalIsochPort::start()
 {
-    IOFWStartIsoHWCommand *startHW;
     IOReturn res;
 
-    startHW = new IOFWStartIsoHWCommand();
-    if(NULL == startHW)
-	return kIOReturnNoMemory;
-    if(!startHW->init(fProgram, fControl)) {
-        startHW->release();
-	return kIOReturnNoMemory;
-    }
-    startHW->submit();
-
-    res = startHW->getStatus();
-    startHW->release();
+    fControl->closeGate();
+    res = fProgram->start();
+    fControl->openGate();
     return res;
 }
 
 IOReturn IOFWLocalIsochPort::stop()
 {
-    IOFWStopIsoHWCommand *stopHW;
-    IOReturn res;
-
-    stopHW = new IOFWStopIsoHWCommand();
-    if(NULL == stopHW)
-	return kIOReturnNoMemory;
-    if(!stopHW->init(fProgram, fControl)) {
-        stopHW->release();
-	return kIOReturnNoMemory;
-    }
-    stopHW->submit();
-
-    res = stopHW->getStatus();
-    stopHW->release();
-    return res;
+    fControl->closeGate();
+    fProgram->stop();
+    fControl->openGate();
+    return kIOReturnSuccess;
 }
 
 IOReturn IOFWLocalIsochPort::notify(UInt32 notificationType,
 	DCLCommandPtr *dclCommandList, UInt32 numDCLCommands)
 {
-    if(fControl->getWorkLoop()->onThread()) {
-        // Just Do It if already on workloop.
-        return fProgram->notify(notificationType,
-                                dclCommandList, numDCLCommands);
-    }
-    IOFWNotifyIsoHWCommand *notifyHW;
     IOReturn res;
 
-    notifyHW = new IOFWNotifyIsoHWCommand();
-    if(NULL == notifyHW)
-        return kIOReturnNoMemory;
-    if(!notifyHW->init(fProgram, fControl, notificationType,
-                       dclCommandList, numDCLCommands)) {
-        notifyHW->release();
-        return kIOReturnNoMemory;
-    }
-    notifyHW->submit();
-
-    res = notifyHW->getStatus();
-    notifyHW->release();
+    fControl->closeGate();
+    res = fProgram->notify(notificationType,
+                                dclCommandList, numDCLCommands);
+    fControl->openGate();
     return res;
 }
