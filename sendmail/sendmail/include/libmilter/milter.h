@@ -7,7 +7,7 @@
  * the sendmail distribution.
  *
  *
- *	$Id: milter.h,v 1.1.1.3 2002/10/15 02:37:53 zarzycki Exp $
+ *	$Id: milter.h,v 1.1.1.4 2003/02/22 09:24:24 zarzycki Exp $
  */
 
 /*
@@ -52,4 +52,4 @@ struct smfi_str
 	void		*ctx_privdata;	/* private data */
 };
 
-#endif /* !_LIBMILTER_MILTER_H */
+#endif /* ! _LIBMILTER_MILTER_H */

@@ -53,6 +53,9 @@ private:
     IOHIDDevice *		_provider;
 
 public:
+    // Allocator
+    static IOHIDPointing * 	Pointing();
+
     virtual bool init(OSDictionary * properties = 0);
 
     virtual bool	start(IOService * provider);

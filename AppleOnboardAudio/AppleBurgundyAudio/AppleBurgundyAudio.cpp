@@ -945,12 +945,45 @@ IOReturn AppleBurgundyAudio::sndHWSetPlayThrough(bool playthroughstate){
 }
     
 // Power Management
-IOReturn AppleBurgundyAudio::sndHWSetPowerState(IOAudioDevicePowerState theState){
-    IOReturn result= kIOReturnSuccess;
+IOReturn AppleBurgundyAudio::sndHWSetPowerState ( IOAudioDevicePowerState theState ) {
+    IOReturn		myReturn;
+    
     DEBUG_IOLOG("+ AppleBurgundyAudio::sndHWSetPowerState\n");
+    myReturn = kIOReturnSuccess;
+    switch ( theState )  {
+        case kIOAudioDeviceSleep:	myReturn = performDeviceIdleSleep();	break;		//	When sleeping
+        case kIOAudioDeviceIdle:	myReturn = performDeviceSleep();		break;		//	When no audio engines running
+        case kIOAudioDeviceActive:	myReturn = performDeviceWake();			break;		//	audio engines running
+        default:
+            DEBUG_IOLOG("AppleDACAAudio::sndHWSetPowerState unknown power state\n");
+            myReturn = kIOReturnBadArgument ;
+            break ;
+    }
     DEBUG_IOLOG("- AppleBurgundyAudio::sndHWSetPowerState\n");
-    return(result);
+    return ( myReturn );
 }
+
+// --------------------------------------------------------------------------
+IOReturn	AppleBurgundyAudio::performDeviceWake () {
+    DEBUG_IOLOG("+ AppleBurgundyAudio::performDeviceWake\n");
+    DEBUG_IOLOG("- AppleBurgundyAudio::performDeviceWake\n");
+    return ( kIOReturnSuccess );
+}
+
+// --------------------------------------------------------------------------
+IOReturn	AppleBurgundyAudio::performDeviceSleep () {
+    DEBUG_IOLOG("+ AppleBurgundyAudio::performDeviceSleep\n");
+    DEBUG_IOLOG("- AppleBurgundyAudio::performDeviceSleep\n");
+    return ( kIOReturnSuccess );
+}
+
+// --------------------------------------------------------------------------
+IOReturn	AppleBurgundyAudio::performDeviceIdleSleep () {
+    DEBUG_IOLOG("+ AppleBurgundyAudio::performDeviceIdleSleep\n");
+    DEBUG_IOLOG("- AppleBurgundyAudio::performDeviceIdleSleep\n");
+    return ( kIOReturnSuccess );
+}
+
 
 // Identification
 UInt32 	AppleBurgundyAudio::sndHWGetType( void ){

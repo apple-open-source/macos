@@ -21,6 +21,7 @@
  */
 
 
+#include <IOKit/graphics/IOGraphicsPrivate.h>
 #include <IOKit/IOLib.h>
 #include <libkern/c++/OSContainers.h>
 
@@ -164,8 +165,8 @@ IONDRV * IOPEFNDRV::instantiate( IORegistryEntry * regEntry,
 
                 if (inst->fKModInfo)
                 {
-                    inst->fKModInfo->address = round_page((vm_address_t) container);
-                    inst->fKModInfo->size    = trunc_page((vm_size_t) container + containerSize)
+                    inst->fKModInfo->address = round_page_32((vm_address_t) container);
+                    inst->fKModInfo->size    = trunc_page_32((vm_size_t) container + containerSize)
                                              - inst->fKModInfo->address;
                 }
             }

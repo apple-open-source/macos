@@ -81,6 +81,9 @@ virtual		   ~CMessaging					( void );
 		void	Unlock						( void );
 		void	ClearMessageBlock			( void );
 		
+		uInt32	GetServerVersion			( void );
+		void	SetServerVersion			( uInt32 inServerVersion );
+
 private:
 		sInt32	GetEmptyObj					( sComData *inMsg, eValueType inType, sObject **outObj );
 		sInt32	GetThisObj					( sComData *inMsg, eValueType inType, sObject **outObj );
@@ -99,6 +102,7 @@ private:
 
 		sComData		   *fMsgData;
 		Boolean				bMachEndpoint;	//mach = true and TCP = false
+		uInt32				fServerVersion; //1 for making sure data buffer not sent in dsGetRecordList call
 };
 
 #endif

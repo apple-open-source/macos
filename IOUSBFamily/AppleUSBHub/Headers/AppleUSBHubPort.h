@@ -120,7 +120,7 @@ public:
     virtual void 		stop(void);
 
     IOReturn 		AddDevice(void);
-    void 		RemoveDevice(void);
+    void 		RemoveDevice();
     IOReturn		ResetPort();
     bool 		StatusChanged(void);
 
@@ -145,6 +145,9 @@ public:
 
     IOReturn		SuspendPort(bool suspend);
     IOReturn		ReEnumeratePort(UInt32 options);
+
+    void		DisplayOverCurrentNotice(bool individual);
+
 };
 
 #endif  _IOKIT_APPLEUSBHUBPORT_H

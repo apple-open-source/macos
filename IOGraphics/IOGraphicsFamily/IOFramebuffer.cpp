@@ -126,9 +126,12 @@ struct IOFramebufferPrivate
     UInt8			testingCursor;
     UInt8			disabledForConnectChange;
     UInt8			index;
-    UInt8			cursorSlept;
 
+    UInt8			cursorSlept;
+    UInt8			cursorPanning;
+    UInt8			mirrorState;
     UInt8			pendingSpeedChange;
+
     UInt32			reducedSpeed;
 };
 
@@ -1238,6 +1241,15 @@ void IOFramebuffer::deferredMoveCursor( IOFramebuffer * inst )
                 DisplayCursor(inst);
 
         inst->flushCursor();
+
+	if (inst->__private->cursorPanning)
+        {
+            Point * hs;
+            hs = &shmem->hotSpot[0 != shmem->frame];
+            err = inst->setCursorState(
+                      shmem->cursorLoc.x - hs->x - shmem->screenBounds.minx,
+                      shmem->cursorLoc.y - hs->y - shmem->screenBounds.miny, false );
+        }
     }
     inst->needCursorService = (kIOReturnBusy == err);
 }
@@ -1305,7 +1317,6 @@ IOReturn IOFramebuffer::_setCursorState( SInt32 x, SInt32 y, bool visible )
 
     x -= __private->cursorHotSpotAdjust[ 0 ].x;
     y -= __private->cursorHotSpotAdjust[ 0 ].y;
-
 
     if (kIOFBHardwareCursorActive == shmem->hardwareCursorActive)
         ret = setCursorState( x, y, visible );
@@ -1614,7 +1625,7 @@ bool IOFramebuffer::convertCursorImage( void * cursorImage,
             copy.bitDepth = 32;
         }
 
-        OSData * data = OSData::withBytes( hwDesc, sizeof(IOHardwareCursorDescriptor) );
+	OSData * data = OSData::withBytes( hwDesc, sizeof(IOHardwareCursorDescriptor) );
         if (data)
         {
             __private->cursorAttributes->setObject( data );
@@ -2299,10 +2310,10 @@ IOOptionBits IOFramebuffer::checkPowerWork( void )
                 vm_size_t dLen;
 
                 dLen = 5 + sLen + ((sLen + 7) >> 3) + (__private->framebufferHeight * 3);
-                dLen = round_page(dLen);
+                dLen = round_page_32(dLen);
                 __private->saveLength = dLen;
 #else
-                __private->saveLength = round_page(sLen);
+                __private->saveLength = round_page_32(sLen);
 #endif
                 __private->saveFramebuffer = IOMallocPageable( __private->saveLength, page_size );
 
@@ -2315,7 +2326,7 @@ IOOptionBits IOFramebuffer::checkPowerWork( void )
 
                     DEBG(thisIndex, " compressed to %d%%\n", (dLen * 100) / sLen);
 
-                    dLen = round_page( dLen );
+                    dLen = round_page_32( dLen );
                     if (__private->saveLength > dLen)
                     {
                         IOFreePageable( (void *) (((UInt32) __private->saveFramebuffer) + dLen),
@@ -2870,7 +2881,7 @@ IOReturn IOFramebuffer::open( void )
                                         this, priv, &connectInterrupt );
 
         err = getAttribute( kIOHardwareCursorAttribute, &value );
-        haveHWCursor = ((err == kIOReturnSuccess) && value);
+	haveHWCursor = ((err == kIOReturnSuccess) && (0 != (kIOFBHWCursorSupported & value)));
 
 	if ((num = OSDynamicCast(OSNumber, getProperty(kIOFBGammaWidthKey))))
 	    __private->desiredGammaDataWidth = num->unsigned32BitValue();
@@ -2942,9 +2953,7 @@ IOReturn IOFramebuffer::open( void )
         if (kIOReturnSuccess != err)
             connectEnabled = true;
 
-#if !IOGRAPHICS_F1
 	__private->paramHandler = IOFramebufferParameterHandler::withFramebuffer(this);
-#endif
 	if (__private->paramHandler)
 	    setProperty(gIODisplayParametersKey, __private->paramHandler);
 
@@ -3129,7 +3138,11 @@ IOReturn IOFramebuffer::doSetup( bool full )
     IODeviceMemory *		mem;
     IODeviceMemory *		fbRange;
     IOPhysicalAddress		base;
+    UInt32			value;
     PE_Video			newConsole;
+
+    err = getAttribute( kIOHardwareCursorAttribute, &value );
+    __private->cursorPanning = ((err == kIOReturnSuccess) && (0 != (kIOFBCursorPans & value)));
 
     err = getCurrentDisplayMode( &mode, &depth );
     if (err)
@@ -3306,7 +3319,8 @@ IOReturn IOFramebuffer::extSetAttribute(
                 break;
             }
 
-            if (!value && (0 == getNextDependent()))
+	    value = (value != 0);
+	    if (value == __private->mirrorState)
             {
                 err = kIOReturnSuccess;
                 break;
@@ -3326,6 +3340,8 @@ IOReturn IOFramebuffer::extSetAttribute(
             data[0] = value;
             data[1] = (UInt32) other;
             err = setAttribute( attribute, (UInt32) &data );
+	    if (kIOReturnSuccess == err)
+		__private->mirrorState = value;
 
             clutValid = false;
 
@@ -3997,6 +4013,7 @@ bool IOFramebufferParameterHandler::setDisplay( IODisplay * display )
     UInt32 *	     attributes;
     OSDictionary *   allParams;
     OSDictionary *   newDict = 0;
+    OSDictionary *   oldParams;
     const OSSymbol * key;
     OSIterator *     iter;
 
@@ -4013,81 +4030,83 @@ bool IOFramebufferParameterHandler::setDisplay( IODisplay * display )
 
     ret = fFramebuffer->getAttributeForConnection(
 			    0, kConnectionDisplayParameterCount, &count);
+    if (kIOReturnSuccess != ret)
+	count = 0;
 
-    if ((kIOReturnSuccess != ret) || !count)
+    oldParams = fDisplayParams;
+    do
     {
-	if (fDisplayParams && newDict)
-	{
-	    iter = OSCollectionIterator::withCollection(fDisplayParams);
-	    if (iter)
-	    {
-		while ((key = (const OSSymbol *) iter->getNextObject()))
-		    newDict->removeObject(key);
-		iter->release();
-	    }
-	    display->setProperty(gIODisplayParametersKey, newDict);
-	    newDict->release();
-	}
-	return (kIOReturnSuccess == ret);
-    }
-
-    if (!fDisplayParams)
-    {
-	do
-	{
+	if (count)
 	    fDisplayParams = OSDictionary::withCapacity(count);
-	    if (!fDisplayParams)
+	else
+	    fDisplayParams = 0;
+	if (!fDisplayParams)
+	    continue;
+
+	attributes = IONew(UInt32, count);
+	if (!attributes)
+	    continue;
+    
+	if (kIOReturnSuccess != fFramebuffer->getAttributeForConnection(
+					0, kConnectionDisplayParameters, attributes))
+	    continue;
+    
+	str[1] = 0;
+	for (UInt32 i = 0; i < count; i++)
+	{
+	    const OSSymbol * sym;
+	    UInt32		 value[16];
+
+	    if (attributes[i] < 0x00ffffff)
 		continue;
 
-	    attributes = IONew(UInt32, count);
-	    if (!attributes)
+	    str[0] = attributes[i];
+	    sym = OSSymbol::withCString((const char *) str);
+	    if (!sym)
 		continue;
-	
-	    if (kIOReturnSuccess != fFramebuffer->getAttributeForConnection(
-					    0, kConnectionDisplayParameters, attributes))
-		continue;
-	
-	    str[1] = 0;
-	    for (UInt32 i = 0; i < count; i++)
+
+	    if (kIOReturnSuccess == fFramebuffer->getAttributeForConnection(
+					    0, attributes[i], &value[0]))
 	    {
-		const OSSymbol * sym;
-		UInt32		 value[16];
-    
-		if (attributes[i] < 0x00ffffff)
-		    continue;
-
-		str[0] = attributes[i];
-		sym = OSSymbol::withCString((const char *) str);
-		if (!sym)
-		    continue;
-    
-		if (kIOReturnSuccess == fFramebuffer->getAttributeForConnection(
-						0, attributes[i], &value[0]))
-		{
-		    IODisplay::addParameter( fDisplayParams, sym, value[1], value[2] );
-		    IODisplay::setParameter( fDisplayParams, sym, value[0] );
-		}
-		sym->release();
+		IODisplay::addParameter(fDisplayParams, sym, value[1], value[2]);
+		IODisplay::setParameter(fDisplayParams, sym, value[0]);
 	    }
-	
-	    IODelete(attributes, UInt32, count);
+	    sym->release();
 	}
-	while (false);
+    
+	IODelete(attributes, UInt32, count);
     }
+    while (false);
 
-    if (fDisplayParams)
+    if (oldParams)
     {
 	if (newDict)
 	{
-	    newDict->merge(fDisplayParams);
-	    display->setProperty(gIODisplayParametersKey, newDict);
-	    newDict->release();
+	    iter = OSCollectionIterator::withCollection(oldParams);
+	    if (iter)
+	    {
+		while ((key = (const OSSymbol *) iter->getNextObject()))
+		{
+		    if (!fDisplayParams || !fDisplayParams->getObject(key))
+			newDict->removeObject(key);
+		}
+		iter->release();
+	    }
 	}
-	else
-	    display->setProperty( gIODisplayParametersKey, fDisplayParams );
+	oldParams->release();
     }
 
-    return (fDisplayParams != 0);
+    if (newDict)
+    {
+	if (fDisplayParams)
+	    newDict->merge(fDisplayParams);
+	display->setProperty(gIODisplayParametersKey, newDict);
+	newDict->release();
+    }
+    else if (fDisplayParams)
+	display->setProperty(gIODisplayParametersKey, fDisplayParams);
+
+    return (true);
 }
 
 void IOFramebufferParameterHandler::displayModeChange( void )
@@ -4102,10 +4121,15 @@ bool IOFramebufferParameterHandler::doIntegerSet( OSDictionary * params,
     UInt32	attribute;
     bool	ok;
 
-    attribute = *((UInt32 *) paramName->getCStringNoCopy());
-
-    ok = (kIOReturnSuccess == fFramebuffer->setAttributeForConnection(
-				    0, attribute, value));
+    if (fDisplayParams && fDisplayParams->getObject(paramName))
+    {
+	attribute = *((UInt32 *) paramName->getCStringNoCopy());
+    
+	ok = (kIOReturnSuccess == fFramebuffer->setAttributeForConnection(
+					0, attribute, value));
+    }
+    else
+	ok = false;
 
     return (ok);
 }

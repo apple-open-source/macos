@@ -265,6 +265,13 @@ c_objc_common_init (filename)
   VARRAY_TREE_INIT (deferred_fns, 32, PFE_VARRAY "deferred_fns");
   ggc_add_tree_varray_root (&deferred_fns, 1);
 
+/* APPLE LOCAL gdb only used symbols */
+#ifdef DBX_ONLY_USED_SYMBOLS
+  /* By default we want to use -gused for C and Objective-C.  */
+  if (flag_debug_only_used_symbols == -1)
+    flag_debug_only_used_symbols = 1;
+#endif
+
   return filename;
 }
 

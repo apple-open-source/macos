@@ -248,7 +248,7 @@ IOUSBInterface::CreatePipes(void)
         USBLog(3,"%s[%p]: Failed to create all pipes.", getName(), this);
         
         // What error do we return here?  All we know is that MakePipe() failed, but we don't know why.  It can either
-        // be kIOReturnNoMemory, kIOReturnBadArgument, or, for isoc ep's, kIOReturnNoBandwith.
+        // be kIOReturnNoMemory, kIOReturnBadArgument, or, for isoc ep's, kIOReturnNoBandwidth.
         //
         res = kIOReturnNoResources;
     }

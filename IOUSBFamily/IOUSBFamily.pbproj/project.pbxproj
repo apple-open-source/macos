@@ -114,7 +114,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBKeyboard;
-				MODULE_VERSION = 1.9.8;
+				MODULE_VERSION = 1.9.9f4;
 				OTHER_CFLAGS = "-W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -138,7 +138,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBKeyboard</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.9.8, Copyright Apple Computer, Inc. 2000-2003</string>
+	<string>1.9.9, Copyright Apple Computer, Inc. 2000-2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -150,11 +150,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.9.8</string>
+	<string>1.9.9</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.9.8</string>
+	<string>1.9.9f4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUSBKeyboard</key>
@@ -185,7 +185,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		012FA6CCFFBB946A7F000001 = {
 			buildActionMask = 2147483647;
@@ -405,7 +404,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		01348650FFBB6E597F000001 = {
 			buildActionMask = 2147483647;
@@ -574,7 +572,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		0134865EFFBB76127F000001 = {
 			buildActionMask = 2147483647;
@@ -945,7 +942,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBOHCI;
-				MODULE_VERSION = 1.9.8;
+				MODULE_VERSION = 1.9.9f3;
 				OTHER_CFLAGS = "-W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -969,7 +966,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBOHCI</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.9.8, Copyright Apple Computer, Inc. 2000-2003</string>
+	<string>1.9.9, Copyright Apple Computer, Inc. 2000-2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -981,11 +978,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.9.8</string>
+	<string>1.9.9</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.9.8</string>
+	<string>1.9.9f3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUSBOHCI</key>
@@ -1014,7 +1011,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		0179BA6EFFBA2B817F000001 = {
 			buildActionMask = 2147483647;
@@ -1249,7 +1245,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBFamily;
-				MODULE_VERSION = 1.9.7;
+				MODULE_VERSION = 1.9.8;
 				OTHER_CFLAGS = "-fno-default-inline";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1287,7 +1283,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOUSBFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.9.7, Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>1.9.8, Copyright Apple Computer, Inc. 2000-2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1299,11 +1295,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.9.7</string>
+	<string>1.9.8</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.9.7</string>
+	<string>1.9.8</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 	<key>OSBundleCompatibleVersion</key>
@@ -1322,7 +1318,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		018252AFFFB9EC537F000001 = {
 			isa = PBXTargetDependency;
@@ -1541,7 +1536,6 @@
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/";
 			productName = installhdrs;
 			productReference = 01AE5996FBC3293E7F000001;
-			shouldUseHeadermap = 0;
 		};
 		01AE5999FBC3293E7F000001 = {
 			buildActionMask = 2147483647;
@@ -1709,8 +1703,8 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBHub;
-				MODULE_VERSION = 1.9.7;
-				OTHER_CFLAGS = "";
+				MODULE_VERSION = 1.9.9f6;
+				OTHER_CFLAGS = "-W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleUSBHub;
@@ -1733,7 +1727,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBHub</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.9.7, Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>1.9.9, Copyright Apple Computer, Inc. 2000-2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1745,11 +1739,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.9.7</string>
+	<string>1.9.9</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.9.7</string>
+	<string>1.9.9f6</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUSBHub0</key>
@@ -1865,7 +1859,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		01CBCF7F007BC49C7F000001 = {
 			buildActionMask = 2147483647;
@@ -2087,7 +2080,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		01E71ED6FFB871577F000001 = {
 			buildActionMask = 2147483647;
@@ -2527,7 +2519,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCDriver;
-				MODULE_VERSION = 1.9.7;
+				MODULE_VERSION = 1.9.9f1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -2552,7 +2544,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBCDCDriver</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.9.7, Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>1.9.9, Copyright Apple Computer, Inc. 2000-2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -2564,11 +2556,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.9.7</string>
+	<string>1.9.9</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.9.7</string>
+	<string>1.9.9f1</string>
 	<key>Date</key>
 	<string>Fri Dec 01 2000</string>
 	<key>IOKitPersonalities</key>
@@ -2629,7 +2621,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		070858B5FFD80BCD7F000001 = {
 			buildActionMask = 2147483647;
@@ -2744,6 +2735,7 @@
 				03198266FFB384C57F000001,
 				03198267FFB384C57F000001,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			knownRegions = (
 				English,
@@ -2843,7 +2835,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOUSBLib</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.9.7, Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>1.9.9, Copyright Apple Computer, Inc. 2000-2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -2855,11 +2847,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.9.7</string>
+	<string>1.9.9</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.9.7</string>
+	<string>1.9.9f3</string>
 	<key>CFPlugInDynamicRegisterFunction</key>
 	<string></string>
 	<key>CFPlugInDynamicRegistration</key>
@@ -2885,7 +2877,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -3152,7 +3143,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		19580DB7FFBCA3597F000001 = {
 			buildActionMask = 2147483647;
@@ -3616,7 +3606,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		19580DD2FFBCABB17F000001 = {
 			buildActionMask = 2147483647;
@@ -3889,7 +3878,6 @@
 			productInstallPath = "";
 			productName = "UPS Test Tool";
 			productReference = F50D2CAA0278877A010162FA;
-			shouldUseHeadermap = 0;
 		};
 		F50D2CAA0278877A010162FA = {
 			isa = PBXExecutableFileReference;
@@ -4107,7 +4095,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		F5366A7402E8C77501000164 = {
 			isa = PBXApplicationReference;
@@ -5100,7 +5087,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		F5430C6A0210919001573190 = {
 			buildActionMask = 2147483647;
@@ -5290,7 +5276,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		F549D3730226FF5E010162FA = {
 			buildActionMask = 2147483647;

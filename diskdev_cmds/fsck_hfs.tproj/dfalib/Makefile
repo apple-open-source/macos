@@ -13,7 +13,7 @@ PROJECTVERSION = 2.8
 PROJECT_TYPE = Component
 
 HFILES = hfs_endian.h BTree.h BTreePrivate.h BTreeScanner.h CaseFolding.h\
-		 CheckHFS.h Scavenger.h SRuntime.h 
+		 CheckHFS.h Scavenger.h SRuntime.h DecompDataEnums.h DecompData.h  
 
 CFILES = hfs_endian.c BlockCache.c\
          BTree.c BTreeAllocate.c BTreeMiscOps.c \

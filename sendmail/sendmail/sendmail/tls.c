@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2002 Sendmail, Inc. and its suppliers.
+ * Copyright (c) 2000-2003 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  *
  * By using this file, you agree to the terms and conditions set
@@ -10,7 +10,7 @@
 
 #include <sendmail.h>
 
-SM_RCSID("@(#)$Id: tls.c,v 1.1.1.2 2002/10/15 02:38:35 zarzycki Exp $")
+SM_RCSID("@(#)$Id: tls.c,v 1.2 2003/03/29 20:22:05 zarzycki Exp $")
 
 #if STARTTLS
 #  include <openssl/err.h>
@@ -19,9 +19,6 @@ SM_RCSID("@(#)$Id: tls.c,v 1.1.1.2 2002/10/15 02:38:35 zarzycki Exp $")
 #  ifndef HASURANDOMDEV
 #   include <openssl/rand.h>
 #  endif /* ! HASURANDOMDEV */
-#  if SM_CONF_SHM
-#   include <sm/shm.h>
-#  endif /* SM_CONF_SHM */
 # if !TLS_NO_RSA
 static RSA *rsa_tmp = NULL;	/* temporary RSA key */
 static RSA *tmp_rsa_key __P((SSL *, int, int));
@@ -326,21 +323,21 @@ tls_set_verify(ctx, ssl, vrfy)
 **  [due to permissions]
 */
 
-# define TLS_S_NONE	0x00000000	/* none yet  */
-# define TLS_S_CERT_EX	0x00000001	/* CERT file exists */
-# define TLS_S_CERT_OK	0x00000002	/* CERT file is ok */
-# define TLS_S_KEY_EX	0x00000004	/* KEY file exists */
-# define TLS_S_KEY_OK	0x00000008	/* KEY file is ok */
-# define TLS_S_CERTP_EX	0x00000010	/* CA CERT PATH exists */
-# define TLS_S_CERTP_OK	0x00000020	/* CA CERT PATH is ok */
-# define TLS_S_CERTF_EX	0x00000040	/* CA CERT FILE exists */
-# define TLS_S_CERTF_OK	0x00000080	/* CA CERT FILE is ok */
+# define TLS_S_NONE	0x00000000	/* none yet */
+# define TLS_S_CERT_EX	0x00000001	/* cert file exists */
+# define TLS_S_CERT_OK	0x00000002	/* cert file is ok */
+# define TLS_S_KEY_EX	0x00000004	/* key file exists */
+# define TLS_S_KEY_OK	0x00000008	/* key file is ok */
+# define TLS_S_CERTP_EX	0x00000010	/* CA cert path exists */
+# define TLS_S_CERTP_OK	0x00000020	/* CA cert path is ok */
+# define TLS_S_CERTF_EX	0x00000040	/* CA cert file exists */
+# define TLS_S_CERTF_OK	0x00000080	/* CA cert file is ok */
 
 # if _FFR_TLS_1
-#  define TLS_S_CERT2_EX	0x00001000	/* 2nd CERT file exists */
-#  define TLS_S_CERT2_OK	0x00002000	/* 2nd CERT file is ok */
-#  define TLS_S_KEY2_EX	0x00004000	/* 2nd KEY file exists */
-#  define TLS_S_KEY2_OK	0x00008000	/* 2nd KEY file is ok */
+#  define TLS_S_CERT2_EX	0x00001000	/* 2nd cert file exists */
+#  define TLS_S_CERT2_OK	0x00002000	/* 2nd cert file is ok */
+#  define TLS_S_KEY2_EX	0x00004000	/* 2nd key file exists */
+#  define TLS_S_KEY2_OK	0x00008000	/* 2nd key file is ok */
 # endif /* _FFR_TLS_1 */
 
 # define TLS_S_DH_OK	0x00200000	/* DH cert is ok */
@@ -545,9 +542,9 @@ inittls(ctx, req, srv, certfile, keyfile, cacertpath, cacertfile, dhparam)
 		 TLS_S_CERT_EX, srv);
 	TLS_OK_F(keyfile, "KeyFile", bitset(TLS_I_KEY_EX, req),
 		 TLS_S_KEY_EX, srv);
-	TLS_OK_F(cacertpath, "CACERTPath", bitset(TLS_I_CERTP_EX, req),
+	TLS_OK_F(cacertpath, "CACertPath", bitset(TLS_I_CERTP_EX, req),
 		 TLS_S_CERTP_EX, srv);
-	TLS_OK_F(cacertfile, "CACERTFile", bitset(TLS_I_CERTF_EX, req),
+	TLS_OK_F(cacertfile, "CACertFile", bitset(TLS_I_CERTF_EX, req),
 		 TLS_S_CERTF_EX, srv);
 
 # if _FFR_TLS_1

@@ -343,7 +343,7 @@ int use_gnu_debug_info_extensions = 0;
 /* APPLE LOCAL gdb only used symbols */
 #ifdef DBX_ONLY_USED_SYMBOLS
 /* Nonzero if generating debugger info for used symbols only.  */
-int flag_debug_only_used_symbols = 1;
+int flag_debug_only_used_symbols = -1;
 #endif
 
 /* Nonzero means do optimizations.  -O.
@@ -2258,6 +2258,9 @@ push_srcloc (file, line)
   fs->next = input_file_stack;
   input_file_stack = fs;
   input_file_stack_tick++;
+  /* APPLE LOCAL indexing dpatel */
+  if (flag_gen_index_original)
+    push_cur_index_filename (input_filename);
 }
 
 /* Pop the top entry off the stack of presently open source files.
@@ -2278,6 +2281,9 @@ pop_srcloc ()
     abort ();
   input_filename = input_file_stack->name;
   lineno = input_file_stack->line;
+  /* APPLE LOCAL indexing dpatel */
+  if (flag_gen_index_original)
+    pop_cur_index_filename ();
 }
 
 /* Compile an entire translation unit.  Write a file of assembly
@@ -2394,6 +2400,10 @@ compile_file ()
      the version of GCC which compiled this code.  The format of the .ident
      string is patterned after the ones produced by native SVR4 compilers.  */
 #ifdef IDENT_ASM_OP
+  /* APPLE LOCAL begin PFE */
+  /* Suppress all asm output when doing a PFE dump.  ilr */
+  if (pfe_operation != PFE_DUMP)
+    /* APPLE LOCAL end PFE */
   if (!flag_no_ident)
     fprintf (asm_out_file, "%s\"GCC: (GNU) %s\"\n",
 	     IDENT_ASM_OP, version_string);
@@ -3840,7 +3850,7 @@ display_help ()
   for (i = ARRAY_SIZE (debug_args); i--;)
     {
       if (debug_args[i].description != NULL)
-	printf ("  -g[[-]full%s]%-*s %s\n",
+	printf ("  -g[[-]used%s]%-*s %s\n",
 		*debug_args[i].arg ? "-" : "",
 		12 - (*debug_args[i].arg != '\0'),
 		debug_args[i].arg, _(debug_args[i].description));
@@ -4281,6 +4291,15 @@ decode_g_option (arg)
     {
       char *p = (char *)arg + (*(char *)arg == '-') + 4;
       flag_debug_only_used_symbols = 0;
+      if (*p == '-')
+	++p;
+      g_all_len = p - arg;
+      arg += g_all_len;
+    }
+  if (strncmp (arg, "used", 4) == 0 || strncmp (arg, "-used", 5) == 0)
+    {
+      char *p = (char *)arg + (*(char *)arg == '-') + 4;
+      flag_debug_only_used_symbols = 1;
       if (*p == '-')
 	++p;
       g_all_len = p - arg;
@@ -4844,10 +4863,10 @@ init_asm_output (name)
 {
 /* APPLE LOCAL PFE */
 #ifdef PFE
-  /* A PFE dump implies that no .o should be created.  */
+  /* A PFE dump implies that no .s should be created.  */
   if (pfe_operation == PFE_DUMP)
     {
-      asm_out_file = stdout;
+      asm_out_file = stdout;  /* For diagnostic messages */
       return;
     }
 #endif
@@ -5625,7 +5644,25 @@ lang_dependent_init (name)
 
   /* Now we have the correct original filename, we can initialize
      debug output.  */
-  (*debug_hooks->init) (name);
+  /* APPLE LOCAL begin PFE */     
+  if (pfe_operation == PFE_DUMP)
+    {
+      /* When creating a PFE precomp, we intercept all the 'dbxout...' calls
+	 and write out all their arguments to a file.  During a PFE load, these
+	 calls will be "played back" using the loaded arguments.  */
+      actual_debug_hooks = debug_hooks;
+      debug_hooks        = &intercept_debug_hooks;
+    }
+  else if (pfe_operation == PFE_LOAD && debug_hooks != &do_nothing_debug_hooks
+	   && flag_debug_only_used_symbols != 1)
+    {
+      (*debug_hooks->init) (name);
+      dbxout_generate_loaded_stabs ();
+      (*debug_hooks->end_source_file) (0); /* generate EINCL for prefix header */
+    }
+  else  
+    (*debug_hooks->init) (name);
+  /* APPLE LOCAL end PFE */     
 
   timevar_pop (TV_SYMOUT);
 
@@ -5648,7 +5685,12 @@ finalize ()
   /* Close non-debugging input and output files.  Take special care to note
      whether fclose returns an error, since the pages might still be on the
      buffer chain while the file is open.  */
-
+  /* APPLE LOCAL begin PFE ff */
+  /* Make sure we don't close stdout (which asm_out_file is mapped to
+     during a dump) so that we can write PFE diagnostics out if 
+     needed.  */
+  if (pfe_operation != PFE_DUMP)
+    /* APPLE LOCAL end PFE ff */
   if (asm_out_file)
     {
       if (ferror (asm_out_file) != 0)
@@ -5741,7 +5783,7 @@ do_compile ()
      if there are no errors.  For dumping or loginding this is also
      when we gracefully terminate the pfe memory usage and close
      the pfe file.  Note that if there were errors during the
-     compilition for a dump file we will delete that dump file.*/
+     compilation for a dump file we will delete that dump file.*/
   if (pfe_operation == PFE_DUMP)
     {
       if (errorcount == 0)

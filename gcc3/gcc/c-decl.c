@@ -944,6 +944,14 @@ make_binding_level ()
          PFE_MALLOC (sizeof (struct binding_level), PFE_ALLOC_BINDING_LEVEL);
 }
 
+/* APPLE LOCAL begin msg send super */
+struct binding_level *
+get_current_binding_level ()
+{
+  return current_binding_level;
+}
+/* APPLE LOCAL end msg send super */
+  
 /* Nonzero if we are currently in the global binding level.  */
 
 int

@@ -170,6 +170,9 @@ private:
         
         IOService *	displayManager;	// points to display manager
         IOPMPowerFlags	displayState;
+        
+        IOService *	rootDomain;
+        AbsoluteTime	stateChangeDeadline;
 
         OSDictionary *  savedParameters;	// keep user settings
         

@@ -82,7 +82,7 @@ MasterAudioFunctions *masterAudioFunctions = 0;
 #define kIOFBWaitCursorPeriodKey	"IOFBWaitCursorPeriod"
 #endif
 
-
+#define kIOHIDPowerOnThresholdNS	1000000000ULL
 
 static inline unsigned AbsoluteTimeToTick( AbsoluteTime * ts )
 {
@@ -178,6 +178,8 @@ bool IOHIDSystem::init(OSDictionary * properties)
   eventConsumerES  = 0;
   cmdGate	   = 0;
   workLoop         = 0;
+  
+  AbsoluteTime_to_scalar(&stateChangeDeadline) = 0;
 
   ioHIDevices      = OSArray::withCapacity(2);
 
@@ -261,6 +263,13 @@ bool IOHIDSystem::start(IOService * provider)
 
     if (!terminateNotify) break;
 
+    // RY: Listen to the root domain
+    rootDomain = (IOService *)getPMRootDomain();
+    
+    if (rootDomain)
+        rootDomain->registerInterestedDriver(this);
+            
+
     /*
      * IOHIDSystem serves both as a service and a nub (we lead a double
      * life).  Register ourselves as a nub to kick off matching.
@@ -295,9 +304,27 @@ bool IOHIDSystem::start(IOService * provider)
 // The display wrangler has changed state, so the displays have changed
 // state, too.  We save the new state.
 
-IOReturn IOHIDSystem::powerStateDidChangeTo( IOPMPowerFlags theFlags, unsigned long, IOService * )
+IOReturn IOHIDSystem::powerStateDidChangeTo( IOPMPowerFlags theFlags, unsigned long, IOService * service)
 {
-    displayState = theFlags;
+    AbsoluteTime	delta;
+    
+    if (service == displayManager)
+    {
+        displayState = theFlags;
+    }
+    else if (service == rootDomain)
+    {
+        if (theFlags & kIOPMPowerOn)
+        {
+            clock_get_uptime(&stateChangeDeadline);
+            
+            nanoseconds_to_absolutetime(kIOHIDPowerOnThresholdNS, &delta);
+            
+            ADD_ABSOLUTETIME(&stateChangeDeadline, &delta);
+        }
+            
+    }
+    
     return IOPMNoErr;
 }
 
@@ -2121,11 +2148,16 @@ void IOHIDSystem::keyboardEventGated(unsigned   eventType,
                                 /* keyboardType */ 	unsigned   keyboardType,
                                 /* repeat */           bool       repeat,
                                 /* atTime */           AbsoluteTime ts)
-{         
+{
 	NXEventData	outData;
-        
+
         // Check keySwitch state
         if(keySwitchLocked)
+            return;
+        
+        // RY: Consume any keyboard events that come in before the
+        // dealine after the system wakes up
+        if ( CMP_ABSOLUTETIME(&ts, &stateChangeDeadline) <= 0)
             return;
                 
         if ( ! (displayState & IOPMDeviceUsable) ) {	// display is off, consume the keystroke

@@ -269,7 +269,7 @@ BOOL cli_lock64(struct cli_state *cli, int fnum,
 		SMB_BIG_UINT offset, SMB_BIG_UINT len, int timeout, enum brl_type lock_type);
 BOOL cli_unlock64(struct cli_state *cli, int fnum, SMB_BIG_UINT offset, SMB_BIG_UINT len);
 BOOL cli_getattrE(struct cli_state *cli, int fd, 
-		  uint16 *attr, size_t *size, 
+		  uint16 *attr, SMB_BIG_UINT *size, 
 		  time_t *c_time, time_t *a_time, time_t *m_time);
 BOOL cli_getatr(struct cli_state *cli, const char *fname, 
 		uint16 *attr, size_t *size, time_t *t);
@@ -384,8 +384,8 @@ BOOL cli_api_pipe(struct cli_state *cli, char *pipe_name,
 BOOL cli_api(struct cli_state *cli,
 	     char *param, int prcnt, int mprcnt,
 	     char *data, int drcnt, int mdrcnt,
-	     char **rparam, int *rprcnt,
-	     char **rdata, int *rdrcnt);
+	     char **rparam, unsigned int *rprcnt,
+	     char **rdata, unsigned int *rdrcnt);
 BOOL cli_NetWkstaUserLogon(struct cli_state *cli,char *user, char *workstation);
 int cli_RNetShareEnum(struct cli_state *cli, void (*fn)(const char *, uint32, const char *, void *), void *state);
 BOOL cli_NetServerEnum(struct cli_state *cli, char *workgroup, uint32 stype,
@@ -606,21 +606,21 @@ int clistr_align_in(struct cli_state *cli, const void *p, int flags);
 BOOL cli_send_trans(struct cli_state *cli, int trans, 
 		    const char *pipe_name, 
 		    int fid, int flags,
-		    uint16 *setup, int lsetup, int msetup,
-		    char *param, int lparam, int mparam,
-		    char *data, int ldata, int mdata);
+		    uint16 *setup, unsigned int lsetup, unsigned int msetup,
+		    char *param, unsigned int lparam, unsigned int mparam,
+		    char *data, unsigned int ldata, unsigned int mdata);
 BOOL cli_receive_trans(struct cli_state *cli,int trans,
-                              char **param, int *param_len,
-                              char **data, int *data_len);
+                              char **param, unsigned int *param_len,
+                              char **data, unsigned int *data_len);
 BOOL cli_send_nt_trans(struct cli_state *cli, 
 		       int function, 
 		       int flags,
-		       uint16 *setup, int lsetup, int msetup,
-		       char *param, int lparam, int mparam,
-		       char *data, int ldata, int mdata);
+		       uint16 *setup, unsigned int lsetup, unsigned int msetup,
+		       char *param, unsigned int lparam, unsigned int mparam,
+		       char *data, unsigned int ldata, unsigned int mdata);
 BOOL cli_receive_nt_trans(struct cli_state *cli,
-			  char **param, int *param_len,
-			  char **data, int *data_len);
+			  char **param, unsigned int *param_len,
+			  char **data, unsigned int *data_len);
 
 /*The following definitions come from  libsmb/credentials.c  */
 

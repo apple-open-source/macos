@@ -40,6 +40,7 @@
 #include "CSharedData.h"
 #include "PrivateTypes.h"
 #include "DSUtils.h"
+#include "COSUtils.h"
 #include "CAttributeList.h"
 #include "CPlugInRef.h"
 #include "CBuff.h"
@@ -48,7 +49,6 @@
 
 #include "CSearchNode.h"
 #include "ServerModuleLib.h"
-#include "DSUtils.h"
 #include "PluginData.h"
 #include "DSCThread.h"
 #include "DSEventSemaphore.h"
@@ -5554,15 +5554,15 @@ void CSearchNode:: SetSearchPolicyIndicatorFile ( uInt32 inSearchNodeKey, uInt32
 		//add the new indicator file
 		if (inSearchPolicyIndex == 3)
 		{
-			system( "touch /Library/Preferences/DirectoryService/.DSRunningSP3" );
+			dsTouch( "/Library/Preferences/DirectoryService/.DSRunningSP3" );
 		}
 		else if (inSearchPolicyIndex == 2)
 		{
-			system( "touch /Library/Preferences/DirectoryService/.DSRunningSP2" );
+			dsTouch( "/Library/Preferences/DirectoryService/.DSRunningSP2" );
 		}
 		else //assume inSearchPolicyIndex = 1
 		{
-			system( "touch /Library/Preferences/DirectoryService/.DSRunningSP1" );
+			dsTouch( "/Library/Preferences/DirectoryService/.DSRunningSP1" );
 		}
 	}
 
@@ -5581,21 +5581,21 @@ void CSearchNode:: RemoveSearchPolicyIndicatorFile ( void )
 	//if file exists delete it
 	if (siResult == eDSNoErr)
 	{
-		system( "rm -f /Library/Preferences/DirectoryService/.DSRunningSP1" );
+		dsRemove( "/Library/Preferences/DirectoryService/.DSRunningSP1" );
 	}
 	
 	siResult = ::stat( "/Library/Preferences/DirectoryService/.DSRunningSP2", &statResult );
 	//if file exists delete it
 	if (siResult == eDSNoErr)
 	{
-		system( "rm -f /Library/Preferences/DirectoryService/.DSRunningSP2" );
+		dsRemove( "/Library/Preferences/DirectoryService/.DSRunningSP2" );
 	}
 	
 	siResult = ::stat( "/Library/Preferences/DirectoryService/.DSRunningSP3", &statResult );
 	//if file exists delete it
 	if (siResult == eDSNoErr)
 	{
-		system( "rm -f /Library/Preferences/DirectoryService/.DSRunningSP3" );
+		dsRemove( "/Library/Preferences/DirectoryService/.DSRunningSP3" );
 	}
 	
 } // RemoveSearchPolicyIndicatorFile

@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_node.h,v 1.8 2002/06/07 23:58:22 lindak Exp $
+ * $Id: smbfs_node.h,v 1.8.52.1 2003/03/14 00:05:54 lindak Exp $
  */
 #ifndef _FS_SMBFS_NODE_H_
 #define _FS_SMBFS_NODE_H_
@@ -72,6 +72,7 @@ struct smbnode {
 	long			n_dirofs;	/* last ff offset */
 	struct lockf *		n_lockf;	/* Locking records of file */
 	LIST_ENTRY(smbnode)	n_hash;
+	struct timespec		n_sizetime;
 };
 
 #define VTOSMB(vp)	((struct smbnode *)(vp)->v_data)
@@ -102,6 +103,7 @@ void smbfs_attr_touchdir(struct vnode *dvp);
 #endif
 char	*smbfs_name_alloc(const u_char *name, int nmlen);
 void	smbfs_name_free(u_char *name);
+void	smbfs_setsize(struct vnode *, off_t);
 
 #define smbfs_attr_cacheremove(vp)	VTOSMB(vp)->n_attrage = 0
 

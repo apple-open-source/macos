@@ -8,7 +8,7 @@ NNAAMMEE
        mailq - print the mail queue
 
 SSYYNNOOPPSSIISS
-       mmaaiillqq [--AAcc] [--vv]
+       mmaaiillqq [--AAcc] [--qq......]  [--vv]
 
 DDEESSCCRRIIPPTTIIOONN
        MMaaiillqq  prints  a  summary  of the mail messages queued for
@@ -36,6 +36,21 @@ DDEESSCCRRIIPPTTIIOONN
               _/_e_t_c_/_m_a_i_l_/_s_u_b_m_i_t_._c_f instead of the MTA queue speci-
               fied in _/_e_t_c_/_m_a_i_l_/_s_e_n_d_m_a_i_l_._c_f.
 
+       --qq[_!]I substr
+              Limit processed jobs to those containing _s_u_b_s_t_r  as
+              a substring of the queue id or not when _!  is spec-
+              ified.
+
+       --qq[_!]R substr
+              Limit processed jobs to those containing _s_u_b_s_t_r  as
+              a  substring of one of the recipients or not when _!
+              is specified.
+
+       --qq[_!]S substr
+              Limit processed jobs to those containing _s_u_b_s_t_r  as
+              a  substring of the sender or not when _!  is speci-
+              fied.
+
        --vv     Print verbose information.  This adds the  priority
               of  the  message  and  a single character indicator
               (``+'' or blank) indicating whether a warning  mes-
@@ -43,6 +58,18 @@ DDEESSCCRRIIPPTTIIOONN
               sage.  Additionally, extra lines may be  intermixed
               with  the  recipients  indicating the ``controlling
               user'' information; this shows  who  will  own  any
+
+
+
+                   $Date: 2003/02/22 09:24:45 $                 1
+
+
+
+
+
+MAILQ(1)                                                 MAILQ(1)
+
+
               programs  that  are executed on behalf of this mes-
               sage  and  the  name  of  the  alias  this  command
               expanded  from,  if any.  Moreover, status messages
@@ -61,6 +88,45 @@ HHIISSTTOORRYY
 
 
 
-                   $Date: 2002/10/15 02:38:28 $                 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                   $Date: 2003/02/22 09:24:45 $                 2
 
 

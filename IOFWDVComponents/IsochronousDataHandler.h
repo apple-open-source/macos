@@ -21,13 +21,6 @@
                  List the version information (from above) in the Problem Description.
  
 */
-//
-// Check for Prior Inclusion of IsochronousDataHandler.r
-//  If this header is trying to be included via a Rez path, make it act
-//  as a NOP.  This will allow both Rez & C files to get to use the
-//  contants for the component type, subtype, and interface version.
-#ifndef __ISOCHRONOUSDATAHANDLER_R__
-
 
 #ifndef __ISOCHRONOUSDATAHANDLER__
 #define __ISOCHRONOUSDATAHANDLER__
@@ -647,8 +640,6 @@ enum {
     kIDHGetFormatSelect                        = 0x0014
 };
 
-
-#endif /* ifndef __ISOCHRONOUSDATAHANDLER_R__ */
 
 #if PRAGMA_STRUCT_ALIGN
     #pragma options align=reset

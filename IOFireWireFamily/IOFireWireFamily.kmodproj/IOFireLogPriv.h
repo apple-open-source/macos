@@ -35,6 +35,7 @@
 
 #include <IOKit/IOBufferMemoryDescriptor.h>
 
+//#define kFireLogSize (4*1024*1024)    // 4MB
 #define kFireLogSize (512*1024)    // 512k
 
 class IOFireLog : public OSObject

@@ -2,7 +2,7 @@
 #
 # WARNING: this makefile isn't safe for parallel making!
 #
-# $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/c++-examples/simple/makefile,v 1.1.1.1 2001/05/18 23:14:05 mb Exp $
+# $Header: /cvs/root/Security/SecuritySNACCRuntime/c++-examples/simple/Attic/makefile,v 1.1.1.1 2001/05/18 23:14:05 mb Exp $
 # $Log: makefile,v $
 # Revision 1.1.1.1  2001/05/18 23:14:05  mb
 # Move from private repository to open source repository

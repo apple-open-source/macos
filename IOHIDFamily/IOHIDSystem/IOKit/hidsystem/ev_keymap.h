@@ -76,8 +76,12 @@
 #define NX_KEYTYPE_FAST			19
 #define NX_KEYTYPE_REWIND		20
 
-#define	NX_NUMSPECIALKEYS		21 /* Maximum number of special keys */
-#define NX_NUM_SCANNED_SPECIALKEYS	21 /* First 19 special keys are */
+#define NX_KEYTYPE_ILLUMINATION_UP	21
+#define NX_KEYTYPE_ILLUMINATION_DOWN	22
+#define NX_KEYTYPE_ILLUMINATION_TOGGLE	23
+
+#define	NX_NUMSPECIALKEYS		24 /* Maximum number of special keys */
+#define NX_NUM_SCANNED_SPECIALKEYS	24 /* First 24 special keys are */
 					  /* actively scanned in kernel */
 
 /* Mask of special keys that are posted as events */
@@ -90,7 +94,10 @@
                                 (1 << NX_KEYTYPE_LAUNCH_PANEL) | (1 << NX_KEYTYPE_EJECT) | \
                                 (1 << NX_KEYTYPE_VIDMIRROR) | (1 << NX_KEYTYPE_PLAY) | \
                                 (1 << NX_KEYTYPE_NEXT) | (1 << NX_KEYTYPE_PREVIOUS) | \
-                                (1 << NX_KEYTYPE_FAST) | (1 << NX_KEYTYPE_REWIND) | 0)
+                                (1 << NX_KEYTYPE_FAST) | (1 << NX_KEYTYPE_REWIND) | \
+                                (1 << NX_KEYTYPE_ILLUMINATION_UP) | \
+                                (1 << NX_KEYTYPE_ILLUMINATION_DOWN) | \
+                                (1 << NX_KEYTYPE_ILLUMINATION_TOGGLE) | 0)
 
 /* Modifier key indices into modDefs[] */
 #define NX_MODIFIERKEY_ALPHALOCK	0

@@ -163,6 +163,11 @@ AppleUSBOHCI::UIMInitialize(IOService * provider)
              USBError(1,"%s[%p]: unable to get filterInterruptEventSource", getName(), this);
              continue;
         }
+
+        // Wait 20 ms so the interrupt code can create the source w/out us generating
+        // a possible interrupt #3154685 
+        // 
+        IOSleep(20);
         
         err = _workLoop->addEventSource(_filterInterruptSource);
         if ( err != kIOReturnSuccess )

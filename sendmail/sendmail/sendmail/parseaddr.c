@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2002 Sendmail, Inc. and its suppliers.
+ * Copyright (c) 1998-2003 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  * Copyright (c) 1983, 1995-1997 Eric P. Allman.  All rights reserved.
  * Copyright (c) 1988, 1993
@@ -13,7 +13,7 @@
 
 #include <sendmail.h>
 
-SM_RCSID("@(#)$Id: parseaddr.c,v 1.1.1.3 2002/10/15 02:38:31 zarzycki Exp $")
+SM_RCSID("@(#)$Id: parseaddr.c,v 1.3 2003/03/29 20:22:05 zarzycki Exp $")
 
 static void	allocaddr __P((ADDRESS *, int, char *, ENVELOPE *));
 static int	callsubr __P((char**, int, ENVELOPE *));
@@ -608,7 +608,7 @@ unsigned char	TokTypeNoC[256] =
 };
 
 
-#define NOCHAR		-1	/* signal nothing in lookahead token */
+#define NOCHAR		(-1)	/* signal nothing in lookahead token */
 
 char **
 prescan(addr, delim, pvpbuf, pvpbsize, delimptr, toktab)
@@ -694,6 +694,7 @@ prescan(addr, delim, pvpbuf, pvpbsize, delimptr, toktab)
 				/* see if there is room */
 				if (q >= &pvpbuf[pvpbsize - 5])
 				{
+	addrtoolong:
 					usrerr("553 5.1.1 Address too long");
 					if (strlen(addr) > MAXNAME)
 						addr[MAXNAME] = '\0';
@@ -705,11 +706,15 @@ prescan(addr, delim, pvpbuf, pvpbsize, delimptr, toktab)
 				}
 
 				/* squirrel it away */
+#if !ALLOW_255
+				if ((char) c == (char) -1 && !tTd(82, 101))
+					c &= 0x7f;
+#endif /* !ALLOW_255 */
 				*q++ = c;
 			}
 
 			/* read a new input character */
-			c = *p++;
+			c = (*p++) & 0x00ff;
 			if (c == '\0')
 			{
 				/* diagnose and patch up bad syntax */
@@ -764,6 +769,9 @@ prescan(addr, delim, pvpbuf, pvpbsize, delimptr, toktab)
 				}
 				else if (c != '!' || state == QST)
 				{
+					/* see if there is room */
+					if (q >= &pvpbuf[pvpbsize - 5])
+						goto addrtoolong;
 					*q++ = '\\';
 					continue;
 				}
@@ -849,6 +857,9 @@ prescan(addr, delim, pvpbuf, pvpbsize, delimptr, toktab)
 		/* new token */
 		if (tok != q)
 		{
+			/* see if there is room */
+			if (q >= &pvpbuf[pvpbsize - 5])
+				goto addrtoolong;
 			*q++ = '\0';
 			if (tTd(22, 36))
 			{
@@ -2086,6 +2097,7 @@ badaddr:
 	}
 	return a;
 }
+
 /*
 **  CATADDR -- concatenate pieces of addresses (putting in <LWSP> subs)
 **
@@ -2508,7 +2520,7 @@ remotename(name, m, flags, pstat, e)
 	if (bitset(RF_CANONICAL, flags) || bitnset(M_NOCOMMENT, m->m_flags))
 		fancy = "\201g";
 	else
-		fancy = crackaddr(name);
+		fancy = crackaddr(name, e);
 
 	/*
 	**  Turn the name into canonical form.

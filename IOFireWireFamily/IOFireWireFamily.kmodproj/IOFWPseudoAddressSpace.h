@@ -25,6 +25,8 @@
 
 #include <IOKit/firewire/IOFWAddressSpace.h>
 
+typedef void (*IOFWARxReqIntCompleteHandler)( void * refcon );
+
 /*
  * Pseudo firewire addresses usually represent emulated registers of some kind.
  * Accesses to these addresses will result in the owner being notified.
@@ -53,24 +55,31 @@ class IOFWPseudoAddressSpaceAux : public IOFWAddressSpaceAux
 	friend class IOFWPseudoAddressSpace;
 	
 protected:
-	
-	/*! 
-		@struct ExpansionData
-		@discussion This structure will be used to expand the capablilties of the class in the future.
-    */  
-	  
-    struct ExpansionData { };
 
-	/*! 
-		@var reserved
-		Reserved for future use.  (Internal use only)  
-	*/
-    
-	ExpansionData *reserved;
+    struct MemberVariables 
+	{ 		
+		IOFWARxReqIntCompleteHandler		fARxReqIntCompleteHandler;
+		void *	  							fARxReqIntCompleteHandlerRefcon;	
+	};
+	  
+    MemberVariables * fMembers;
+		
+public:
+
+    virtual bool init( IOFWAddressSpace * primary );
+	virtual	void free();
+
+protected:
+
+	virtual void handleARxReqIntComplete();
+
+public:
+	
+	virtual void setARxReqIntCompleteHandler( void * refcon, IOFWARxReqIntCompleteHandler handler );
 	
 private:
-    OSMetaClassDeclareReservedUnused(IOFWPseudoAddressSpaceAux, 0);
-    OSMetaClassDeclareReservedUnused(IOFWPseudoAddressSpaceAux, 1);
+    OSMetaClassDeclareReservedUsed(IOFWPseudoAddressSpaceAux, 0);
+    OSMetaClassDeclareReservedUsed(IOFWPseudoAddressSpaceAux, 1);
     OSMetaClassDeclareReservedUnused(IOFWPseudoAddressSpaceAux, 2);
     OSMetaClassDeclareReservedUnused(IOFWPseudoAddressSpaceAux, 3);
     OSMetaClassDeclareReservedUnused(IOFWPseudoAddressSpaceAux, 4);
@@ -91,7 +100,8 @@ class IOFWPseudoAddressSpace : public IOFWAddressSpace
     OSDeclareDefaultStructors(IOFWPseudoAddressSpace)
 
 	friend class IOFWPseudoAddressSpaceAux;
-
+	friend class IOFireWireController;
+	
 protected:
     IOMemoryDescriptor*	fDesc;
     void *				fRefCon;
@@ -212,6 +222,14 @@ public:
 protected:
 	
 	virtual IOFWAddressSpaceAux * createAuxiliary( void );
+
+protected:
+	inline void handleARxReqIntComplete( void )
+		{ ((IOFWPseudoAddressSpaceAux*)fIOFWAddressSpaceExpansion->fAuxiliary)->handleARxReqIntComplete(); }
+	
+public:
+	inline void setARxReqIntCompleteHandler( void * refcon, IOFWARxReqIntCompleteHandler handler )
+		{ ((IOFWPseudoAddressSpaceAux*)fIOFWAddressSpaceExpansion->fAuxiliary)->setARxReqIntCompleteHandler( refcon, handler ); }
     	
 private:
     OSMetaClassDeclareReservedUnused(IOFWPseudoAddressSpace, 0);

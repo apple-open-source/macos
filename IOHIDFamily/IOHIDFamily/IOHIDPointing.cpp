@@ -45,6 +45,20 @@
 #define super IOHIPointing
 OSDefineMetaClassAndStructors(IOHIDPointing, IOHIPointing);
 
+IOHIDPointing * IOHIDPointing::Pointing()
+{
+    IOHIDPointing *nub = new IOHIDPointing;
+    
+    if ((nub == 0) || !nub->init())
+    {
+        if (nub) nub->release();
+        return 0;
+    }
+
+    return nub;
+}
+
+
 bool IOHIDPointing::init(OSDictionary * properties)
 {
     if (!super::init(properties))  return false;

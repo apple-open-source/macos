@@ -1,7 +1,7 @@
 /* common.c - Functions that are common to server and clinet
  * Rob Siemborski
  * Tim Martin
- * $Id: common.c,v 1.3 2002/05/23 18:59:47 snsimon Exp $
+ * $Id: common.c,v 1.4 2003/02/24 23:59:27 snsimon Exp $
  */
 /* 
  * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
@@ -1558,10 +1558,12 @@ int _sasl_iptostring(const struct sockaddr *addr, socklen_t addrlen,
 int _sasl_ipfromstring(const char *addr,
 		       struct sockaddr *out, socklen_t outlen) 
 {
-    int i, j;
+    int i, rc, port = 0;
     struct addrinfo hints, *ai = NULL;
+	struct in_addr inetAddr;
     char hbuf[NI_MAXHOST];
-    
+    char *endptr = NULL;
+	
     /* A NULL out pointer just implies we don't do a copy, just verify it */
 
     if(!addr) return SASL_BADPARAM;
@@ -1576,28 +1578,44 @@ int _sasl_ipfromstring(const char *addr,
 
     if (addr[i] == ';')
 	i++;
-    /* XXX: Do we need this check? */
-    for (j = i; addr[j] != '\0'; j++)
-	if (!isdigit((int)(addr[j])))
-	    return SASL_BADPARAM;
-
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = PF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_PASSIVE | AI_NUMERICHOST;
-    if (getaddrinfo(hbuf, &addr[i], &hints, &ai) != 0)
-	return SASL_BADPARAM;
-
-    if (out) {
-	if (outlen < (unsigned)ai->ai_addrlen) {
-	    freeaddrinfo(ai);
-	    return SASL_BUFOVER;
+    
+	if (addr[i] != '\0') {
+		port = strtol(&addr[i], &endptr, 10);
+		if (endptr != NULL && *endptr != '\0')
+			return SASL_BADPARAM;
 	}
-	memcpy(out, ai->ai_addr, ai->ai_addrlen);
-    }
-
-    freeaddrinfo(ai);
-
+	
+	/* getaddrinfo can be expensive, let's check for dotted IP address first */
+	rc = inet_aton(hbuf,&inetAddr);
+	if (rc==1) {
+		if (out) {
+			struct sockaddr_in * outAddr = (struct sockaddr_in*)out;
+			if (outlen < sizeof(struct sockaddr_in))
+				return SASL_BADPARAM;
+			memset(out, 0, outlen);
+			outAddr->sin_family = AF_INET;
+			outAddr->sin_port = htons(port);
+			outAddr->sin_addr.s_addr = inetAddr.s_addr;
+		}
+	} else {
+		memset(&hints, 0, sizeof(hints));
+		hints.ai_family = PF_UNSPEC;
+		hints.ai_socktype = SOCK_STREAM;
+		hints.ai_flags = AI_PASSIVE | AI_NUMERICHOST;
+		if (getaddrinfo(hbuf, &addr[i], &hints, &ai) != 0)
+		return SASL_BADPARAM;
+	
+		if (out) {
+		if (outlen < (unsigned)ai->ai_addrlen) {
+			freeaddrinfo(ai);
+			return SASL_BUFOVER;
+		}
+		memcpy(out, ai->ai_addr, ai->ai_addrlen);
+		}
+	
+		freeaddrinfo(ai);
+	}
+	
     return SASL_OK;
 }
 

@@ -196,22 +196,47 @@ struct hfs_mnt_encoding {
 
 /*
  * Lookup table for hfs encoding names
+ * Note: Names must be in alphabetical order
  */
 struct hfs_mnt_encoding hfs_mnt_encodinglist[] = {
-	{ "Roman",	0 },	/* default */
-	{ "Japanese",	1 },
-	{ "ChineseTrad", 2 },
-	{ "Korean",	3 },
-	{ "Arabic",	4 },
-	{ "Hebrew",	5 },
-	{ "Greek",	6 },
-	{ "Cyrillic",	7 },
-	{ "Thai",	21 },
-	{ "ChineseSimp", 25 },
-	{ "Turkish",	35 },
-	{ "Croatian",	36 },
-	{ "Icelandic",	37 },
-	{ "Romanian",	38 },
+	{ "Arabic",	          4 },
+	{ "Armenian",        24 },
+	{ "Bengali",         13 },
+	{ "Burmese",         19 },
+	{ "Celtic",          39 },
+	{ "CentralEurRoman", 29 },
+	{ "ChineseSimp",     25 },
+	{ "ChineseTrad",      2 },
+	{ "Croatian",	     36 },
+	{ "Cyrillic",	      7 },
+	{ "Devanagari",       9 },
+	{ "Ethiopic",        28 },
+	{ "Farsi",          140 },
+	{ "Gaelic",          40 },
+	{ "Georgian",        23 },
+	{ "Greek",	          6 },
+	{ "Gujarati",        11 },
+	{ "Gurmukhi",        10 },
+	{ "Hebrew",	          5 },
+	{ "Icelandic",	     37 },
+	{ "Japanese",	      1 },
+	{ "Kannada",         16 },
+	{ "Khmer",           20 },
+	{ "Korean",	          3 },
+	{ "Laotian",         22 },
+	{ "Malayalam",       17 },
+	{ "Mongolian",       27 },
+	{ "Oriya",           12 },
+	{ "Roman",	          0 },	/* default */
+	{ "Romanian",	     38 },
+	{ "Sinhalese",       18 },
+	{ "Tamil",           14 },
+	{ "Telugu",          15 },
+	{ "Thai",	         21 },
+	{ "Tibetan",         26 },
+	{ "Turkish",	     35 },
+	{ "Ukrainian",      152 },
+	{ "Vietnamese",      30 },
 };
 
 
@@ -625,11 +650,21 @@ a_encoding(s)
 	char *uname;
 	int i;
 	u_long encoding;
-	struct hfs_mnt_encoding *enclist = hfs_mnt_encodinglist;
-	int maxencodingslots = sizeof(hfs_mnt_encodinglist) / sizeof(struct hfs_mnt_encoding);
+	struct hfs_mnt_encoding *p, *q, *enclist;
+	int elements = sizeof(hfs_mnt_encodinglist) / sizeof(struct hfs_mnt_encoding);
+	int compare;
 
-	for (i=0, enclist = hfs_mnt_encodinglist; i < maxencodingslots; i++, enclist++) {
-		if (strcmp(enclist->encoding_name, s) == 0)
+	/* Use a binary search to find an encoding match */
+	p = hfs_mnt_encodinglist;
+	q = p + (elements - 1);
+	while (p <= q) {
+		enclist = p + ((q - p) >> 1);	/* divide by 2 */
+		compare = strcmp(s, enclist->encoding_name);
+		if (compare < 0)
+			q = enclist - 1;
+		else if (compare > 0)
+			p = enclist + 1;
+		else
 			return (enclist);
 	}
 
@@ -638,7 +673,7 @@ a_encoding(s)
 	if (*s) goto unknown;
 
 	encoding = atoi(uname);
-	for (i=0, enclist = hfs_mnt_encodinglist; i < maxencodingslots; i++, enclist++) {
+	for (i=0, enclist = hfs_mnt_encodinglist; i < elements; i++, enclist++) {
 		if (enclist->encoding_id == encoding)
 			return (enclist);
 	}

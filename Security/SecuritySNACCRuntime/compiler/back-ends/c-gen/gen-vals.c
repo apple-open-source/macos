@@ -29,7 +29,7 @@
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/compiler/back-ends/c-gen/gen-vals.c,v 1.1.1.1 2001/05/18 23:14:09 mb Exp $
+ * $Header: /cvs/root/Security/SecuritySNACCRuntime/compiler/back-ends/c-gen/Attic/gen-vals.c,v 1.1.1.1 2001/05/18 23:14:09 mb Exp $
  * $Log: gen-vals.c,v $
  * Revision 1.1.1.1  2001/05/18 23:14:09  mb
  * Move from private repository to open source repository

@@ -70,6 +70,10 @@ static	OSErr	FixBloatedThreadRecords( SGlob *GPtr );
 static	OSErr	FixMissingThreadRecords( SGlob *GPtr );
 static	OSErr	FixEmbededVolDescription( SGlobPtr GPtr, RepairOrderPtr p );
 static	OSErr	FixWrapperExtents( SGlobPtr GPtr, RepairOrderPtr p );
+static  OSErr	FixIllegalNames( SGlobPtr GPtr, RepairOrderPtr roPtr );
+static HFSCatalogNodeID GetObjectID( CatalogRecord * theRecPtr );
+static int		BuildThreadRec( CatalogKey * theKeyPtr, CatalogRecord * theRecPtr, 
+								Boolean isHFSPlus, Boolean isDirectory );
 
 
 OSErr	RepairVolume( SGlobPtr GPtr )
@@ -545,6 +549,10 @@ static	OSErr	DoMinorOrders( SGlobPtr GPtr )				//	the globals
 				err = FixWrapperExtents(GPtr, p);
 				break;
 
+            case E_IllegalName:
+                err = FixIllegalNames( GPtr, p );
+				break;
+
 			case E_PEOF:
 			case E_LEOF:
 				err = FixFileSize(GPtr, p);
@@ -940,6 +948,109 @@ FixLinkCount(SGlobPtr GPtr, RepairOrderPtr p)
 		
 	return (noErr);
 }
+
+
+/*------------------------------------------------------------------------------
+FixIllegalNames:  Fix catalog enties that have illegal names.
+    RepairOrder.name[] holds the old (illegal) name followed by the new name.
+    The new name has been checked to make sure it is unique within the target
+    directory.  The names will look like this:
+        2 byte length of old name (in unicode characters not bytes)
+        unicode characters for old name
+        2 byte length of new name (in unicode characters not bytes)
+        unicode characters for new name
+------------------------------------------------------------------------------*/
+static OSErr
+FixIllegalNames( SGlobPtr GPtr, RepairOrderPtr roPtr )
+{
+	OSErr 				result;
+	Boolean				isHFSPlus;
+	Boolean				isDirectory;
+	UInt16				recSize;
+	SFCB *				fcbPtr;
+    CatalogName *		oldNamePtr;
+    CatalogName *		newNamePtr;
+	UInt32				hint;				
+	CatalogRecord		record;
+	CatalogKey			key;
+	CatalogKey			newKey;
+
+	isHFSPlus = GPtr->isHFSPlus;
+ 	fcbPtr = GPtr->calculatedCatalogFCB;
+    
+	oldNamePtr = (CatalogName *) &roPtr->name;
+    if ( isHFSPlus )
+    {
+        int					myLength;
+        u_int16_t *			myPtr = (u_int16_t *) oldNamePtr;
+        myLength = *myPtr; // get length of old name
+        myPtr += (1 + myLength);  // bump past length of old name and old name
+        newNamePtr = (CatalogName *) myPtr;
+    }
+    else
+    {
+        int					myLength;
+        u_char *			myPtr = (u_char *) oldNamePtr;
+        myLength = *myPtr; // get length of old name
+        myPtr += (1 + myLength);  // bump past length of old name and old name
+        newNamePtr = (CatalogName *) myPtr;
+    }
+    
+    // get catalog record for object with the illegal name.  We will restore this
+    // info with our new (valid) name. 
+	BuildCatalogKey( roPtr->parid, oldNamePtr, isHFSPlus, &key );
+	result = SearchBTreeRecord( fcbPtr, &key, kNoHint, NULL, &record, &recSize, &hint );
+	if ( result != noErr ) {
+        goto ErrorExit;
+    }
+ 
+    result	= DeleteBTreeRecord( fcbPtr, &key );
+	if ( result != noErr ) {
+        goto ErrorExit;
+    }
+ 
+    // insert record back into the catalog using the new name
+	BuildCatalogKey( roPtr->parid, newNamePtr, isHFSPlus, &newKey );
+    result	= InsertBTreeRecord( fcbPtr, &newKey, &record, recSize, &hint );
+	if ( result != noErr ) {
+        goto ErrorExit;
+    }
+
+	isDirectory = false;
+    switch( record.recordType )
+    {
+        case kHFSFolderRecord:
+        case kHFSPlusFolderRecord:	
+			isDirectory = true;	 break;
+    }
+ 
+    // now we need to remove the old thread record and create a new one with
+    // our new name.
+	BuildCatalogKey( GetObjectID( &record ), NULL, isHFSPlus, &key );
+	result = SearchBTreeRecord( fcbPtr, &key, kNoHint, NULL, &record, &recSize, &hint );
+	if ( result != noErr ) {
+        goto ErrorExit;
+    }
+ 
+    result	= DeleteBTreeRecord( fcbPtr, &key );
+	if ( result != noErr ) {
+        goto ErrorExit;
+    }
+
+    // insert thread record with new name as thread data
+	recSize = BuildThreadRec( &newKey, &record, isHFSPlus, isDirectory );
+ 	result = InsertBTreeRecord( fcbPtr, &key, &record, recSize, &hint );
+	if ( result != noErr )
+        goto ErrorExit;
+
+    return( noErr );
+ 
+ErrorExit:
+    if ( GPtr->logLevel >= kDebugLog )
+        printf( "\t%s - repair failed for type 0x%02X %d \n", __FUNCTION__, roPtr->type, roPtr->type );
+    return( noErr );  // errors in this routine should not be fatal
+    
+} /* FixIllegalNames */
 
 
 /*------------------------------------------------------------------------------
@@ -1866,3 +1977,76 @@ FixMissingThreadRecords( SGlob *GPtr )
 	return (0);
 }
 
+
+static HFSCatalogNodeID 
+GetObjectID( CatalogRecord * theRecPtr )
+{
+    HFSCatalogNodeID	myObjID;
+    
+	switch ( theRecPtr->recordType ) {
+	case kHFSPlusFolderRecord:
+        myObjID = theRecPtr->hfsPlusFolder.folderID;
+		break;
+	case kHFSPlusFileRecord:
+        myObjID = theRecPtr->hfsPlusFile.fileID;
+		break;
+	case kHFSFolderRecord:
+        myObjID = theRecPtr->hfsFolder.folderID;
+		break;
+	case kHFSFileRecord:
+        myObjID = theRecPtr->hfsFile.fileID;
+		break;
+	default:
+        myObjID = 0;
+	}
+	
+    return( myObjID );
+    
+} /* GetObjectID */
+
+
+/*
+ * Build a catalog node thread record from a catalog key
+ * and return the size of the record.
+ */
+static int
+BuildThreadRec( CatalogKey * theKeyPtr, CatalogRecord * theRecPtr, 
+				Boolean isHFSPlus, Boolean isDirectory )
+{
+	int size = 0;
+
+	if ( isHFSPlus ) {
+		HFSPlusCatalogKey *key = (HFSPlusCatalogKey *)theKeyPtr;
+		HFSPlusCatalogThread *rec = (HFSPlusCatalogThread *)theRecPtr;
+
+		size = sizeof(HFSPlusCatalogThread);
+		if ( isDirectory )
+			rec->recordType = kHFSPlusFolderThreadRecord;
+		else
+			rec->recordType = kHFSPlusFileThreadRecord;
+		rec->reserved = 0;
+		rec->parentID = key->parentID;			
+		bcopy(&key->nodeName, &rec->nodeName,
+			sizeof(UniChar) * (key->nodeName.length + 1));
+
+		/* HFS Plus has varaible sized thread records */
+		size -= (sizeof(rec->nodeName.unicode) -
+			  (rec->nodeName.length * sizeof(UniChar)));
+	} 
+	else /* HFS standard */ {
+		HFSCatalogKey *key = (HFSCatalogKey *)theKeyPtr;
+		HFSCatalogThread *rec = (HFSCatalogThread *)theRecPtr;
+
+		size = sizeof(HFSCatalogThread);
+		bzero(rec, size);
+		if ( isDirectory )
+			rec->recordType = kHFSFolderThreadRecord;
+		else
+			rec->recordType = kHFSFileThreadRecord;
+		rec->parentID = key->parentID;
+		bcopy(key->nodeName, rec->nodeName, key->nodeName[0]+1);
+	}
+	
+	return (size);
+	
+} /* BuildThreadRec */

@@ -127,9 +127,9 @@ public:
 										IOByteCount offset, int len) = 0;
 	virtual IOReturn				asyncWrite(UInt16 nodeID, UInt16 addrHi, UInt32 addrLo,
 											int speed, int label, IOMemoryDescriptor *buf, IOByteCount offset,
-											int size, IOFWAsyncCommand *cmd) = 0;
-	virtual IOReturn 				asyncWrite(UInt16 nodeID, UInt16 addrHi, UInt32 addrLo,
-											int speed, int label, void *data, int size, IOFWAsyncCommand *cmd) = 0;
+											int size, IOFWAsyncCommand *cmd, IOFWWriteFlags flags ) = 0;
+	virtual IOReturn 				asyncWrite(UInt16 nodeID, UInt16 addrHi, UInt32 addrLo, int speed, int label, 
+											   void *data, int size, IOFWAsyncCommand *cmd, IOFWWriteFlags flags ) = 0;
 	virtual IOReturn 				asyncWriteResponse(UInt16 nodeID, int speed, 
 											int label, int rcode, UInt16 addrHi) = 0;
 	virtual IOReturn 				asyncLock(UInt16 nodeID, UInt16 addrHi, UInt32 addrLo, 
@@ -189,6 +189,11 @@ public:
 														IOFWAsyncStreamCommand	* cmd ) = 0;
 
 	virtual void setSecurityMode( IOFWSecurityMode mode ) = 0;
+	
+	void handleARxReqIntComplete( void )
+        { fControl->handleARxReqIntComplete(); };
+	
+	virtual void flushWaitingPackets( void ) = 0;
 	
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireLink, 0);

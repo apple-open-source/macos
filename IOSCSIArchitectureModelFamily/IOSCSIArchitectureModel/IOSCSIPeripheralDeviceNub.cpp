@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -838,7 +841,33 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 														   kSenseDefaultSize,
 														   0 );
 				serviceResponse = SendTask ( request );
-				
+				if(( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
+					( request->GetTaskStatus ( ) == kSCSITaskStatus_GOOD ))
+				{
+					// Check that the REQUEST SENSE command completed successfully.
+					validSense = true;
+				}				
+			}
+			
+			// If valid sense data was obtained, parse it now to see if it was considered
+			// an ILLEGAL REQUEST and if so it was most likely due to accessing an invalid
+			// Logical unit on the device.
+			if( validSense == true )
+			{
+				// Check that the SENSE DATA is valid
+				if ((senseBuffer.VALID_RESPONSE_CODE & kSENSE_DATA_VALID_Mask) == kSENSE_DATA_VALID)
+				{
+					// Check the sense data to see if the TUR was sent to an invalid LUN and if so,
+					// abort trying to access this Logical Unit.
+					if( ((senseBuffer.SENSE_KEY & kSENSE_KEY_Mask) == kSENSE_KEY_ILLEGAL_REQUEST) &&
+						( senseBuffer.ADDITIONAL_SENSE_CODE == 0x25 ) &&
+				 		( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x00 ))					
+				 {
+						goto ReleaseTask;
+					}
+						
+					//require( (senseBuffer.SENSE_KEY & kSENSE_KEY_Mask != kSENSE_KEY_ILLEGAL_REQUEST), ReleaseTask );
+				}
 			}
 			
 		}

@@ -37,6 +37,7 @@ __BEGIN_DECLS
 /* These are properties for a HID Device */
 #define kIOHIDTransportKey                  "Transport"
 #define kIOHIDVendorIDKey                   "VendorID"
+#define kIOHIDVendorIDSourceKey             "VendorIDSource"
 #define kIOHIDProductIDKey                  "ProductID"
 #define kIOHIDVersionNumberKey              "VersionNumber"
 #define kIOHIDManufacturerKey               "Manufacturer"
@@ -45,6 +46,9 @@ __BEGIN_DECLS
 #define kIOHIDLocationIDKey                 "LocationID"
 #define kIOHIDPrimaryUsageKey               "PrimaryUsage"
 #define kIOHIDPrimaryUsagePageKey           "PrimaryUsagePage"
+#define kIOHIDMaxInputReportSizeKey	    "MaxInputReportSize"
+#define kIOHIDMaxOutputReportSizeKey	    "MaxOutputReportSize"
+#define kIOHIDMaxFeatureReportSizeKey	    "MaxFeatureReportSize"
 
 /* These are properties for a HID Device or element dictionaries */
 /* Elements can be heirarchical, so they can contain other elements */

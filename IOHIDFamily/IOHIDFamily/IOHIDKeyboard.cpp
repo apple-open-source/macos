@@ -77,7 +77,7 @@ IOHIDKeyboard::init(OSDictionary *properties)
     _ledCookies[1] = -1;
     
     bzero(_modifierValuePtrs, sizeof(UInt32*)*8);
-    bzero(_ledValuePtrs, sizeof(UInt32*)*8);
+    bzero(_ledValuePtrs, sizeof(UInt32*)*2);
     
     //This makes separate copy of ADB translation table.  Needed to allow ISO
     //  keyboards to swap two keys without affecting non-ISO keys that are
@@ -96,11 +96,8 @@ IOHIDKeyboard::start(IOService *provider)
     OSNumber *productIDNumber;
     OSNumber *vendorIDNumber;
 
-    if (!super::start(provider))
-        return false;
-
     _provider = provider;
-    
+
     productIDNumber = OSDynamicCast(OSNumber, 
                         _provider->getProperty(kIOHIDProductIDKey));
     vendorIDNumber = OSDynamicCast(OSNumber, 
@@ -109,9 +106,13 @@ IOHIDKeyboard::start(IOService *provider)
     _productID = productIDNumber ? productIDNumber->unsigned16BitValue() : 0;
     _vendorID = vendorIDNumber ? vendorIDNumber->unsigned16BitValue() : 0;
 
+    if (!super::start(provider))
+        return false;
+    
     // Fix hardware bug in iMac USB keyboard mapping for ISO keyboards
     // This should really be done in personalities.
-    if ( ((_productID == kprodUSBAndyISOKbd) || (_productID == kprodUSBCosmoISOKbd)) 
+    if ( ((_productID == kprodUSBAndyISOKbd) || (_productID == kprodUSBCosmoISOKbd) ||
+            (_productID == kprodQ6ISOKbd) || (_productID == kprodQ30ISOKbd)) 
             && (_vendorID == kIOUSBVendorIDAppleComputer))
     {
             _usb_2_adb_keymap[0x35] = 0x0a;  //Cosmo key18 swaps with key74, 0a is ADB keycode
@@ -231,7 +232,7 @@ static void getSelectors( const UInt32 * src,
                            UInt32	  reportCount,
                            UInt32         bitSize)
 {
-    UInt32 dstOffset;
+    UInt32 dstOffset   = 0;
     UInt32 srcShift    = 0;
     UInt32 srcStartBit = 0;
     UInt32 srcOffset   = 0;
@@ -643,23 +644,6 @@ IOHIDKeyboard::handlerID ( void )
 {
     UInt32 ret_id = 2;  //Default for all unknown USB keyboards is 2
 
-    // Return value must match "handler_id" line in .keyboard file
-    // For some reason the ADB and PS/2 keyboard drivers are missing this method
-    // Also, Beaker Keyboard Prefs doesn't run properly
-    // Fix hardware bug in iMac USB keyboard mapping for ISO keyboards
-    // kprintf("\nUSB product = %x, vendor = %x\n", _deviceDescriptor->product, _deviceDescriptor->vendor);
-    // this should also be done in personalities
-    if (_vendorID == kIOUSBVendorIDAppleComputer)
-    {
-        ret_id = _productID;
-        if ((ret_id == kprodUSBAndyISOKbd) || (ret_id == kprodUSBCosmoISOKbd))
-        {
-            _usb_2_adb_keymap[0x35] = 0x0a;  //Cosmo key18 swaps with key74, 0a is ADB keycode
-            _usb_2_adb_keymap[0x64] = 0x32;
-            IOLog("IOHIDKeyboard::handlerID: ISO keys swapped.\n");
-        }
-    }
-
     if (_vendorID == 0x045e)  //Microsoft ID
     {
         if (_productID == 0x000b)   //Natural USB+PS/2 keyboard
@@ -668,7 +652,7 @@ IOHIDKeyboard::handlerID ( void )
 
     //New feature for hardware identification using Gestalt.h values
     if (_vendorID == kIOUSBVendorIDAppleComputer)
-    switch (ret_id)
+    switch (_productID)
     {
 	case kprodUSBCosmoANSIKbd:  //Cosmo ANSI is 0x201
 		ret_id = kgestUSBCosmoANSIKbd; //0xc6
@@ -688,6 +672,24 @@ IOHIDKeyboard::handlerID ( void )
 	case kprodUSBAndyJISKbd:  //Andy JIS is 0x206
 		ret_id = kgestUSBAndyJISKbd; //0xce
 		break;
+        case kprodQ6ANSIKbd:  //Q6 ANSI
+		ret_id = kgestQ6ANSIKbd;
+		break;
+	case kprodQ6ISOKbd:  //Q6 ISO
+		ret_id = kgestQ6ISOKbd;
+		break;
+	case kprodQ6JISKbd:  //Q6 JIS
+		ret_id = kgestQ6JISKbd;
+                break;
+        case kprodQ30ANSIKbd:  //Q30 ANSI
+		ret_id = kgestQ30ANSIKbd;
+		break;
+	case kprodQ30ISOKbd:  //Q30 ISO
+		ret_id = kgestQ30ISOKbd;
+		break;
+	case kprodQ30JISKbd:  //Q30 JIS
+		ret_id = kgestQ30JISKbd;
+                break;
 	default:  // No Gestalt.h values, but still is Apple keyboard,
 		  //   so return a generic Cosmo ANSI
 		ret_id = kgestUSBCosmoANSIKbd;  
@@ -781,7 +783,7 @@ IOHIDKeyboard::defaultKeymapOfLength (UInt32 * length )
             0x00,0x00,0x33,0x00,0x00,0x34,0x00,0x00,0x35,0x00,0x00,0x36,0x00,0x00,0x37,0xff,
             0x00,0x00,0x38,0x00,0x00,0x39,0xff,0xff,0xff,0x00,0xfe,0x24,0x00,0xfe,0x25,0x00,
             0xfe,0x26,0x00,0xfe,0x22,0x00,0xfe,0x27,0x00,0xfe,0x28,0xff,0x00,0xfe,0x2a,0xff,
-            0x00,0xfe,0x32,0xff,0x00,0xfe,0x33,0xff,0x00,0xfe,0x29,0xff,0x00,0xfe,0x2b,0xff,
+            0x00,0xfe,0x32,0x00,0xfe,0x35,0x00,0xfe,0x33,0xff,0x00,0xfe,0x29,0xff,0x00,0xfe,0x2b,0xff,
             0x00,0xfe,0x34,0xff,0x00,0xfe,0x2e,0x00,0xfe,0x30,0x00,0xfe,0x2d,0x00,0xfe,0x23,
             0x00,0xfe,0x2f,0x00,0xfe,0x21,0x00,0xfe,0x31,0x00,0xfe,0x20,
 	    0x00,0x01,0xac, //ADB=0x7b is left arrow

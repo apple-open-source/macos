@@ -18,7 +18,7 @@ contains the meta code and the Tcl interface described in the
 documentation.
 
 #-------------------------------------------------------------------------------
-# $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/c++-lib/README,v 1.1.1.1 2001/05/18 23:14:05 mb Exp $
+# $Header: /cvs/root/Security/SecuritySNACCRuntime/c++-lib/Attic/README,v 1.1.1.1 2001/05/18 23:14:05 mb Exp $
 # $Log: README,v $
 # Revision 1.1.1.1  2001/05/18 23:14:05  mb
 # Move from private repository to open source repository

@@ -4408,6 +4408,7 @@ build_over_call (cand, args, flags)
       else if (flags & LOOKUP_NONVIRTUAL) {
 	tree call_site_type = TREE_TYPE (cand->basetype_path);
 	tree fn_class_type = DECL_CLASS_CONTEXT (fn);
+
 	my_friendly_assert (call_site_type != NULL &&
 			    fn_class_type != NULL &&
 			    AGGREGATE_TYPE_P (call_site_type) &&
@@ -4418,6 +4419,11 @@ build_over_call (cand, args, flags)
 				       ba_any | ba_quiet,
 				       NULL) != NULL,
 			   20020719);
+
+	if (TYPE_USES_MULTIPLE_INHERITANCE (call_site_type)
+	    || TYPE_USES_VIRTUAL_BASECLASSES (call_site_type))
+	  cp_error_at ("Indirect virtual calls are invalid for a type that uses multiple or virtual inheritance");
+
         fn = (build_vfn_ref_using_vtable
               (call_site_type,
                BINFO_VTABLE (TYPE_BINFO (call_site_type)),

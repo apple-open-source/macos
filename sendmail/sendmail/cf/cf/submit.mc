@@ -15,9 +15,12 @@ divert(-1)
 #
 
 divert(0)dnl
-VERSIONID(`$Id: submit.mc,v 1.1.1.2 2002/10/15 02:37:16 zarzycki Exp $')
+VERSIONID(`$Id: submit.mc,v 1.1.1.3 2003/02/22 09:24:00 zarzycki Exp $')
 define(`confCF_VERSION', `Submit')dnl
 define(`__OSTYPE__',`')dnl dirty hack to keep proto.m4 from complaining
 define(`_USE_DECNET_SYNTAX_', `1')dnl support DECnet
 define(`confTIME_ZONE', `USE_TZ')dnl
-FEATURE(`msp')dnl
+define(`confDONT_INIT_GROUPS', `True')dnl
+dnl
+dnl If you use IPv6 only, change [127.0.0.1] to [IPv6:::1]
+FEATURE(`msp', `[127.0.0.1]')dnl

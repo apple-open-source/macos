@@ -208,7 +208,10 @@ IOUSBDevice::init(USBDeviceAddress deviceAddress, UInt32 powerAvailable, UInt8 s
 {
 
     if(!super::init())
+    {
+        USBLog(3,"[%p]::init super->init failed", this);
 	return false;
+    }
 
     // allocate our expansion data
     if (!_expansionData)
@@ -226,7 +229,7 @@ IOUSBDevice::init(USBDeviceAddress deviceAddress, UInt32 powerAvailable, UInt8 s
         USBError(1, "%s[%p]::init - Error allocating getConfigLock", getName(), this);
         return false;
     }
-    
+
     _address = deviceAddress;
     _descriptor.bMaxPacketSize0 = maxPacketSize;
     _busPowerAvailable = powerAvailable;

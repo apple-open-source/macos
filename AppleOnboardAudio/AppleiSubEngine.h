@@ -51,6 +51,7 @@ protected:
 	Boolean						streamOpened;
 	Boolean						shouldCloseStream;
 	Boolean						sleeping;
+	Boolean						mNeedToSync;	// aml [3095619]
 
 	// aml 2.28.02 adding protected member to describe iSub configuration
 	iSubAudioFormatType			mFormat;
@@ -101,6 +102,10 @@ public:
 	virtual	UInt32				GetDefaultNumChannels (void) const {return kDefaultNumChannels;}
 	virtual	UInt32				GetDefaultBytesPerSample (void) const {return kDefaultBytesPerSample;}
 	virtual	UInt32				GetDefaultSampleRate (void) const {return kDefaultOutputSampleRate;}
+
+	// aml [3095619] added two methods
+			Boolean				GetNeedToSync() { return mNeedToSync; };
+			void				SetNeedToSync(Boolean inNeedToSync) { mNeedToSync = inNeedToSync; };
 
 private:
 	virtual	UInt32				CalculateNumSamplesPerBuffer (UInt32 sampleRate, UInt32 theNumFramesPerList, UInt32 theNumFrameLists = 1);

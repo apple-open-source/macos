@@ -72,6 +72,8 @@ CMessaging::CMessaging ( void )
 		fMsgData->fDataLength	= 0;
 	}
 
+	fServerVersion = 1; //for internal dispatch and mach
+
 #ifndef SERVERINTERNAL
 	fCommPort		= nil;
 	fTCPEndpoint	= nil;
@@ -95,6 +97,8 @@ CMessaging::CMessaging ( Boolean inMachEndpoint )
 		fMsgData->fDataSize		= kMsgBlockSize;
 		fMsgData->fDataLength	= 0;
 	}
+
+	fServerVersion = 1; //for internal dispatch and mach
 
 #ifndef SERVERINTERNAL
 	fCommPort		= nil;
@@ -147,6 +151,7 @@ sInt32 CMessaging::ConfigTCP (	const char *inRemoteIPAddress,
 		}
 		fRemotePort = inRemotePort;
 	}
+	fServerVersion = 0; //for initial setting with DSProxy
 #endif
 	return( result );
 
@@ -1096,3 +1101,23 @@ void CMessaging::ClearMessageBlock ( void )
 		fMsgData->fDataLength	= 0;
 	}
 } // ClearMessageBlock
+
+
+//------------------------------------------------------------------------------------
+//	* GetServerVersion
+//------------------------------------------------------------------------------------
+
+uInt32 CMessaging::GetServerVersion ( void )
+{
+	return( fServerVersion );
+} // GetServerVersion
+
+//------------------------------------------------------------------------------------
+//	* SetServerVersion
+//------------------------------------------------------------------------------------
+
+void CMessaging::SetServerVersion ( uInt32 inServerVersion )
+{
+	fServerVersion = inServerVersion;
+} // SetServerVersion
+

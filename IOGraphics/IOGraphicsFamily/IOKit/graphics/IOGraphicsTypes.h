@@ -548,15 +548,15 @@ enum {
 
 #define kIOFBProbeOptionsKey		"IOFBProbeOptions"
 
-// diag keys
+// diagnostic keys
 
-#define kIOFBConfigKey		"IOFBConfig"
-#define kIOFBModesKey		"IOFBModes"
-#define kIOFBModeIDKey		"ID"
-#define kIOFBModeDMKey		"DM"
-#define kIOFBModeTMKey		"TM"
-#define kIOFBModeAIDKey		"AID"
-#define kIOFBModeDFKey		"DF"
+#define kIOFBConfigKey			"IOFBConfig"
+#define kIOFBModesKey			"IOFBModes"
+#define kIOFBModeIDKey			"ID"
+#define kIOFBModeDMKey			"DM"
+#define kIOFBModeTMKey			"TM"
+#define kIOFBModeAIDKey			"AID"
+#define kIOFBModeDFKey			"DF"
 
 // display property keys
 

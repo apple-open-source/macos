@@ -42,7 +42,7 @@
  * PURPOSE.  See the GNU General Public License and GNU Library General
  * Public License for more details.
  *
- * $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/tbl-example/example.c,v 1.1.1.1 2001/05/18 23:14:10 mb Exp $
+ * $Header: /cvs/root/Security/SecuritySNACCRuntime/tbl-example/Attic/example.c,v 1.1.1.1 2001/05/18 23:14:10 mb Exp $
  * $Log: example.c,v $
  * Revision 1.1.1.1  2001/05/18 23:14:10  mb
  * Move from private repository to open source repository

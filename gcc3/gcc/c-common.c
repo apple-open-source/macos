@@ -662,6 +662,13 @@ fname_decl (rid, id)
   if (!decl)
     {
       tree saved_last_tree = last_tree;
+      /* If a tree is built here, it would normally have the lineno of
+	 the current statement.  Later this tree will be moved to the
+	 beginning of the function and this line number will be wrong.
+	 To avoid this problem set the lineno to 0 here; that prevents
+	 it from appearing in the RTL.  */
+      int saved_lineno = lineno;
+      lineno = 0;
       
       decl = (*make_fname_decl) (id, fname_vars[ix].pretty);
       if (last_tree != saved_last_tree)
@@ -677,6 +684,7 @@ fname_decl (rid, id)
 						 saved_function_name_decls);
 	}
       *fname_vars[ix].decl = decl;
+      lineno = saved_lineno;
     }
   if (!ix && !current_function_decl)
     pedwarn_with_decl (decl, "`%s' is not defined outside of function scope");
@@ -4639,6 +4647,8 @@ pfe_c_common_nodes_and_builtins ()
   /* ??? Perhaps there's a better place to do this.  But it is related
      to __builtin_va_arg, so it isn't that off-the-wall.  */
   lang_type_promotes_to = simple_type_promotes_to;
+
+  (*targetm.init_builtins) ();
 
   /* APPLE LOCAL begin constant cfstrings */
   if (flag_constant_cfstrings)

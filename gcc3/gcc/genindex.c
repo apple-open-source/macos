@@ -72,6 +72,15 @@ static int MAX_BEGIN_COUNT = 4096;
 int begin_header_count = 0;
 char **begin_header_stack = NULL; 
 
+struct idx_file_stack 
+{
+  char *name;          /* file name */
+  struct idx_file_stack *next;
+};
+/* Stack to keep track of the current file being indexed */
+static struct idx_file_stack *cur_index_filename = NULL;
+#define CUR_INDEX_FILENAME (cur_index_filename ? cur_index_filename->name: NULL)
+
 /* Indexed header list.  */
 int flag_check_indexed_header_list = 0;
 char *index_header_list_filename = 0;
@@ -79,6 +88,14 @@ struct indexed_header
 {
   struct indexed_header *next;
   char *name;
+
+  struct idx_file_stack *dup_name;  
+		       /* duplicate name 
+                          People do strange things. Sometimes 
+			  they change name of input file during 
+			  compilation by using line markers.  
+			  Not saved on the disk.  */
+
   time_t timestamp;    /* time of last data modification. */
 
   int timestamp_status;/* Flag to indicate valid timestamp for the 
@@ -104,7 +121,6 @@ enum {
 
 static struct indexed_header *indexed_header_list = NULL;
 
-
 /* Static function prototypes */
 static void allocate_begin_header_stack   PARAMS ((void));
 static void reallocate_begin_header_stack PARAMS ((void));
@@ -113,6 +129,12 @@ static char * pop_begin_header_stack      PARAMS ((void));
 static void maybe_flush_index_buffer      PARAMS ((int));
 static void allocate_index_buffer         PARAMS ((void));
 static char * absolute_path_name          PARAMS ((char *));
+static int is_dup_name                    PARAMS ((struct idx_file_stack *, char *));
+static void free_idx_file_stack           PARAMS (( struct idx_file_stack *));
+static struct idx_file_stack * push_idx_file_stack 
+                                          PARAMS (( struct idx_file_stack *, char *));
+static struct idx_file_stack * pop_idx_file_stack            
+                                          PARAMS (( struct idx_file_stack *));
 
 /* Establish socket connection to put the indexing information.  */
 int 
@@ -608,6 +630,7 @@ add_index_header (str, timestamp)
   if (!h)
     return NULL;
 
+  h->dup_name = NULL;
   h->name = (char *) xmalloc (sizeof (char) * (strlen (str) + 1));
   if (!h->name)
     return NULL;
@@ -623,6 +646,58 @@ add_index_header (str, timestamp)
   /* Now the list is dirty.  */
   indexed_header_list_dirty = 1;
   return h;
+}
+
+/* Remember name of file being indexed right now.  
+   Push it on the stack.  */
+void
+push_cur_index_filename (name)
+     char *name;
+{
+  cur_index_filename = push_idx_file_stack (cur_index_filename, name);
+}
+
+/* Pop current index file from the stack.  */
+void
+pop_cur_index_filename ()
+{
+  cur_index_filename = pop_idx_file_stack (cur_index_filename);
+}
+
+/* Add duplicate name for index_header.  */
+void
+add_dup_header_name (orig_name, sname)
+     char *orig_name; 
+     char *sname;  /* another name */
+{
+  struct indexed_header *cursor;
+  if (!sname || !orig_name)
+    return;
+
+  /* Find original header and add another name for it.  */
+  for (cursor = indexed_header_list;
+       cursor != NULL; 
+       cursor = cursor->next)
+    {
+      if (!strcmp (cursor->name, CUR_INDEX_FILENAME))
+	cursor->dup_name = push_idx_file_stack (cursor->dup_name, sname);
+    }
+}
+
+/* Return 1, if name 'n' is in the list of
+   duplicate name 'd'.  */
+static int
+is_dup_name (struct idx_file_stack *d, char *n)
+{
+  struct idx_file_stack *cursor;
+  if (!d || !n)
+    return 0;  /* Not found */
+
+  for (cursor = d; cursor != NULL; cursor = cursor->next)
+    if (cursor->name && !strcmp (cursor->name, n))
+      return 1; /* Found! */
+
+  return 0;  /* Not found */
 }
 
 void
@@ -655,6 +730,22 @@ print_indexed_header_list ()
        count++;
     }
 }
+/* Free the duplicate header name list.  */
+void
+free_idx_file_stack (list)
+     struct idx_file_stack *list;
+{
+  struct idx_file_stack *cursor;
+  struct idx_file_stack *next_cursor;
+  cursor = next_cursor = list;
+  for (; next_cursor != NULL; )
+    {
+      next_cursor = cursor->next;
+      free (cursor->name);
+      free (cursor);
+    }
+}
+
 /* Free the indexed header list.  */
 void
 free_indexed_header_list ()
@@ -667,8 +758,11 @@ free_indexed_header_list ()
       next_cursor = cursor->next;
       free (cursor->name);
       free (cursor);
+      free_idx_file_stack (cursor->dup_name);
     }
 
+  while (cur_index_filename)
+    cur_index_filename = pop_idx_file_stack (cur_index_filename);
   return;
 }
 
@@ -688,7 +782,6 @@ update_header_status (header, when, found)
         {
           skip_index_generation++;
           flag_gen_index = 0;
-          //fprintf (stderr, "INCREMENT skip count %d:%s ", skip_index_generation, header->name);
         }
       else
         {
@@ -701,7 +794,6 @@ update_header_status (header, when, found)
                   {
                     header->status = PB_INDEX_SEEN;
                     flag_gen_index = 1;
-                    //fprintf (stderr, "BEGIN Index generation :%s\n", header->name);
                     gen_indexing_info (INDEX_FILE_INCLUDE, header->name, -1);
                     gen_indexing_info (INDEX_FILE_BEGIN, header->name, -1);
                   }
@@ -723,7 +815,6 @@ update_header_status (header, when, found)
                 recursion_depth++;
                 header->status = PB_INDEX_RECURSIVE;
                 flag_gen_index = 0;
-                //fprintf (stderr, "RECURSIVE header begin :%s ", header->name);
                 break;
 
               case PB_INDEX_DONE:
@@ -745,7 +836,6 @@ update_header_status (header, when, found)
       if (found == 1)
         {
           skip_index_generation--;
-          //fprintf (stderr, "DECREMENT skip count %d:%s ", skip_index_generation, header->name);
         }
       else
         {
@@ -755,7 +845,6 @@ update_header_status (header, when, found)
               case PB_INDEX_SEEN:
                 /* Finish processing this header and mark accordingly.  */
                 header->status = PB_INDEX_DONE;
-                //fprintf (stderr, "END index generation :%s\n", header->name);
                 gen_indexing_info (INDEX_FILE_END, header->name, -1);
                 break;
 
@@ -764,7 +853,6 @@ update_header_status (header, when, found)
                    Decrement recursion_depth count and mark the header as seen.  */
                 recursion_depth--;
                 header->status = PB_INDEX_SEEN;
-                //fprintf (stderr, "RECURSIVE header end :%s ", header->name);
                 break;
 
               case PB_INDEX_DONE:
@@ -792,11 +880,6 @@ update_header_status (header, when, found)
          warning("Indexing information is not generated properly.");
        }
     }
-
-  //if (flag_gen_index == 1)
-   //fprintf (stderr, " ON\n");
-  //else
-   //fprintf (stderr, " OFF\n");
 }
 
 /* Allocate stack to keep the header begins.  */
@@ -826,8 +909,6 @@ pop_begin_header_stack ()
  
   begin_header_count = begin_header_count - 1;
 
-  //fprintf (stderr, "POP:%d:%s\n", begin_header_count, 
-  //           begin_header_stack [ begin_header_count]);
   return begin_header_stack [ begin_header_count];
 }
 
@@ -845,7 +926,6 @@ push_begin_header_stack (name)
        reallocate_begin_header_stack ();
     }
 
-  //fprintf (stderr, "PUSH:%d:%s\n", begin_header_count, name);
   begin_header_stack [ begin_header_count ] = name;
   begin_header_count++;
 
@@ -907,7 +987,11 @@ process_header_indexing (input_name, when)
 
   for (cursor = indexed_header_list; cursor != NULL; cursor = cursor->next)
     {
-      if (!strcmp (cursor->name, name))
+      if (!strcmp (cursor->name, name)
+	  || (cursor->dup_name 
+	      && CUR_INDEX_FILENAME 
+	      && !strcmp (CUR_INDEX_FILENAME, cursor->name)
+	      && is_dup_name (cursor->dup_name, name)))
         {
           if (cursor->timestamp_status == INDEX_TIMESTAMP_VALID)
             {
@@ -960,3 +1044,45 @@ set_index_lang (int l)
 {
   index_language = l;
 }
+
+/* Push 'name' in 'stack' */
+/* Allocate new memory */
+static struct idx_file_stack *
+push_idx_file_stack (stack, name)
+     struct idx_file_stack *stack;
+     char *name;
+{
+  struct idx_file_stack *n;
+
+  /* Allocate new entry */
+  n = (struct idx_file_stack *) xmalloc (sizeof (struct idx_file_stack));
+  n->name = absolute_path_name (name);
+  
+  /* push */
+  if (stack)
+    n->next = stack;
+  else
+    n->next = NULL;
+  stack = n;
+
+  return stack;
+}
+
+/* Pop top entry from the stack and free it */
+static struct idx_file_stack *
+pop_idx_file_stack (stack)
+     struct idx_file_stack *stack;
+{
+  struct idx_file_stack *n = stack;
+
+  if (stack)
+    stack = n->next;
+
+  if (n)
+    {
+      free (n->name);
+      free (n);
+    }
+  return stack;
+}
+

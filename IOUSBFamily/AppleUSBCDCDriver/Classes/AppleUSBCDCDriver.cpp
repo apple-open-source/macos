@@ -788,7 +788,7 @@ void AppleUSBCDCDriver::dataWriteComplete( void *obj, void *param, IOReturn rc, 
     }
 
     ELG( 0, rc, 'dWe-', "AppleUSBCDCDriver::dataWriteComplete - io err" );
-
+    port->AreTransmitting = false;
     return;
 	
 }/* end dataWriteComplete */
@@ -1221,7 +1221,6 @@ bool AppleUSBCDCDriver::configureDevice( UInt8 numConfigs )
     bool				portok = false;
     bool				goodCDC = false;
     PortInfo_t 				*port = NULL;
-    bool				doNotSuspend = false;
     
     ELG( 0, numConfigs, 'cDev', "AppleUSBCDCDriver::configureDevice" );
     	
@@ -1233,11 +1232,12 @@ bool AppleUSBCDCDriver::configureDevice( UInt8 numConfigs )
         return false;
     }
 
-    OSBoolean * boolObj = OSDynamicCast( OSBoolean, fpDevice->getProperty("kDoNotSuspend") );
+    OSBoolean *boolObj = OSDynamicCast( OSBoolean, fpDevice->getProperty("kDoNotSuspend") );
     if ( boolObj && boolObj->isTrue() )
     {
-        doNotSuspend = true;
-        USBLog(5,"%s[%p] Will not suspend this device", getName(), this);
+        fSuspendOK = false;
+        USBLog(5,"%s[%p] Suspend has been canceled for this device", getName(), this);
+        ELG( 0, 0, 'cDs-', "AppleUSBCDCDriver::configureDevice - Suspended has been canceled for this device" );
     }
 
     req.bInterfaceClass	= kUSBCommClass;
@@ -1336,6 +1336,11 @@ bool AppleUSBCDCDriver::configureDevice( UInt8 numConfigs )
         
             // see if there's another CDC interface
             
+        req.bInterfaceClass = kUSBCommClass;
+	req.bInterfaceSubClass = kUSBAbstractControlModel;
+	req.bInterfaceProtocol = kUSBv25;
+	req.bAlternateSetting = kIOUSBFindInterfaceDontCare;
+            
         Comm = fpDevice->FindNextInterface( Comm, &req );
         if ( !Comm )
         {
@@ -1344,9 +1349,9 @@ bool AppleUSBCDCDriver::configureDevice( UInt8 numConfigs )
         portok = false;
     }
     
-    if ( (fbmAttributes & kUSBAtrBusPowered) && !doNotSuspend )
+    if ( fSuspendOK )
     {
-        ior = fpDevice->SuspendDevice( true );         // Suspend the device (if supported and bus powered)
+        ior = fpDevice->SuspendDevice( true );         // Suspend the device (if supported, bus powered ONLY and not canceled)
         if ( ior )
         {
             ELG( 0, ior, 'cCSD', "AppleUSBCDCDriver::configureDevice - SuspendDevice error" );
@@ -1430,8 +1435,26 @@ bool AppleUSBCDCDriver::initDevice( UInt8 numConfigs )
         }
     }
     
+    if ( !goodconfig )					// If we're not good - bail
+        return false;
+    
     fbmAttributes = cd->bmAttributes;
     ELG( fbmAttributes, kUSBAtrRemoteWakeup, 'GFbA', "AppleUSBCDCDriver::initDevice - Configuration bmAttributes" );
+    
+    fSuspendOK = false;
+    if ( !(fbmAttributes & kUSBAtrSelfPowered) )
+    {
+        if ( fbmAttributes & kUSBAtrBusPowered )
+        {
+            fSuspendOK = true;
+        }
+    }
+    if ( fSuspendOK )
+    {
+        ELG( 0, 0, 'SCS+', "AppleUSBCDCDriver::initDevice - Suspend/Resume is active" );
+    } else {
+        ELG( 0, 0, 'SCS-', "AppleUSBCDCDriver::initDevice - Suspend/Resume is inactive" );
+    }
     
     if ( fbmAttributes & kUSBAtrRemoteWakeup )
     {
@@ -1755,7 +1778,7 @@ IOReturn AppleUSBCDCDriver::acquirePort( bool sleep, void *refCon )
         }
     } /* end for */
     
-    if ( fbmAttributes & kUSBAtrBusPowered )
+    if ( fSuspendOK )
     {
     rtn = fpDevice->SuspendDevice( false );		// Resume the device
     if ( rtn != kIOReturnSuccess )
@@ -1875,7 +1898,7 @@ IOReturn AppleUSBCDCDriver::releasePort( void *refCon )
     
     if ( !fTerminate )
     {
-        if ( fbmAttributes & kUSBAtrBusPowered )
+        if ( fSuspendOK )
         {
             ior = fpDevice->SuspendDevice( true );         // Suspend the device again (if supported and not unplugged)
             if ( ior )

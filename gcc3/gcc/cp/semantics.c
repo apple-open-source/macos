@@ -856,8 +856,14 @@ finish_compound_stmt (has_no_scope, compound_stmt)
   tree r;
   tree t;
 
+  /* APPLE LOCAL begin msg send super */
   if (!has_no_scope)
-    r = do_poplevel ();
+    {
+      if (compiling_objc)
+	objc_clear_super_receiver ();
+      r = do_poplevel ();
+    }
+  /* APPLE LOCAL end msg send super */
   else
     r = NULL_TREE;
 

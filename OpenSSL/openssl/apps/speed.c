@@ -672,7 +672,7 @@ int MAIN(int argc, char **argv)
 			BIO_printf(bio_err,"\n");
 #endif
 
-#ifdef TIMES
+#if defined(TIMES) || defined(USE_TOD)
 			BIO_printf(bio_err,"\n");
 			BIO_printf(bio_err,"Available options:\n");
 			BIO_printf(bio_err,"-elapsed        measure time in real time instead of CPU user time.\n");
@@ -1371,7 +1371,7 @@ end:
 		if (dsa_key[i] != NULL)
 			DSA_free(dsa_key[i]);
 #endif
-	EXIT(mret);
+	OPENSSL_EXIT(mret);
 	}
 
 static void print_message(char *s, long num, int length)

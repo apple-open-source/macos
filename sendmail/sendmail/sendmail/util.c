@@ -13,7 +13,7 @@
 
 #include <sendmail.h>
 
-SM_RCSID("@(#)$Id: util.c,v 1.1.1.3 2002/10/15 02:38:36 zarzycki Exp $")
+SM_RCSID("@(#)$Id: util.c,v 1.1.1.4 2003/02/22 09:24:54 zarzycki Exp $")
 
 #include <sysexits.h>
 #include <sm/xtrap.h>
@@ -67,6 +67,38 @@ addquotes(s, rpool)
 	*q = '\0';
 	return r;
 }
+
+#if _FFR_STRIPBACKSL
+/*
+**  STRIPBACKSLASH -- Strip leading backslash from a string.
+**
+**	This is done in place.
+**
+**	Parameters:
+**		s -- the string to strip.
+**
+**	Returns:
+**		none.
+*/
+
+void
+stripbackslash(s)
+	char *s;
+{
+	char *p, *q, c;
+
+	if (s == NULL || *s == '\0')
+		return;
+	p = q = s;
+	while (*p == '\\' && (p[1] == '\\' || (isascii(p[1]) && isalnum(p[1]))))
+		p++;
+	do
+	{
+		c = *q++ = *p++;
+	} while (c != '\0');
+}
+#endif /* _FFR_STRIPBACKSL */
+
 /*
 **  RFC822_STRING -- Checks string for proper RFC822 string quoting.
 **

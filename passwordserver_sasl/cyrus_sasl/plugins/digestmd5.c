@@ -2,7 +2,7 @@
  * Rob Siemborski
  * Tim Martin
  * Alexey Melnikov 
- * $Id: digestmd5.c,v 1.2 2002/05/22 17:57:02 snsimon Exp $
+ * $Id: digestmd5.c,v 1.5 2003/02/25 00:00:30 snsimon Exp $
  */
 /* 
  * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
@@ -103,7 +103,7 @@ extern int      gethostname(char *, int);
 
 /*****************************  Common Section  *****************************/
 
-static const char plugin_id[] = "$Id: digestmd5.c,v 1.2 2002/05/22 17:57:02 snsimon Exp $";
+static const char plugin_id[] = "$Id: digestmd5.c,v 1.5 2003/02/25 00:00:30 snsimon Exp $";
 
 /* Definitions */
 #define NONCE_SIZE (32)		/* arbitrary */
@@ -151,6 +151,7 @@ enum Context_type { SERVER = 0, CLIENT = 1 };
 typedef struct rc4_context_s rc4_context_t;
 #endif
 
+/* context that stores info used for fast reauth */
 typedef struct global_context {
     /* common stuff */
     char *authid;
@@ -158,10 +159,6 @@ typedef struct global_context {
     unsigned char *nonce;
     unsigned int nonce_count;
     unsigned char *cnonce;
-
-    /* server stuff */
-    time_t timeout;
-    time_t timestamp;
 
     /* client stuff */
     char *serverFQDN;
@@ -437,6 +434,7 @@ static unsigned char *create_nonce(const sasl_utils_t * utils)
     base64buf = (unsigned char *) utils->malloc(base64len + 1);
     if (base64buf == NULL) {
 	utils->seterror(utils->conn, 0, "Unable to allocate final buffer");
+	utils->free(ret);
 	return NULL;
     }
     
@@ -446,6 +444,7 @@ static unsigned char *create_nonce(const sasl_utils_t * utils)
     if (utils->encode64(ret, NONCE_SIZE,
 			(char *) base64buf, base64len, NULL) != SASL_OK) {
 	utils->free(ret);
+	utils->free(base64buf);
 	return NULL;
     }
     utils->free(ret);
@@ -1632,19 +1631,18 @@ digestmd5_common_mech_dispose(void *conn_context, const sasl_utils_t *utils)
 static void
 clear_global_context(global_context_t *glob_context, const sasl_utils_t *utils)
 {
-    time_t timeout;
-
     if (glob_context->authid) utils->free(glob_context->authid);
-    if (glob_context->nonce) utils->free(glob_context->nonce);
-    if (glob_context->cnonce) utils->free(glob_context->cnonce);
     if (glob_context->realm) utils->free(glob_context->realm);
-
+    if (glob_context->nonce) utils->free(glob_context->nonce);
+	
+	/* Apple: the client nonce is owned by the client context because we've unimplemented reauth */
+	/*   and the global context is thread-dangerous */
+	/* nothing to free, just set to NULL */
+    //if (glob_context->cnonce) utils->free(glob_context->cnonce);
+	
     if (glob_context->serverFQDN) utils->free(glob_context->serverFQDN);
 
-    /* zero everything except for the reauth timeout */
-    timeout = glob_context->timeout;
     memset(glob_context, 0, sizeof(global_context_t));
-    glob_context->timeout = timeout;
 }
 
 static void
@@ -1661,6 +1659,13 @@ digestmd5_common_mech_free(void *glob_context, const sasl_utils_t *utils)
 
 typedef struct server_context {
     context_t common;
+
+    char *authid;
+    char *realm;
+    unsigned char *nonce;
+    unsigned int nonce_count;
+    unsigned char *cnonce;
+    time_t timestamp;
 
     int stale;				/* last nonce is stale */
     sasl_ssf_t limitssf, requiressf;	/* application defined bounds */
@@ -1766,8 +1771,8 @@ static char *create_response(context_t * text,
 }
 
 static int
-get_realm(sasl_server_params_t * params,
-	  char **realm)
+get_server_realm(sasl_server_params_t * params,
+		 char **realm)
 {
     /* look at user realm first */
     if (params->user_realm != NULL) {
@@ -1841,7 +1846,7 @@ static int htoi(unsigned char *hexin, unsigned int *res)
     return SASL_OK;
 }
 
-static int digestmd5_server_mech_new(void *glob_context,
+static int digestmd5_server_mech_new(void *glob_context __attribute__((unused)),
 				     sasl_server_params_t * sparams,
 				     const char *challenge __attribute__((unused)),
 				     unsigned challen __attribute__((unused)),
@@ -1857,7 +1862,6 @@ static int digestmd5_server_mech_new(void *glob_context,
     
     text->state = 1;
     text->i_am = SERVER;
-    text->global = glob_context;
     
     *conn_context = text;
     return SASL_OK;
@@ -1886,7 +1890,8 @@ digestmd5_server_mech_step1(server_context_t *stext,
 			"DIGEST-MD5 server step 1");
 
     /* get realm */
-    result = get_realm(sparams, &realm);
+    result = get_server_realm(sparams, &realm);
+    if(result != SASL_OK) return result;
     
     /* what options should we offer the client? */
     qop[0] = '\0';
@@ -2037,10 +2042,12 @@ digestmd5_server_mech_step1(server_context_t *stext,
 	return SASL_FAIL;
     }
 
-    text->global->timestamp = time(0);
-    text->global->nonce = nonce;
-    text->global->nonce_count = 1;
-   _plug_strdup(sparams->utils, realm, &text->global->realm, NULL);
+    stext->authid = NULL;
+    _plug_strdup(sparams->utils, realm, &stext->realm, NULL);
+    stext->nonce = nonce;
+    stext->nonce_count = 1;
+    stext->cnonce = NULL;
+    stext->timestamp = time(0);
     
     *serveroutlen = strlen(text->out_buf);
     *serverout = text->out_buf;
@@ -2122,8 +2129,7 @@ digestmd5_server_mech_step2(server_context_t *stext,
 	 */
 	
 	if (strcasecmp(name, "username") == 0) {
-	    if (text->global->authid &&
-		(strcmp(value, text->global->authid) != 0)) {
+	    if (stext->authid && (strcmp(value, stext->authid) != 0)) {
 		SETERROR(sparams->utils,
 			 "username changed: authentication aborted");
 		result = SASL_FAIL;
@@ -2134,8 +2140,7 @@ digestmd5_server_mech_step2(server_context_t *stext,
 	} else if (strcasecmp(name, "authzid") == 0) {
 	    _plug_strdup(sparams->utils, value, &authorization_id, NULL);
 	} else if (strcasecmp(name, "cnonce") == 0) {
-	    if (text->global->cnonce &&
-		(strcmp(value, text->global->cnonce) != 0)) {
+	    if (stext->cnonce && (strcmp(value, stext->cnonce) != 0)) {
 		SETERROR(sparams->utils,
 			 "cnonce changed: authentication aborted");
 		result = SASL_FAIL;
@@ -2150,7 +2155,7 @@ digestmd5_server_mech_step2(server_context_t *stext,
 		result = SASL_BADAUTH;
 		goto FreeAllMem;
 	    }
-	    else if (noncecount != text->global->nonce_count) {
+	    else if (noncecount != stext->nonce_count) {
 		SETERROR(sparams->utils,
 			 "incorrect nonce-count: authentication aborted");
 		result = SASL_BADAUTH;
@@ -2162,8 +2167,7 @@ digestmd5_server_mech_step2(server_context_t *stext,
 			 "duplicate realm: authentication aborted");
 		result = SASL_FAIL;
 		goto FreeAllMem;
-	    } else if (text->global->realm &&
-		       (strcmp(value, text->global->realm) != 0)) {
+	    } else if (stext->realm && (strcmp(value, stext->realm) != 0)) {
 		SETERROR(sparams->utils,
 			 "realm changed: authentication aborted");
 		result = SASL_FAIL;
@@ -2172,7 +2176,7 @@ digestmd5_server_mech_step2(server_context_t *stext,
 	    
 	    _plug_strdup(sparams->utils, value, &realm, NULL);
 	} else if (strcasecmp(name, "nonce") == 0) {
-	    if (strcmp(value, (char *) text->global->nonce) != 0) {
+	    if (strcmp(value, (char *) stext->nonce) != 0) {
 		/*
 		 * Nonce changed: Abort authentication!!!
 		 */
@@ -2381,7 +2385,7 @@ digestmd5_server_mech_step2(server_context_t *stext,
 	    HASH HA1;
 	    
 	    DigestCalcSecret(sparams->utils, username,
-			     text->global->realm, sec->data, sec->len, HA1);
+			     stext->realm, sec->data, sec->len, HA1);
 	    
 	    /*
 	     * A1 = { H( { username-value, ":", realm-value, ":", passwd } ),
@@ -2405,8 +2409,8 @@ digestmd5_server_mech_step2(server_context_t *stext,
     
     serverresponse = create_response(text,
 				     sparams->utils,
-				     text->global->nonce,
-				     text->global->nonce_count,
+				     stext->nonce,
+				     stext->nonce_count,
 				     cnonce,
 				     qop,
 				     digesturi,
@@ -2429,15 +2433,7 @@ digestmd5_server_mech_step2(server_context_t *stext,
 	goto FreeAllMem;
     }
     
-    /* see if our nonce expired */
-    if (text->global->timeout &&
-	time(0) - text->global->timestamp > text->global->timeout) {
-	SETERROR(sparams->utils, "server nonce expired");
-	stext->stale = 1;
-	result = SASL_BADAUTH;
-
-	goto FreeAllMem;
-    }
+    /* see if our nonce expired (stext->stale = 1) */
     
     /*
      * nothing more to do; authenticated set oparams information
@@ -2464,7 +2460,7 @@ digestmd5_server_mech_step2(server_context_t *stext,
     text->needsize = 4;
     text->buffer = NULL;
     
-    if (oparams->mech_ssf > 1) {
+    if (oparams->mech_ssf > 0) {
 	char enckey[16];
 	char deckey[16];
 	
@@ -2512,20 +2508,7 @@ digestmd5_server_mech_step2(server_context_t *stext,
 	    goto FreeAllMem;
 	}
 
-	/* increment the nonce count */
-	text->global->nonce_count++;
-
 	/* setup for a potential reauth */
-	text->global->timestamp = time(0);
-
-	if (!text->global->authid) {
-	    text->global->authid = username;
-	    username = NULL;
-	}
-	if (!text->global->cnonce) {
-	    text->global->cnonce = cnonce;
-	    cnonce = NULL;
-	}
 	
 	*serveroutlen = strlen(text->out_buf);
 	*serverout = text->out_buf;
@@ -2596,10 +2579,11 @@ digestmd5_server_mech_step(void *conn_context,
 	} else {
 	    stext->requiressf = sparams->props.min_ssf - sparams->external_ssf;
 	}
-
+#if 0
 	/* should we attempt reauth? */
-	if (clientin && text->global->timeout &&
-	    text->global->nonce && text->global->cnonce) {
+	if (clientin /* && we have reauth info */) {
+	    /* setup for reauth attempt */
+
 	    if (digestmd5_server_mech_step2(stext, sparams,
 					    clientin, clientinlen,
 					    serverout, serveroutlen,
@@ -2610,12 +2594,11 @@ digestmd5_server_mech_step(void *conn_context,
 				    "DIGEST-MD5 reauth failed\n");
 	    }
 	}
-
+#endif
 	/* re-initialize everything for a fresh start */
 	*serverout = NULL;
 	*serveroutlen = 0;
 	memset(oparams, 0, sizeof(sasl_out_params_t));
-	clear_global_context(text->global, sparams->utils);
 	
 	return digestmd5_server_mech_step1(stext, sparams,
 					   clientin, clientinlen,
@@ -2635,6 +2618,21 @@ digestmd5_server_mech_step(void *conn_context,
     return SASL_FAIL; /* should never get here */
 }
 
+static void
+digestmd5_server_mech_dispose(void *conn_context, const sasl_utils_t *utils)
+{
+    server_context_t *stext = (server_context_t *) conn_context;
+    
+    if (!stext || !utils) return;
+    
+    if (stext->authid) utils->free(stext->authid);
+    if (stext->realm) utils->free(stext->realm);
+    if (stext->nonce) utils->free(stext->nonce);
+    if (stext->cnonce) utils->free(stext->cnonce);
+
+    digestmd5_common_mech_dispose(conn_context, utils);
+}
+
 static sasl_server_plug_t digestmd5_server_plugins[] =
 {
     {
@@ -2649,12 +2647,12 @@ static sasl_server_plug_t digestmd5_server_plugins[] =
 	SASL_SEC_NOPLAINTEXT
 	| SASL_SEC_NOANONYMOUS
 	| SASL_SEC_MUTUAL_AUTH,		/* security_flags */
-	0,				/* features */
+	0, //SASL_FEAT_ALLOWS_PROXY,		/* features */
 	NULL,				/* glob_context */
 	&digestmd5_server_mech_new,	/* mech_new */
 	&digestmd5_server_mech_step,	/* mech_step */
-	&digestmd5_common_mech_dispose,	/* mech_dispose */
-	&digestmd5_common_mech_free,	/* mech_free */
+	&digestmd5_server_mech_dispose,	/* mech_dispose */
+	NULL,				/* mech_free */
 	NULL,				/* setpass */
 	NULL,				/* user_query */
 	NULL,				/* idle */
@@ -2663,36 +2661,14 @@ static sasl_server_plug_t digestmd5_server_plugins[] =
     }
 };
 
-#define DEFAULT_REAUTH_TIMEOUT 86400 /* 24 hours */
-
-int digestmd5_server_plug_init(sasl_utils_t *utils,
+int digestmd5_server_plug_init(sasl_utils_t *utils __attribute__((unused)),
 			       int maxversion,
 			       int *out_version,
 			       sasl_server_plug_t **pluglist,
 			       int *plugcount) 
 {
-    global_context_t *glob_text;
-    const char *timeout = NULL;
-    unsigned int len;
-
     if (maxversion < SASL_SERVER_PLUG_VERSION)
 	return SASL_BADVERS;
-
-    /* holds global state are in */
-    glob_text = utils->malloc(sizeof(global_context_t));
-    if (glob_text == NULL)
-	return SASL_NOMEM;
-    memset(glob_text, 0, sizeof(global_context_t));
-    
-    /* fetch and canonify the reauth_timeout */
-    utils->getopt(utils->getopt_context, "DIGEST-MD5", "reauth_timeout",
-		  &timeout, &len);
-    if (timeout) glob_text->timeout = (time_t) 60 * strtol(timeout, NULL, 10);
-    if (!timeout ||
-	glob_text->timeout < 0 || glob_text->timeout > DEFAULT_REAUTH_TIMEOUT)
-	glob_text->timeout = DEFAULT_REAUTH_TIMEOUT;
-
-    digestmd5_server_plugins[0].glob_context = glob_text;
 
     *out_version = SASL_SERVER_PLUG_VERSION;
     *pluglist = digestmd5_server_plugins;
@@ -2710,6 +2686,8 @@ typedef struct client_context {
     
     sasl_secret_t *password;	/* user password (client) */
     unsigned int free_password; /* set if we need to free password (client) */
+	unsigned char *lcnonce;		/* Apple: putting the nonce in the global context doesn't work for multi-threaded */
+								/* clients. Let's store it here. */
 } client_context_t;
 
 /* calculate H(A1) as per spec */
@@ -2882,7 +2860,7 @@ make_client_response(context_t *text,
 			   (unsigned char *) ctext->realm,
 			   text->global->nonce,
 			   text->global->nonce_count,
-			   text->global->cnonce,
+			   ctext->lcnonce ? ctext->lcnonce : text->global->cnonce,
 			   text->global->qop,
 			   digesturi,
 			   ctext->password,
@@ -2890,8 +2868,10 @@ make_client_response(context_t *text,
 			   (char *) oparams->user : NULL,
 			   &text->response_value);
     
-    
-    resplen = strlen(oparams->authid) + strlen("username") + 5;
+	/* Apple: do not keep calling realloc. Let us try to get close to the right size. */
+    //resplen = strlen(oparams->authid) + strlen("username") + 5;
+	resplen = strlen(oparams->authid) + strlen("username=''authzid=''nonce=''cnonce=''nc=''qop=''cipher=''charset=''digest-uri=''response=''")*2 + 5;
+	
     result =_plug_buf_alloc(params->utils, &(text->out_buf),
 			    &(text->out_buf_len),
 			    resplen);
@@ -2922,7 +2902,7 @@ make_client_response(context_t *text,
     }
     if (add_to_challenge(params->utils,
 			 &text->out_buf, &text->out_buf_len, &resplen,
-			 "cnonce", text->global->cnonce, TRUE) != SASL_OK) {
+			 "cnonce", ctext->lcnonce ? ctext->lcnonce : text->global->cnonce, TRUE) != SASL_OK) {
 	result = SASL_FAIL;
 	goto FreeAllocatedMem;
     }
@@ -3000,7 +2980,7 @@ make_client_response(context_t *text,
     text->needsize = 4;
     text->buffer = NULL;
     
-    if (oparams->mech_ssf > 1) {
+    if (oparams->mech_ssf > 0) {
 	char enckey[16];
 	char deckey[16];
 	
@@ -3042,6 +3022,8 @@ digestmd5_client_mech_new(void *glob_context,
     return SASL_OK;
 }
 
+/* Apple: reauth is not thread-safe so we are not using it */
+#if 0
 static int
 digestmd5_client_mech_step1(client_context_t *ctext,
 			    sasl_client_params_t *params,
@@ -3053,7 +3035,7 @@ digestmd5_client_mech_step1(client_context_t *ctext,
 			    sasl_out_params_t *oparams)
 {
     context_t *text = (context_t *) ctext;
-    const char *authid, *userid;
+    const char *authid = NULL, *userid = NULL;
     int user_result = SASL_OK;
     int auth_result = SASL_OK;
     int pass_result = SASL_OK;
@@ -3075,10 +3057,8 @@ digestmd5_client_mech_step1(client_context_t *ctext,
     if (oparams->user == NULL) {
 	user_result = _plug_get_userid(params->utils, &userid, prompt_need);
 	
-	/* Steal it from the authid */
-	if ((user_result != SASL_OK) && (user_result != SASL_INTERACT)) {
-	    userid = authid;
-	}
+	if ((user_result != SASL_OK) && (user_result != SASL_INTERACT))
+	    return user_result;
     }
     
     /* try to get the password */
@@ -3115,12 +3095,18 @@ digestmd5_client_mech_step1(client_context_t *ctext,
 	return SASL_INTERACT;
     }
     
-    result = params->canon_user(params->utils->conn,
-				authid, 0, SASL_CU_AUTHID, oparams);
-    if (result != SASL_OK) return result;
+    if (!userid || !*userid) {
+	result = params->canon_user(params->utils->conn, authid, 0,
+				    SASL_CU_AUTHID | SASL_CU_AUTHZID, oparams);
+    }
+    else {
+	result = params->canon_user(params->utils->conn,
+				    authid, 0, SASL_CU_AUTHID, oparams);
+	if (result != SASL_OK) return result;
     
-    result = params->canon_user(params->utils->conn,
-				userid, 0, SASL_CU_AUTHZID, oparams);
+	result = params->canon_user(params->utils->conn,
+				    userid, 0, SASL_CU_AUTHZID, oparams);
+    }
     if (result != SASL_OK) return result;
 
     if (!strcmp(oparams->authid, text->global->authid)) {
@@ -3163,6 +3149,7 @@ digestmd5_client_mech_step1(client_context_t *ctext,
     text->state = 2;
     return SASL_CONTINUE;
 }
+#endif
 
 static int
 digestmd5_client_mech_step2(client_context_t *ctext,
@@ -3189,7 +3176,7 @@ digestmd5_client_mech_step2(client_context_t *ctext,
     int maxbuf_count = 0;
     bool IsUTF8 = FALSE;
     int result = SASL_FAIL;
-    const char *authid, *userid;
+    const char *authid = NULL, *userid = NULL;
     int user_result = SASL_OK;
     int auth_result = SASL_OK;
     int pass_result = SASL_OK;
@@ -3240,7 +3227,12 @@ digestmd5_client_mech_step2(client_context_t *ctext,
 	    
 	    _plug_strdup(params->utils, value, &realms[nrealm-1], NULL);
 	    realms[nrealm] = NULL;
-	} else if (strcasecmp(name, "nonce") == 0) {
+	} else if (strcasecmp(name, "nonce") == 0)
+	{
+		if (text->global->nonce) {
+			params->utils->free(text->global->nonce);
+			text->global->nonce = NULL;
+		}
 	    _plug_strdup(params->utils, value, (char **) &text->global->nonce,
 			 NULL);
 	} else if (strcasecmp(name, "qop") == 0) {
@@ -3392,10 +3384,8 @@ digestmd5_client_mech_step2(client_context_t *ctext,
     if (oparams->user == NULL) {
 	user_result = _plug_get_userid(params->utils, &userid, prompt_need);
 	
-	/* Steal it from the authid */
-	if ((user_result != SASL_OK) && (user_result != SASL_INTERACT)) {
-	    userid = authid;
-	}
+	if ((user_result != SASL_OK) && (user_result != SASL_INTERACT))
+	    return user_result;
     }
     
     /* try to get the password */
@@ -3467,6 +3457,10 @@ digestmd5_client_mech_step2(client_context_t *ctext,
 				   params->serverFQDN ? params->serverFQDN : NULL);
 	}
 	
+	if ( realm_chal != NULL ) {
+		params->utils->free( realm_chal );
+		realm_chal = NULL;
+	}
 	if (in_start) params->utils->free(in_start);
 	if (text->global->nonce) {
 	    params->utils->free(text->global->nonce);
@@ -3491,14 +3485,19 @@ digestmd5_client_mech_step2(client_context_t *ctext,
     }
     
     if (oparams->authid == NULL) {
-	result = params->canon_user(params->utils->conn,
-				    authid, 0, SASL_CU_AUTHID, oparams);
-	if (result != SASL_OK) goto FreeAllocatedMem;
-    }
-    
-    if (oparams->user == NULL) {
-	result = params->canon_user(params->utils->conn,
-				    userid, 0, SASL_CU_AUTHZID, oparams);
+	if (!userid || !*userid) {
+	    result = params->canon_user(params->utils->conn, authid, 0,
+					SASL_CU_AUTHID | SASL_CU_AUTHZID,
+					oparams);
+	}
+	else {
+	    result = params->canon_user(params->utils->conn,
+					authid, 0, SASL_CU_AUTHID, oparams);
+	    if (result != SASL_OK) goto FreeAllocatedMem;
+
+	    result = params->canon_user(params->utils->conn,
+					userid, 0, SASL_CU_AUTHZID, oparams);
+	}
 	if (result != SASL_OK) goto FreeAllocatedMem;
     }
     
@@ -3598,7 +3597,8 @@ digestmd5_client_mech_step2(client_context_t *ctext,
     }
     
     /* get nonce XXX have to clean up after self if fail */
-    text->global->cnonce = create_nonce(params->utils);
+    ctext->lcnonce = create_nonce(params->utils);
+	text->global->cnonce = ctext->lcnonce;
     if (text->global->cnonce == NULL) {
 	params->utils->seterror(params->utils->conn, 0,
 				"failed to create cnonce");
@@ -3673,7 +3673,7 @@ digestmd5_client_mech_step3(client_context_t *ctext,
     in[serverinlen] = 0;
     
     in_start = in;
-    
+	
     /* parse what we got */
     while (in[0] != '\0') {
 	char *name, *value;
@@ -3704,9 +3704,9 @@ digestmd5_client_mech_step3(client_context_t *ctext,
 			       name, value);
 	}
     }
-    
+	
     params->utils->free(in_start);
-    
+	
     /* if we failed, re-initialize everything for a fresh start */
     if (result != SASL_OK)
 	clear_global_context(text->global, params->utils);
@@ -3736,6 +3736,10 @@ digestmd5_client_mech_step(void *conn_context,
 
     case 1:
 	if (!serverin) {
+/* Apple: we know the server isn't going to let us reauth because */
+/* it doesn't have a thread-safe implementation, so don't bother */
+/* trying. */
+#if 0
 	    /* here's where we attempt fast reauth if possible */
 	    if (text->global->authid &&
 		!strcasecmp(text->global->serverFQDN, params->serverFQDN)) {
@@ -3746,7 +3750,7 @@ digestmd5_client_mech_step(void *conn_context,
 						   clientout, clientoutlen,
 						   oparams);
 	    }
-	    
+#endif	
 	    /* we don't have any reauth info, so just return
 	     * that there is no initial client send */
 	    text->state = 2;
@@ -3797,6 +3801,10 @@ digestmd5_client_mech_dispose(void *conn_context, const sasl_utils_t *utils)
     
     if (ctext->free_password) _plug_free_secret(utils, &ctext->password);
 
+	/* Apple: we're not using reauth, so clean up now */
+	((context_t *) conn_context)->global->cnonce = NULL;
+	if (ctext->lcnonce) utils->free(ctext->lcnonce);
+	
     digestmd5_common_mech_dispose(conn_context, utils);
 }
 
@@ -3814,7 +3822,7 @@ static sasl_client_plug_t digestmd5_client_plugins[] =
 	SASL_SEC_NOPLAINTEXT
 	| SASL_SEC_NOANONYMOUS
 	| SASL_SEC_MUTUAL_AUTH,		/* security_flags */
-	0,				/* features */
+	0, //SASL_FEAT_ALLOWS_PROXY, 	/* features */
 	NULL,				/* required_prompts */
 	NULL,				/* glob_context */
 	&digestmd5_client_mech_new,	/* mech_new */

@@ -13,7 +13,7 @@
 
 #include <sendmail.h>
 
-SM_RCSID("@(#)$Id: collect.c,v 1.1.1.3 2002/10/15 02:38:24 zarzycki Exp $")
+SM_RCSID("@(#)$Id: collect.c,v 1.2 2003/03/29 20:22:05 zarzycki Exp $")
 
 static void	collecttimeout __P((time_t));
 static void	dferror __P((SM_FILE_T *volatile, char *, ENVELOPE *));
@@ -350,6 +350,16 @@ collect(fp, smtpmode, hdrp, e)
 					  "timeout waiting for input from %s during message collect",
 					  CURHOSTNAME);
 			errno = 0;
+			if (smtpmode)
+			{
+				/*
+				**  Override e_message in usrerr() as this
+				**  is the reason for failure that should
+				**  be logged for undelivered recipients.
+				*/
+
+				e->e_message = NULL;
+			}
 			usrerr("451 4.4.1 timeout waiting for input during message collect");
 			goto readerr;
 		}
@@ -434,6 +444,7 @@ collect(fp, smtpmode, hdrp, e)
 					  OpMode != MD_ARPAFTP))
 
 				{
+					SM_ASSERT(pbp < peekbuf + sizeof(peekbuf));
 					*pbp++ = c;
 					c = '.';
 				}
@@ -445,11 +456,14 @@ collect(fp, smtpmode, hdrp, e)
 				else
 				{
 					/* push back the ".\rx" */
+					SM_ASSERT(pbp < peekbuf + sizeof(peekbuf));
 					*pbp++ = c;
 					if (OpMode != MD_SMTP &&
 					    OpMode != MD_DAEMON &&
 					    OpMode != MD_ARPAFTP)
 					{
+						SM_ASSERT(pbp < peekbuf +
+							 sizeof(peekbuf));
 						*pbp++ = '\r';
 						c = '.';
 					}
@@ -615,6 +629,7 @@ nextstate:
 			}
 
 			/* trim off trailing CRLF or NL */
+			SM_ASSERT(bp > buf);
 			if (*--bp != '\n' || *--bp != '\r')
 				bp++;
 			*bp = '\0';

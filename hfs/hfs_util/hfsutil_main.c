@@ -188,6 +188,7 @@ static int	ReadFile(int fd, void *buffer, off_t offset, ssize_t length,
 static ssize_t	readAt( int fd, void * buf, off_t offset, ssize_t length );
 static ssize_t	writeAt( int fd, void * buf, off_t offset, ssize_t length );
 
+CF_EXPORT Boolean _CFStringGetFileSystemRepresentation(CFStringRef string, UInt8 *buffer, CFIndex maxBufLen);
 
 /*
  * The fuction CFStringGetSystemEncoding does not work correctly in
@@ -547,8 +548,7 @@ DoProbe(char *deviceNamePtr)
 		encoding = CFStringGetSystemEncoding();
 		cfstr = CFStringCreateWithPascalString(kCFAllocatorDefault,
 			    mdbPtr->drVN, encoding);
-		cfOK = CFStringGetCString(cfstr, volnameUTF8, NAME_MAX,
-			    kCFStringEncodingUTF8);
+		cfOK = _CFStringGetFileSystemRepresentation(cfstr, volnameUTF8, NAME_MAX);
 		CFRelease(cfstr);
 
 		if (!cfOK && encoding != kCFStringEncodingMacRoman) {
@@ -556,8 +556,7 @@ DoProbe(char *deviceNamePtr)
 		    	/* default to MacRoman on conversion errors */
 			cfstr = CFStringCreateWithPascalString(kCFAllocatorDefault,
 				    mdbPtr->drVN, kCFStringEncodingMacRoman);
-			CFStringGetCString(cfstr, volnameUTF8, NAME_MAX,
-			    kCFStringEncodingUTF8);
+			_CFStringGetFileSystemRepresentation(cfstr, volnameUTF8, NAME_MAX);
 			CFRelease(cfstr);
 		}
  

@@ -1,6 +1,6 @@
 # file: .../tcl-lib/snacced.tcl
 #
-# $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/tcl-lib/snacced.tcl,v 1.1.1.1 2001/05/18 23:14:11 mb Exp $
+# $Header: /cvs/root/Security/SecuritySNACCRuntime/tcl-lib/Attic/snacced.tcl,v 1.1.1.1 2001/05/18 23:14:11 mb Exp $
 # $Log: snacced.tcl,v $
 # Revision 1.1.1.1  2001/05/18 23:14:11  mb
 # Move from private repository to open source repository

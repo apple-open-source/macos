@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999-2002 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All rights reserved.
  *
  *  DRI: Dave Radcliffe
  *
@@ -187,12 +187,19 @@ bool MacRISC2PE::start(IOService *provider)
 								gPEClockFrequencyInfo.bus_to_cpu_rate_num = newNum;		// Set new numerator
 								gPEClockFrequencyInfo.cpu_clock_rate_hz = newCPUSpeed;	// Set new speed
 							}
-						} else // All other notebooks
+						} else { // All other notebooks
 							// Enable PMU speed change, if platform supports it.  Note that there is also
 							// an implicit assumption here that machine started up in fastest mode.
-							if ((_pePrivPMFeatures & (1 << 17)) != 0)
+							if ((_pePrivPMFeatures & (1 << 17)) != 0) {
 								processorSpeedChangeFlags = kPMUBasedSpeedChange | kProcessorFast | 
 									kL3CacheEnabled | kL2CacheEnabled;
+								// Some platforms need to disable the L3 at slow speed.  Since we're
+								// already assuming the machine started up fast, just set a flag
+								// that will cause L3 to be toggled when the speed is changed.
+								if ((_pePrivPMFeatures & (1<<21)) != 0)
+									processorSpeedChangeFlags |= kDisableL3SpeedChange;
+							}
+						}
 					}
 					break;
 				}
@@ -202,7 +209,7 @@ bool MacRISC2PE::start(IOService *provider)
 	}
 	
 	// Create PlatformMonitor nub
-	if (!strcmp (provider_name, "PowerBook6,1")) {
+	if ((!strcmp (provider_name, "PowerBook6,1")) || (!strcmp (provider_name, "PowerBook5,1"))) {
 		OSDictionary *dict = OSDictionary::withCapacity(2);
 		
 		if (dict) {
@@ -316,12 +323,13 @@ IORegistryEntry * MacRISC2PE::retrievePowerMgtEntry (void)
 
 bool MacRISC2PE::platformAdjustService(IOService *service)
 {
-    const OSSymbol *keySymbol;
-	OSSymbol 	   *tmpSymbol;
-    bool           result;
-  
+bool		result;
+
     if (IODTMatchNubWithKeys(service, "open-pic"))
     {
+	const OSSymbol	* keySymbol;
+	OSSymbol	* tmpSymbol;
+
         keySymbol = OSSymbol::withCStringNoCopy("InterruptControllerName");
         tmpSymbol = (OSSymbol *)IODTInterruptControllerName(service);
         result = service->setProperty(keySymbol, tmpSymbol);
@@ -379,7 +387,8 @@ bool MacRISC2PE::platformAdjustService(IOService *service)
 	 * correct and we now use 0x0011 for uni-n 1.5.
 	 */
 	if ((uniNVersion == kUniNVersion150) && IODTMatchNubWithKeys(service, "('pci', 'uni-north')") && 
-		(service->childFromPath("mac-io", gIODTPlane) != NULL)) {
+		(service->childFromPath("mac-io", gIODTPlane) != NULL))
+	{
 			service->setProperty ("DisableRDG", true);
 			return true;
 	}
@@ -389,8 +398,9 @@ bool MacRISC2PE::platformAdjustService(IOService *service)
 	 */
 	if (((uniNVersion >= kUniNVersion150) && (uniNVersion <= kUniNVersion200) || (uniNVersion == kUniNVersionPangea)) &&
 		(!strcmp(service->getName(gIODTPlane), "firewire")) &&
-		IODTMatchNubWithKeys(service->getParentEntry(gIODTPlane), "('pci', 'uni-north')")) {
-			char data;
+		IODTMatchNubWithKeys(service->getParentEntry(gIODTPlane), "('pci', 'uni-north')"))
+	{
+		char data;
 			
 			data = 0x08;		// 32 byte cache line
 			service->setProperty (kIOPCICacheLineSize, &data, 1);
@@ -404,14 +414,16 @@ bool MacRISC2PE::platformAdjustService(IOService *service)
 	 */
 	if ((uniNVersion == kUniNVersion200) &&
 		IODTMatchNubWithKeys(service, "('ethernet', 'gmac')") &&
-		IODTMatchNubWithKeys(service->getParentEntry(gIODTPlane), "('pci', 'uni-north')")) {
-			char 	data;
-			long	cacheSize;
-			OSData 	*cacheData;
+		IODTMatchNubWithKeys(service->getParentEntry(gIODTPlane), "('pci', 'uni-north')"))
+	{
+		char 	data;
+		long	cacheSize;
+		OSData 	*cacheData;
 			
 			data = 0x08; 	// assume default of 32 byte cache line
 			cacheData = OSDynamicCast( OSData, service->getProperty( "cache-line-size" ) );
-			if (cacheData) {
+			if (cacheData)
+			{
 				cacheSize = *(long *)cacheData->getBytesNoCopy();
 				data = (cacheSize >> 2);
 			}
@@ -424,23 +436,51 @@ bool MacRISC2PE::platformAdjustService(IOService *service)
 	// For usb@18 on PowerBook4,x machines add an "AAPL,SuspendablePorts" property if it doesn't exist
 	if (!strcmp(service->getName(), "usb") && 
 		(0 == strncmp(provider_name, "PowerBook4,", strlen("PowerBook4,"))) &&
-		IODTMatchNubWithKeys(service->getParentEntry(gIODTPlane), "('pci', 'uni-north')")) {
+		IODTMatchNubWithKeys(service->getParentEntry(gIODTPlane), "('pci', 'uni-north')"))
+	{
 		
-		OSData				*regProp;
-		IOPCIAddressSpace	*pciAddress;
-		UInt32				ports;
+		OSData			* regProp;
+		IOPCIAddressSpace	* pciAddress;
+		UInt32			ports;
 	
-		if( (regProp = (OSData *) service->getProperty("reg"))) {
+		if( (regProp = (OSData *) service->getProperty("reg")))
+		{
 			pciAddress = (IOPCIAddressSpace *) regProp->getBytesNoCopy();
 			// Only for usb@18
-			if (pciAddress->s.deviceNum == 0x18) {
+			if (pciAddress->s.deviceNum == 0x18)
+			{
 				// If property doesn't exist, create it
-				if(!((OSData *) service->getProperty(kAAPLSuspendablePorts))) {
+				if(!((OSData *) service->getProperty(kAAPLSuspendablePorts)))
+				{
 					ports = 4;
 					service->setProperty (kAAPLSuspendablePorts, &ports, sizeof(UInt32));
 				}
 				return true;
 			}
+		}
+	}
+
+	// for P69s (Xserves) with early BootROMs, the 'temp-monitor' node has an incorrect "reg" property
+	// -- change the "reg" property to be correct.  ALL P69s, regardless of BootROM, have the
+	//    'temp-monitor' I2C device at I2C address 0x92.  It is incorrectly set to 0x192 in early
+	//    BootROMs, and causes the AppleCPUThermo driver to attempt to access an invalid device
+	//    address.  The failure of that access causes hwmond to not return temperature information
+	//    about the CPU to Server Monitor.
+	if ( ( strcmp( "temp-monitor", service->getName() ) == 0 ) &&
+	     ( strcmp( "RackMac1,1"  , provider_name      ) == 0 ) )	// ALL P69s, regardless of BootROM
+	{
+	OSData	* deviceType;
+	UInt32	newRegPropertyValue;
+
+		deviceType = OSDynamicCast( OSData, service->getProperty( "device_type" ) );
+		if ( deviceType && ( strcmp( "ds1775", (char *)deviceType->getBytesNoCopy() ) == 0 ) )
+		{
+			// if the service is 'temp-monitor' and we are on a P69, and we have verified
+			// that the 'temp-monitor' device is of type 'ds1775', go ahead and adjust the
+			// "reg" property to be 0x00000092 (bus 0, device address 0x92).
+			newRegPropertyValue = 0x92;
+			service->setProperty( "reg", &newRegPropertyValue, sizeof( UInt32 ) );
+            // return true;		// handled by the default 'return true' at the bottom of the routine
 		}
 	}
     

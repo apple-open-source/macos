@@ -13,7 +13,7 @@
 
 #include <sendmail.h>
 
-SM_RCSID("@(#)$Id: recipient.c,v 1.1.1.3 2002/10/15 02:38:32 zarzycki Exp $")
+SM_RCSID("@(#)$Id: recipient.c,v 1.1.1.4 2003/02/22 09:24:49 zarzycki Exp $")
 
 static void	includetimeout __P((void));
 static ADDRESS	*self_reference __P((ADDRESS *));
@@ -679,7 +679,7 @@ recipient(new, sendq, aliaslevel, e)
 	**  the current recipient is marked expensive.
 	*/
 
-	if (WILL_BE_QUEUED(e->e_sendmode) ||
+	if (UseMSP || WILL_BE_QUEUED(e->e_sendmode) ||
 	    (!bitset(EF_SPLIT, e->e_flags) && e->e_ntries == 0 &&
 	     FastSplit > 0))
 		sortfn = sorthost;

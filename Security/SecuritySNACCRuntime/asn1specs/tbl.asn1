@@ -26,7 +26,7 @@
 --  Mike Sample, April 11, 1992
 --  Mods MS Feb 7/93
 --
--- $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/asn1specs/tbl.asn1,v 1.1.1.1 2001/05/18 23:14:05 mb Exp $
+-- $Header: /cvs/root/Security/SecuritySNACCRuntime/asn1specs/Attic/tbl.asn1,v 1.1.1.1 2001/05/18 23:14:05 mb Exp $
 -- $Log: tbl.asn1,v $
 -- Revision 1.1.1.1  2001/05/18 23:14:05  mb
 -- Move from private repository to open source repository

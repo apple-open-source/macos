@@ -198,7 +198,6 @@ static int call_trans2open(connection_struct *conn, char *inbuf, char *outbuf, i
 	int16 open_ofun;
 	int32 open_size;
 	char *pname;
-	int16 namelen;
 
 	pstring fname;
 	mode_t unixmode;
@@ -228,9 +227,8 @@ static int call_trans2open(connection_struct *conn, char *inbuf, char *outbuf, i
 	open_ofun = SVAL(params,12);
 	open_size = IVAL(params,14);
 	pname = &params[28];
-	namelen = strlen(pname)+1;
 
-	StrnCpy(fname,pname,namelen);
+	pstrcpy(fname, pname);
 
 	DEBUG(3,("trans2open %s mode=%d attr=%d ofun=%d size=%d\n",
 		fname,open_mode, open_attr, open_ofun, open_size));
@@ -3116,7 +3114,7 @@ int reply_trans2(connection_struct *conn, char *inbuf,char *outbuf,int length,in
 	unsigned int suwcnt = SVAL(inbuf, smb_suwcnt);
 	unsigned int tran_call = SVAL(inbuf, smb_setup0);
 	char *params = NULL, *data = NULL;
-	int num_params, num_params_sofar, num_data, num_data_sofar;
+	unsigned int num_params, num_params_sofar, num_data, num_data_sofar;
 	START_PROFILE(SMBtrans2);
 
 	if(global_oplock_break && (tran_call == TRANSACT2_OPEN)) {
@@ -3155,10 +3153,10 @@ int reply_trans2(connection_struct *conn, char *inbuf,char *outbuf,int length,in
 				(SVAL(inbuf,(smb_setup+6)) == LMFUNC_GETJOBID)) {
 			DEBUG(2,("Got Trans2 DevIOctl jobid\n"));
 		} else {
-			DEBUG(2,("Invalid smb_sucnt in trans2 call(%d)\n",suwcnt));
+			DEBUG(2,("Invalid smb_sucnt in trans2 call(%u)\n",suwcnt));
 			DEBUG(2,("Transaction is %d\n",tran_call));
 			END_PROFILE(SMBtrans2);
-			return ERROR_DOS(ERRSRV,ERRerror);
+			ERROR_DOS(ERRDOS,ERRinvalidparam);
 		}
 	}
     
@@ -3184,10 +3182,22 @@ int reply_trans2(connection_struct *conn, char *inbuf,char *outbuf,int length,in
 	if (num_params > total_params || num_data > total_data)
 		exit_server("invalid params in reply_trans2");
 
-	if(params)
-		memcpy( params, smb_base(inbuf) + SVAL(inbuf, smb_psoff), num_params);
-	if(data)
-		memcpy( data, smb_base(inbuf) + SVAL(inbuf, smb_dsoff), num_data);
+	if(params) {
+		unsigned int psoff = SVAL(inbuf, smb_psoff);
+		if ((psoff + num_params < psoff) || (psoff + num_params < num_params))
+			goto bad_param;
+		if (smb_base(inbuf) + psoff + num_params > inbuf + length)
+			goto bad_param;
+		memcpy( params, smb_base(inbuf) + psoff, num_params);
+	}
+	if(data) {
+		unsigned int dsoff = SVAL(inbuf, smb_dsoff);
+		if ((dsoff + num_data < dsoff) || (dsoff + num_data < num_data))
+			goto bad_param;
+		if (smb_base(inbuf) + dsoff + num_data > inbuf + length)
+			goto bad_param;
+		memcpy( data, smb_base(inbuf) + dsoff, num_data);
+	}
 
 	if(num_data_sofar < total_data || num_params_sofar < total_params)  {
 		/* We need to send an interim response then receive the rest
@@ -3199,6 +3209,10 @@ int reply_trans2(connection_struct *conn, char *inbuf,char *outbuf,int length,in
 		while (num_data_sofar < total_data || 
 		       num_params_sofar < total_params) {
 			BOOL ret;
+			unsigned int param_disp;
+			unsigned int param_off;
+			unsigned int data_disp;
+			unsigned int data_off;
 
 			ret = receive_next_smb(inbuf,bufsize,SMB_SECONDARY_WAIT);
 			
@@ -3210,25 +3224,55 @@ int reply_trans2(connection_struct *conn, char *inbuf,char *outbuf,int length,in
 				else
 					DEBUG(0,("reply_trans2: %s in getting secondary trans2 response.\n",
 						 (smb_read_error == READ_ERROR) ? "error" : "timeout" ));
-				SAFE_FREE(params);
-				SAFE_FREE(data);
-				END_PROFILE(SMBtrans2);
-				return ERROR_DOS(ERRSRV,ERRerror);
+				goto bad_param;
 			}
       
 			/* Revise total_params and total_data in case
                            they have changed downwards */
+			if (SVAL(inbuf, smb_tpscnt) < total_params)
 			total_params = SVAL(inbuf, smb_tpscnt);
+			if (SVAL(inbuf, smb_tdscnt) < total_data)
 			total_data = SVAL(inbuf, smb_tdscnt);
-			num_params_sofar += (num_params = SVAL(inbuf,smb_spscnt));
-			num_data_sofar += ( num_data = SVAL(inbuf, smb_sdscnt));
+
+			num_params = SVAL(inbuf,smb_spscnt);
+			param_off = SVAL(inbuf, smb_spsoff);
+			param_disp = SVAL(inbuf, smb_spsdisp);
+			num_params_sofar += num_params;
+
+			num_data = SVAL(inbuf, smb_sdscnt);
+			data_off = SVAL(inbuf, smb_sdsoff);
+			data_disp = SVAL(inbuf, smb_sdsdisp);
+			num_data_sofar += num_data;
+
 			if (num_params_sofar > total_params || num_data_sofar > total_data)
-				exit_server("data overflow in trans2");
+				goto bad_param;
 			
-			memcpy( &params[ SVAL(inbuf, smb_spsdisp)], 
-				smb_base(inbuf) + SVAL(inbuf, smb_spsoff), num_params);
-			memcpy( &data[SVAL(inbuf, smb_sdsdisp)],
-				smb_base(inbuf)+ SVAL(inbuf, smb_sdsoff), num_data);
+			if (num_params) {
+				if (param_disp + num_params >= total_params)
+					goto bad_param;
+				if ((param_disp + num_params < param_disp) ||
+						(param_disp + num_params < num_params))
+					goto bad_param;
+				if (smb_base(inbuf) + param_off + num_params >= inbuf + bufsize)
+					goto bad_param;
+				if (params + param_disp < params)
+					goto bad_param;
+
+				memcpy( &params[param_disp], smb_base(inbuf) + param_off, num_params);
+			}
+			if (num_data) {
+				if (data_disp + num_data >= total_data)
+					goto bad_param;
+				if ((data_disp + num_data < data_disp) ||
+						(data_disp + num_data < num_data))
+					goto bad_param;
+				if (smb_base(inbuf) + data_off + num_data >= inbuf + bufsize)
+					goto bad_param;
+				if (data + data_disp < data)
+					goto bad_param;
+
+				memcpy( &data[data_disp], smb_base(inbuf) + data_off, num_data);
+			}
 		}
 	}
 	
@@ -3342,4 +3386,11 @@ int reply_trans2(connection_struct *conn, char *inbuf,char *outbuf,int length,in
 	return outsize; /* If a correct response was needed the
 			   call_trans2xxx calls have already sent
 			   it. If outsize != -1 then it is returning */
+
+  bad_param:
+
+	SAFE_FREE(params);
+	SAFE_FREE(data);
+	END_PROFILE(SMBtrans2);
+	return ERROR_NT(NT_STATUS_INVALID_PARAMETER);
 }

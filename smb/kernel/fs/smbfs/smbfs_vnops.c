@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_vnops.c,v 1.30.18.1 2003/01/08 03:24:39 lindak Exp $
+ * $Id: smbfs_vnops.c,v 1.30.18.3 2003/03/14 00:14:46 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -488,28 +488,21 @@ smbfs_setattr(ap)
 		if (isreadonly)
 			return EROFS;
 		doclose = 0;
-#ifdef APPLE
  		tsize = np->n_size;
+#ifdef APPLE
 		newround = round_page_64((off_t)vap->va_size);
 		if (tsize > newround) {
 			if (!ubc_invalidate(vp, newround,
 					    (size_t)(tsize - newround)))
 				panic("smbfs_setattr: ubc_invalidate");
 		}
-		/*
-		 * n_size is used by smbfs_pageout so it must be
-		 * changed before we call setsize
-		 *
-		 * XXX VM coherence on extends -  consider delaying
-		 * both changes until after zero fill
-		 */
- 		np->n_size = vap->va_size;
-		vnode_pager_setsize(vp, (off_t)vap->va_size);
-#else
-		vnode_pager_setsize(vp, (u_long)vap->va_size);
- 		tsize = np->n_size;
- 		np->n_size = vap->va_size;
 #endif /* APPLE */
+		/*
+		 * XXX VM coherence on extends -  consider delaying
+		 * this until after zero fill (smbfs_0extend)
+		 */
+		smbfs_setsize(vp, (off_t)vap->va_size);
+
 		if (np->n_opencount == 0) {
 			error = smbfs_smb_open(np,
 					       SMB_SM_DENYNONE|SMB_AM_OPENRW,
@@ -527,12 +520,7 @@ smbfs_setattr(ap)
 		if (doclose)
 			smbfs_smb_close(ssp, np->n_fid, NULL, &scred);
 		if (error) {
-			np->n_size = tsize;
-#ifdef APPLE
-			vnode_pager_setsize(vp, (off_t)tsize);
-#else
-			vnode_pager_setsize(vp, (u_long)tsize);
-#endif /* APPLE */
+			smbfs_setsize(vp, (off_t)tsize);
 			return error;
 		}
   	}
@@ -913,8 +901,7 @@ smbfs_remove(ap)
 	}
 	if (!ubc_invalidate(vp, (off_t)0, (size_t)np->n_size))
 		panic("smbfs_remove: ubc_invalidate");
-	np->n_size = 0;
-	vnode_pager_setsize(vp, (off_t)0);
+	smbfs_setsize(vp, (off_t)0);
 	smb_makescred(&scred, cnp->cn_proc, cnp->cn_cred);
 	if (np->n_opencount) {
  		if (np->n_opencount > 1)
@@ -1532,7 +1519,7 @@ smbfs_advlock(ap)
 	struct smbnode *np = VTOSMB(vp);
 	struct flock *fl = ap->a_fl;
 	caddr_t id = (caddr_t)1 /* ap->a_id */;
-/*	int flags = ap->a_flags;*/
+	int flags = ap->a_flags;
 	struct proc *p = curproc;
 	struct smb_cred scred;
 	off_t start, end, size;
@@ -1609,6 +1596,8 @@ smbfs_advlock(ap)
 	    default:
 		return EINVAL;
 	}
+	if (error == EDEADLK && !(flags & F_WAIT))
+		error = EAGAIN;
 	return error;
 }
 

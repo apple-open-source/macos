@@ -56,8 +56,8 @@
 
 
 /*
- * $Source: /cvs/Darwin/src/live/network_cmds/rsh.tproj/rsh.c,v $
- * $Header: /cvs/Darwin/src/live/network_cmds/rsh.tproj/rsh.c,v 1.1.1.1 1999/05/02 03:58:17 wsanchez Exp $
+ * $Source: /cvs/root/network_cmds/rsh.tproj/rsh.c,v $
+ * $Header: /cvs/root/network_cmds/rsh.tproj/rsh.c,v 1.1.1.1 1999/05/02 03:58:17 wsanchez Exp $
  */
 
 #include <sys/types.h>

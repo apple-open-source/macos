@@ -64,6 +64,9 @@ extern IOCommandGate	*gIOPCCardCommandGate;
 #define sub_iokit_pccard	err_sub(21)
 #define kIOPCCardCSEventMessage iokit_family_msg(sub_iokit_pccard, 1)
 
+// back up all of config space
+#define kIOPCCardBridgeRegCount (0x100 / sizeof(UInt32))
+
 typedef struct interrupt_handler {
     unsigned int	socket;
     unsigned int	irq;
@@ -97,7 +100,9 @@ private:
     interrupt_handler_t *	interruptHandlers;
 
     bool			pciExpansionChassis;		// OF has scanned and configured this card and its subordinates
-    
+
+    UInt32			bridgeConfig[kIOPCCardBridgeRegCount];	// backup of config space registers
+
     struct ExpansionData 	{ };
     ExpansionData *		reserved;
 
@@ -111,6 +116,7 @@ protected:
     virtual IOReturn		getNubResources(IOService * nub);
 
     virtual bool 		getModuleParameters(void);
+    virtual bool		getOFConfigurationSettings(OSArray **ioRanges, OSArray **memRanges);
     virtual bool 		getConfigurationSettings(void);
     virtual bool 		configureDynamicBridgeSpace(void);
     virtual IODeviceMemory *	getDynamicBridgeSpace(void);

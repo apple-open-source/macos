@@ -7,7 +7,7 @@
 ## 
 ## Annotated patch file: eapi.patch
 ## Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 04-Oct-2002
+## Created on: 18-Mar-2003
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be
@@ -495,7 +495,7 @@ Index: src/include/httpd.h
 +---------------------------------------------------------------------------
 Index: src/main/alloc.c
 --- src/main/alloc.c	4 Oct 2002 11:50:14 -0000	1.1.1.13
-+++ src/main/alloc.c	4 Oct 2002 11:54:56 -0000	1.20
++++ src/main/alloc.c	7 Mar 2003 13:45:51 -0000	1.21
 @@ -64,6 +64,10 @@
   */
  
@@ -952,6 +952,16 @@ Index: src/main/alloc.c
      ptr = realloc(ptr, (char *)ps.vbuff.curpos - (char *)ptr);
      if (ptr == NULL) {
  	fputs("Ouch!  Out of memory!\n", stderr);
+@@ -1758,6 +1992,9 @@
+     cleanup_pool_for_exec(permanent_pool);
+     ap_unblock_alarms();
+ #endif /* ndef WIN32 */
++#ifdef EAPI
++    ap_kill_alloc_shared();
++#endif
+ }
+ 
+ API_EXPORT_NONSTD(void) ap_null_cleanup(void *data)
 
 +---------------------------------------------------------------------------
 | Patch the low-level buffer routines to additionally allow

@@ -9,6 +9,8 @@
             BTreeScanner.h,
             CaseFolding.h,
             CheckHFS.h,
+            DecompData.h,
+            DecompDataEnums.h,
             hfs_endian.h,
             Scavenger.h,
             SRuntime.h

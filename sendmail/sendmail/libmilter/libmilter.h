@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2001 Sendmail, Inc. and its suppliers.
+ * Copyright (c) 1999-2003 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  *
  * By using this file, you agree to the terms and conditions set
@@ -19,7 +19,7 @@
 #ifdef _DEFINE
 # define EXTERN
 # define INIT(x)	= x
-SM_IDSTR(MilterlId, "@(#)$Id: libmilter.h,v 1.1.1.3 2002/10/15 02:37:58 zarzycki Exp $")
+SM_IDSTR(MilterlId, "@(#)$Id: libmilter.h,v 1.2 2003/03/29 20:22:03 zarzycki Exp $")
 #else /* _DEFINE */
 # define EXTERN extern
 # define INIT(x)
@@ -48,6 +48,72 @@ typedef pthread_mutex_t smutex_t;
 # define smutex_lock(mp)	(pthread_mutex_lock(mp) == 0)
 # define smutex_unlock(mp)	(pthread_mutex_unlock(mp) == 0)
 # define smutex_trylock(mp)	(pthread_mutex_trylock(mp) == 0)
+
+#if _FFR_USE_POLL
+
+# include <poll.h>
+# define MI_POLLSELECT  "poll"
+
+# define MI_POLL_RD_FLAGS (POLLIN | POLLPRI)
+# define MI_POLL_WR_FLAGS (POLLOUT)
+# define MI_MS(timeout)	(((timeout)->tv_sec * 1000) + (timeout)->tv_usec)
+
+# define FD_RD_VAR(rds, excs) struct pollfd rds
+# define FD_WR_VAR(wrs) struct pollfd wrs
+
+# define FD_RD_INIT(sd, rds, excs)			\
+		(rds).fd = (sd);			\
+		(rds).events = MI_POLL_RD_FLAGS;	\
+		(rds).revents = 0
+
+# define FD_WR_INIT(sd, wrs)				\
+		(wrs).fd = (sd);			\
+		(wrs).events = MI_POLL_WR_FLAGS;	\
+		(wrs).revents = 0
+
+# define FD_IS_RD_EXC(sd, rds, excs)	\
+		(((rds).revents & (POLLERR | POLLHUP | POLLNVAL)) != 0)
+
+# define FD_IS_WR_RDY(sd, wrs)		\
+		(((wrs).revents & MI_POLL_WR_FLAGS) != 0)
+
+# define FD_IS_RD_RDY(sd, rds, excs)			\
+		(((rds).revents & MI_POLL_RD_FLAGS) != 0)
+
+# define FD_WR_READY(sd, excs, timeout)	\
+		poll(&(wrs), 1, MI_MS(timeout))
+
+# define FD_RD_READY(sd, rds, excs, timeout)	\
+		poll(&(rds), 1, MI_MS(timeout))
+
+#else /* _FFR_USE_POLL */
+
+# include <sm/fdset.h>
+# define MI_POLLSELECT  "select"
+
+# define FD_RD_VAR(rds, excs) fd_set rds, excs
+# define FD_WR_VAR(wrs) fd_set wrs
+
+# define FD_RD_INIT(sd, rds, excs)			\
+		FD_ZERO(&(rds));			\
+		FD_SET((unsigned int) (sd), &(rds));	\
+		FD_ZERO(&(excs));			\
+		FD_SET((unsigned int) (sd), &(excs))
+
+# define FD_WR_INIT(sd, wrs)			\
+		FD_ZERO(&(wrs));			\
+		FD_SET((unsigned int) (sd), &(wrs));	\
+
+# define FD_IS_RD_EXC(sd, rds, excs) FD_ISSET(sd, &(excs))
+# define FD_IS_WR_RDY(sd, wrs) FD_ISSET((sd), &(wrs))
+# define FD_IS_RD_RDY(sd, rds, excs) FD_ISSET((sd), &(rds))
+
+# define FD_WR_READY(sd, wrs, timeout)	\
+		select((sd) + 1, NULL, &(wrs), NULL, (timeout))
+# define FD_RD_READY(sd, rds, excs, timeout)	\
+		select((sd) + 1, &(rds), NULL, &(excs), (timeout))
+
+#endif /* _FFR_USE_POLL */
 
 #include <sys/time.h>
 
@@ -118,4 +184,4 @@ extern int	mi_wr_cmd __P((socket_t, struct timeval *, int, char *, size_t));
 extern bool	mi_sendok __P((SMFICTX_PTR, int));
 
 
-#endif /* !_LIBMILTER_H */
+#endif /* ! _LIBMILTER_H */

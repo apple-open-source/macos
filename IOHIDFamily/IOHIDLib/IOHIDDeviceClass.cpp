@@ -38,8 +38,10 @@
 #endif
 
 __BEGIN_DECLS
+#include <mach/mach.h>
 #include <mach/mach_interface.h>
 #include <IOKit/iokitmig.h>
+#include <IOKit/IOMessage.h>
 __END_DECLS
 
 #define connectCheck() do {	    \
@@ -52,10 +54,21 @@ __END_DECLS
         return kIOReturnNotOpen;    \
 } while (0)
 
+#define terminatedCheck() do {      \
+    if (fIsTerminated)		    \
+        return kIOReturnNotAttached;\
+} while (0)    
+
 #define allChecks() do {	    \
     connectCheck();		    \
     openCheck();		    \
+    terminatedCheck();              \
 } while (0)
+
+typedef struct MyPrivateData {
+    io_object_t			notification;
+    IOHIDDeviceClass *		self;
+} MyPrivateData;
 
 IOCFPlugInInterface ** IOHIDDeviceClass::alloc()
 {
@@ -73,8 +86,15 @@ IOHIDDeviceClass::IOHIDDeviceClass()
   fService(MACH_PORT_NULL),
   fConnection(MACH_PORT_NULL),
   fAsyncPort(MACH_PORT_NULL),
+  fNotifyPort(MACH_PORT_NULL),
+  fRunLoop(NULL),
   fIsOpen(false),
-  fIsLUNZero(false)
+  fIsLUNZero(false),
+  fIsTerminated(false),
+  fQueues(NULL),
+  fRemovalCallback(NULL), 
+  fRemovalTarget(NULL),
+  fRemovalRefcon(NULL)
 {
     fHIDDevice.pseudoVTable = (IUnknownVTbl *)  &sHIDDeviceInterfaceV1;
     fHIDDevice.obj = this;
@@ -97,6 +117,15 @@ IOHIDDeviceClass::~IOHIDDeviceClass()
     
     if (fElements)
         delete[] fElements;
+        
+    if (fQueues)
+        CFRelease(fQueues);
+        
+    if (fNotifyPort)
+        IONotificationPortDestroy(fNotifyPort);
+        
+    if (fAsyncPort)
+        mach_port_deallocate(mach_task_self(), fAsyncPort);
 }
 
 HRESULT	IOHIDDeviceClass::attachQueue (IOHIDQueueClass * iohidQueue)
@@ -106,6 +135,11 @@ HRESULT	IOHIDDeviceClass::attachQueue (IOHIDQueueClass * iohidQueue)
     iohidQueue->setOwningDevice(this);
 
     // ¥¥¥¥ todo add to list
+    if ( fQueues || 
+        ( fQueues = CFSetCreateMutable(kCFAllocatorDefault, 0, 0) ) )
+    {    
+        CFSetAddValue(fQueues, (void *)iohidQueue);
+    }
     
     return res;
 }
@@ -117,6 +151,10 @@ HRESULT	IOHIDDeviceClass::detachQueue (IOHIDQueueClass * iohidQueue)
     iohidQueue->setOwningDevice(NULL);
     
     // ¥¥¥¥ todo remove from list
+    if ( fQueues )
+    {
+        CFSetRemoveValue(fQueues, (void *)iohidQueue);
+    }
     
     return res;
 }
@@ -221,9 +259,13 @@ probe(CFDictionaryRef propertyTable, io_service_t inService, SInt32 *order)
 IOReturn IOHIDDeviceClass::
 start(CFDictionaryRef propertyTable, io_service_t inService)
 {
-    IOReturn res;
-    CFMutableDictionaryRef entryProperties = 0;
-    kern_return_t kr;
+    IOReturn 			res;
+    kern_return_t 		kr;
+    mach_port_t 		masterPort;
+    CFRunLoopSourceRef		runLoopSource;
+    CFMutableDictionaryRef 	entryProperties = 0;
+    MyPrivateData		*privateDataRef = NULL;
+
     
     fService = inService;
 	IOObjectRetain(fService);
@@ -232,6 +274,36 @@ start(CFDictionaryRef propertyTable, io_service_t inService)
         return res;
 
     connectCheck();
+
+    // First create a master_port for my task
+    kr = IOMasterPort(MACH_PORT_NULL, &masterPort);
+    if (kr || !masterPort)
+        return kIOReturnError;
+    
+    fNotifyPort = IONotificationPortCreate(masterPort);
+    runLoopSource = IONotificationPortGetRunLoopSource(fNotifyPort);
+    
+    fRunLoop = CFRunLoopGetCurrent();
+    CFRunLoopAddSource(fRunLoop, runLoopSource, kCFRunLoopDefaultMode);
+
+    privateDataRef = malloc(sizeof(MyPrivateData));
+    bzero(privateDataRef, sizeof(MyPrivateData));
+    
+    privateDataRef->self = this;
+
+    // Register for an interest notification of this device being removed. Use a reference to our
+    // private data as the refCon which will be passed to the notification callback.
+    kr = IOServiceAddInterestNotification( fNotifyPort,
+                                            fService,
+                                            kIOGeneralInterest,
+                                            IOHIDDeviceClass::_deviceNotification,
+                                            privateDataRef,
+                                            &(privateDataRef->notification));
+
+    // Now done with the master_port
+    mach_port_deallocate(mach_task_self(), masterPort);
+    masterPort = 0;
+
     
     kr = IORegistryEntryCreateCFProperties (fService,
                                             &entryProperties,
@@ -246,6 +318,42 @@ start(CFDictionaryRef propertyTable, io_service_t inService)
 
 
     return kIOReturnSuccess;
+}
+
+void IOHIDDeviceClass::_deviceNotification( void *refCon,
+                                            io_service_t service,
+                                            natural_t messageType,
+                                            void *messageArgument )
+{
+    kern_return_t	kr;
+    IOHIDDeviceClass	*self;
+    MyPrivateData	*privateDataRef = (MyPrivateData *) refCon;
+    
+    if (messageType == kIOMessageServiceIsTerminated)
+    {    
+        if (!privateDataRef)
+            return;
+           
+        self = privateDataRef->self;
+        
+        if (!self)
+            return;
+            
+        self->fIsTerminated = true;
+        
+        if (!self->fRemovalCallback)
+            return;
+        
+        ((IOHIDCallbackFunction)self->fRemovalCallback)(self->fRemovalTarget,
+                                                        kIOReturnSuccess,
+                                                        self->fRemovalRefcon,
+                                                        (void *)&(self->fHIDDevice));
+        
+        
+        kr = IOObjectRelease(privateDataRef->notification);
+        
+        free(privateDataRef);
+    }
 }
 
 IOReturn IOHIDDeviceClass::
@@ -383,7 +491,8 @@ IOReturn IOHIDDeviceClass::open(UInt32 flags)
 
 IOReturn IOHIDDeviceClass::close()
 {
-    allChecks();
+    openCheck();
+    connectCheck();
 
 #if 0
     IOCDBCommandClass::
@@ -422,7 +531,11 @@ IOReturn IOHIDDeviceClass::setRemovalCallback(
                                    void *			removalTarget,
                                    void *			removalRefcon)
 {
-    return kIOReturnUnsupported;
+    fRemovalCallback	= removalCallback;
+    fRemovalTarget	= removalTarget;
+    fRemovalRefcon	= removalRefcon;
+
+    return kIOReturnSuccess;
 }
 
 IOReturn IOHIDDeviceClass::getElementValue(IOHIDElementCookie	elementCookie,
@@ -498,7 +611,7 @@ IOReturn IOHIDDeviceClass::setElementValue(
                 ( valueEvent->longValue == NULL))
                 return kr;
                 
-            bzero(&(elementValue->value), 
+            bzero(elementValue->value, 
                 (elementValue->totalSize - sizeof(IOHIDElementValue)) + sizeof(UInt32));
             
             // *** FIX ME ***
@@ -617,7 +730,7 @@ IOReturn IOHIDDeviceClass::fillElementValue(IOHIDElementCookie		elementCookie,
     }
 
 #else
-    openCheck();
+    allChecks();
     
     // get ptr to shared memory for this element
     if (element.valueLocation < fCurrentValuesMappedMemorySize)
@@ -686,7 +799,7 @@ IOHIDDeviceClass::setReport (	IOHIDReportType			reportType,
 
     allChecks();
 
-    // Async getReport
+    // Async setReport
     if (callback) 
     {
         if (!fAsyncPort)
@@ -710,7 +823,7 @@ IOHIDDeviceClass::setReport (	IOHIDReportType			reportType,
         hidRefcon->callback		= callback;
         hidRefcon->callbackTarget 	= callbackTarget;
         hidRefcon->callbackRefcon 	= callbackRefcon;
-        hidRefcon->sender		= fHIDDevice.pseudoVTable;
+        hidRefcon->sender		= &fHIDDevice;
     
         asyncRef[kIOAsyncCalloutFuncIndex] = (natural_t) _hidReportCallback;
         asyncRef[kIOAsyncCalloutRefconIndex] = (natural_t) hidRefcon;
@@ -790,7 +903,7 @@ IOHIDDeviceClass::getReport (	IOHIDReportType			reportType,
         hidRefcon->callback		= callback;
         hidRefcon->callbackTarget 	= callbackTarget;
         hidRefcon->callbackRefcon 	= callbackRefcon;
-        hidRefcon->sender		= fHIDDevice.pseudoVTable;
+        hidRefcon->sender		= &fHIDDevice;
     
         asyncRef[kIOAsyncCalloutFuncIndex] = (natural_t) _hidReportCallback;
         asyncRef[kIOAsyncCalloutRefconIndex] = (natural_t) hidRefcon;
@@ -946,12 +1059,40 @@ void IOHIDDeviceClass::convertWordToByte( const UInt32 * src,
 
 IOReturn IOHIDDeviceClass::startAllQueues()
 {
-    return kIOReturnUnsupported;
+    IOReturn ret = kIOReturnSuccess;
+    
+    if ( fQueues )
+    {
+        IOHIDQueueClass *queues[CFSetGetCount(fQueues)];
+    
+        CFSetGetValues(fQueues, (void **)queues);
+        
+        for (int i=0; queues && i<CFSetGetCount(fQueues) && ret==kIOReturnSuccess; i++)
+        {
+            ret = queues[i]->start();
+        }
+    }
+
+    return ret;
 }
 
 IOReturn IOHIDDeviceClass::stopAllQueues()
 {
-    return kIOReturnUnsupported;
+    IOReturn ret = kIOReturnSuccess;
+    
+    if ( fQueues )
+    {
+        IOHIDQueueClass *queues[CFSetGetCount(fQueues)];
+    
+        CFSetGetValues(fQueues, (void **)queues);
+        
+        for (int i=0; queues && i<CFSetGetCount(fQueues) && ret==kIOReturnSuccess; i++)
+        {
+            ret = queues[i]->stop();
+        }
+    }
+
+    return ret;
 }
 
 IOHIDQueueInterface ** IOHIDDeviceClass::allocQueue()

@@ -6,6 +6,9 @@
 	Copyright:	© 1997-2001 by Apple Computer, Inc., all rights reserved.
 
 		$Log: IsochronousDataHandler.i,v $
+		Revision 1.8  2002/12/20 22:33:25  wgulland
+		Fix radars 3118059 and 3071011
+		
 		Revision 1.7  2002/10/15 19:05:39  ayanowit
 		Merged in changes to support DVCPro50.
 		
@@ -70,22 +73,6 @@
 		 <2>	 6/14/99	RS		Added 'result' parameter to IDHParameterBlock structure.
 		 <1>	 6/11/99	SW		first checked in
 */
-
-%CPassThru "//";
-%CPassThru "// Check for Prior Inclusion of IsochronousDataHandler.r";
-%CPassThru "//	If this header is trying to be included via a Rez path, make it act";
-%CPassThru "//	as a NOP.  This will allow both Rez & C files to get to use the";
-%CPassThru "//	contants for the component type, subtype, and interface version.";
-%CPassThru "#ifndef __ISOCHRONOUSDATAHANDLER_R__";
-
-
-%RezPassThru "//";
-%RezPassThru "// Check for Prior Inclusion of IsochronousDataHandler.h";
-%RezPassThru "//	If this header is trying to be included via a C path, make it act";
-%RezPassThru "//	as a NOP.  This will allow both Rez & C files to get to use the";
-%RezPassThru "//	contants for the component type, subtype, and interface version.";
-%RezPassThru "#ifndef __ISOCHRONOUSDATAHANDLER__";
-
 
 %if FRAMEWORKS	
 	#include <CoreServices.i>
@@ -442,6 +429,3 @@ ComponentResult IDHGetFormat(ComponentInstance idh, UInt32 *format) = ComponentC
 %TellEmitter "c" "emitComponentSelectors";
 
 
-
-%RezPassThru "#endif /* ifndef __ISOCHRONOUSDATAHANDLER__ */";
-%CPassThru "#endif /* ifndef __ISOCHRONOUSDATAHANDLER_R__ */";

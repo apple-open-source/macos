@@ -1457,32 +1457,13 @@ static tree handle_weak_import_attribute (node, name, args, flags, no_add_attrs)
      int flags ATTRIBUTE_UNUSED;
      bool *no_add_attrs;
 {
-  static int ignore_weak_import = 0;
-
-  if (! ignore_weak_import)
+  /* See FIXME comment in c_common_attribute_table.  */
+  if ((flags & (int) ATTR_FLAG_FUNCTION_DEF) == 0 && DECL_EXTERNAL (*node))
+    DECL_WEAK_IMPORT (*node) = 1;
+  else
     {
-    	char *deployment_target = getenv ("MACOSX_DEPLOYMENT_TARGET");
-    	
-    	if (deployment_target == NULL ||
-    	    strcmp (deployment_target, "10.1") == 0)
-    	  {
-    	    ignore_weak_import = 1;
-    	    warning ("weak_import attribute ignored when "
-    	             "MACOSX_DEPLOYMENT_TARGET environment "
-    	             "variable is set to 10.1");  
-    	  }
-    }
-    
-  if (!ignore_weak_import)
-    {
-      /* See FIXME comment in c_common_attribute_table.  */
-      if ((flags & (int) ATTR_FLAG_FUNCTION_DEF) == 0 && DECL_EXTERNAL (*node))
-	DECL_WEAK_IMPORT (*node) = 1;
-      else
-	{
-	  warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
-	  *no_add_attrs = true;
-	}
+      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
     }
     
   return NULL_TREE;

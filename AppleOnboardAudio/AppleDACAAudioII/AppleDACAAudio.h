@@ -112,6 +112,9 @@ public:
 
     //Power Management
     virtual  IOReturn   sndHWSetPowerState(IOAudioDevicePowerState theState);
+	virtual IOReturn	performDeviceWake ();
+	virtual IOReturn	performDeviceSleep ();
+	virtual IOReturn	performDeviceIdleSleep ();
     
     // 
     virtual  UInt32		sndHWGetConnectedDevices(void);

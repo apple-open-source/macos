@@ -1,5 +1,5 @@
 #
-# "$Id: Makefile,v 1.19 2002/07/21 22:06:29 jlovell Exp $"
+# "$Id: Makefile,v 1.19.2.1 2003/02/27 23:17:36 jlovell Exp $"
 #
 #   Support library Makefile for the Common UNIX Printing System (CUPS).
 #
@@ -128,6 +128,7 @@ libcups.2.dylib:	$(LIBOBJS) ../Makedefs
 		-install_name $(libdir)/$@ \
 		-current_version 2.0.4 \
 		-compatibility_version 2.0.0 \
+		-framework CoreFoundation \
 		$(LIBOBJS) $(SSLLIBS)
 	$(RM) libcups.dylib
 	$(LN) $@ libcups.dylib
@@ -183,7 +184,7 @@ cups_C.h:	../locale/C/cups_C
 
 testhttp:	testhttp.o libcups.a
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ testhttp.o libcups.a $(NETLIBS) $(SSLLIBS)
+	$(CC) $(LDFLAGS) -o $@ testhttp.o libcups.a $(NETLIBS) $(SSLLIBS) -framework CoreFoundation
 
 
 #
@@ -192,7 +193,7 @@ testhttp:	testhttp.o libcups.a
 
 testlang:	testlang.o libcups.a
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ testlang.o libcups.a $(NETLIBS) $(SSLLIBS)
+	$(CC) $(LDFLAGS) -o $@ testlang.o libcups.a $(NETLIBS) $(SSLLIBS) -framework CoreFoundation
 
 
 #
@@ -217,5 +218,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile,v 1.19 2002/07/21 22:06:29 jlovell Exp $".
+# End of "$Id: Makefile,v 1.19.2.1 2003/02/27 23:17:36 jlovell Exp $".
 #

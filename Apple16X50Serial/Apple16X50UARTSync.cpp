@@ -1049,7 +1049,8 @@ void Apple16X50UARTSync::free()
     }
 #endif
     WorkLoop->removeEventSource(CommandGate);
-    RELEASE(CommandGate);
+//    XXX workaround for 2999641 - power off/sleep panic
+//    RELEASE(CommandGate);
     RELEASE(WorkLoop);
     
     if (RxQ) delete RxQ;

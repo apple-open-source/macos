@@ -1995,7 +1995,8 @@ pcic_enable_functional_interrupt(u_int socket_index)
 	pci_writeb(s, TI113X_CARD_CONTROL, cardctl);
     } else if (s->type == IS_TI1210 || 
 	       s->type == IS_TI1211 || 
-	       s->type == IS_TI1410) {
+	       s->type == IS_TI1410 || 
+	       s->type == IS_TI1510) {
     	u_short bcr;
 	pci_readw(s, CB_BRIDGE_CONTROL, &bcr);
 	bcr &= ~CB_BCR_ISA_IRQ;
@@ -2017,7 +2018,8 @@ pcic_disable_functional_interrupt(u_int socket_index)
 	pci_writeb(s, TI113X_CARD_CONTROL, cardctl);
     } else if (s->type == IS_TI1210 || 
 	       s->type == IS_TI1211 || 
-	       s->type == IS_TI1410) {
+	       s->type == IS_TI1410 || 
+	       s->type == IS_TI1510) {
     	u_short bcr;
 	pci_readw(s, CB_BRIDGE_CONTROL, &bcr);
 	bcr |= CB_BCR_ISA_IRQ;

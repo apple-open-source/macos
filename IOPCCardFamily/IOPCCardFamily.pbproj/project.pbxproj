@@ -470,7 +470,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOPCCardFamily;
-				MODULE_VERSION = 1.3.0;
+				MODULE_VERSION = 1.3.1;
 				OTHER_CFLAGS = " -no-cpp-precomp";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -497,7 +497,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOPCCardFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOPCCardFamily version 1.3.0, Copyright 2002 Apple Computer, Inc.</string>
+	<string>IOPCCardFamily version 1.3.1, Copyright 2002 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -509,11 +509,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.0</string>
+	<string>1.3.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.0</string>
+	<string>1.3.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOPCCardFamily</key>
@@ -647,13 +647,16 @@
 					<key>I/O Port Ranges</key>
 					<array>
 						<data>
-						AAAQAAAA//8=
+						AAAAAAAAj/8=
+						</data>
+						<data>
+						AACgAAAA//8=
 						</data>
 					</array>
 					<key>Memory Ranges</key>
 					<array>
 						<data>
-						oAAAAK////8=
+						kAAAAJ////8=
 						</data>
 					</array>
 				</dict>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2002 Sendmail, Inc. and its suppliers.
+ * Copyright (c) 1998-2003 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  * Copyright (c) 1983, 1995-1997 Eric P. Allman.  All rights reserved.
  * Copyright (c) 1988, 1993
@@ -25,7 +25,7 @@ SM_UNUSED(static char copyright[]) =
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* ! lint */
 
-SM_RCSID("@(#)$Id: main.c,v 1.1.1.3 2002/10/15 02:38:29 zarzycki Exp $")
+SM_RCSID("@(#)$Id: main.c,v 1.3 2003/03/29 20:22:05 zarzycki Exp $")
 
 
 #if NETINET || NETINET6
@@ -77,7 +77,7 @@ static SIGFUNC_DECL	sigusr1 __P((int));
 **			     UCB/Mammoth Project (10/89 - 7/95).
 **			     InReference, Inc. (8/95 - 1/97).
 **			     Sendmail, Inc. (1/98 - present).
-**		The support of the my employers is gratefully acknowledged.
+**		The support of my employers is gratefully acknowledged.
 **			Few of them (Britton-Lee in particular) have had
 **			anything to gain from my involvement in this project.
 **
@@ -128,6 +128,7 @@ int		SyslogPrefixLen; /* estimated length of syslog prefix */
 {									\
 	if (extraprivs &&						\
 	    OpMode != MD_DELIVER && OpMode != MD_SMTP &&		\
+	    OpMode != MD_ARPAFTP &&					\
 	    OpMode != MD_VERIFY && OpMode != MD_TEST)			\
 	{								\
 		(void) sm_io_fprintf(smioout, SM_TIME_DEFAULT,		\
@@ -212,6 +213,10 @@ main(argc, argv, envp)
 
 	/* install default exception handler */
 	sm_exc_newthread(fatal_error);
+
+	/* set the default in/out channel so errors reported to screen */
+	InChannel = smioin;
+	OutChannel = smioout;
 
 	/*
 	**  Check to see if we reentered.
@@ -388,6 +393,7 @@ main(argc, argv, envp)
 # endif /* ! OPTIONS */
 #endif /* _FFR_QUARANTINE */
 
+	/* Set to 0 to allow -b; need to check optarg before using it! */
 	opterr = 0;
 	while ((j = getopt(argc, argv, OPTIONS)) != -1)
 	{
@@ -438,6 +444,13 @@ main(argc, argv, envp)
 			break;
 
 		  case 'L':
+			if (optarg == NULL)
+			{
+				(void) sm_io_fprintf(smioout, SM_TIME_DEFAULT,
+						     "option requires an argument -- '%c'",
+						     (char) j);
+				return EX_USAGE;
+			}
 			j = SM_MIN(strlen(optarg), 24) + 1;
 			sysloglabel = xalloc(j);
 			(void) sm_strlcpy(sysloglabel, optarg, j);
@@ -608,9 +621,6 @@ main(argc, argv, envp)
 		sm_dprintf("   FFR Defines:");
 		sm_printoptions(FFRCompileOptions);
 	}
-
-	InChannel = smioin;
-	OutChannel = smioout;
 
 	/* clear sendmail's environment */
 	ExternalEnviron = environ;
@@ -845,7 +855,10 @@ main(argc, argv, envp)
 				ExitStat = EX_USAGE;
 				break;
 			}
-			from = newstr(denlstring(optarg, true, true));
+			if (optarg[0] == '\0')
+				from = newstr("<>");
+			else
+				from = newstr(denlstring(optarg, true, true));
 			if (strcmp(RealUserName, from) != 0)
 				warn_f_flag = j;
 			break;
@@ -1390,10 +1403,13 @@ main(argc, argv, envp)
 
 	if (tTd(0, 10))
 	{
+		char pidpath[MAXPATHLEN];
+
 		/* Now we know which .cf file we use */
 		sm_dprintf("     Conf file:\t%s (selected)\n",
 			   getcfname(OpMode, SubmitMode, cftype, conffile));
-		sm_dprintf("      Pid file:\t%s (selected)\n", PidFile);
+		expand(PidFile, pidpath, sizeof pidpath, &BlankEnvelope);
+		sm_dprintf("      Pid file:\t%s (selected)\n", pidpath);
 	}
 
 	if (tTd(0, 1))
@@ -2184,6 +2200,8 @@ main(argc, argv, envp)
 			CurrentPid = getpid();
 			if (qgrp != NOQGRP)
 			{
+				int rwgflags = RWG_NONE;
+
 				/*
 				**  To run a specific queue group mark it to
 				**  be run, select the work group it's in and
@@ -2194,9 +2212,13 @@ main(argc, argv, envp)
 				     i++)
 					Queue[i]->qg_nextrun = (time_t) -1;
 				Queue[qgrp]->qg_nextrun = 0;
+				if (Verbose)
+					rwgflags |= RWG_VERBOSE;
+				if (queuepersistent)
+					rwgflags |= RWG_PERSISTENT;
+				rwgflags |= RWG_FORCE;
 				(void) run_work_group(Queue[qgrp]->qg_wgrp,
-						      false, Verbose,
-						      queuepersistent, false);
+						      rwgflags);
 			}
 			else
 				(void) runqueue(false, Verbose,
@@ -2440,9 +2462,8 @@ main(argc, argv, envp)
 		/* init TLS for server, ignore result for now */
 		(void) initsrvtls(tls_ok);
 #endif /* STARTTLS */
-#if PROFILING
+
 	nextreq:
-#endif /* PROFILING */
 		p_flags = getrequests(&MainEnvelope);
 
 		/* drop privileges */
@@ -2466,7 +2487,7 @@ main(argc, argv, envp)
 	if (LogLevel > 9)
 	{
 		/* log connection information */
-		sm_syslog(LOG_INFO, NULL, "connect from %.100s", authinfo);
+		sm_syslog(LOG_INFO, NULL, "connect from %s", authinfo);
 	}
 
 	/*
@@ -2541,12 +2562,14 @@ main(argc, argv, envp)
 		/* turn off profiling */
 		SM_PROF(1);
 		smtp(nullserver, *p_flags, &MainEnvelope);
-#if PROFILING
-		/* turn off profiling */
-		SM_PROF(0);
-		if (OpMode == MD_DAEMON)
-			goto nextreq;
-#endif /* PROFILING */
+
+		if (tTd(93, 100))
+		{
+			/* turn off profiling */
+			SM_PROF(0);
+			if (OpMode == MD_DAEMON)
+				goto nextreq;
+		}
 	}
 
 	sm_rpool_free(MainEnvelope.e_rpool);
@@ -4086,7 +4109,7 @@ testmodeline(line, e)
 						     "Name too long\n");
 				return;
 			}
-			(void) getcanonname(host, sizeof host, HasWildcardMX,
+			(void) getcanonname(host, sizeof host, !HasWildcardMX,
 					    NULL);
 			(void) sm_io_fprintf(smioout, SM_TIME_DEFAULT,
 					     "getcanonname(%s) returns %s\n",
@@ -4227,7 +4250,7 @@ testmodeline(line, e)
 						     "Usage: /parse address\n");
 				return;
 			}
-			q = crackaddr(p);
+			q = crackaddr(p, e);
 			(void) sm_io_fprintf(smioout, SM_TIME_DEFAULT,
 					     "Cracked address = ");
 			xputs(q);

@@ -118,7 +118,7 @@ solution would be to modify BerEncodeConsLen and BerEncodeEocIfNec
 macros in snacc/c_lib/asn_len.h to check a global flag.
 
 #-------------------------------------------------------------------------------
-# $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/c-examples/simple/README,v 1.1.1.1 2001/05/18 23:14:07 mb Exp $
+# $Header: /cvs/root/Security/SecuritySNACCRuntime/c-examples/simple/Attic/README,v 1.1.1.1 2001/05/18 23:14:07 mb Exp $
 # $Log: README,v $
 # Revision 1.1.1.1  2001/05/18 23:14:07  mb
 # Move from private repository to open source repository

@@ -134,6 +134,7 @@ static void Screamer_writeCodecControlReg( volatile awacs_regmap_t *ioBaseAwacs,
 	{
 		CodecControlReg =  OSReadLittleInt32( &ioBaseAwacs->CodecControlRegister, 0 );
 		eieio();
+		IOSleep ( 1 );
 	}
 	while ( CodecControlReg & kCodecCtlBusy );
 }
@@ -940,15 +941,74 @@ UInt32 AppleScreamerAudio::sndHWGetType( void ) {
         return info;
 }
 
-IOReturn   AppleScreamerAudio::sndHWSetPowerState(IOAudioDevicePowerState theState){
-
-    if (chipInformation.partType == kSndHWTypeAWACs)
-        setAWACsPowerState(theState);
-    else
-        setScreamerPowerState(theState);	
-        
-    return(kIOReturnSuccess);
+// --------------------------------------------------------------------------
+IOReturn   AppleScreamerAudio::sndHWSetPowerState ( IOAudioDevicePowerState theState ) {
+    IOReturn		myReturn;
+    
+    debugIOLog("+ AppleScreamerAudio::sndHWSetPowerState\n");
+    myReturn = kIOReturnSuccess;
+    switch ( theState ) {
+        case kIOAudioDeviceSleep:	myReturn = performDeviceSleep();		break;		//	When sleeping
+        case kIOAudioDeviceIdle:	myReturn = performDeviceIdleSleep();	break;		//	When no audio engines running
+        case kIOAudioDeviceActive:	myReturn = performDeviceWake();			break;		//	audio engines running
+        default:					myReturn = kIOReturnBadArgument;		break;
+    }
+    debugIOLog("- AppleScreamerAudio::sndHWSetPowerState\n");
+    return ( myReturn );
 }
+
+// --------------------------------------------------------------------------
+IOReturn	AppleScreamerAudio::performDeviceWake () {
+	IOReturn	myReturn;
+	
+  	debugIOLog("+ AppleScreamerAudio::performDeviceWake\n");
+	myReturn = setCodecPowerState ( kIOAudioDeviceActive );	
+	gPowerState = kIOAudioDeviceActive;
+    debugIOLog("- AppleScreamerAudio::performDeviceWake\n");
+    return ( myReturn );
+}
+
+// --------------------------------------------------------------------------
+IOReturn	AppleScreamerAudio::performDeviceSleep () {
+	IOReturn	myReturn;
+	
+    debugIOLog("+ AppleScreamerAudio::performDeviceSleep\n");
+	if ( kIOAudioDeviceSleep != gPowerState ) {
+		myReturn = setCodecPowerState ( kIOAudioDeviceSleep );	
+		if ( kIOReturnSuccess == myReturn ) {
+			gPowerState = kIOAudioDeviceSleep;
+		}
+	}
+    debugIOLog("- AppleScreamerAudio::performDeviceSleep\n");
+    return ( myReturn );
+}
+
+// --------------------------------------------------------------------------
+IOReturn	AppleScreamerAudio::performDeviceIdleSleep () {
+	IOReturn	myReturn;
+	
+    debugIOLog("+ AppleScreamerAudio::performDeviceIdleSleep\n");
+	myReturn = setCodecPowerState ( kIOAudioDeviceActive );	
+	gPowerState = kIOAudioDeviceActive;
+    debugIOLog("- AppleScreamerAudio::performDeviceIdleSleep\n");
+    return ( myReturn );
+}
+
+
+// --------------------------------------------------------------------------
+IOReturn	AppleScreamerAudio::setCodecPowerState ( IOAudioDevicePowerState theState ) {
+	IOReturn	myReturn;
+	
+    DEBUG_IOLOG("+ AppleScreamerAudio::setCodecPowerState\n");
+	myReturn = kIOReturnSuccess;
+    if ( chipInformation.partType == kSndHWTypeAWACs )
+        setAWACsPowerState ( theState );
+    else
+        setScreamerPowerState ( theState );	
+    DEBUG_IOLOG("- AppleScreamerAudio::setCodecPowerState\n");
+    return ( myReturn );
+}
+
 
 UInt32 AppleScreamerAudio::sndHWGetManufacturer(void) {
     UInt32		codecStatus, info = 0;
@@ -1074,12 +1134,14 @@ void AppleScreamerAudio::InitializeShadowRegisters(void){
 
 }
 
-void AppleScreamerAudio::setAWACsPowerState( IOAudioDevicePowerState state )
+void AppleScreamerAudio::setAWACsPowerState ( IOAudioDevicePowerState state )
 {
     switch (state){
         case kIOAudioDeviceActive : 
             restoreSndHWRegisters();
             GC_Recalibrate();
+            break;
+        case kIOAudioDeviceIdle :
             break;
         case kIOAudioDeviceSleep :
             break;

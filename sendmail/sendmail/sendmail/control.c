@@ -10,7 +10,9 @@
 
 #include <sendmail.h>
 
-SM_RCSID("@(#)$Id: control.c,v 1.1.1.3 2002/10/15 02:38:26 zarzycki Exp $")
+SM_RCSID("@(#)$Id: control.c,v 1.1.1.4 2003/02/22 09:24:42 zarzycki Exp $")
+
+#include <sm/fdset.h>
 
 /* values for cmd_code */
 #define CMDERROR	0	/* bad command */
@@ -90,6 +92,12 @@ opencontrolsocket()
 	ControlSocket = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (ControlSocket < 0)
 		return -1;
+	if (SM_FD_SETSIZE > 0 && ControlSocket >= SM_FD_SETSIZE)
+	{
+		clrcontrol();
+		errno = EINVAL;
+		return -1;
+	}
 
 	(void) unlink(ControlSocketName);
 	memset(&controladdr, '\0', sizeof controladdr);

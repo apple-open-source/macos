@@ -2166,9 +2166,45 @@ IOReturn IOFireWireController::asyncRead(UInt32 generation, UInt16 nodeID, UInt1
 //
 //
 
-IOReturn IOFireWireController::asyncWrite(UInt32 generation, UInt16 nodeID, UInt16 addrHi, UInt32 addrLo,
-            int speed, int label, IOMemoryDescriptor *buf, IOByteCount offset,
-            int size, IOFWAsyncCommand *cmd)
+IOReturn IOFireWireController::asyncWrite(	UInt32 					generation, 
+											UInt16 					nodeID, 
+											UInt16 					addrHi, 
+											UInt32 					addrLo,
+											int 					speed, 
+											int 					label, 
+											IOMemoryDescriptor *	buf, 
+											IOByteCount 			offset,
+											int 					size, 
+											IOFWAsyncCommand *		cmd )
+{
+	return asyncWrite(	generation,
+						nodeID,
+						addrHi,
+						addrLo,
+						speed,
+						label,
+						buf,
+						offset,
+						size,
+						cmd,
+						kIOFWWriteFlagsNone );
+}
+
+// asyncWrite
+//
+//
+
+IOReturn IOFireWireController::asyncWrite(	UInt32 					generation, 
+											UInt16 					nodeID, 
+											UInt16 					addrHi, 
+											UInt32 					addrLo,
+											int 					speed, 
+											int 					label, 
+											IOMemoryDescriptor *	buf, 
+											IOByteCount 			offset,
+											int 					size, 
+											IOFWAsyncCommand *		cmd,
+											IOFWWriteFlags 			flags )
 {
     if(!checkGeneration(generation)) {
         return (kIOFireWireBusReset);
@@ -2185,11 +2221,49 @@ IOReturn IOFireWireController::asyncWrite(UInt32 generation, UInt16 nodeID, UInt
         return kIOReturnSuccess;
     }
     else
-        return fFWIM->asyncWrite(nodeID, addrHi, addrLo, speed, label, buf, offset, size, cmd);
+        return fFWIM->asyncWrite(nodeID, addrHi, addrLo, speed, label, buf, offset, size, cmd, flags);
 }
 
-IOReturn IOFireWireController::asyncWrite(UInt32 generation, UInt16 nodeID, UInt16 addrHi, UInt32 addrLo,
-                            int speed, int label, void *data, int size, IOFWAsyncCommand *cmd)
+// asyncWrite
+//
+//
+
+IOReturn IOFireWireController::asyncWrite(	UInt32 				generation, 
+											UInt16 				nodeID, 
+											UInt16 				addrHi, 
+											UInt32 				addrLo,
+											int 				speed, 
+											int 				label, 
+											void *				data, 
+											int 				size, 
+											IOFWAsyncCommand *	cmd)
+{
+	return asyncWrite(	generation,
+						nodeID,
+						addrHi,
+						addrLo,
+						speed,
+						label,
+						data,
+						size,
+						cmd,
+						kIOFWWriteFlagsNone );
+}
+
+// asyncWrite
+//
+//
+
+IOReturn IOFireWireController::asyncWrite(	UInt32 				generation, 
+											UInt16 				nodeID, 
+											UInt16 				addrHi, 
+											UInt32 				addrLo,
+											int 				speed, 
+											int 				label, 
+											void *				data, 
+											int 				size, 
+											IOFWAsyncCommand *	cmd,
+											IOFWWriteFlags 		flags )
 {
     if(!checkGeneration(generation)) {
         return (kIOFireWireBusReset);
@@ -2205,7 +2279,7 @@ IOReturn IOFireWireController::asyncWrite(UInt32 generation, UInt16 nodeID, UInt
         return kIOReturnSuccess;
     }
     else
-        return fFWIM->asyncWrite(nodeID, addrHi, addrLo, speed, label, data, size, cmd);
+        return fFWIM->asyncWrite(nodeID, addrHi, addrLo, speed, label, data, size, cmd, flags);
 }
 
 IOReturn IOFireWireController::asyncLock(UInt32 generation, UInt16 nodeID, UInt16 addrHi, UInt32 addrLo,
@@ -2229,6 +2303,25 @@ IOReturn IOFireWireController::asyncLock(UInt32 generation, UInt16 nodeID, UInt1
     }
     else
         return fFWIM->asyncLock(nodeID, addrHi, addrLo, speed, label, type, data, size, cmd);
+}
+
+// handleARxReqIntComplete
+//
+//
+
+void IOFireWireController::handleARxReqIntComplete( void )
+{
+    IOFWAddressSpace * found;
+
+    fSpaceIterator->reset();
+    while( (found = (IOFWAddressSpace *) fSpaceIterator->getNextObject()) ) 
+	{
+		IOFWPseudoAddressSpace * space = OSDynamicCast( IOFWPseudoAddressSpace, found );
+		if( space != NULL )
+		{
+			space->handleARxReqIntComplete();
+		}
+    }
 }
 
 IOReturn IOFireWireController::handleAsyncTimeout(IOFWAsyncCommand *cmd)
@@ -3183,7 +3276,7 @@ void IOFireWireController::processTimeout(IOTimerEventSource *src)
         if(CMP_ABSOLUTETIME(&dead, &now) == 1)
             break;	// Command with earliest deadline is OK.
         // Make sure there isn't a packet waiting.
-        fFWIM->handleInterrupts(1);
+        fFWIM->flushWaitingPackets();
         // Which may have changed the queue - see if earliest deadline has changed.
         if(!fTimeoutQ.fHead)
             break;

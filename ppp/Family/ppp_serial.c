@@ -227,7 +227,7 @@ static void	pppserial_getm(struct pppserial *ld);
 static void	pppserial_logchar(struct pppserial *, int);
 static int	pppserial_lk_output(struct ppp_link *link, struct mbuf *m);
 static int 	pppserial_lk_ioctl(struct ppp_link *link, u_int32_t cmd, void *data);
-static int 	pppserial_attach(void *ttyp, struct ppp_link **link);
+static int 	pppserial_attach(struct tty *ttyp, struct ppp_link **link);
 static int 	pppserial_detach(struct ppp_link *link);
 static int 	pppserial_findfreeunit(u_short *freeunit);
 
@@ -362,7 +362,7 @@ int pppserial_findfreeunit(u_short *freeunit)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-int pppserial_attach(void *ttyp, struct ppp_link **link)
+int pppserial_attach(struct tty *ttyp, struct ppp_link **link)
 {
     int 		ret;
     u_short 		unit;
@@ -394,7 +394,7 @@ int pppserial_attach(void *ttyp, struct ppp_link **link)
     lk->lk_mru 		= PPP_MTU; //PPP_MAXMRU;
     lk->lk_type 	= PPP_TYPE_SERIAL;
     lk->lk_hdrlen 	= PPP_HDRLEN;
-    //ld->link_lk_baudrate = tp->t_ospeed;
+    lk->lk_baudrate     = ttyp->t_ospeed;
     lk->lk_ioctl 	= pppserial_lk_ioctl;
     lk->lk_output 	= pppserial_lk_output;
     lk->lk_unit 	= unit;

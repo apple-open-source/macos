@@ -965,6 +965,9 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 						{
 							// Add the dir reference
 							siResult = cMsg.Add_Value_ToMsg( (*inMsg), uiDirRef, ktDirRef );
+							// Add the server DSProxy version of 1
+							uInt32 serverVersion = 1;
+							siResult = cMsg.Add_Value_ToMsg( (*inMsg), serverVersion, kNodeCount );
 						}
 					}
 					else
@@ -3340,7 +3343,7 @@ void* CRequestHandler::DoGetDirNodeInfo ( sComData *inMsg, sInt32 *outStatus )
 void* CRequestHandler::DoGetRecordList ( sComData *inMsg, sInt32 *outStatus )
 {
 	sInt32				siResult	= -8088;
-	//uInt32				uiBuffSize	= 0;
+	uInt32				uiBuffSize	= 0;
 	sGetRecordList	   *p			= nil;
 	CSrvrMessaging		cMsg;
 	sInt32				aClientPID	= -1;
@@ -3367,45 +3370,55 @@ void* CRequestHandler::DoGetRecordList ( sComData *inMsg, sInt32 *outStatus )
 				siResult = CRefTable::VerifyNodeRef( p->fInNodeRef, &fPluginPtr, aClientPID, anIPAddress );
 				if ( siResult == eDSNoErr )
 				{
-//					siResult = cMsg.Get_Value_FromMsg( inMsg, &uiBuffSize, kOutBuffLen );
-					siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInDataBuff, ktDataBuff );
+					//is this an update corresponding to server version 1?
+					siResult = cMsg.Get_Value_FromMsg( inMsg, &uiBuffSize, kOutBuffLen );
+					//whole empty data buffer is no longer being sent
 					if ( siResult == eDSNoErr )
 					{
-//						p->fInDataBuff = ::dsDataBufferAllocatePriv( uiBuffSize );
-//						if ( p->fInDataBuff != nil )
-//						{
-							siResult = cMsg.Get_tDataList_FromMsg( inMsg, &p->fInRecNameList, kRecNameList );
+						p->fInDataBuff = ::dsDataBufferAllocatePriv( uiBuffSize );
+						if ( p->fInDataBuff != nil )
+						{
+							siResult = eDSNoErr;
+						}
+					}
+					else
+					{
+						//old client where empty data buffer is being sent
+						siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInDataBuff, ktDataBuff );
+					}
+					if (siResult == eDSNoErr)
+					{
+						siResult = cMsg.Get_tDataList_FromMsg( inMsg, &p->fInRecNameList, kRecNameList );
+						if ( siResult == eDSNoErr )
+						{
+							siResult = cMsg.Get_Value_FromMsg( inMsg, (uInt32 *)&p->fInPatternMatch, ktDirPattMatch );
 							if ( siResult == eDSNoErr )
 							{
-								siResult = cMsg.Get_Value_FromMsg( inMsg, (uInt32 *)&p->fInPatternMatch, ktDirPattMatch );
+								siResult = cMsg.Get_tDataList_FromMsg( inMsg, &p->fInRecTypeList, kRecTypeList );
 								if ( siResult == eDSNoErr )
 								{
-									siResult = cMsg.Get_tDataList_FromMsg( inMsg, &p->fInRecTypeList, kRecTypeList );
+									siResult = cMsg.Get_tDataList_FromMsg( inMsg, &p->fInAttribTypeList, kAttrTypeList );
 									if ( siResult == eDSNoErr )
 									{
-										siResult = cMsg.Get_tDataList_FromMsg( inMsg, &p->fInAttribTypeList, kAttrTypeList );
+										siResult = cMsg.Get_Value_FromMsg( inMsg, &aBoolValue, kAttrInfoOnly );
+										p->fInAttribInfoOnly = (bool)aBoolValue;
 										if ( siResult == eDSNoErr )
 										{
-											siResult = cMsg.Get_Value_FromMsg( inMsg, &aBoolValue, kAttrInfoOnly );
-											p->fInAttribInfoOnly = (bool)aBoolValue;
+											siResult = cMsg.Get_Value_FromMsg( inMsg, (uInt32 *)&p->fOutRecEntryCount, kAttrRecEntryCount );
 											if ( siResult == eDSNoErr )
 											{
-												siResult = cMsg.Get_Value_FromMsg( inMsg, (uInt32 *)&p->fOutRecEntryCount, kAttrRecEntryCount );
-												if ( siResult == eDSNoErr )
+												siResult = cMsg.Get_Value_FromMsg( inMsg, (uInt32 *)&p->fIOContinueData, kContextData );
+												if ( siResult != eDSNoErr )
 												{
-													siResult = cMsg.Get_Value_FromMsg( inMsg, (uInt32 *)&p->fIOContinueData, kContextData );
-													if ( siResult != eDSNoErr )
-													{
-														p->fIOContinueData = nil;
-														siResult = eDSNoErr;
-													}
+													p->fIOContinueData = nil;
+													siResult = eDSNoErr;
 												}
 											}
 										}
 									}
 								}
 							}
-//						}
+						}
 					}
 				}
 			}

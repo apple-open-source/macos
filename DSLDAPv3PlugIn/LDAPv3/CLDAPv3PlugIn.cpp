@@ -71,6 +71,7 @@ CPlugInRef				   *gLDAPContextTable	= nil;
 CPlugInRef				   *gConfigTable		= nil; //TODO need STL type for config table instead
 uInt32						gConfigTableLen		= 0;
 static DSEventSemaphore	   *gKickSearchRequests	= nil;
+CLDAPv3PlugIn			   *gLDAPv3Plugin		= nil;
 
 sInt32 DSSearchLDAP (	CLDAPNode		   &inLDAPSessionMgr,
 						sLDAPContextData   *inContext,
@@ -154,16 +155,23 @@ void DSGetSearchLDAPResult (	CLDAPNode		   &inLDAPSessionMgr,
 	LDAP		   *aHost				= nil;
 
 	aHost = inLDAPSessionMgr.LockSession(inContext);
-	if (inSearchTO == 0)
+	if (aHost != nil)
 	{
-		inLDAPReturnCode = ldap_result(aHost, inLDAPMsgId, all, NULL, &inResult);
+		if (inSearchTO == 0)
+		{
+			inLDAPReturnCode = ldap_result(aHost, inLDAPMsgId, all, NULL, &inResult);
+		}
+		else
+		{
+			struct	timeval	tv;
+			tv.tv_sec	= inSearchTO;
+			tv.tv_usec	= 0;
+			inLDAPReturnCode = ldap_result(aHost, inLDAPMsgId, all, &tv, &inResult);
+		}
 	}
 	else
 	{
-		struct	timeval	tv;
-		tv.tv_sec	= inSearchTO;
-		tv.tv_usec	= 0;
-		inLDAPReturnCode = ldap_result(aHost, inLDAPMsgId, all, &tv, &inResult);
+		inLDAPReturnCode = LDAP_LOCAL_ERROR;
 	}
 	inLDAPSessionMgr.UnLockSession(inContext);
 	
@@ -180,21 +188,35 @@ void DSGetSearchLDAPResult (	CLDAPNode		   &inLDAPSessionMgr,
 				char		  **refs			= nil;
 				LDAPControl	  **ctrls			= nil;
 				aHost = inLDAPSessionMgr.LockSession(inContext);
-				ldapReturnCode2 = ldap_parse_result(aHost, inResult, &err, &matcheddn, &text, &refs, &ctrls, 0);
-				inLDAPSessionMgr.UnLockSession(inContext);
-				if ( (ldapReturnCode2 != LDAP_SUCCESS) && (ldapReturnCode2 != LDAP_MORE_RESULTS_TO_RETURN) )
+				if (aHost != nil)
 				{
-					aHost = inLDAPSessionMgr.LockSession(inContext);
-					ldap_abandon(aHost, inLDAPMsgId);
-					inLDAPSessionMgr.UnLockSession(inContext);
+					ldapReturnCode2 = ldap_parse_result(aHost, inResult, &err, &matcheddn, &text, &refs, &ctrls, 0);
 				}
 				else
 				{
-					if (ldapReturnCode2 == LDAP_SUCCESS) inLDAPReturnCode = LDAP_SUCCESS;
-					if (text)  ber_memfree( text );
-					if (matcheddn)  ber_memfree( matcheddn );
-					if (refs)  ber_memvfree( (void **) refs );
-					if (ctrls)  ldap_controls_free( ctrls );
+					ldapReturnCode2 = LDAP_LOCAL_ERROR;
+				}
+				inLDAPSessionMgr.UnLockSession(inContext);
+				if (ldapReturnCode2 == LDAP_LOCAL_ERROR)
+				{
+					break;
+				}
+				else
+				{
+					if ( (ldapReturnCode2 != LDAP_SUCCESS) && (ldapReturnCode2 != LDAP_MORE_RESULTS_TO_RETURN) )
+					{
+						aHost = inLDAPSessionMgr.LockSession(inContext);
+						ldap_abandon(aHost, inLDAPMsgId);
+						inLDAPSessionMgr.UnLockSession(inContext);
+					}
+					else
+					{
+						if (ldapReturnCode2 == LDAP_SUCCESS) inLDAPReturnCode = LDAP_SUCCESS;
+						if (text)  ber_memfree( text );
+						if (matcheddn)  ber_memfree( matcheddn );
+						if (refs)  ber_memvfree( (void **) refs );
+						if (ctrls)  ldap_controls_free( ctrls );
+					}
 				}
 				if (bThrowOnNoEntry) throw( (sInt32)eDSRecordNotFound );
 			}
@@ -365,6 +387,8 @@ CLDAPv3PlugIn::CLDAPv3PlugIn ( void )
 	bCheckForDHCPLDAPServers= true;
 	fDHCPLDAPServersString	= NULL;
 	bDoNotInitTwiceAtStartUp= true;
+	
+	gLDAPv3Plugin = this;
     
 	for (uInt32 idx = 0; idx < MaxDefaultLDAPNodeCount; idx++ )
 	{
@@ -464,6 +488,20 @@ sInt32 CLDAPv3PlugIn::Validate ( const char *inVersionStr, const uInt32 inSignat
 	return( noErr );
 
 } // Validate
+
+
+// --------------------------------------------------------------------------------
+//	* PeriodicTask ()
+// --------------------------------------------------------------------------------
+
+sInt32 CLDAPv3PlugIn::PeriodicTask ( void )
+{
+
+	fLDAPSessionMgr.CheckIdles();
+
+	return( eDSNoErr );
+	
+} // PeriodicTask
 
 
 // --------------------------------------------------------------------------------
@@ -1057,16 +1095,100 @@ sInt32 CLDAPv3PlugIn::ProcessRequest ( void *inData )
 
 sInt32 CLDAPv3PlugIn::HandleRequest ( void *inData )
 {
-	sInt32	siResult	= 0;
-	sHeader	*pMsgHdr	= nil;
-
+	sInt32				siResult			= 0;
+	sHeader			   *pMsgHdr				= nil;
+	sLDAPContextData   *pContext			= nil;
+	char			   *recName				= nil; //needed for close/delete record idle connection counting since context removed after call completed
+	
 	if ( inData == nil )
 	{
 		return( -8088 );
 	}
 
 	pMsgHdr = (sHeader *)inData;
+	
+	
+	//need to keep track of use of LDAP connections
+	switch ( pMsgHdr->fType )
+	{
+		//first group all has the data structure start with
+		//typedef struct {
+		//	uInt32					fType;
+		//	sInt32					fResult;
+		//	tDirNodeReference		fInNodeRef;
+		//so using sOpenRecord cast
+		case kGetRecordList:
+		//case kGetDirNodeInfo: //not needed since no LDAP connection yet for this API call
+		case kOpenRecord:
+		case kCreateRecord:
+		case kCreateRecordAndOpen:
+		case kDoDirNodeAuth:
+		case kDoAttributeValueSearch:
+		case kDoAttributeValueSearchWithData:
+			if ( ((sOpenRecord *)inData)->fInNodeRef  != nil )
+			{
+				pContext = (sLDAPContextData *)gLDAPContextTable->GetItemData( ((sOpenRecord *)inData)->fInNodeRef );
+				if ( pContext  != nil )
+				{
+					if ( ( pContext->fName != nil ) && !(pContext->authCallActive) )
+					{
+						CShared::LogIt( 0x0F, "CLDAPv3PlugIn::HandleRequest-ActiveConn-%d", pMsgHdr->fType );
+						fLDAPSessionMgr.ActiveConnection(pContext->fName);
+					}
+				}
+			}
+			break;
 
+		//second group all has the data structure start with
+		//typedef struct {
+		//	uInt32					fType;
+		//	sInt32					fResult;
+		//	tDirNodeReference		fInRecRef;
+		//so using sCloseRecord cast
+		case kGetRecordAttributeInfo:
+		case kGetRecordAttributeValueByIndex:
+		case kGetRecordAttributeValueByID:
+		case kSetRecordName:
+		case kAddAttribute:
+		case kRemoveAttribute:
+		case kAddAttributeValue:
+		case kRemoveAttributeValue:
+		case kSetAttributeValue:
+			if ( ((sCloseRecord *)inData)->fInRecRef  != nil )
+			{
+				pContext = (sLDAPContextData *)gLDAPContextTable->GetItemData( ((sCloseRecord *)inData)->fInRecRef );
+				if ( pContext  != nil )
+				{
+					if ( ( pContext->fName != nil ) && !(pContext->authCallActive) )
+					{
+						CShared::LogIt( 0x0F, "CLDAPv3PlugIn::HandleRequest-ActiveConn-%d", pMsgHdr->fType );
+						fLDAPSessionMgr.ActiveConnection(pContext->fName);
+					}
+				}
+			}
+			break;
+
+		case kCloseRecord:
+		case kDeleteRecord:
+			if ( ((sCloseRecord *)inData)->fInRecRef  != nil )
+			{
+				pContext = (sLDAPContextData *)gLDAPContextTable->GetItemData( ((sCloseRecord *)inData)->fInRecRef );
+				if ( pContext  != nil )
+				{
+					if ( ( pContext->fName != nil ) && !(pContext->authCallActive) )
+					{
+						recName = strdup(pContext->fName);
+						CShared::LogIt( 0x0F, "CLDAPv3PlugIn::HandleRequest-ActiveConn-%d", pMsgHdr->fType );
+						fLDAPSessionMgr.ActiveConnection(pContext->fName);
+					}
+				}
+			}
+			break;
+
+		default:
+			break;
+	}
+	
 	switch ( pMsgHdr->fType )
 	{
 		case kOpenDirNode:
@@ -1192,6 +1314,51 @@ sInt32 CLDAPv3PlugIn::HandleRequest ( void *inData )
 			break;
 	}
 
+	//need to keep track of use of LDAP connections
+	switch ( pMsgHdr->fType )
+	{
+		case kGetRecordList:
+		//case kGetDirNodeInfo: //not needed since no LDAP connection yet for this API call
+		case kOpenRecord:
+		case kCreateRecord:
+		case kCreateRecordAndOpen:
+		case kDoDirNodeAuth:
+		case kDoAttributeValueSearch:
+		case kDoAttributeValueSearchWithData:
+		case kGetRecordAttributeInfo:
+		case kGetRecordAttributeValueByIndex:
+		case kGetRecordAttributeValueByID:
+		case kSetRecordName:
+		case kAddAttribute:
+		case kRemoveAttribute:
+		case kAddAttributeValue:
+		case kRemoveAttributeValue:
+		case kSetAttributeValue:
+			if ( pContext  != nil ) //should be garnered from above connection case statement
+			{
+				if ( ( pContext->fName != nil ) && !(pContext->authCallActive) )
+				{
+					CShared::LogIt( 0x0F, "CLDAPv3PlugIn::HandleRequest-IdleConn-%d", pMsgHdr->fType );
+					fLDAPSessionMgr.IdleConnection(pContext->fName);
+				}
+			}
+			break;
+
+		case kCloseRecord:
+		case kDeleteRecord:
+			if ( recName  != nil ) //should be garnered from above connection case statement
+			{
+				CShared::LogIt( 0x0F, "CLDAPv3PlugIn::HandleRequest-IdleConn-%d", pMsgHdr->fType );
+				fLDAPSessionMgr.IdleConnection(recName);
+				free(recName);
+				recName = nil;
+			}
+			break;
+
+		default:
+			break;
+	}
+	
 	pMsgHdr->fResult = siResult;
 
 	return( siResult );
@@ -1250,6 +1417,9 @@ sInt32 CLDAPv3PlugIn::OpenDirNode ( sOpenDirNode *inData )
 					
 					siResult = fLDAPSessionMgr.SafeOpen( (char *)ldapName, &(pContext->fHost), &(pContext->fConfigTableIndex) );
 					if ( siResult != eDSNoErr) throw( (sInt32)eDSOpenNodeFailed );
+					
+					//wipe out the LDAP handle from the context since it is retained in the node table
+					pContext->fHost = nil;
 					
                 	// add the item to the reference table
 					gLDAPContextTable->AddItem( inData->fOutNodeRef, pContext );
@@ -2266,6 +2436,7 @@ sInt32 CLDAPv3PlugIn::GetTheseAttributes (	char			   *inRecType,
 	bool				bUsePlus				= true;
 	char			   *pLDAPPasswdAttrType		= nil;
 	uInt32				literalLength			= 0;
+	LDAP			   *aHost					= nil;
 
 	try
 	{
@@ -2447,119 +2618,124 @@ sInt32 CLDAPv3PlugIn::GetTheseAttributes (	char			   *inRecType,
 						}
 						else
 						{
-							for (	pAttr = ldap_first_attribute (inContext->fHost, inResult, &ber );
-									pAttr != NULL; pAttr = ldap_next_attribute(inContext->fHost, inResult, ber ) )
+							aHost = fLDAPSessionMgr.LockSession(inContext);
+							if (aHost != nil)
 							{
-								//TODO can likely optimize use of ldap_get_values_len() below for Std types
-								bStripCryptPrefix = false;
-								if (::strcasecmp( pAttr, pLDAPAttrType ) == 0)
+								for (	pAttr = ldap_first_attribute (aHost, inResult, &ber );
+										pAttr != NULL; pAttr = ldap_next_attribute(aHost, inResult, ber ) )
 								{
-									if (pLDAPPasswdAttrType != nil )
+									//TODO can likely optimize use of ldap_get_values_len() below for Std types
+									bStripCryptPrefix = false;
+									if (::strcasecmp( pAttr, pLDAPAttrType ) == 0)
 									{
-										if ( ( ::strcasecmp( pAttr, pLDAPPasswdAttrType ) == 0 ) &&
-											( ::strcmp( pStdAttrType, kDS1AttrPassword ) == 0 ) )
+										if (pLDAPPasswdAttrType != nil )
 										{
-											//want to remove leading "{crypt}" prefix from password if it exists
-											bStripCryptPrefix = true;
-											//don't need to use the "********" passwdplus
-											bUsePlus = false;
-											//cleanup
-											free(pLDAPPasswdAttrType);
-											pLDAPPasswdAttrType = nil;
-										}
-									}
-									//set the flag indicating that we got a match at least once
-									bAtLeastOneTypeValid = true;
-									//note that if standard type is incorrectly mapped ie. not found here
-									//then the output will not contain any data on that std type
-									if (!bTypeFound)
-									{
-										aTmp2Data->Clear();
-	
-										outCount++;
-										//use given type in the output NOT mapped to type
-										aTmp2Data->AppendShort( ::strlen( pStdAttrType ) );
-										aTmp2Data->AppendString( pStdAttrType );
-										//set indicator so that multiple values from multiple mapped to types
-										//can be added to the given type
-										bTypeFound = true;
-										
-										//set attribute value count to zero
-										valCount = 0;
-										
-										// Clear the temp block
-										aTmpData->Clear();
-									}
-	
-									if (( inAttrOnly == false ) &&
-										(( bValues = ldap_get_values_len (inContext->fHost, inResult, pAttr )) != NULL) )
-									{
-										if (bStripCryptPrefix)
-										{
-											bStripCryptPrefix = false; //only attempted once here
-											// add to the number of values for this attribute
-											for (int ii = 0; bValues[ii] != NULL; ii++ )
-											valCount++;
-											
-											// for each value of the attribute
-											for (int i = 0; bValues[i] != NULL; i++ )
+											if ( ( ::strcasecmp( pAttr, pLDAPPasswdAttrType ) == 0 ) &&
+												( ::strcmp( pStdAttrType, kDS1AttrPassword ) == 0 ) )
 											{
-												//case insensitive compare with "crypt" string
-												if ( ( bValues[i]->bv_len > 7) &&
-													(strncasecmp(bValues[i]->bv_val,"{crypt}",7) == 0) )
+												//want to remove leading "{crypt}" prefix from password if it exists
+												bStripCryptPrefix = true;
+												//don't need to use the "********" passwdplus
+												bUsePlus = false;
+												//cleanup
+												free(pLDAPPasswdAttrType);
+												pLDAPPasswdAttrType = nil;
+											}
+										}
+										//set the flag indicating that we got a match at least once
+										bAtLeastOneTypeValid = true;
+										//note that if standard type is incorrectly mapped ie. not found here
+										//then the output will not contain any data on that std type
+										if (!bTypeFound)
+										{
+											aTmp2Data->Clear();
+		
+											outCount++;
+											//use given type in the output NOT mapped to type
+											aTmp2Data->AppendShort( ::strlen( pStdAttrType ) );
+											aTmp2Data->AppendString( pStdAttrType );
+											//set indicator so that multiple values from multiple mapped to types
+											//can be added to the given type
+											bTypeFound = true;
+											
+											//set attribute value count to zero
+											valCount = 0;
+											
+											// Clear the temp block
+											aTmpData->Clear();
+										}
+		
+										if (( inAttrOnly == false ) &&
+											(( bValues = ldap_get_values_len (aHost, inResult, pAttr )) != NULL) )
+										{
+											if (bStripCryptPrefix)
+											{
+												bStripCryptPrefix = false; //only attempted once here
+												// add to the number of values for this attribute
+												for (int ii = 0; bValues[ii] != NULL; ii++ )
+												valCount++;
+												
+												// for each value of the attribute
+												for (int i = 0; bValues[i] != NULL; i++ )
 												{
-													// Append attribute value without "{crypt}" prefix
-													aTmpData->AppendLong( bValues[i]->bv_len - 7 );
-													aTmpData->AppendBlock( (bValues[i]->bv_val) + 7, bValues[i]->bv_len - 7 );
-												}
-												else
+													//case insensitive compare with "crypt" string
+													if ( ( bValues[i]->bv_len > 7) &&
+														(strncasecmp(bValues[i]->bv_val,"{crypt}",7) == 0) )
+													{
+														// Append attribute value without "{crypt}" prefix
+														aTmpData->AppendLong( bValues[i]->bv_len - 7 );
+														aTmpData->AppendBlock( (bValues[i]->bv_val) + 7, bValues[i]->bv_len - 7 );
+													}
+													else
+													{
+														// Append attribute value
+														aTmpData->AppendLong( bValues[i]->bv_len );
+														aTmpData->AppendBlock( bValues[i]->bv_val, bValues[i]->bv_len );
+													}
+												} // for each bValues[i]
+												ldap_value_free_len(bValues);
+												bValues = NULL;
+											}
+											else
+											{
+												// add to the number of values for this attribute
+												for (int ii = 0; bValues[ii] != NULL; ii++ )
+												valCount++;
+												
+												// for each value of the attribute
+												for (int i = 0; bValues[i] != NULL; i++ )
 												{
 													// Append attribute value
 													aTmpData->AppendLong( bValues[i]->bv_len );
 													aTmpData->AppendBlock( bValues[i]->bv_val, bValues[i]->bv_len );
-												}
-											} // for each bValues[i]
-											ldap_value_free_len(bValues);
-											bValues = NULL;
-										}
-										else
+												} // for each bValues[i]
+												ldap_value_free_len(bValues);
+												bValues = NULL;
+											}
+										} // if ( inAttrOnly == false ) && bValues = ldap_get_values_len ...
+										
+										if (pAttr != nil)
 										{
-											// add to the number of values for this attribute
-											for (int ii = 0; bValues[ii] != NULL; ii++ )
-											valCount++;
-											
-											// for each value of the attribute
-											for (int i = 0; bValues[i] != NULL; i++ )
-											{
-												// Append attribute value
-												aTmpData->AppendLong( bValues[i]->bv_len );
-												aTmpData->AppendBlock( bValues[i]->bv_val, bValues[i]->bv_len );
-											} // for each bValues[i]
-											ldap_value_free_len(bValues);
-											bValues = NULL;
+											ldap_memfree( pAttr );
 										}
-									} // if ( inAttrOnly == false ) && bValues = ldap_get_values_len ...
-									
+										//found the right attr so go to the next one
+										break;
+									} // if (::strcmp( pAttr, pLDAPAttrType ) == 0) || 
 									if (pAttr != nil)
 									{
 										ldap_memfree( pAttr );
 									}
-									//found the right attr so go to the next one
-									break;
-								} // if (::strcmp( pAttr, pLDAPAttrType ) == 0) || 
-								if (pAttr != nil)
+								} // for ( loop over ldap_next_attribute )
+								
+								if (ber != nil)
 								{
-									ldap_memfree( pAttr );
+									ber_free( ber, 0 );
+									ber = nil;
 								}
-							} // for ( loop over ldap_next_attribute )
+							} //aHost != nil
+							fLDAPSessionMgr.UnLockSession(inContext);
 						}
 						
-						if (ber != nil)
-						{
-							ber_free( ber, 0 );
-							ber = nil;
-						}
-
 						//cleanup pLDAPAttrType if needed
 						if (pLDAPAttrType != nil)
 						{
@@ -2631,63 +2807,67 @@ sInt32 CLDAPv3PlugIn::GetTheseAttributes (	char			   *inRecType,
 				}// Std and all
 				if ((::strcmp(pAttrType,kDSAttributesAll) == 0) || (::strcmp(pAttrType,kDSAttributesNativeAll) == 0))
 				{
-				//now we output the native attributes
-				for (	pAttr = ldap_first_attribute (inContext->fHost, inResult, &ber );
-						pAttr != NULL; pAttr = ldap_next_attribute(inContext->fHost, inResult, ber ) )
-				{
-					aTmpData->Clear();
-
-					outCount++;
-					
-					if ( pAttr != nil )
+					aHost = fLDAPSessionMgr.LockSession(inContext);
+					if (aHost != nil)
 					{
-						aTmpData->AppendShort( ::strlen( pAttr ) + ::strlen( kDSNativeAttrTypePrefix ) );
-						aTmpData->AppendString( (char *)kDSNativeAttrTypePrefix );
-						aTmpData->AppendString( pAttr );
-
-						if (( inAttrOnly == false ) &&
-							(( bValues = ldap_get_values_len(inContext->fHost, inResult, pAttr )) != NULL) )
+						//now we output the native attributes
+						for (	pAttr = ldap_first_attribute (aHost, inResult, &ber );
+								pAttr != NULL; pAttr = ldap_next_attribute(aHost, inResult, ber ) )
 						{
-						
-							// calculate the number of values for this attribute
-							valCount = 0;
-							for (int ii = 0; bValues[ii] != NULL; ii++ )
-							valCount++;
+							aTmpData->Clear();
+		
+							outCount++;
 							
-							// Append the attribute value count
-							aTmpData->AppendShort( valCount );
-	
-							// for each value of the attribute
-							for (int i = 0; bValues[i] != NULL; i++ )
+							if ( pAttr != nil )
 							{
-								// Append attribute value
-								aTmpData->AppendLong( bValues[i]->bv_len );
-								aTmpData->AppendBlock( bValues[i]->bv_val, bValues[i]->bv_len );
-							} // for each bValues[i]
-							ldap_value_free_len(bValues);
-							bValues = NULL;
-						} // if ( inAttrOnly == false ) && bValues = ldap_get_values_len ...
+								aTmpData->AppendShort( ::strlen( pAttr ) + ::strlen( kDSNativeAttrTypePrefix ) );
+								aTmpData->AppendString( (char *)kDSNativeAttrTypePrefix );
+								aTmpData->AppendString( pAttr );
+		
+								if (( inAttrOnly == false ) &&
+									(( bValues = ldap_get_values_len(aHost, inResult, pAttr )) != NULL) )
+								{
+								
+									// calculate the number of values for this attribute
+									valCount = 0;
+									for (int ii = 0; bValues[ii] != NULL; ii++ )
+									valCount++;
+									
+									// Append the attribute value count
+									aTmpData->AppendShort( valCount );
+			
+									// for each value of the attribute
+									for (int i = 0; bValues[i] != NULL; i++ )
+									{
+										// Append attribute value
+										aTmpData->AppendLong( bValues[i]->bv_len );
+										aTmpData->AppendBlock( bValues[i]->bv_val, bValues[i]->bv_len );
+									} // for each bValues[i]
+									ldap_value_free_len(bValues);
+									bValues = NULL;
+								} // if ( inAttrOnly == false ) && bValues = ldap_get_values_len ...
+							
+							}
+							// Add the attribute length
+							inDataBuff->AppendLong( aTmpData->GetLength() );
+							inDataBuff->AppendBlock( aTmpData->GetData(), aTmpData->GetLength() );
+		
+							// Clear the temp block
+							aTmpData->Clear();
+							
+							if (pAttr != nil)
+							{
+								ldap_memfree( pAttr );
+							}
+						} // for ( loop over ldap_next_attribute )
 					
-					}
-					// Add the attribute length
-					inDataBuff->AppendLong( aTmpData->GetLength() );
-					inDataBuff->AppendBlock( aTmpData->GetData(), aTmpData->GetLength() );
-
-					// Clear the temp block
-					aTmpData->Clear();
-					
-					if (pAttr != nil)
-					{
-						ldap_memfree( pAttr );
-					}
-				} // for ( loop over ldap_next_attribute )
-				
-				if (ber != nil)
-				{
-					ber_free( ber, 0 );
-					ber = nil;
-				}
-
+						if (ber != nil)
+						{
+							ber_free( ber, 0 );
+							ber = nil;
+						}
+					} //if aHost != nil
+					fLDAPSessionMgr.UnLockSession(inContext);
 				}//Native and all
 			}
 			else //we have a specific attribute in mind
@@ -2790,8 +2970,9 @@ sInt32 CLDAPv3PlugIn::GetTheseAttributes (	char			   *inRecType,
 					}
 					else
 					{
-						if (( inAttrOnly == false ) &&
-							(( bValues = ldap_get_values_len (inContext->fHost, inResult, pLDAPAttrType )) != NULL) )
+						aHost = fLDAPSessionMgr.LockSession(inContext);
+						if ( (aHost != nil) && ( inAttrOnly == false ) &&
+							(( bValues = ldap_get_values_len (aHost, inResult, pLDAPAttrType )) != NULL) )
 						{
 						
 							if (bStripCryptPrefix)
@@ -2837,7 +3018,8 @@ sInt32 CLDAPv3PlugIn::GetTheseAttributes (	char			   *inRecType,
 								ldap_value_free_len(bValues);
 								bValues = NULL;
 							}
-						} // if ( inAttrOnly == false ) && bValues = ldap_get_values_len ...
+						} // if (aHost != nil) && ( inAttrOnly == false ) && bValues = ldap_get_values_len ...
+						fLDAPSessionMgr.UnLockSession(inContext);
 					}
 							
 					//cleanup pLDAPAttrType if needed
@@ -2913,6 +3095,7 @@ char *CLDAPv3PlugIn::GetRecordName (	char			   *inRecType,
 	struct berval	  **bValues;
 	int					numAttributes	= 1;
 	bool				bTypeFound		= false;
+	LDAP			   *aHost			= nil;
 
 	try
 	{
@@ -2928,9 +3111,10 @@ char *CLDAPv3PlugIn::GetRecordName (	char			   *inRecType,
             
 		//set indicator of multiple native to standard mappings
 		bTypeFound = false;
-		while ( ( pLDAPAttrType != nil ) && (!bTypeFound) )
+		aHost = fLDAPSessionMgr.LockSession(inContext);
+		while ( (aHost != nil) && ( pLDAPAttrType != nil ) && (!bTypeFound) )
 		{
-			if ( ( bValues = ldap_get_values_len(inContext->fHost, inResult, pLDAPAttrType )) != NULL )
+			if ( ( bValues = ldap_get_values_len(aHost, inResult, pLDAPAttrType )) != NULL )
 			{
 				// for first value of the attribute
 				recName = new char[1 + bValues[0]->bv_len];
@@ -2951,6 +3135,7 @@ char *CLDAPv3PlugIn::GetRecordName (	char			   *inRecType,
 			//get the next mapping
 			pLDAPAttrType = MapAttrToLDAPType( inRecType, kDSNAttrRecordName, inContext->fConfigTableIndex, numAttributes, pConfigFromXML, true );				
 		} // while ( pLDAPAttrType != nil )
+		fLDAPSessionMgr.UnLockSession(inContext);
 		//cleanup pLDAPAttrType if needed
 		if (pLDAPAttrType != nil)
 		{
@@ -5026,9 +5211,6 @@ sInt32 CLDAPv3PlugIn::OpenRecord ( sOpenRecord *inData )
 				::strcpy( pRecContext->fOpenRecordName, pRecName->fBufferData );
 			}
 			
-			//get the ldapDN here
-			pRecContext->fOpenRecordDN = ldap_get_dn(pRecContext->fHost, result);
-		
 			if (pContext->authCallActive)
 			{
 				pRecContext->authCallActive = true;
@@ -5054,6 +5236,14 @@ sInt32 CLDAPv3PlugIn::OpenRecord ( sOpenRecord *inData )
 				}
 			}
 	        
+			LDAP *aHost = fLDAPSessionMgr.LockSession(pRecContext);
+			if (aHost != nil)
+			{
+				//get the ldapDN here
+				pRecContext->fOpenRecordDN = ldap_get_dn(aHost, result);
+			}
+			fLDAPSessionMgr.UnLockSession(pRecContext);
+		
 			gLDAPContextTable->AddItem( inData->fOutRecRef, pRecContext );
 		} // if bResultFound and ldapReturnCode okay
 	}
@@ -5166,7 +5356,7 @@ sInt32 CLDAPv3PlugIn::DeleteRecord ( sDeleteRecord *inData )
 		//if LDAP_NO_SUCH_OBJECT then eDSRecordNotFound
 		//so for now we return simply  eDSPermissionError if ANY error
 		LDAP *aHost = fLDAPSessionMgr.LockSession(pRecContext);
-		if ( ldap_delete_s( aHost, pRecContext->fOpenRecordDN) != LDAP_SUCCESS )
+		if ( (aHost != nil) && ( ldap_delete_s( aHost, pRecContext->fOpenRecordDN) != LDAP_SUCCESS ) )
 		{
 			siResult = eDSPermissionError;
 		}
@@ -5259,7 +5449,14 @@ sInt32 CLDAPv3PlugIn::RemoveAttribute ( sRemoveAttribute *inData )
 				//if LDAP_TYPE_OR_VALUE_EXISTS then ???
 				//so for now we return simply  eDSRecordNotFound if ANY other error
 				LDAP *aHost = fLDAPSessionMgr.LockSession(pRecContext);
-				ldapReturnCode = ldap_modify_s( aHost, pRecContext->fOpenRecordDN, mods);
+				if (aHost != nil)
+				{
+					ldapReturnCode = ldap_modify_s( aHost, pRecContext->fOpenRecordDN, mods);
+				}
+				else
+				{
+					ldapReturnCode = LDAP_LOCAL_ERROR;
+				}
 				fLDAPSessionMgr.UnLockSession(pRecContext);
 				if ( ( ldapReturnCode == LDAP_INSUFFICIENT_ACCESS ) || ( ldapReturnCode == LDAP_INVALID_CREDENTIALS ) )
 				{
@@ -5367,7 +5564,14 @@ sInt32 CLDAPv3PlugIn::AddValue ( uInt32 inRecRef, tDataNodePtr inAttrType, tData
 				//if LDAP_TYPE_OR_VALUE_EXISTS then ???
 				//so for now we return simply  eDSRecordNotFound if ANY other error
 				LDAP *aHost = fLDAPSessionMgr.LockSession(pRecContext);
-				ldapReturnCode = ldap_modify_s( aHost, pRecContext->fOpenRecordDN, mods);
+				if (aHost != nil)
+				{
+					ldapReturnCode = ldap_modify_s( aHost, pRecContext->fOpenRecordDN, mods);
+				}
+				else
+				{
+					ldapReturnCode = LDAP_LOCAL_ERROR;
+				}
 				fLDAPSessionMgr.UnLockSession(pRecContext);
 				if ( ( ldapReturnCode == LDAP_INSUFFICIENT_ACCESS ) || ( ldapReturnCode == LDAP_INVALID_CREDENTIALS ) )
 				{
@@ -5452,7 +5656,14 @@ sInt32 CLDAPv3PlugIn::SetRecordName ( sSetRecordName *inData )
 
 //		ldapReturnCode = ldap_modrdn2_s( pRecContext->fHost, pRecContext->fOpenRecordDN, ldapRDNString, 1);
 		LDAP *aHost = fLDAPSessionMgr.LockSession(pRecContext);
-		ldapReturnCode = ldap_rename_s( aHost, pRecContext->fOpenRecordDN, ldapRDNString, NULL, 1, NULL, NULL);
+		if (aHost != nil)
+		{
+			ldapReturnCode = ldap_rename_s( aHost, pRecContext->fOpenRecordDN, ldapRDNString, NULL, 1, NULL, NULL);
+		}
+		else
+		{
+			ldapReturnCode = LDAP_LOCAL_ERROR;
+		}
 		fLDAPSessionMgr.UnLockSession(pRecContext);
 		if ( ( ldapReturnCode == LDAP_INSUFFICIENT_ACCESS ) || ( ldapReturnCode == LDAP_INVALID_CREDENTIALS ) )
 		{
@@ -5771,7 +5982,14 @@ sInt32 CLDAPv3PlugIn::CreateRecord ( sCreateRecord *inData )
 		mods[modIndex] = NULL;
 
 		LDAP *aHost = fLDAPSessionMgr.LockSession(pContext);
-		ldapReturnCode = ldap_add_s( aHost, ldapDNString, mods);
+		if (aHost != nil)
+		{
+			ldapReturnCode = ldap_add_s( aHost, ldapDNString, mods);
+		}
+		else
+		{
+			ldapReturnCode = LDAP_LOCAL_ERROR;
+		}
 		fLDAPSessionMgr.UnLockSession(pContext);
 		if ( ( ldapReturnCode == LDAP_INSUFFICIENT_ACCESS ) || ( ldapReturnCode == LDAP_INVALID_CREDENTIALS ) )
 		{
@@ -5938,6 +6156,7 @@ sInt32 CLDAPv3PlugIn::RemoveAttributeValue ( sRemoveAttributeValue *inData )
 	uInt32					crcVal			= 0;
 	LDAPMod				   *mods[2];
 	int						ldapReturnCode	= 0;
+	LDAP				   *aHost			= nil;
 
 	try
 	{
@@ -5967,9 +6186,9 @@ sInt32 CLDAPv3PlugIn::RemoveAttributeValue ( sRemoveAttributeValue *inData )
 			{
 				valCount = 0; //separate count for each bvalues
 				
-				if (( bValues = ldap_get_values_len (pRecContext->fHost, result, pLDAPAttrType )) != NULL)
+				aHost = fLDAPSessionMgr.LockSession(pRecContext);
+				if ( (aHost != nil) && ( ( bValues = ldap_get_values_len (aHost, result, pLDAPAttrType )) != NULL ) )
 				{
-				
 					// calc length of bvalues
 					for (int i = 0; bValues[i] != NULL; i++ )
 					{
@@ -5995,6 +6214,7 @@ sInt32 CLDAPv3PlugIn::RemoveAttributeValue ( sRemoveAttributeValue *inData )
 					} // for each bValues[i]
 					
 				} // if bValues = ldap_get_values_len ...
+				fLDAPSessionMgr.UnLockSession(pRecContext);
 						
 				if (bFoundIt)
 				{
@@ -6013,8 +6233,15 @@ sInt32 CLDAPv3PlugIn::RemoveAttributeValue ( sRemoveAttributeValue *inData )
 						//if LDAP_NO_SUCH_OBJECT then eDSRecordNotFound
 						//if LDAP_TYPE_OR_VALUE_EXISTS then ???
 						//so for now we return simply  eDSRecordNotFound if ANY other error
-						LDAP *aHost = fLDAPSessionMgr.LockSession(pRecContext);
-						ldapReturnCode = ldap_modify_s( aHost, pRecContext->fOpenRecordDN, mods);
+						aHost = fLDAPSessionMgr.LockSession(pRecContext);
+						if (aHost != nil)
+						{
+							ldapReturnCode = ldap_modify_s( aHost, pRecContext->fOpenRecordDN, mods);
+						}
+						else
+						{
+							ldapReturnCode = LDAP_LOCAL_ERROR;
+						}
 						fLDAPSessionMgr.UnLockSession(pRecContext);
 						if ( ( ldapReturnCode == LDAP_INSUFFICIENT_ACCESS ) || ( ldapReturnCode == LDAP_INVALID_CREDENTIALS ) )
 						{
@@ -6108,6 +6335,7 @@ sInt32 CLDAPv3PlugIn::SetAttributeValue ( sSetAttributeValue *inData )
 	char				   *attrValue		= nil;
 	uInt32					attrLength		= 0;
 	char				   *emptyValue		= (char *)"";
+	LDAP				   *aHost			= nil;
 
 	try
 	{
@@ -6154,7 +6382,8 @@ sInt32 CLDAPv3PlugIn::SetAttributeValue ( sSetAttributeValue *inData )
 			{
 				valCount = 0; //separate count for each bvalues
 				
-				if (( bValues = ldap_get_values_len (pRecContext->fHost, result, pLDAPAttrType )) != NULL)
+				aHost = fLDAPSessionMgr.LockSession(pRecContext);
+				if ( (aHost != nil) && ( ( bValues = ldap_get_values_len (aHost, result, pLDAPAttrType )) != NULL ) )
 				{
 				
 					// calc length of bvalues
@@ -6201,6 +6430,7 @@ sInt32 CLDAPv3PlugIn::SetAttributeValue ( sSetAttributeValue *inData )
 						siResult = eDSAttributeValueNotFound;
 					}
 				} // if bValues = ldap_get_values_len ...
+				fLDAPSessionMgr.UnLockSession(pRecContext);
 						
 				if (bFoundIt)
 				{
@@ -6219,8 +6449,15 @@ sInt32 CLDAPv3PlugIn::SetAttributeValue ( sSetAttributeValue *inData )
 						//if LDAP_NO_SUCH_OBJECT then eDSRecordNotFound
 						//if LDAP_TYPE_OR_VALUE_EXISTS then ???
 						//so for now we return simply  eDSRecordNotFound if ANY other error
-						LDAP *aHost = fLDAPSessionMgr.LockSession(pRecContext);
-						ldapReturnCode = ldap_modify_s( aHost, pRecContext->fOpenRecordDN, mods);
+						aHost = fLDAPSessionMgr.LockSession(pRecContext);
+						if (aHost != nil)
+						{
+							ldapReturnCode = ldap_modify_s( aHost, pRecContext->fOpenRecordDN, mods);
+						}
+						else
+						{
+							ldapReturnCode = LDAP_LOCAL_ERROR;
+						}
 						fLDAPSessionMgr.UnLockSession(pRecContext);
 						if ( ( ldapReturnCode == LDAP_INSUFFICIENT_ACCESS ) || ( ldapReturnCode == LDAP_INVALID_CREDENTIALS ) )
 						{
@@ -6516,7 +6753,8 @@ sInt32 CLDAPv3PlugIn::GetRecAttribInfo ( sGetRecAttribInfo *inData )
 				}
 				else
 				{
-					if (( bValues = ldap_get_values_len (pRecContext->fHost, result, pLDAPAttrType )) != NULL)
+					LDAP *aHost = fLDAPSessionMgr.LockSession(pRecContext);
+					if ( (aHost != nil) && ( ( bValues = ldap_get_values_len(aHost, result, pLDAPAttrType )) != NULL ) )
 					{
 					
 						// calculate the number of values for this attribute
@@ -6536,6 +6774,7 @@ sInt32 CLDAPv3PlugIn::GetRecAttribInfo ( sGetRecAttribInfo *inData )
 							bValues = NULL;
 						}
 					} // if ( inAttrOnly == false ) && bValues = ldap_get_values_len ...
+					fLDAPSessionMgr.UnLockSession(pRecContext);
 				}
 
 				//cleanup pLDAPAttrType if needed
@@ -6653,7 +6892,8 @@ sInt32 CLDAPv3PlugIn::GetRecAttrValueByIndex ( sGetRecordAttributeValueByIndex *
 				}
 				else
 				{
-					if (( bValues = ldap_get_values_len (pRecContext->fHost, result, pLDAPAttrType )) != NULL)
+					LDAP *aHost = fLDAPSessionMgr.LockSession(pRecContext);
+					if ( (aHost != nil) && ( ( bValues = ldap_get_values_len (aHost, result, pLDAPAttrType )) != NULL ) )
 					{
 					
 						// for each value of the attribute
@@ -6686,6 +6926,7 @@ sInt32 CLDAPv3PlugIn::GetRecAttrValueByIndex ( sGetRecordAttributeValueByIndex *
 							bValues = NULL;
 						}
 					} // if bValues = ldap_get_values_len ...
+					fLDAPSessionMgr.UnLockSession(pRecContext);
 				}
 						
 				if (bFoundIt)
@@ -6808,7 +7049,8 @@ sInt32 CLDAPv3PlugIn::GetRecordAttributeValueByID ( sGetRecordAttributeValueByID
 				}
 				else
 				{
-					if (( bValues = ldap_get_values_len (pRecContext->fHost, result, pLDAPAttrType )) != NULL)
+					LDAP *aHost = fLDAPSessionMgr.LockSession(pRecContext);
+					if ( (aHost != nil) && ( ( bValues = ldap_get_values_len(aHost, result, pLDAPAttrType )) != NULL ) )
 					{
 					
 						// for each value of the attribute
@@ -6837,6 +7079,7 @@ sInt32 CLDAPv3PlugIn::GetRecordAttributeValueByID ( sGetRecordAttributeValueByID
 						ldap_value_free_len(bValues);
 						bValues = NULL;
 					} // if bValues = ldap_get_values_len ...
+					fLDAPSessionMgr.UnLockSession(pRecContext);
 				}
 				if (bFoundIt)
 				{
@@ -7266,53 +7509,60 @@ bool CLDAPv3PlugIn::DoTheseAttributesMatch(	sLDAPContextData	   *inContext,
 	BerElement		   *ber						= nil;
 	struct berval	  **bValues;
 	bool				bFoundMatch				= false;
+	LDAP			   *aHost					= nil;
+	
 
 	//let's check all the attribute values for a match on the input name
 	//with the given patt match constraint - first match found we stop and
 	//then go get it all
 	//TODO - room for optimization here
-	for (	pAttr = ldap_first_attribute (inContext->fHost, inResult, &ber );
-			pAttr != NULL; pAttr = ldap_next_attribute(inContext->fHost, inResult, ber ) )
+	aHost = fLDAPSessionMgr.LockSession(inContext);
+	if (aHost != nil)
 	{
-		if (( bValues = ldap_get_values_len (inContext->fHost, inResult, pAttr )) != NULL)
+		for (	pAttr = ldap_first_attribute(aHost, inResult, &ber );
+				pAttr != NULL; pAttr = ldap_next_attribute(aHost, inResult, ber ) )
 		{
-			// for each value of the attribute
-			for (int i = 0; bValues[i] != NULL; i++ )
+			if (( bValues = ldap_get_values_len(aHost, inResult, pAttr )) != NULL)
 			{
-				//need this since bValues might be binary data with no NULL terminator
-				pVal = (char *) calloc(1,bValues[i]->bv_len + 1);
-				memcpy(pVal, bValues[i]->bv_val, bValues[i]->bv_len);
-				if (DoesThisMatch(pVal, inAttrName, pattMatch))
+				// for each value of the attribute
+				for (int i = 0; bValues[i] != NULL; i++ )
 				{
-					bFoundMatch = true;
-					free(pVal);
-					pVal = nil;
+					//need this since bValues might be binary data with no NULL terminator
+					pVal = (char *) calloc(1,bValues[i]->bv_len + 1);
+					memcpy(pVal, bValues[i]->bv_val, bValues[i]->bv_len);
+					if (DoesThisMatch(pVal, inAttrName, pattMatch))
+					{
+						bFoundMatch = true;
+						free(pVal);
+						pVal = nil;
+						break;
+					}
+					else
+					{
+						free(pVal);
+						pVal = nil;
+					}
+				} // for each bValues[i]
+				ldap_value_free_len(bValues);
+				bValues = NULL;
+				
+				if (bFoundMatch)
+				{
+					if (pAttr != nil)
+					{
+						ldap_memfree( pAttr );
+					}
 					break;
 				}
-				else
-				{
-					free(pVal);
-					pVal = nil;
-				}
-			} // for each bValues[i]
-			ldap_value_free_len(bValues);
-			bValues = NULL;
-			
-			if (bFoundMatch)
+			} // if bValues = ldap_get_values_len ...
+				
+			if (pAttr != nil)
 			{
-				if (pAttr != nil)
-				{
-					ldap_memfree( pAttr );
-				}
-				break;
+				ldap_memfree( pAttr );
 			}
-		} // if bValues = ldap_get_values_len ...
-			
-		if (pAttr != nil)
-		{
-			ldap_memfree( pAttr );
-		}
-	} // for ( loop over ldap_next_attribute )
+		} // for ( loop over ldap_next_attribute )
+	} // if aHost != nil
+	fLDAPSessionMgr.UnLockSession(inContext);
 
 	if (ber != nil)
 	{
@@ -8108,6 +8358,7 @@ sInt32 CLDAPv3PlugIn::DoAuthentication ( sDoDirNodeAuth *inData )
 	{
 		pContext = (sLDAPContextData *)gLDAPContextTable->GetItemData( inData->fInNodeRef );
 		if ( pContext == nil ) throw( (sInt32)eDSInvalidNodeRef );
+
 		if ( inData->fInAuthStepData == nil ) throw( (sInt32)eDSNullAuthStepData );
 		
 		if ( inData->fIOContinueData != NULL )
@@ -8309,6 +8560,7 @@ sInt32 CLDAPv3PlugIn::DoPasswordServerAuth(
 	char *password = NULL;
     sLDAPContinueData *pContinue = NULL;
     tContextData continueData = NULL;
+	bool	bNewMutex	= false;
     
     if ( !inAuthAuthorityData || *inAuthAuthorityData == '\0' )
         return eDSAuthParameterError;
@@ -8487,49 +8739,56 @@ sInt32 CLDAPv3PlugIn::DoPasswordServerAuth(
                 
             if ( (result == eDSNoErr) && (inAuthOnly == false) && (userName != NULL) && (password != NULL) )
 			{
-                LDAP* aLDAPHost = NULL;
                 accountId = GetDNForRecordName ( userName, inContext, inConfigFromXML, inLDAPSessionMgr );
-				// Here is the bind to the LDAP server
-				result = inLDAPSessionMgr.AuthOpen(	inContext->fName,
-                                                    inContext->fHost,
-                                                    accountId,
-                                                    password,
-                                                    kDSStdAuthClearText,
-                                                    &aLDAPHost,
-                                                    &(inContext->fConfigTableIndex),
-                                                    true);
-				if (result == eDSNoErr)
+				
+				LDAP *aHost = gLDAPv3Plugin->fLDAPSessionMgr.LockSession(inContext);
+				if (aHost != nil)
 				{
-					if (inContext->fLDAPSessionMutex == nil)
+					LDAP* aLDAPHost = NULL;
+					// Here is the bind to the LDAP server
+					result = inLDAPSessionMgr.AuthOpen(	inContext->fName,
+														aHost,
+														accountId,
+														password,
+														kDSStdAuthClearText,
+														&aLDAPHost,
+														&(inContext->fConfigTableIndex),
+														true);
+					if (result == eDSNoErr)
 					{
-						inContext->fLDAPSessionMutex = new DSMutexSemaphore();
+						if (inContext->fLDAPSessionMutex == nil)
+						{
+							inContext->fLDAPSessionMutex = new DSMutexSemaphore();
+							bNewMutex = true;
+						}
+						inContext->fLDAPSessionMutex->Wait();
+						inContext->fHost = aLDAPHost;
+						//provision here for future different auth but now auth credential is a password only
+						if (inContext->fAuthType == nil)
+						{
+							inContext->fAuthType = strdup(kDSStdAuthClearText);
+						}
+						inContext->authCallActive = true;
+						if (inContext->fUserName != nil)
+						{
+							free(inContext->fUserName);
+							inContext->fUserName = nil;
+						}
+						inContext->fUserName = strdup(accountId);
+						if (inContext->fAuthCredential != nil)
+						{
+							free(inContext->fAuthCredential);
+							inContext->fAuthCredential = nil;
+						}
+						inContext->fAuthCredential = strdup(password);
+						inContext->fLDAPSessionMutex->Signal();
 					}
-					inContext->fLDAPSessionMutex->Wait();
-					inContext->fHost = aLDAPHost;
-					//provision here for future different auth but now auth credential is a password only
-					if (inContext->fAuthType == nil)
+					else
 					{
-						inContext->fAuthType = strdup(kDSStdAuthClearText);
+						result = eDSAuthFailed;
 					}
-					inContext->authCallActive = true;
-					if (inContext->fUserName != nil)
-					{
-						free(inContext->fUserName);
-						inContext->fUserName = nil;
-					}
-					inContext->fUserName = strdup(accountId);
-					if (inContext->fAuthCredential != nil)
-					{
-						free(inContext->fAuthCredential);
-						inContext->fAuthCredential = nil;
-					}
-					inContext->fAuthCredential = strdup(password);
-					inContext->fLDAPSessionMutex->Signal();
-				}
-				else
-				{
-					result = eDSAuthFailed;
-				}
+				}// if aHost != nil
+				gLDAPv3Plugin->fLDAPSessionMgr.UnLockSession(inContext, bNewMutex);
             }
         }
     }
@@ -8763,44 +9022,49 @@ sInt32 CLDAPv3PlugIn::DoSetPassword ( sLDAPContextData *inContext, tDataBuffer *
 			accountId = GetDNForRecordName ( rootName, inContext, inConfigFromXML, inLDAPSessionMgr );
 		}
 
-        // Here is the bind to the LDAP server as "root"
-        LDAP *aLDAPHost = nil;
-        siResult = inLDAPSessionMgr.AuthOpen(	inContext->fName,
-                                                inContext->fHost,
-                                                accountId,
-                                                rootPwd,
-                                                kDSStdAuthClearText,
-                                                &aLDAPHost,
-                                                &(inContext->fConfigTableIndex),
-                                                false);
-		if( siResult == eDSNoErr ) {
-			int rc = exop_password_create( aLDAPHost, accountId, userPwd );
-			if( rc != LDAP_SUCCESS ) {
-				rc = standard_password_create( aLDAPHost, accountId, userPwd );
-			}
-
-			// *** gbv not sure what error codes to check for
-			if ( ( rc == LDAP_INSUFFICIENT_ACCESS ) || ( rc == LDAP_INVALID_CREDENTIALS ) ) {
-				siResult = eDSPermissionError;
-			}
-			else if ( rc == LDAP_NOT_SUPPORTED ) {
-				siResult = eDSAuthMethodNotSupported;
-			}
-			else if ( rc == LDAP_SUCCESS ) {
-				siResult = eDSNoErr;
+		LDAP *aHost = gLDAPv3Plugin->fLDAPSessionMgr.LockSession(inContext);
+		if (aHost != nil)
+		{
+			LDAP* aLDAPHost = NULL;
+			// Here is the bind to the LDAP server as "root"
+			siResult = inLDAPSessionMgr.AuthOpen(	inContext->fName,
+													aHost,
+													accountId,
+													rootPwd,
+													kDSStdAuthClearText,
+													&aLDAPHost,
+													&(inContext->fConfigTableIndex),
+													false);
+			if( siResult == eDSNoErr ) {
+				int rc = exop_password_create( aLDAPHost, accountId, userPwd );
+				if( rc != LDAP_SUCCESS ) {
+					rc = standard_password_create( aLDAPHost, accountId, userPwd );
+				}
+	
+				// *** gbv not sure what error codes to check for
+				if ( ( rc == LDAP_INSUFFICIENT_ACCESS ) || ( rc == LDAP_INVALID_CREDENTIALS ) ) {
+					siResult = eDSPermissionError;
+				}
+				else if ( rc == LDAP_NOT_SUPPORTED ) {
+					siResult = eDSAuthMethodNotSupported;
+				}
+				else if ( rc == LDAP_SUCCESS ) {
+					siResult = eDSNoErr;
+				}
+				else
+				{
+					siResult = eDSAuthFailed;
+				}
+	
+				// get rid of our new connection
+				ldap_unbind(aLDAPHost);
 			}
 			else
 			{
 				siResult = eDSAuthFailed;
 			}
-
-            // get rid of our new connection
-            ldap_unbind(aLDAPHost);
-        }
-        else
-        {
-            siResult = eDSAuthFailed;
-        }
+		}// if aHost != nil
+		gLDAPv3Plugin->fLDAPSessionMgr.UnLockSession(inContext);
 	}
 
 	catch( sInt32 err )
@@ -8853,7 +9117,8 @@ sInt32 CLDAPv3PlugIn::DoSetPasswordAsRoot ( sLDAPContextData *inContext, tDataBu
 	uInt32				offset			= 0;
 	uInt32				buffSize		= 0;
 	uInt32				buffLen			= 0;
-	char			   *accountId			= nil;
+	char			   *accountId		= nil;
+	int					rc				= LDAP_LOCAL_ERROR;
 
 	try
 	{
@@ -8902,10 +9167,16 @@ sInt32 CLDAPv3PlugIn::DoSetPasswordAsRoot ( sLDAPContextData *inContext, tDataBu
 		}
 
 		LDAP *aHost = inLDAPSessionMgr.LockSession(inContext);
-		int rc = exop_password_create( aHost, accountId, newPasswd );
-		if( rc != LDAP_SUCCESS )
-				rc = standard_password_create( aHost, accountId, newPasswd );
-
+		if (aHost != nil)
+		{
+			rc = exop_password_create( aHost, accountId, newPasswd );
+			if( rc != LDAP_SUCCESS )
+					rc = standard_password_create( aHost, accountId, newPasswd );
+		}
+		else
+		{
+			rc = LDAP_LOCAL_ERROR;
+		}
         inLDAPSessionMgr.UnLockSession(inContext);
     
         // *** gbv not sure what error codes to check for
@@ -9029,49 +9300,54 @@ sInt32 CLDAPv3PlugIn::DoChangePassword ( sLDAPContextData *inContext, tDataBuffe
 			accountId = GetDNForRecordName ( name, inContext, inConfigFromXML, inLDAPSessionMgr );
 		}
 
-        // Here is the bind to the LDAP server as the user in question
-        LDAP *aLDAPHost = nil;
-        siResult = inLDAPSessionMgr.AuthOpen(	inContext->fName,
-                                                inContext->fHost,
-                                                accountId,
-                                                oldPwd,
-                                                kDSStdAuthClearText,
-                                                &aLDAPHost,
-                                                &(inContext->fConfigTableIndex),
-                                                false);
-		if( siResult == eDSNoErr ) {
-				// password change algorithm: first attempt the extended operation,
-				// if that fails try to change the userPassword field directly
-				int rc = exop_password_create( aLDAPHost, accountId, newPwd );
-				if( rc != LDAP_SUCCESS ) {
-						rc = standard_password_create( aLDAPHost, accountId, newPwd );
+		LDAP *aHost = gLDAPv3Plugin->fLDAPSessionMgr.LockSession(inContext);
+		if (aHost != nil)
+		{
+			LDAP *aLDAPHost = nil;
+			// Here is the bind to the LDAP server as the user in question
+			siResult = inLDAPSessionMgr.AuthOpen(	inContext->fName,
+													aHost,
+													accountId,
+													oldPwd,
+													kDSStdAuthClearText,
+													&aLDAPHost,
+													&(inContext->fConfigTableIndex),
+													false);
+			if( siResult == eDSNoErr ) {
+					// password change algorithm: first attempt the extended operation,
+					// if that fails try to change the userPassword field directly
+					int rc = exop_password_create( aLDAPHost, accountId, newPwd );
+					if( rc != LDAP_SUCCESS ) {
+							rc = standard_password_create( aLDAPHost, accountId, newPwd );
+					}
+	
+				// *** gbv not sure what error codes to check for
+				if ( ( rc == LDAP_INSUFFICIENT_ACCESS ) || ( rc == LDAP_INVALID_CREDENTIALS ) )
+				{
+					siResult = eDSPermissionError;
 				}
-
-            // *** gbv not sure what error codes to check for
-            if ( ( rc == LDAP_INSUFFICIENT_ACCESS ) || ( rc == LDAP_INVALID_CREDENTIALS ) )
-            {
-                siResult = eDSPermissionError;
-            }
-            else if ( rc == LDAP_NOT_SUPPORTED )
-            {
-                siResult = eDSAuthMethodNotSupported;
-            }
-            else if ( rc == LDAP_SUCCESS )
-            {
-                siResult = eDSNoErr;
-            }
-            else
-            {
-                siResult = eDSAuthFailed;
-            }
-            
-            // get rid of our new connection
-            ldap_unbind(aLDAPHost);
-        }
-        else
-        {
-            siResult = eDSAuthFailed;
-        }
+				else if ( rc == LDAP_NOT_SUPPORTED )
+				{
+					siResult = eDSAuthMethodNotSupported;
+				}
+				else if ( rc == LDAP_SUCCESS )
+				{
+					siResult = eDSNoErr;
+				}
+				else
+				{
+					siResult = eDSAuthFailed;
+				}
+				
+				// get rid of our new connection
+				ldap_unbind(aLDAPHost);
+			}
+			else
+			{
+				siResult = eDSAuthFailed;
+			}
+		}// if aHost != nil
+		gLDAPv3Plugin->fLDAPSessionMgr.UnLockSession(inContext);
 	}
 
 	catch( sInt32 err )
@@ -9477,54 +9753,59 @@ sInt32 CLDAPv3PlugIn::GetAuthAuthority ( sLDAPContextData *inContext, tDataBuffe
 		if (	(bResultFound) &&
 				( ldapReturnCode == LDAP_RES_SEARCH_ENTRY ) )
 		{
-			//get the authAuthority attribute here
-			entry = ldap_first_entry( inContext->fHost, result );
-			if ( entry != nil )
+			LDAP *aHost = fLDAPSessionMgr.LockSession(inContext);
+			if (aHost != nil)
 			{
-				attr = ldap_first_attribute( inContext->fHost, entry, &ber );
-				if ( attr != nil )
+				//get the authAuthority attribute here
+				entry = ldap_first_entry( aHost, result );
+				if ( entry != nil )
 				{
-                    int idx;
-                    int numAuthAuthorities = 0;
-                    
-                    berVal = ldap_get_values_len( inContext->fHost, entry, attr );
-                    if ( berVal != nil )
-                    {
-                        numAuthAuthorities = ldap_count_values_len( berVal );
-                        if ( numAuthAuthorities > 0 )
-                        {
-                            *outAuthCount = numAuthAuthorities;
-                            *outAuthAuthority = (char **)calloc( numAuthAuthorities+1, sizeof(char *) );
-                        }
-                        
-                        for ( idx = 0; idx < numAuthAuthorities; idx++ )
-                        {
-                            authauthData = (char *)malloc( berVal[idx]->bv_len + 1 );
-                            if ( authauthData == nil ) throw ( eMemoryError );
-                            
-                            strncpy( authauthData, berVal[idx]->bv_val, berVal[idx]->bv_len );
-                            authauthData[berVal[idx]->bv_len] = '\0';
-                            
-                            // TODO: return the right string
-                            CShared::LogIt( 0x0F, "authauth found %s\n", authauthData ); 
-                            
-                            *outAuthAuthority[idx] = authauthData;
-                        }
-                        siResult = eDSNoErr;
-                        
-                        ldap_value_free_len( berVal );
-                        berVal = nil;
+					attr = ldap_first_attribute( aHost, entry, &ber );
+					if ( attr != nil )
+					{
+						int idx;
+						int numAuthAuthorities = 0;
+						
+						berVal = ldap_get_values_len( aHost, entry, attr );
+						if ( berVal != nil )
+						{
+							numAuthAuthorities = ldap_count_values_len( berVal );
+							if ( numAuthAuthorities > 0 )
+							{
+								*outAuthCount = numAuthAuthorities;
+								*outAuthAuthority = (char **)calloc( numAuthAuthorities+1, sizeof(char *) );
+							}
+							
+							for ( idx = 0; idx < numAuthAuthorities; idx++ )
+							{
+								authauthData = (char *)malloc( berVal[idx]->bv_len + 1 );
+								if ( authauthData == nil ) throw ( eMemoryError );
+								
+								strncpy( authauthData, berVal[idx]->bv_val, berVal[idx]->bv_len );
+								authauthData[berVal[idx]->bv_len] = '\0';
+								
+								// TODO: return the right string
+								CShared::LogIt( 0x0F, "authauth found %s\n", authauthData ); 
+								
+								*outAuthAuthority[idx] = authauthData;
+							}
+							siResult = eDSNoErr;
+							
+							ldap_value_free_len( berVal );
+							berVal = nil;
+						}
+						ldap_memfree( attr );
+						attr = nil;
 					}
-					ldap_memfree( attr );
-					attr = nil;
+					if ( ber != nil )
+					{
+						ber_free( ber, 0 );
+					}
+					//need to be smart and not call abandon unless the search is continuing
+					//ldap_abandon( aHost, ldapMsgId ); // we don't care about the other results, just the first
 				}
-				if ( ber != nil )
-				{
-					ber_free( ber, 0 );
-				}
-   				//need to be smart and not call abandon unless the search is continuing
-				//ldap_abandon( inContext->fHost, ldapMsgId ); // we don't care about the other results, just the first
-			}		
+			}// if aHost != nil
+			fLDAPSessionMgr.UnLockSession(inContext);
 		} // if bResultFound and ldapReturnCode okay
 
 		//no check for LDAP_TIMEOUT on ldapReturnCode since we will return nil
@@ -9829,71 +10110,76 @@ sInt32 CLDAPv3PlugIn::DoUnixCryptAuth ( sLDAPContextData *inContext, tDataBuffer
 		if (	(bResultFound) &&
 				( ldapReturnCode == LDAP_RES_SEARCH_ENTRY ) )
 		{
-			//get the passwd attribute here
-			//we are only going to look at the first attribute, first value
-			entry = ldap_first_entry( inContext->fHost, result );
-			if ( entry != nil )
+			LDAP *aHost = gLDAPv3Plugin->fLDAPSessionMgr.LockSession(inContext);
+			if (aHost != nil)
 			{
-				attr = ldap_first_attribute( inContext->fHost, entry, &ber );
-				if ( attr != nil )
+				//get the passwd attribute here
+				//we are only going to look at the first attribute, first value
+				entry = ldap_first_entry( aHost, result );
+				if ( entry != nil )
 				{
-					vals = ldap_get_values( inContext->fHost, entry, attr );
-					if ( vals != nil )
+					attr = ldap_first_attribute( aHost, entry, &ber );
+					if ( attr != nil )
 					{
-						if ( vals[0] != nil )
+						vals = ldap_get_values( aHost, entry, attr );
+						if ( vals != nil )
 						{
-							cryptPwd = vals[0];
-						}
-						else
-						{
-							cryptPwd = (char *)""; //don't free this
-						}
-						//case insensitive compare with "crypt" string
-						if (::strncasecmp(cryptPwd,"{crypt}",7) == 0)
-						{
-							// special case for OpenLDAP's crypt password attribute
-							// advance past {crypt} to the actual crypt password we want to compare against
-							cryptPwd = cryptPwd + 7;
-						}
-						//account for the case where cryptPwd == "" such that we will auth if pwdLen is 0
-						if (::strcmp(cryptPwd,"") != 0)
-						{
-							char salt[ 9 ];
-							char hashPwd[ 32 ];
-							salt[ 0 ] = cryptPwd[0];
-							salt[ 1 ] = cryptPwd[1];
-							salt[ 2 ] = '\0';
-				
-							::memset( hashPwd, 0, 32 );
-							::strcpy( hashPwd, ::crypt( pwd, salt ) );
-				
-							siResult = eDSAuthFailed;
-							if ( ::strcmp( hashPwd, cryptPwd ) == 0 )
+							if ( vals[0] != nil )
 							{
-								siResult = eDSNoErr;
+								cryptPwd = vals[0];
 							}
-							
-						}
-						else // cryptPwd is == ""
-						{
-							if ( ::strcmp(pwd,"") == 0 )
+							else
 							{
-								siResult = eDSNoErr;
+								cryptPwd = (char *)""; //don't free this
 							}
+							//case insensitive compare with "crypt" string
+							if (::strncasecmp(cryptPwd,"{crypt}",7) == 0)
+							{
+								// special case for OpenLDAP's crypt password attribute
+								// advance past {crypt} to the actual crypt password we want to compare against
+								cryptPwd = cryptPwd + 7;
+							}
+							//account for the case where cryptPwd == "" such that we will auth if pwdLen is 0
+							if (::strcmp(cryptPwd,"") != 0)
+							{
+								char salt[ 9 ];
+								char hashPwd[ 32 ];
+								salt[ 0 ] = cryptPwd[0];
+								salt[ 1 ] = cryptPwd[1];
+								salt[ 2 ] = '\0';
+					
+								::memset( hashPwd, 0, 32 );
+								::strcpy( hashPwd, ::crypt( pwd, salt ) );
+					
+								siResult = eDSAuthFailed;
+								if ( ::strcmp( hashPwd, cryptPwd ) == 0 )
+								{
+									siResult = eDSNoErr;
+								}
+								
+							}
+							else // cryptPwd is == ""
+							{
+								if ( ::strcmp(pwd,"") == 0 )
+								{
+									siResult = eDSNoErr;
+								}
+							}
+							ldap_value_free( vals );
+							vals = nil;
 						}
-						ldap_value_free( vals );
-						vals = nil;
+						ldap_memfree( attr );
+						attr = nil;
 					}
-					ldap_memfree( attr );
-					attr = nil;
+					if ( ber != nil )
+					{
+						ber_free( ber, 0 );
+					}
+					//need to be smart and not call abandon unless the search is continuing
+					//ldap_abandon( aHost, ldapMsgId ); // we don't care about the other results, just the first
 				}
-				if ( ber != nil )
-				{
-					ber_free( ber, 0 );
-				}
-   				//need to be smart and not call abandon unless the search is continuing
-				//ldap_abandon( inContext->fHost, ldapMsgId ); // we don't care about the other results, just the first
-			}		
+			}//if aHost != nil
+			gLDAPv3Plugin->fLDAPSessionMgr.UnLockSession(inContext);
 		} // if bResultFound and ldapReturnCode okay
 
 		//no check for LDAP_TIMEOUT on ldapReturnCode since we will return nil
@@ -9963,6 +10249,7 @@ sInt32 CLDAPv3PlugIn::DoClearTextAuth ( sLDAPContextData *inContext, tDataBuffer
 	char			   *pwd					= nil;
 	sInt32				pwdLen				= 0;
 	LDAP			   *aLDAPHost			= nil;
+	bool				bNewMutex			= false;
 
 	try
 	{
@@ -10030,47 +10317,53 @@ sInt32 CLDAPv3PlugIn::DoClearTextAuth ( sLDAPContextData *inContext, tDataBuffer
 		{
 			if (!authCheckOnly)
 			{
-				// Here is the bind to the LDAP server
-				siResult = inLDAPSessionMgr.AuthOpen(	inContext->fName,
-														inContext->fHost,
-														accountId,
-														pwd,
-														kDSStdAuthClearText,
-														&aLDAPHost,
-														&(inContext->fConfigTableIndex),
-                                                        true);
-				if (siResult == eDSNoErr)
+				LDAP *aHost = gLDAPv3Plugin->fLDAPSessionMgr.LockSession(inContext);
+				if (aHost != nil)
 				{
-					if (inContext->fLDAPSessionMutex == nil)
+					// Here is the bind to the LDAP server
+					siResult = inLDAPSessionMgr.AuthOpen(	inContext->fName,
+															aHost,
+															accountId,
+															pwd,
+															kDSStdAuthClearText,
+															&aLDAPHost,
+															&(inContext->fConfigTableIndex),
+															true);
+					if (siResult == eDSNoErr)
 					{
-						inContext->fLDAPSessionMutex = new DSMutexSemaphore();
+						if (inContext->fLDAPSessionMutex == nil)
+						{
+							inContext->fLDAPSessionMutex = new DSMutexSemaphore();
+							bNewMutex = true;
+						}
+						inContext->fLDAPSessionMutex->Wait();
+						inContext->fHost = aLDAPHost;
+						//provision here for future different auth but now auth credential is a password only
+						if (inContext->fAuthType == nil)
+						{
+							inContext->fAuthType = strdup(kDSStdAuthClearText);
+						}
+						inContext->authCallActive = true;
+						if (inContext->fUserName != nil)
+						{
+							free(inContext->fUserName);
+							inContext->fUserName = nil;
+						}
+						inContext->fUserName = strdup(accountId);
+						if (inContext->fAuthCredential != nil)
+						{
+							free(inContext->fAuthCredential);
+							inContext->fAuthCredential = nil;
+						}
+						inContext->fAuthCredential = strdup(pwd);
+						inContext->fLDAPSessionMutex->Signal();
 					}
-					inContext->fLDAPSessionMutex->Wait();
-					inContext->fHost = aLDAPHost;
-					//provision here for future different auth but now auth credential is a password only
-					if (inContext->fAuthType == nil)
+					else
 					{
-						inContext->fAuthType = strdup(kDSStdAuthClearText);
+						siResult = eDSAuthFailed;
 					}
-					inContext->authCallActive = true;
-					if (inContext->fUserName != nil)
-					{
-						free(inContext->fUserName);
-						inContext->fUserName = nil;
-					}
-					inContext->fUserName = strdup(accountId);
-					if (inContext->fAuthCredential != nil)
-					{
-						free(inContext->fAuthCredential);
-						inContext->fAuthCredential = nil;
-					}
-					inContext->fAuthCredential = strdup(pwd);
-					inContext->fLDAPSessionMutex->Signal();
-				}
-				else
-				{
-					siResult = eDSAuthFailed;
-				}
+				}//if aHost != nil
+				gLDAPv3Plugin->fLDAPSessionMgr.UnLockSession(inContext, bNewMutex);
 			}
 			else //no session ie. authCheckOnly
 			{
@@ -10260,8 +10553,13 @@ char* CLDAPv3PlugIn::GetDNForRecordName ( char* inRecName, sLDAPContextData *inC
 		if (	(bResultFound) &&
 				( ldapReturnCode == LDAP_RES_SEARCH_ENTRY ) )
 		{
-			//get the ldapDN here
-			ldapDN = ldap_get_dn(inContext->fHost, result);
+			LDAP *aHost = gLDAPv3Plugin->fLDAPSessionMgr.LockSession(inContext);
+			if (aHost != nil)
+			{
+				//get the ldapDN here
+				ldapDN = ldap_get_dn(aHost, result);
+			}
+			gLDAPv3Plugin->fLDAPSessionMgr.UnLockSession(inContext);
 		
 		} // if bResultFound and ldapReturnCode okay
 		
@@ -10548,7 +10846,7 @@ sInt32 CLDAPv3PlugIn:: RebindLDAPSession ( sLDAPContextData *inContext, CLDAPNod
 		else
 		{
 			siResult = inLDAPSessionMgr.RebindSession(		inContext->fName,
-															inContext->fHost,
+															inContext->fHost, //what does this mean?
 															&aLDAPHost );
 		}
 		//always reset the session even if nil

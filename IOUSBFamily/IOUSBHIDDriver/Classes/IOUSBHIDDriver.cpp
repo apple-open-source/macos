@@ -1112,11 +1112,13 @@ IOUSBHIDDriver::CheckForDeadDevice()
 {
     IOReturn			err = kIOReturnSuccess;
 
-    _deviceDeadThreadActive = TRUE;
-    // Are we still connected?
+    // Are we still connected?  Don't check again if we're already
+    // checking
     //
-    if ( _interface && _device )
+    if ( _interface && _device && !_deviceDeadThreadActive)
     {
+        _deviceDeadThreadActive = TRUE;
+
         err = _device->message(kIOUSBMessageHubIsDeviceConnected, NULL, 0);
     
         if ( kIOReturnSuccess == err )
@@ -1145,8 +1147,8 @@ IOUSBHIDDriver::CheckForDeadDevice()
             _deviceHasBeenDisconnected = TRUE;
             USBLog(5, "%s[%p]: CheckForDeadDevice: device has been unplugged", getName(), this);
         }
+        _deviceDeadThreadActive = FALSE;
     }
-    _deviceDeadThreadActive = FALSE;
 }
 
 

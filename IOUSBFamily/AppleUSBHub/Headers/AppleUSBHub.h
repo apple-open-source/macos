@@ -147,6 +147,7 @@ class AppleUSBHub : public IOService
     void		StopWatchdogTimer();
     IOReturn		RearmInterruptRead();
     void		ResetMyPort();
+    IOUSBHubDescriptor 	GetCachedHubDescriptor() { return _hubDescriptor; }
     
 public:
 

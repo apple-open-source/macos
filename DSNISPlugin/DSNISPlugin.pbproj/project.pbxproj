@@ -1,0 +1,568 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		773C789F01D146CD05DD284B = {
+			isa = PBXFrameworkReference;
+			name = DirectoryService.framework;
+			path = /System/Library/Frameworks/DirectoryService.framework;
+			refType = 0;
+		};
+		7743A29D01D155D805DD284B = {
+			isa = PBXFrameworkReference;
+			name = SystemConfiguration.framework;
+			path = /System/Library/Frameworks/SystemConfiguration.framework;
+			refType = 0;
+		};
+		7743A29F01D1562505DD284B = {
+			isa = PBXBundleReference;
+			path = NIS.dsplug;
+			refType = 3;
+		};
+		7743A2A001D1562505DD284B = {
+			buildPhases = (
+				7743A2A101D1562505DD284B,
+				7743A2A201D1562505DD284B,
+				7743A2A301D1562505DD284B,
+				7743A2A401D1562505DD284B,
+				7743A2A501D1562505DD284B,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers\"  $(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins";
+				LIBRARY_SEARCH_PATHS = "/usr/local/lib \"$(APPLE_INTERNAL_DIR)/Developer/libs\"";
+				OPTIMIZATION_CFLAGS = "-O";
+				OTHER_CFLAGS = "-Wno-four-char-constants -D__cplusplus -DDEBUG -DMACOSX -DMAC_OS_X -DTARGET_API_MAC_OSX=1 -DTARGET_CARBON=1 -DPP_Target_Carbon=1 -DTARGET_API_MAC_CARBON=1 -fpascal-strings -Wno-unknown-pragmas -Wno-reorder";
+				OTHER_LDFLAGS = "-bundle -twolevel_namespace -undefined error -lstdc++";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = NIS;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = dsplug;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = BSD;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins";
+			productName = DSHelperCodePlugin;
+			productReference = 7743A29F01D1562505DD284B;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleConfigAvail</key>
+	<string>Not Available</string>
+	<key>CFBundleConfigFile</key>
+	<string>Not Available</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>NIS</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.DirectoryService.BSD</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>BSD</string>
+	<key>CFBundlePackageSignature</key>
+	<string>adss</string>
+	<key>CFBundlePackageType</key>
+	<string>dspi</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0</string>
+	<key>CFPlugInDynamicRegistration</key>
+	<string>NO</string>
+	<key>CFPlugInFactories</key>
+	<dict>
+		<key>CE63BE32-F5B6-11D6-9DC0-0003934FB010</key>
+		<string>ModuleFactory</string>
+	</dict>
+	<key>CFPlugInTypes</key>
+	<dict>
+		<key>697B5D6C-87A1-1226-89CA-000502C1C736</key>
+		<array>
+			<string>CE63BE32-F5B6-11D6-9DC0-0003934FB010</string>
+		</array>
+	</dict>
+	<key>CFPluginNameString</key>
+	<string>NIS</string>
+	<key>DSPluginPrefix</key>
+	<string>BSD</string>
+	<key>DSServerSignature</key>
+	<string>BSD</string>
+</dict>
+</plist>
+";
+		};
+		7743A2A101D1562505DD284B = {
+			buildActionMask = 2147483647;
+			files = (
+				A45343BF01D3AB0C03DD2834,
+				A4B489A90385C37803DD2834,
+				A4B489D20385D47103DD2834,
+				FE6FE2C6041033B300DD2834,
+				FE6FE2C8041033B300DD2834,
+				FE6FE2C9041033B300DD2834,
+				FE6FE2CB041033B300DD2834,
+				FE6FE2CD041033B300DD2834,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7743A2A201D1562505DD284B = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7743A2A301D1562505DD284B = {
+			buildActionMask = 2147483647;
+			files = (
+				A45343CA01D3AB0C03DD2834,
+				A4B489A80385C37803DD2834,
+				A4B489D10385D47103DD2834,
+				A459055103CCA21D03DD2834,
+				FE6FE2C7041033B300DD2834,
+				FE6FE2CA041033B300DD2834,
+				FE6FE2CC041033B300DD2834,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7743A2A401D1562505DD284B = {
+			buildActionMask = 2147483647;
+			files = (
+				A4A09E83021C680303DD2834,
+				A4C5893002217F5D03DD2834,
+				A4848673029D552403DD2834,
+				A4533E2F02A4583D03DD2834,
+				A421727902A9724403DD2834,
+				A4B68BEF038C29C503DD2834,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7743A2A501D1562505DD284B = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		774A93FD01D12BAB05DD284B = {
+			buildStyles = (
+				774A93FF01D12BAB05DD284B,
+				774A940001D12BAB05DD284B,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = 774A93FE01D12BAB05DD284B;
+			productRefGroup = 774A942901D12DDF05DD284B;
+			projectDirPath = "";
+			targets = (
+				7743A2A001D1562505DD284B,
+			);
+		};
+		774A93FE01D12BAB05DD284B = {
+			children = (
+				A453436B01D3AB0C03DD2834,
+				A4B489A00385C36003DD2834,
+				A453433A01D3AB0C03DD2834,
+				A4B48983038597BD03DD2834,
+				774A949401D131F105DD284B,
+				774A942901D12DDF05DD284B,
+			);
+			isa = PBXGroup;
+			refType = 4;
+		};
+		774A93FF01D12BAB05DD284B = {
+			buildRules = (
+			);
+			buildSettings = {
+				BUILD_SETTING = "";
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O -gfull";
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		774A940001D12BAB05DD284B = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		774A942901D12DDF05DD284B = {
+			children = (
+				7743A29F01D1562505DD284B,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+		774A948701D12F4505DD284B = {
+			isa = PBXFrameworkReference;
+			name = CoreServices.framework;
+			path = /System/Library/Frameworks/CoreServices.framework;
+			refType = 0;
+		};
+		774A949401D131F105DD284B = {
+			children = (
+				773C789F01D146CD05DD284B,
+				774A948701D12F4505DD284B,
+				7743A29D01D155D805DD284B,
+				A4A09E7E021C680303DD2834,
+				A4C5892B02217F5D03DD2834,
+				A4533E2E02A4583D03DD2834,
+			);
+			isa = PBXGroup;
+			name = Frameworks;
+			refType = 4;
+		};
+//770
+//771
+//772
+//773
+//774
+//A40
+//A41
+//A42
+//A43
+//A44
+		A41313330393E67D03B74821 = {
+			isa = PBXFileReference;
+			path = Todo.rtf;
+			refType = 4;
+		};
+		A421727902A9724403DD2834 = {
+			fileRef = 7743A29D01D155D805DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A4533E2E02A4583D03DD2834 = {
+			isa = PBXFrameworkReference;
+			name = Security.framework;
+			path = /System/Library/Frameworks/Security.framework;
+			refType = 0;
+		};
+		A4533E2F02A4583D03DD2834 = {
+			fileRef = A4533E2E02A4583D03DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A453433A01D3AB0C03DD2834 = {
+			children = (
+				A459055003CCA21D03DD2834,
+				A459055903CCA2A303DD2834,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+		};
+		A453433B01D3AB0C03DD2834 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = CommandLineUtilities.cpp;
+			path = HelperCode/CommandLineUtilities.cpp;
+			refType = 4;
+		};
+		A453433C01D3AB0C03DD2834 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = CommandLineUtilities.h;
+			path = HelperCode/CommandLineUtilities.h;
+			refType = 4;
+		};
+		A453436B01D3AB0C03DD2834 = {
+			children = (
+				FE6FE2BE041033B300DD2834,
+				FE6FE2BF041033B300DD2834,
+				FE6FE2C0041033B300DD2834,
+				FE6FE2C1041033B300DD2834,
+				FE6FE2C2041033B300DD2834,
+				FE6FE2C3041033B300DD2834,
+				FE6FE2C4041033B300DD2834,
+				FE6FE2C5041033B300DD2834,
+			);
+			isa = PBXGroup;
+			name = Sources;
+			refType = 4;
+		};
+		A45343BF01D3AB0C03DD2834 = {
+			fileRef = A453433C01D3AB0C03DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A45343CA01D3AB0C03DD2834 = {
+			fileRef = A453433B01D3AB0C03DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A459055003CCA21D03DD2834 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = ServerModule.exp;
+			path = NIS/ServerModule.exp;
+			refType = 4;
+		};
+		A459055103CCA21D03DD2834 = {
+			fileRef = A459055003CCA21D03DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A459055903CCA2A303DD2834 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = Configuration.strings;
+			path = NIS/Configuration.strings;
+			refType = 4;
+		};
+		A4848673029D552403DD2834 = {
+			fileRef = 774A948701D12F4505DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A4A09E7E021C680303DD2834 = {
+			isa = PBXFileReference;
+			name = libDSPlugInCommon.a;
+			path = /AppleInternal/Developer/libs/libDSPlugInCommon.a;
+			refType = 0;
+		};
+		A4A09E83021C680303DD2834 = {
+			fileRef = A4A09E7E021C680303DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A4B48983038597BD03DD2834 = {
+			children = (
+				A41313330393E67D03B74821,
+			);
+			isa = PBXGroup;
+			name = Other;
+			refType = 4;
+		};
+		A4B489A00385C36003DD2834 = {
+			children = (
+				A453433B01D3AB0C03DD2834,
+				A453433C01D3AB0C03DD2834,
+				A4B489CF0385D47103DD2834,
+				A4B489D00385D47103DD2834,
+				A4B489A30385C37803DD2834,
+				A4B489A40385C37803DD2834,
+			);
+			isa = PBXGroup;
+			name = "Helper Code";
+			path = "";
+			refType = 4;
+		};
+		A4B489A30385C37803DD2834 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = ffparser.cpp;
+			path = HelperCode/ffparser.cpp;
+			refType = 4;
+		};
+		A4B489A40385C37803DD2834 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = ffparser.h;
+			path = HelperCode/ffparser.h;
+			refType = 4;
+		};
+		A4B489A80385C37803DD2834 = {
+			fileRef = A4B489A30385C37803DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A4B489A90385C37803DD2834 = {
+			fileRef = A4B489A40385C37803DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A4B489CF0385D47103DD2834 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = dsutil.cpp;
+			path = HelperCode/dsutil.cpp;
+			refType = 4;
+		};
+		A4B489D00385D47103DD2834 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = dsutil.h;
+			path = HelperCode/dsutil.h;
+			refType = 4;
+		};
+		A4B489D10385D47103DD2834 = {
+			fileRef = A4B489CF0385D47103DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A4B489D20385D47103DD2834 = {
+			fileRef = A4B489D00385D47103DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A4B68BEF038C29C503DD2834 = {
+			fileRef = 773C789F01D146CD05DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A4C5892B02217F5D03DD2834 = {
+			isa = PBXFrameworkReference;
+			name = DirectoryServiceCore.framework;
+			path = /System/Library/PrivateFrameworks/DirectoryServiceCore.framework;
+			refType = 0;
+		};
+		A4C5893002217F5D03DD2834 = {
+			fileRef = A4C5892B02217F5D03DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//A40
+//A41
+//A42
+//A43
+//A44
+//FE0
+//FE1
+//FE2
+//FE3
+//FE4
+		FE6FE2BE041033B300DD2834 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = BSDDebugLog.h;
+			path = NIS/BSDDebugLog.h;
+			refType = 4;
+		};
+		FE6FE2BF041033B300DD2834 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = BSDDirNodeRep.cpp;
+			path = NIS/BSDDirNodeRep.cpp;
+			refType = 4;
+		};
+		FE6FE2C0041033B300DD2834 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = BSDDirNodeRep.h;
+			path = NIS/BSDDirNodeRep.h;
+			refType = 4;
+		};
+		FE6FE2C1041033B300DD2834 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = BSDHeaders.h;
+			path = NIS/BSDHeaders.h;
+			refType = 4;
+		};
+		FE6FE2C2041033B300DD2834 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = BSDPlugin.cpp;
+			path = NIS/BSDPlugin.cpp;
+			refType = 4;
+		};
+		FE6FE2C3041033B300DD2834 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = BSDPlugin.h;
+			path = NIS/BSDPlugin.h;
+			refType = 4;
+		};
+		FE6FE2C4041033B300DD2834 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = BSDResult.cpp;
+			path = NIS/BSDResult.cpp;
+			refType = 4;
+		};
+		FE6FE2C5041033B300DD2834 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = BSDResult.h;
+			path = NIS/BSDResult.h;
+			refType = 4;
+		};
+		FE6FE2C6041033B300DD2834 = {
+			fileRef = FE6FE2BE041033B300DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE6FE2C7041033B300DD2834 = {
+			fileRef = FE6FE2BF041033B300DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE6FE2C8041033B300DD2834 = {
+			fileRef = FE6FE2C0041033B300DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE6FE2C9041033B300DD2834 = {
+			fileRef = FE6FE2C1041033B300DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE6FE2CA041033B300DD2834 = {
+			fileRef = FE6FE2C2041033B300DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE6FE2CB041033B300DD2834 = {
+			fileRef = FE6FE2C3041033B300DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE6FE2CC041033B300DD2834 = {
+			fileRef = FE6FE2C4041033B300DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		FE6FE2CD041033B300DD2834 = {
+			fileRef = FE6FE2C5041033B300DD2834;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+	};
+	rootObject = 774A93FD01D12BAB05DD284B;
+}

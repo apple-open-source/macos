@@ -305,6 +305,8 @@ protected:
 	friend class IOFireWireAVCUnit;
     friend class IOFireWireAVCCommand;
     friend class IOFireLog;
+	friend class IOFWWriteQuadCommand;
+	friend class IOFWWriteCommand;
 	
     IOFireWireLink *		fFWIM;
     IOFWWorkLoop *	fWorkLoop;
@@ -608,7 +610,32 @@ protected:
 	static bool serverKeyswitchCallback( void * target, void * refCon, IOService * service );
 	virtual void setSecurityMode( IOFWSecurityMode mode );
 	virtual IOFWSecurityMode getSecurityMode( void );
-	
+
+	virtual IOReturn asyncWrite(	UInt32 					generation, 
+									UInt16 					nodeID, 
+									UInt16 					addrHi, 
+									UInt32 					addrLo,
+									int 					speed, 
+									int 					label, 
+									IOMemoryDescriptor *	buf, 
+									IOByteCount 			offset,
+									int 					size, 
+									IOFWAsyncCommand *		cmd,
+									IOFWWriteFlags 			flags );
+									
+	virtual IOReturn asyncWrite(	UInt32 				generation, 
+									UInt16 				nodeID, 
+									UInt16 				addrHi, 
+									UInt32 				addrLo,
+									int 				speed, 
+									int 				label, 
+									void *				data, 
+									int 				size, 
+									IOFWAsyncCommand *	cmd,
+									IOFWWriteFlags 		flags );
+
+	virtual void handleARxReqIntComplete();
+
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireController, 0);
     OSMetaClassDeclareReservedUnused(IOFireWireController, 1);

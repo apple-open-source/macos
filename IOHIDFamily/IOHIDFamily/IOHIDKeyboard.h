@@ -59,7 +59,22 @@ enum {
     kgestUSBAndyISOKbd        = 205,      /* (0xCD) Andy USB Keyboard International (ISO) Keyboard */
     kprodUSBAndyISOKbd	      = 0x205,
     kgestUSBAndyJISKbd        = 206,       /* (0xCE) Andy USB Keyboard Japanese (JIS) Keyboard */
-    kprodUSBAndyJISKbd	      = 0x206
+    kprodUSBAndyJISKbd	      = 0x206,
+
+    kgestQ6ANSIKbd	      = 31,      /* (0x31) Apple Q6 Keyboard Domestic (ANSI) Keyboard */
+    kprodQ6ANSIKbd	      = 0x208,
+    kgestQ6ISOKbd	      = 32,      /* (0x32) Apple Q6 Keyboard International (ISO) Keyboard */
+    kprodQ6ISOKbd	      = 0x209,
+    kgestQ6JISKbd	      = 33,      /* (0x33) Apple Q6 Keyboard Japanese (JIS) Keyboard */
+    kprodQ6JISKbd	      = 0x20a,
+    
+    kgestQ30ANSIKbd	      = 34,      /* (0x34) Apple Q30 Keyboard Domestic (ANSI) Keyboard */
+    kprodQ30ANSIKbd	      = 0x20b,
+    kgestQ30ISOKbd	      = 35,      /* (0x35) Apple Q30 Keyboard International (ISO) Keyboard */
+    kprodQ30ISOKbd	      = 0x20c,
+    kgestQ30JISKbd	      = 36,      /* (0x36) Apple Q30 Keyboard Japanese (JIS) Keyboard */
+    kprodQ30JISKbd	      = 0x20d    
+
 };
 
 #define ADB_CONVERTER_LEN       0xff + 1   //length of array def_usb_2_adb_keymap[]

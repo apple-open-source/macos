@@ -1627,9 +1627,15 @@ choose_vec_easy (insn, permute, simple)
 {
   /* Remember our last choice.  */
   static enum attr_type last_easy = TYPE_INTEGER;
+  enum attr_type type;
   /* First look at the previous instruction.  */
   rtx prev = prev_active_insn (insn);
-  enum attr_type type = prev ? get_attr_type (prev) : TYPE_INTEGER;
+  /* Jump tables don't have a type; prevent get_attr_type from crashing.  */
+  if (prev && GET_CODE (prev) == JUMP_INSN &&
+	(GET_CODE (PATTERN (prev)) == ADDR_VEC 
+	  || GET_CODE (PATTERN (prev)) == ADDR_DIFF_VEC))
+    prev = 0;
+  type = prev ? get_attr_type (prev) : TYPE_INTEGER;
 
   /* If the previous instruction was VEC_EASY,
      its chosen type is in last_easy.  */
@@ -1645,6 +1651,11 @@ choose_vec_easy (insn, permute, simple)
     {
       /* Look at the next instruction to decide.  */
       rtx next = next_active_insn (insn);
+      /* Jump tables don't have a type; prevent get_attr_type from crashing.  */
+      if (next && GET_CODE (next) == JUMP_INSN
+	   && (GET_CODE (PATTERN (next)) == ADDR_VEC 
+	       || GET_CODE (PATTERN (next)) == ADDR_DIFF_VEC))
+	next = 0;
       type = next ? get_attr_type (next) : TYPE_INTEGER;
       /* Prefer VEC_PERM unless the next instruction conflicts.  */
       last_easy = (type == TYPE_VEC_PERM ? TYPE_VEC_SIMPLE : TYPE_VEC_PERM);
@@ -8949,7 +8960,9 @@ output_cbranch (op, label, reversed, insn)
 static int
 alloc_volatile_reg ()
 {
-  if (current_function_is_leaf && !cfun->machine->ra_needs_full_frame)
+  if (current_function_is_leaf 
+      && reload_completed
+      && !cfun->machine->ra_needs_full_frame)
     {
       int r;
       for (r = 10; r >= 2; --r)
@@ -11818,10 +11831,10 @@ rs6000_emit_epilogue (sibcall)
       /* Under V.4, don't reset the stack pointer until after we're done
 	 loading the saved registers.  */
       /* APPLE LOCAL begin AltiVec */
-      if (DEFAULT_ABI == ABI_V4
-	  || info->vector_outside_red_zone_p)
-	/* APPLE LOCAL end AltiVec */
-	frame_reg_rtx = gen_rtx_REG (Pmode, 11);
+      if (DEFAULT_ABI == ABI_V4 || info->vector_outside_red_zone_p)
+        /* On Darwin, R11 would be clobbered by restVEC, so use R2. */
+	frame_reg_rtx = gen_rtx_REG (Pmode, DEFAULT_ABI == ABI_DARWIN ? 2 : 11);
+      /* APPLE LOCAL end AltiVec */
 
       emit_move_insn (frame_reg_rtx,
 		      gen_rtx_MEM (Pmode, sp_reg_rtx));
@@ -12287,7 +12300,10 @@ rs6000_emit_epilogue (sibcall)
       /* Prevent any attempt to delete the setting of R0 or R10!  */
       RTVEC_ELT (p, j++) = gen_rtx_USE (VOIDmode, gen_rtx_REG (reg_mode, 0));
       RTVEC_ELT (p, j++) = gen_rtx_USE (VOIDmode, gen_rtx_REG (reg_mode, 10));
-      emit_insn (gen_rtx_PARALLEL (VOIDmode, p));
+      if (vrsave == branch)
+        emit_jump_insn (gen_rtx_PARALLEL (VOIDmode, p));
+      else
+	emit_insn (gen_rtx_PARALLEL (VOIDmode, p));
 
       /* Get the old lr if we saved it.  */
       if (info->lr_save_p && vrsave == call)
@@ -12339,7 +12355,8 @@ rs6000_emit_epilogue (sibcall)
 		 : gen_adddi3 (sp_reg_rtx, sp_reg_rtx, sa));
     }
 
-  if (!sibcall)
+  /* APPLE LOCAL Altivec related */
+  if (!sibcall && vrsave != branch)
     {
       rtvec p;
       if (! restoring_FPRs_inline)

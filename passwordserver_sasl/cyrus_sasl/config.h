@@ -46,6 +46,7 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include <machine/ansi.h>
 
 /* Define to empty if the keyword does not work.  */
 /* #undef const */
@@ -175,7 +176,9 @@
 #define HAVE_SS_FAMILY 1
 
 /* do we have socklen_t? */
-/* #undef HAVE_SOCKLEN_T */
+#ifdef _BSD_SOCKLEN_T_
+#define HAVE_SOCKLEN_T
+#endif
 #define HAVE_SOCKADDR_SA_LEN 1
 
 /* Define if you have the dn_expand function.  */

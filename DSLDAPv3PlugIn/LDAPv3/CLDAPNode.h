@@ -75,6 +75,11 @@ typedef struct sLDAPNodeStruct {
 	char		   *fAuthType;				//LDAP authentication type ie. kDSStdAuthClearText means password used
 	bool			bHasFailed;				//a previous bind has failed - checked to delay successive attempts
 	time_t			fDelayedBindTime;		//time after which to retry to bind
+	uInt32			fConnectionActiveCount;	//count of active use of connection
+	int				fIdleTOCount;			//count of 30 sec periodic task calls for idle connection release
+	int				fIdleTO;				//user defined idle timeout in minutes times 2 based on 30 sec periodic task
+											//no Idle TO used if this is zero
+	int				fDelayRebindTry;		//Delay rebind try after bind failure in seconds
 } sLDAPNodeStruct;
 
 typedef map<string, sLDAPNodeStruct*>	LDAPNodeMap;
@@ -135,7 +140,10 @@ public:
 
 	void			GetSchema		( sLDAPContextData *inContext );
 	LDAP* 			LockSession		( sLDAPContextData *inContext );
-	void			UnLockSession	( sLDAPContextData *inContext );
+	void			UnLockSession	( sLDAPContextData *inContext, bool inNewMutex = false );
+	void			CheckIdles		( void );
+	void			ActiveConnection( char *inNodeName );
+	void			IdleConnection	( char *inNodeName );
 
 protected:
 	

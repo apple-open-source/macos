@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2002 Sendmail, Inc. and its suppliers.
+ * Copyright (c) 1998-2003 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  * Copyright (c) 1990, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
@@ -18,7 +18,7 @@ SM_IDSTR(copyright,
      Copyright (c) 1990, 1993, 1994\n\
 	The Regents of the University of California.  All rights reserved.\n")
 
-SM_IDSTR(id, "@(#)$Id: mail.local.c,v 1.1.1.6 2002/10/15 02:38:19 zarzycki Exp $")
+SM_IDSTR(id, "@(#)$Id: mail.local.c,v 1.2 2003/03/29 20:22:04 zarzycki Exp $")
 
 #include <stdlib.h>
 #include <sm/errstring.h>
@@ -657,6 +657,8 @@ store(from, inbody)
 	(void) sm_strlcpy(tmpbuf, _PATH_LOCTMP, sizeof tmpbuf);
 	if ((fd = mkstemp(tmpbuf)) < 0 || (fp = fdopen(fd, "w+")) == NULL)
 	{
+		if (fd >= 0)
+			(void) close(fd);
 		mailerr("451 4.3.0", "Unable to open temporary file");
 		return -1;
 	}
@@ -1036,7 +1038,12 @@ tryagain:
 			mbfd = -1;
 		}
 	}
-	else if (sb.st_nlink != 1 || !S_ISREG(sb.st_mode))
+	else if (sb.st_nlink != 1)
+	{
+		mailerr("550 5.2.0", "%s: too many links", path);
+		goto err0;
+	}
+	else if (!S_ISREG(sb.st_mode))
 	{
 		mailerr("550 5.2.0", "%s: irregular file", path);
 		goto err0;
@@ -1128,7 +1135,7 @@ tryagain:
 		goto err1;
 	}
 
-	/* Get the starting offset of the new message for biff. */
+	/* Get the starting offset of the new message */
 	curoff = lseek(mbfd, (off_t) 0, SEEK_END);
 	(void) sm_snprintf(biffmsg, sizeof(biffmsg), "%s@%lld\n",
 			   name, (LONGLONG_T) curoff);
@@ -1200,7 +1207,8 @@ err3:
 #ifdef DEBUG
 		fprintf(stderr, "reset euid = %d\n", (int) geteuid());
 #endif /* DEBUG */
-		(void) ftruncate(mbfd, curoff);
+		if (mbfd >= 0)
+			(void) ftruncate(mbfd, curoff);
 err1:		if (mbfd >= 0)
 			(void) close(mbfd);
 err0:		unlockmbox();
@@ -1216,7 +1224,29 @@ err0:		unlockmbox();
 			errcode = "552 5.2.2";
 #endif /* EDQUOT */
 		mailerr(errcode, "%s: %s", path, sm_errstring(errno));
-		(void) truncate(path, curoff);
+		mbfd = open(path, O_WRONLY|EXTRA_MODE, 0);
+		if (mbfd < 0
+		    || fstat(mbfd, &sb) < 0 ||
+		    sb.st_nlink != 1 ||
+		    !S_ISREG(sb.st_mode) ||
+		    sb.st_dev != fsb.st_dev ||
+		    sb.st_ino != fsb.st_ino ||
+# if HAS_ST_GEN && 0		/* AFS returns random values for st_gen */
+		    sb.st_gen != fsb.st_gen ||
+# endif /* HAS_ST_GEN && 0 */
+		    sb.st_uid != fsb.st_uid
+		   )
+		{
+			/* Don't use a bogus file */
+			if (mbfd >= 0)
+			{
+				(void) close(mbfd);
+				mbfd = -1;
+			}
+		}
+
+		/* Attempt to truncate back to pre-write size */
+		goto err3;
 	}
 	else
 		notifybiff(biffmsg);

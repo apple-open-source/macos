@@ -81,8 +81,20 @@ void IOFireWireAVCUnit::updateSubUnits(bool firstTime)
     cmd[4] = cmd[5] = cmd[6] = cmd[7] = 0xff;
     size = 8;
     
-    res = AVCCommand(cmd, 8, response, &size);
-    
+    for(int i = 0; i<10; i++) {
+        res = AVCCommand(cmd, 8, response, &size);
+        if(res == (kIOFireWireResponseBase + kFWResponseConflictError)) {
+            IOSleep(10);
+            continue;	// Try again
+        }
+        else if(res == kIOReturnSuccess && response[kAVCOperand2] == 0xff) {
+            // Some devices initially say they have no subunits.
+            IOSleep(10);
+            continue;	// Try again
+        }
+        else
+            break;		// Got a final result code
+    }
     if(res != kIOReturnSuccess || response[kAVCCommandResponse] != kAVCImplementedStatus) {
         if(firstTime) {
             // Sony convertor box doesn't do AVC, make it look like a camcorder.
@@ -90,15 +102,23 @@ void IOFireWireAVCUnit::updateSubUnits(bool firstTime)
             if(res != kIOReturnSuccess)
                 hasFCP = false;
             
-            response[kAVCOperand2] = 0x20;	// One VCR
+            response[kAVCOperand1] = 0x20;	// One VCR
+            response[kAVCOperand2] = 0xff;
             response[kAVCOperand3] = 0xff;
             response[kAVCOperand4] = 0xff;
-            response[kAVCOperand5] = 0xff;
         }
         else
             return;	// No update necessary
     }
-
+    else if(size == 5) {
+        // some mLAN devices don't report their subunit info correctly,
+        // set it up here
+        size = 8;
+        response[kAVCOperand1] = 0x08;	// One Audio subunit
+        response[kAVCOperand2] = 0xff;
+        response[kAVCOperand3] = 0xff;
+        response[kAVCOperand4] = 0xff;
+    }
     if(firstTime)
         setProperty("supportsFCP", hasFCP);
     

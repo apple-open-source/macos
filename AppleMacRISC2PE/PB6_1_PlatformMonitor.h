@@ -26,6 +26,10 @@
  
 #include "IOPlatformMonitor.h"
 
+// DEBUG = 1 turns on debugging comments (IOLog)
+// DEBUG = 0 turns them off
+#define DEBUG 0
+
 enum {
 	// Sensor states
 	kPowerState0			= 0,						// Fast/high
@@ -76,6 +80,13 @@ enum {
 #define kIOPMonFull					"FullSpeed"
 #define kIOPMonReduced				"ReducedSpeed"
 #define kIOPMonSlow					"SlowSpeed"
+
+#if DEBUG
+	#define debug_msg( msg ) IOLog(msg)
+#else
+	#define debug_msg( msg )
+#endif
+
 
 class PB6_1_PlatformMonitor : public IOPlatformMonitor
 {

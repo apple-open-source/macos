@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_subr.h,v 1.5.34.1 2003/01/08 03:24:39 lindak Exp $
+ * $Id: smbfs_subr.h,v 1.5.34.2 2003/03/14 00:05:54 lindak Exp $
  */
 #ifndef _FS_SMBFS_SMBFS_SUBR_H_
 #define _FS_SMBFS_SMBFS_SUBR_H_
@@ -68,6 +68,7 @@ struct smbfattr {
 	struct timespec	fa_ctime;
 	struct timespec	fa_mtime;
 	long		fa_ino;
+	struct timespec fa_reqtime;
 };
 
 /*

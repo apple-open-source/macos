@@ -27,7 +27,6 @@ Environment     = CFLAG="$(CFLAGS)"									\
 
 Install_Target  = install
 
-installhdrs:: install
 
 # Shadow the source tree
 lazy_install_source:: shadow_source
@@ -52,10 +51,12 @@ shlibs:
 	@echo "Building shared libraries..."
 	$(_v) $(CC_Shlib) "$(DSTROOT)$(USRLIBDIR)/libcrypto.a"						\
 		-install_name "$(USRLIBDIR)/libcrypto.$(FileVersion).dylib"				\
+		-sectorder __TEXT __text /AppleInternal/OrderFiles/libcrypto.order			\
 		-o "$(DSTROOT)$(USRLIBDIR)/libcrypto.$(FileVersion).dylib"
 	$(_v) $(CC_Shlib) "$(DSTROOT)$(USRLIBDIR)/libssl.a"						\
 		"$(DSTROOT)$(USRLIBDIR)/libcrypto.$(FileVersion).dylib"					\
 		-install_name "$(USRLIBDIR)/libssl.$(FileVersion).dylib"				\
+		-sectorder __TEXT __text /AppleInternal/OrderFiles/libssl.order				\
 		-o "$(DSTROOT)$(USRLIBDIR)/libssl.$(FileVersion).dylib"
 	$(_v) for lib in crypto ssl; do								\
 		$(LN) -fs "lib$${lib}.$(FileVersion).dylib" "$(DSTROOT)$(USRLIBDIR)/lib$${lib}.dylib";	\

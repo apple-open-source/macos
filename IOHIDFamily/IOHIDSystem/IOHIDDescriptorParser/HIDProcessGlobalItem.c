@@ -88,8 +88,10 @@ OSStatus HIDProcessGlobalItem(HIDReportDescriptor *ptDescriptor, HIDPreparsedDat
  *		usage Page
 */
 		case kHIDTagUsagePage:
+#if 0
 			if (ptItem->unsignedValue == 0)
 				return kHIDUsagePageZeroErr;
+#endif
 			ptGlobals->usagePage = ptItem->unsignedValue;
 			break;
 /*
@@ -133,15 +135,19 @@ OSStatus HIDProcessGlobalItem(HIDReportDescriptor *ptDescriptor, HIDPreparsedDat
 */
 		case kHIDTagReportSize:
 			ptGlobals->reportSize = ptItem->unsignedValue;
+#if 0
 			if (ptGlobals->reportSize == 0)
 				return kHIDReportSizeZeroErr;
+#endif
 			break;
 /*
  *		Report ID
 */
 		case kHIDTagReportID:
+#if 0
 			if (ptItem->unsignedValue == 0)
 				return kHIDReportIDZeroErr;
+#endif
 /*
  *			Look for the Report ID in the table
 */

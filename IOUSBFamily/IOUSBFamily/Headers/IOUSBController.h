@@ -130,6 +130,7 @@ protected:
         UInt32			_currentSizeOfCommandPool;
         UInt32			_currentSizeOfIsocCommandPool;
         UInt8			_controllerSpeed;	// Controller speed, passed down for splits
+        bool			_addressPending[128];
     };
     ExpansionData *_expansionData;
     
@@ -143,6 +144,7 @@ protected:
 #define _currentSizeOfCommandPool	_expansionData->_currentSizeOfCommandPool
 #define _currentSizeOfIsocCommandPool	_expansionData->_currentSizeOfIsocCommandPool
 #define _controllerSpeed		_expansionData->_controllerSpeed
+#define _addressPending			_expansionData->_addressPending
 
     // The following methods do not use and upper case initial letter because they are part of IOKit
     //

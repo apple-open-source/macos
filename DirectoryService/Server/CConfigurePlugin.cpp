@@ -41,6 +41,7 @@
 #include "CSharedData.h"
 #include "PrivateTypes.h"
 #include "DSUtils.h"
+#include "COSUtils.h"
 #include "CAttributeList.h"
 #include "CPlugInRef.h"
 #include "CBuff.h"
@@ -1912,12 +1913,14 @@ sInt32 CConfigurePlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 					::mkdir( "/Library/Preferences/DirectoryService", 0775 );
 					::chmod( "/Library/Preferences/DirectoryService", 0775 ); //above 0775 doesn't seem to work - looks like umask modifies it
 				}
-				system( "touch /Library/Preferences/DirectoryService/.DSTCPListening" );
+
+				dsTouch( "/Library/Preferences/DirectoryService/.DSTCPListening" );
+					
 				gSrvrCntl->StartTCPListener(kDSDefaultListenPort);
 			}
 			else
 			{
-				system( "rm -f /Library/Preferences/DirectoryService/.DSTCPListening" );
+				dsRemove( "/Library/Preferences/DirectoryService/.DSTCPListening" );
 				gSrvrCntl->StopTCPListener();
 			}
 		}

@@ -95,6 +95,10 @@ void AudioProj10PowerObject::setFullPowerState (void) {
 	}
 }
 
+void AudioProj10PowerObject::setHardwarePowerIdleOn ( void ) {
+    setHardwarePowerOn();
+}
+
 IOReturn AudioProj10PowerObject::setHardwarePowerOn(){
     DEBUG_IOLOG("+ AudioProj10PowerObject::setHardwarePowerOn\n");
     IOReturn result = kIOReturnSuccess;
@@ -154,7 +158,7 @@ IOReturn AudioProj10PowerObject::setHardwarePowerOff(){
         keyLargo->callPlatformFunction("keyLargo_writeRegUInt8", false, (void *)&gpioOffset, (void *)(UInt32)value, 0, 0);
     }
 
-    DEBUG_IOLOG("- AudioProj10PowerObject::setHardwarePowerOff");
+    DEBUG_IOLOG("- AudioProj10PowerObject::setHardwarePowerOff\n");
     return result;
 }
 
@@ -197,6 +201,10 @@ void AudioProj6PowerObject::setFullPowerState (void) {
     if(audioPluginRef) {
 	    audioPluginRef->sndHWSetPowerState(kIOAudioDeviceActive);
 	}
+}
+
+void AudioProj6PowerObject::setHardwarePowerIdleOn ( void ) {
+    setHardwarePowerOn();
 }
 
 IOReturn AudioProj6PowerObject::setHardwarePowerOff(){
@@ -324,6 +332,10 @@ void AudioProj8PowerObject::setFullPowerState (void) {
 	}
 }
 
+void AudioProj8PowerObject::setHardwarePowerIdleOn ( void ) {
+    setHardwarePowerOn();
+}
+
 IOReturn AudioProj8PowerObject::setHardwarePowerOff()
 {
     IOReturn result = kIOReturnSuccess;
@@ -424,10 +436,16 @@ IOReturn AudioProj7PowerObject::setHardwarePowerOff(){
         keyLargo->callPlatformFunction("keyLargo_writeRegUInt8", false, (void *)&gpioOffset, (void *)(UInt32)value, 0, 0);
     }
     
-    DEBUG_IOLOG("- AudioProj7PowerObject::setHardwarePowerOff");
+    DEBUG_IOLOG("- AudioProj7PowerObject::setHardwarePowerOff\n");
     return result;
 }
-	
+
+void AudioProj7PowerObject::setHardwarePowerIdleOn ( void ) {
+    DEBUG_IOLOG("+ AudioProj7PowerObject::setHardwarePowerIdleOn\n");
+    setHardwarePowerOn();
+    DEBUG_IOLOG("- AudioProj7PowerObject::setHardwarePowerIdleOn\n");
+}
+
 IOReturn AudioProj7PowerObject::setHardwarePowerOn(){
     DEBUG_IOLOG("+ AudioProj7PowerObject::setHardwarePowerOn\n");
     IOReturn result = kIOReturnSuccess;
@@ -496,6 +514,10 @@ void AudioProj14PowerObject::setFullPowerState (void) {
     if(audioPluginRef) {
 	    audioPluginRef->sndHWSetPowerState(kIOAudioDeviceActive);
 	}
+}
+
+void AudioProj14PowerObject::setHardwarePowerIdleOn ( void ) {
+    setHardwarePowerOn();
 }
 
 IOReturn AudioProj14PowerObject::setHardwarePowerOff(){
@@ -572,6 +594,10 @@ void AudioProj16PowerObject::setFullPowerState (void) {
     if(audioPluginRef) {
 	    audioPluginRef->sndHWSetPowerState(kIOAudioDeviceActive);
 	}
+}
+
+void AudioProj16PowerObject::setHardwarePowerIdleOn ( void ) {
+    setHardwarePowerOn();
 }
 
 IOReturn AudioProj16PowerObject::setHardwarePowerOff(){

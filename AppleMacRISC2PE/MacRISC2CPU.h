@@ -60,6 +60,7 @@ private:
 	bool				doSleep;
     bool				processorSpeedChange;
     UInt32				currentProcessorSpeed;
+    bool				needVSetting;
     
     virtual void ipiHandler(void *refCon, void *nub, int source);
 

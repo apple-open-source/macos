@@ -100,6 +100,7 @@ protected:
 	UInt32							lastLeftVol;					//	[3042658]	rbm	30 Sept 2002
 	UInt32							lastRightVol;					//	[3042658]	rbm	30 Sept 2002
 	UInt32							layoutID;						//	[3042658]	rbm	30 Sept 2002
+	UInt32							gPowerState;
       
 public:
 	// Classical Unix funxtions
@@ -156,7 +157,11 @@ protected:
     IOReturn	sndHWSetSystemInputGain(UInt32 leftGain, UInt32 rightGain);
     
 	// Power Management
-    IOReturn   	sndHWSetPowerState(IOAudioDevicePowerState theState);
+    IOReturn			sndHWSetPowerState(IOAudioDevicePowerState theState);
+	virtual IOReturn	performDeviceWake ();
+	virtual IOReturn	performDeviceSleep ();
+	virtual IOReturn	performDeviceIdleSleep ();
+	IOReturn			setCodecPowerState ( IOAudioDevicePowerState theState );
 
 	// Identification
     UInt32 		sndHWGetType( void );

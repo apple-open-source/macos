@@ -488,6 +488,8 @@ AppleUSBProKbd::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
     bool		queueAnother = true;
     IOReturn		err = kIOReturnSuccess;
 
+    USBLog(5, "%s[%p]::InterruptReadHandler status: 0x%x, bufferSizeRemaining: %d", getName(), this, status, bufferSizeRemaining);
+
     switch ( status )
     {
         case kIOReturnOverrun:
@@ -564,7 +566,8 @@ void AppleUSBProKbd::HandleSpecialButtons(	UInt8 *	inBufferData,
 	AbsoluteTime		now;
  	Boolean				soundUpIsPressed		= FALSE;
 	Boolean				soundDownIsPressed		= FALSE;
-	
+
+        USBLog(5, "%s[%p]::HandleSpecialButtons", getName(), this);
 	// Get our button state from the report.
 	
 	err = HIDGetButtons( kHIDInputReport, 0, usageList, &usageListSize, mPreparsedReportDescriptorData,
@@ -598,16 +601,19 @@ void AppleUSBProKbd::HandleSpecialButtons(	UInt8 *	inBufferData,
 			{
 				case( kHIDUsage_Csmr_VolumeIncrement ):
 				{
+                                    USBLog(5, "%s[%p]::HandleSpecialButtons -  Volume increment", getName(), this);
 					soundUpIsPressed = TRUE;
 					break;
 				}
 				case( kHIDUsage_Csmr_VolumeDecrement ):
 				{
+                                    USBLog(5, "%s[%p]::HandleSpecialButtons -  Volume decrement", getName(), this);
 					soundDownIsPressed = TRUE;
 					break;
 				}
 				case( kHIDUsage_Csmr_Mute ):
 				{
+                                    USBLog(5, "%s[%p]::HandleSpecialButtons -  Mute", getName(), this);
 					// Post key down and key up events. We don't want auto-repeat happening here.
 					
 					dispatchKeyboardEvent( kVolumeMute, TRUE, now );
@@ -616,6 +622,7 @@ void AppleUSBProKbd::HandleSpecialButtons(	UInt8 *	inBufferData,
 				}
 				case( kHIDUsage_Csmr_Eject ):
 				{
+                                    USBLog(5, "%s[%p]::HandleSpecialButtons -  Eject", getName(), this);
 					// Post key down and key up events. We don't want auto-repeat happening here.
 
 					dispatchKeyboardEvent( kEject, TRUE, now );

@@ -130,6 +130,8 @@ protected:
     mach_port_t fWakePort;
     mach_port_t fQueuePort;
 
+    bool fNubIsTerminated;
+
     // Methods
     virtual bool
 	initWithTask(task_t owningTask, void *security_id, UInt32 type);
@@ -161,6 +163,8 @@ protected:
     
     virtual bool didTerminate(IOService *provider, IOOptionBits options, bool *defer);
     
+    virtual bool requestTerminate( IOService * provider, IOOptionBits options );
+
     virtual void free();
 
     // return the shared memory for type (called indirectly)

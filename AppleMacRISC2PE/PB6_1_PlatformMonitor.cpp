@@ -61,21 +61,23 @@ static bool actionPower1GPU2 ();
 static IOPlatformMonitorAction platformActionGrid[kMaxPowerStates][kMaxThermalStates][kNumClamshellStates] =
 	{
 		{
+                        /* bug 3163342: ramping down the GPU doesn't lower thermals or save power, so we're switching from actionPower1GPUx to actionPower1 */
+
 			{
 				actionFullPower,		// kPowerState0 / kThermalState0 / kClamShellStateOpen
-				actionPower1			// kPowerState0 / kThermalState0 / kClamShellStateClosed
+				actionFullPower//actionPower1			// kPowerState0 / kThermalState0 / kClamShellStateClosed
 			},
 			{
 				actionPower1,			// kPowerState0 / kThermalState1 / kClamShellStateOpen
 				actionPower1			// kPowerState0 / kThermalState1 / kClamShellStateClosed
 			},
 			{
-				actionPower1GPU1,		// kPowerState0 / kThermalState2 / kClamShellStateOpen
-				actionPower1GPU1		// kPowerState0 / kThermalState2 / kClamShellStateClosed
+				actionPower1,		// kPowerState0 / kThermalState2 / kClamShellStateOpen
+				actionPower1		// kPowerState0 / kThermalState2 / kClamShellStateClosed
 			},
 			{
-				actionPower1GPU2,		// kPowerState0 / kThermalState3 / kClamShellStateOpen
-				actionPower1GPU2		// kPowerState0 / kThermalState3 / kClamShellStateClosed
+				actionPower1,		// kPowerState0 / kThermalState3 / kClamShellStateOpen
+				actionPower1		// kPowerState0 / kThermalState3 / kClamShellStateClosed
 			},
 		},
 		{
@@ -88,12 +90,12 @@ static IOPlatformMonitorAction platformActionGrid[kMaxPowerStates][kMaxThermalSt
 				actionPower1			// kPowerState1 / kThermalState1 / kClamShellStateClosed
 			},
 			{
-				actionPower1GPU1,		// kPowerState1 / kThermalState2 / kClamShellStateOpen
-				actionPower1GPU1		// kPowerState1 / kThermalState2 / kClamShellStateClosed
+				actionPower1,		// kPowerState1 / kThermalState2 / kClamShellStateOpen
+				actionPower1		// kPowerState1 / kThermalState2 / kClamShellStateClosed
 			},
 			{
-				actionPower1GPU2,		// kPowerState1 / kThermalState3 / kClamShellStateOpen
-				actionPower1GPU2		// kPowerState1 / kThermalState3 / kClamShellStateClosed
+				actionPower1,		// kPowerState1 / kThermalState3 / kClamShellStateOpen
+				actionPower1		// kPowerState1 / kThermalState3 / kClamShellStateClosed
 			},
 		}
 	};
@@ -228,7 +230,7 @@ static bool actionFullPower ()
 	if ((conSensorArray[kCPUController].state != kCPUPowerState0) && 
 		(serv = conSensorArray[kCPUController].conSensor)) {
 		conSensorArray[kCPUController].state = kCPUPowerState0;
-		IOLog ("IOPMon::actionFullPower - sending CPU aggressiveness 2\n");
+		debug_msg ("IOPMon::actionFullPower - sending CPU aggressiveness 2\n");
 		serv->setAggressiveness (kPMSetProcessorSpeed, 2);
 		provider->setProperty (gIOPMonCPUActionKey, (OSObject *)gIOPMonFull);
 	}
@@ -237,7 +239,7 @@ static bool actionFullPower ()
 	if ((conSensorArray[kGPUController].state != kGPUPowerState0) &&
 		(serv = conSensorArray[kGPUController].conSensor)) {
 		conSensorArray[kGPUController].state = kGPUPowerState0;
-		IOLog ("IOPMon::actionFullPower - sending GPU aggressiveness 0\n");
+		debug_msg ("IOPMon::actionFullPower - sending GPU aggressiveness 0\n");
 		serv->setAggressiveness (kIOFBLowPowerAggressiveness, 0);
 		provider->setProperty (gIOPMonGPUActionKey, (OSObject *)gIOPMonFull);
 	}
@@ -258,7 +260,7 @@ static bool actionPower1 ()
 	if ((conSensorArray[kCPUController].state != kCPUPowerState1) && 
 		(serv = conSensorArray[kCPUController].conSensor)) {
 		conSensorArray[kCPUController].state = kCPUPowerState1;
-		IOLog ("IOPMon::actionPower1 - sending CPU aggressiveness 3\n");
+		debug_msg ("IOPMon::actionPower1 - sending CPU aggressiveness 3\n");
 		serv->setAggressiveness (kPMSetProcessorSpeed, 3);
 		provider->setProperty (gIOPMonCPUActionKey, (OSObject *)gIOPMonReduced);
 	}
@@ -267,7 +269,7 @@ static bool actionPower1 ()
 	if ((conSensorArray[kGPUController].state != kGPUPowerState0) &&
 		(serv = conSensorArray[kGPUController].conSensor)) {
 		conSensorArray[kGPUController].state = kGPUPowerState0;
-		IOLog ("IOPMon::actionPower1 - sending GPU aggressiveness 0\n");
+		debug_msg ("IOPMon::actionPower1 - sending GPU aggressiveness 0\n");
 		serv->setAggressiveness (kIOFBLowPowerAggressiveness, 0);
 		provider->setProperty (gIOPMonGPUActionKey, (OSObject *)gIOPMonFull);
 	}
@@ -287,16 +289,17 @@ static bool actionPower1GPU1 ()
 	if ((conSensorArray[kCPUController].state != kCPUPowerState1) && 
 		(serv = conSensorArray[kCPUController].conSensor)) {
 		conSensorArray[kCPUController].state = kCPUPowerState1;
-		IOLog ("IOPMon::actionPower1GPU1 - CPU sending aggressiveness 3\n");
+		debug_msg ("IOPMon::actionPower1GPU1 - CPU sending aggressiveness 3\n");
 		serv->setAggressiveness (kPMSetProcessorSpeed, 3);
 		provider->setProperty (gIOPMonCPUActionKey, (OSObject *)gIOPMonReduced);
 	}
 	
 	// GPU to reduced power
+        
 	if ((conSensorArray[kGPUController].state != kGPUPowerState1) &&
 		(serv = conSensorArray[kGPUController].conSensor)) {
 		conSensorArray[kGPUController].state = kGPUPowerState1;
-		IOLog ("IOPMon::actionPower1GPU1 - sending GPU aggressiveness 1\n");
+		debug_msg ("IOPMon::actionPower1GPU1 - sending GPU aggressiveness 1\n");
 		serv->setAggressiveness (kIOFBLowPowerAggressiveness, 1);
 		provider->setProperty (gIOPMonGPUActionKey, (OSObject *)gIOPMonReduced);
 	}
@@ -316,16 +319,17 @@ static bool actionPower1GPU2 ()
 	if ((conSensorArray[kCPUController].state != kCPUPowerState1) && 
 		(serv = conSensorArray[kCPUController].conSensor)) {
 		conSensorArray[kCPUController].state = kCPUPowerState1;
-		IOLog ("IOPMon::actionPower1GPU2 - CPU sending aggressiveness 3\n");
+		debug_msg ("IOPMon::actionPower1GPU2 - CPU sending aggressiveness 3\n");
 		serv->setAggressiveness (kPMSetProcessorSpeed, 3);
 		provider->setProperty (gIOPMonCPUActionKey, (OSObject *)gIOPMonReduced);
 	}
 	
 	// GPU to lowest power
+        
 	if ((conSensorArray[kGPUController].state != kGPUPowerState2) &&
 		(serv = conSensorArray[kGPUController].conSensor)) {
 		conSensorArray[kGPUController].state = kGPUPowerState2;
-		IOLog ("IOPMon::actionPower1GPU2 - sending GPU aggressiveness 2\n");
+		debug_msg ("IOPMon::actionPower1GPU2 - sending GPU aggressiveness 2\n");
 		serv->setAggressiveness (kIOFBLowPowerAggressiveness, 2);
 		provider->setProperty (gIOPMonGPUActionKey, (OSObject *)gIOPMonSlow);
 	}
@@ -654,8 +658,9 @@ IOReturn PB6_1_PlatformMonitor::monitorPower (OSDictionary *dict, IOService *pro
 			else if ((value & kIOPMBatteryInstalled) == 0)
 				value |= kIOPMForceLowSpeed;
 			// Clamshell is a little different than P58, which only used it to control L3 cache
-			else if ((value & kIOPMClosedClamshell) != 0)
-				value |= kIOPMForceLowSpeed;
+                        // we don't want to force low speed on closed clamshell on P99 anymore.
+                       //else if ((value & kIOPMClosedClamshell) != 0)
+                               //value |= kIOPMForceLowSpeed;
 
 #if 0
 			if ((value & (kIOPMACInstalled | kIOPMACnoChargeCapability)) == (kIOPMACInstalled | kIOPMACnoChargeCapability))

@@ -27,6 +27,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "intl.h"
 #include "mkdeps.h"
 #include "splay-tree.h"
+#include "timevar.h"
 
 /* APPLE LOCAL PFE */
 #ifdef PFE
@@ -155,6 +156,12 @@ static struct include_file *
 	find_framework_file PARAMS ((cpp_reader *, const cpp_token *,
 				   enum include_type));
 #endif /* FRAMEWORK_HEADERS  */
+
+/* APPLE LOCAL begin header search */
+static struct include_file * 
+        find_include_file_in_hashtable PARAMS ((cpp_reader *, const char *, char *, 
+                                                enum include_type, struct search_path *));
+/* APPLE LOCAL end header search */
 
 static struct include_file *
 	find_include_file PARAMS ((cpp_reader *, const cpp_token *,
@@ -688,7 +695,7 @@ find_include_file (pfile, header, type)
   /* APPLE LOCAL end -header-mapfile */
   struct include_file *file;
   char *name, *n;
-
+  
   if (IS_ABSOLUTE_PATHNAME (fname))
     return open_file (pfile, fname);
 
@@ -711,13 +718,24 @@ find_include_file (pfile, header, type)
   /* Search directory path for the file.  */
   /* APPLE LOCAL -header-mapfile bandaid for buffer overflows */
   name = (char *) alloca (strlen (fname) + pfile->max_include_len + 2 + 500);
+
+/* APPLE LOCAL begin header search */
+  if ((type != IT_INCLUDE_NEXT) && 
+      (CPP_OPTION (pfile, bracket_include) == CPP_OPTION (pfile, quote_include)))
+    {
+    /* handle everything but gcc's include_next and -I- extensions */
+    if ((file = find_include_file_in_hashtable (pfile, fname, name, header->type, path)))
+      return file;
+    }
+/* APPLE LOCAL end header search */
+
   for (; path; path = path->next)
     {
       /* APPLE LOCAL begin -header-mapfile */
       saved_path = path;
       if (path == CPP_OPTION (pfile, bracket_include)
-	  && CPP_OPTION (pfile, header_map))
-	path = hmap_lookup_path (pfile, &fname);
+          && CPP_OPTION (pfile, header_map))
+        path = hmap_lookup_path (pfile, &fname);
       {
       /* APPLE LOCAL end -header-mapfile */
       int len = path->len;
@@ -1607,3 +1625,355 @@ _cpp_simplify_pathname (path)
   return path;
 #endif /* !VMS  */
 }
+
+/* APPLE LOCAL begin header search */
+#include <dirent.h>
+#include "hashtab.h"
+
+static htab_t header_htab = 0;
+
+struct hashed_attribute
+{
+  struct search_path *include_directory;
+  struct hashed_attribute *next;
+};
+struct hashed_entry
+{
+  char file_name[MAXNAMLEN + 1];
+  struct search_path *include_directory;
+  struct hashed_attribute *list;
+};
+
+static hashval_t hashed_entry_hash    PARAMS ((const void *x));
+static int hashed_entry_eq            PARAMS ((const void *x, const void *y));
+static void hash_enter PARAMS ((struct hashed_entry **, const char *, struct search_path *));
+static void hash_add_attr PARAMS ((struct hashed_entry *, struct search_path *));
+static void _load_include_headers PARAMS ((cpp_reader *, htab_t, char *));
+static void _load_framework_directories PARAMS ((cpp_reader *, htab_t, char *));
+
+static hashval_t
+hashed_entry_hash (p)
+     const PTR p;
+{
+  const struct hashed_entry *old = p;
+  return htab_hash_string (old->file_name);
+}
+
+static int
+hashed_entry_eq (p1, p2)
+     const PTR p1;
+     const PTR p2;   
+{
+  const struct hashed_entry *old = p1;
+  const char *new = p2;  
+
+  return strcmp (old->file_name, new) == 0;
+}
+
+static void
+hash_enter (slot, file_name, include_directory)
+     struct hashed_entry **slot;
+     const char *file_name;
+     struct search_path *include_directory;
+{
+  struct hashed_entry *obj = (struct hashed_entry *) xmalloc (sizeof (struct hashed_entry));
+  *slot = obj;
+  obj->list = 0;
+  strcpy(obj->file_name, file_name);
+  obj->include_directory = include_directory;
+}
+
+static void
+hash_add_attr (entry, value)
+     struct hashed_entry * entry;
+     struct search_path *value;
+{
+  struct hashed_attribute *obj = (struct hashed_attribute *) xmalloc (sizeof (struct hashed_attribute));
+  struct hashed_attribute *list = entry->list;
+
+  obj->include_directory = value;
+  obj->next = 0;
+  if (list)
+    { /* append to read */
+      while (list->next) list = list->next;
+      list->next = obj;
+    }
+  else
+    entry->list = obj;
+}
+
+static void
+_load_include_headers (pfile, includehash, name)
+     cpp_reader *pfile;
+     htab_t includehash;
+     char *name;
+{
+  struct search_path *path = CPP_OPTION (pfile, bracket_include);
+  for (; path; path = path->next)
+    {
+    DIR    *directory;
+    struct dirent *directory_entry;
+    
+    /* cannot depend on path->name being null terminated (weird) */
+    memcpy (name, path->name, path->len);
+    name[path->len] = 0;
+    
+    /* no need to check for existence...already done by append_include_chain() */
+    directory = opendir(name);
+    while ((directory_entry = readdir(directory)) != NULL) 
+      {
+      if (directory_entry->d_name[0] == '.') // for now, assume headers cannot begin with "."
+        continue;
+      else if (directory_entry->d_type == DT_REG || directory_entry->d_type == DT_DIR ||
+               directory_entry->d_type == DT_UNKNOWN) /* for symbolic links */
+        {
+        struct hashed_entry **slot, *entry;
+        slot = (struct hashed_entry **)htab_find_slot_with_hash (includehash, directory_entry->d_name,
+                                                 htab_hash_string (directory_entry->d_name), INSERT);
+        entry = *slot;
+        if (!entry)
+          hash_enter (slot, directory_entry->d_name, path);
+        else 
+          hash_add_attr (entry, path);
+        }
+      }
+    closedir(directory);
+    }
+}
+
+static void
+_load_framework_directories (pfile, frameworkhash, name)
+     cpp_reader *pfile;
+     htab_t frameworkhash;
+     char *name;
+{
+  struct search_path *path;
+  
+  path = CPP_OPTION (pfile, framework_include);
+  if (path)
+    {
+    for (; path; path = path->next)
+      {
+      DIR    *directory;
+      struct dirent *directory_entry;
+
+      /* cannot depend on path->name being null terminated (weird) */
+      memcpy (name, path->name, path->len);
+      name[path->len] = 0;
+      /* no need to check for existence...already done by append_include_chain() */
+      directory = opendir(name);
+      while ((directory_entry = readdir(directory)) != NULL) 
+        {
+        if (directory_entry->d_name[0] == '.') // for now, assume headers cannot begin with "."
+          continue;
+        else if (directory_entry->d_type == DT_DIR) // just add directories, *not* all the headers
+          {
+          struct hashed_entry **slot, *entry;
+          slot = (struct hashed_entry **)htab_find_slot_with_hash (frameworkhash, directory_entry->d_name,
+                                                 htab_hash_string (directory_entry->d_name), INSERT);
+          entry = *slot;
+          if (!entry)
+            hash_enter (slot, directory_entry->d_name, path);
+          else
+            hash_add_attr (entry, path);
+          }
+        }
+      closedir(directory);
+      } // for
+    }
+}
+
+static void
+_init_include_hash(pfile, name)
+     cpp_reader *pfile;
+     char *name;
+{
+  header_htab = htab_create (2039, hashed_entry_hash, hashed_entry_eq, NULL);
+  
+  _load_include_headers(pfile, header_htab, name);
+  _load_framework_directories(pfile, header_htab, name);      
+}
+
+static void 
+synthesize_name_from_path(name, path, fname)
+     char *name;
+     struct search_path *path;
+     const char *fname;
+{
+  int len = path->len;
+  memcpy(name, path->name, len);
+  /* Don't turn / into // or // into ///; // may be a namespace escape.  */
+  if (name[len-1] == '/')
+    len--;
+  name[len] = '/';
+  strcpy (&name[len + 1], fname);
+}
+
+static struct include_file *
+find_include_file_in_hashtable (pfile, fname, name, type, path)
+     cpp_reader *pfile;
+     const char *fname;
+     char *name;
+     enum include_type type;
+     struct search_path *path;
+{
+    char *slash_in_fname = strrchr(fname, '/');
+    struct hashed_entry *entry;
+    struct include_file *file;
+
+    /* should be called from _cpp_init_includes ()...unfortunately, _cpp_init_includes()
+       it is called before the -I/-F flags are processed. Would be nice to find a
+       better place to do this. Checking on every call is obviously silly */
+    if (!header_htab)
+      _init_include_hash(pfile, name);
+    
+    if ((type == CPP_STRING) && (path != CPP_OPTION (pfile, bracket_include)))
+      {
+      synthesize_name_from_path(name, path, fname);
+      if ((file = open_file (pfile, name)))
+        {
+        file->foundhere = path;
+        return file;
+        }
+      }
+    if (CPP_OPTION (pfile, header_map))
+      {
+      struct search_path *hmap_path = hmap_lookup_path (pfile, &fname);
+      
+      if (hmap_path != CPP_OPTION (pfile, bracket_include))
+        {
+        synthesize_name_from_path(name, hmap_path, fname);
+        if ((file = open_file (pfile, name)))
+          {
+          file->foundhere = hmap_path;
+          return file;
+          }
+        }
+      }
+    if (!slash_in_fname)
+      {
+      if ((entry = htab_find(header_htab, fname))) 
+        {
+        synthesize_name_from_path(name, entry->include_directory, fname);
+        if ((file = open_file (pfile, name)))
+          {
+          file->foundhere = entry->include_directory;
+          return file;
+          }
+        }
+      }
+    else /* we have a slash... */
+      {
+      char *basename = strchr(fname, '/');
+
+      /* first, look for a directory */
+      memcpy(name, fname, basename-fname);
+      name[basename-fname] = 0;
+
+      if ((entry = htab_find(header_htab, name)))
+        {
+        synthesize_name_from_path(name, entry->include_directory, fname);
+        if ((file = open_file (pfile, name)))
+          {
+          file->foundhere = entry->include_directory;
+          return file;
+          }
+        else if (entry->list) // ambiguous...look in multiple places...
+          { 
+          struct hashed_attribute *hattr = entry->list;
+          do 
+            { 
+            synthesize_name_from_path(name, hattr->include_directory, fname);
+            if ((file = open_file (pfile, name)))
+              {
+              file->foundhere = hattr->include_directory;
+              return file;
+              }   
+            } 
+          while ((hattr = hattr->next));
+          }
+        }
+      /* now, look for a framework */
+      memcpy(name, fname, basename-fname);
+      name[basename-fname] = 0;
+      strcat(name, ".framework");
+      if ((entry = htab_find(header_htab, name)))
+        {
+        int len = entry->include_directory->len;
+        memcpy(name, entry->include_directory->name, entry->include_directory->len);
+        name[len] = '/';
+        strcpy (&name[len + 1], entry->file_name);
+        strcat (name, "/Headers");
+        strcat (name, basename); // add the base name
+        if ((file = open_file (pfile, name)))
+          {
+            file->foundhere = entry->include_directory;
+            return file;
+          }
+        memcpy(name, entry->include_directory->name, entry->include_directory->len);
+        name[len] = '/';
+        strcpy (&name[len + 1], entry->file_name);
+        strcat (name, "/PrivateHeaders");
+        strcat (name, basename); // add the base name
+        if ((file = open_file (pfile, name)))
+          {
+            file->foundhere = entry->include_directory;
+            return file;
+          }
+        }
+    }
+  return 0;
+}
+
+#ifdef DEBUG
+
+extern cpp_reader *parse_in;
+
+static int found = 0, not_found = 0;
+static int total_size = 0;
+
+static int
+splay_func (n, b)
+     splay_tree_node n;
+     void *b;
+{
+  struct include_file *f = (struct include_file *) n->value;
+  int *bannerp = (int *)b;
+  ssize_t size = f->st.st_size;
+  
+  if (f->st.st_ino)
+    {
+    if (parse_in->buffer->inc == f)
+      {
+      ; //printf("module %s %d\n",f->name, size);
+      }
+    else
+      {
+      total_size += size;
+      //printf("header %s %d %d\n",f->name, size, total_size);
+      }
+    found++;
+    }
+  else
+    {
+    not_found++;
+    }
+  return 0;
+}
+
+/* include call to cpp_log() in toplev.c:compile_file() if you want diagnostics */
+
+void
+cpp_log (pfile)
+{
+  int banner = 0;
+  struct include_file *f = parse_in->buffer->inc;
+  ssize_t size = f->st.st_size;
+  
+  found = 0; not_found = 0;
+  splay_tree_foreach (parse_in->all_include_files, splay_func, (PTR) &banner);
+  fprintf(stderr, "=> module %s %d header %d found %d nfound %d\n", f->name, size, total_size,
+                found, not_found);
+}
+#endif
+/* APPLE LOCAL end header search */

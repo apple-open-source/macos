@@ -79,6 +79,7 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		00F08191FFB390AA11CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = AVCTest.c;
 			path = tests/AVCTest.c;
@@ -103,6 +104,7 @@
 //013
 //014
 		01151960FF76ADBC11CA29CE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = DeviceControl.i;
 			refType = 4;
@@ -202,6 +204,7 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		014F01B2FF9D052F11CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = writetest.c;
 			path = tests/writetest.c;
@@ -334,11 +337,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.2</string>
+	<string>1.2.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.2</string>
+	<string>1.2.3</string>
 	<key>CarbonLazyValues</key>
 	<dict>
 		<key>CodeFragmentManager</key>
@@ -417,6 +420,7 @@
 			};
 		};
 		01CED3830003BB8C11CE206E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = DVComponentGlue.i;
 			refType = 4;
@@ -491,6 +495,7 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		01D74283FF9D297311CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = DVTest.c;
 			path = tests/DVTest.c;
@@ -527,6 +532,7 @@
 			};
 		};
 		01FFD70AFFF9745011CE206D = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = DVComponentGlue.exp;
 			refType = 4;
@@ -542,6 +548,7 @@
 //023
 //024
 		02B83D78FF9D34B211CE206C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = DVFamily.h;
 			refType = 4;
@@ -555,16 +562,19 @@
 			};
 		};
 		02C3D62FFF65998A11CA29CE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = DeviceControl.i.c;
 			refType = 4;
 		};
 		02C3D631FF6599F211CA29CE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = DeviceControlPriv.i.c;
 			refType = 4;
 		};
 		02C3D632FF6599F211CA29CE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IsochronousDataHandler.i.c;
 			refType = 4;
@@ -594,6 +604,7 @@
 			};
 		};
 		02C3D642FF65A2AF11CA29CE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = DVControlComponent.c;
 			refType = 4;
@@ -615,6 +626,7 @@
 			};
 		};
 		02C3D647FF65A4C711CA29CE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = DeviceControlPriv.h;
 			refType = 4;
@@ -626,6 +638,7 @@
 			};
 		};
 		02C3D649FF65A4E811CA29CE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = DeviceControl.h;
 			refType = 4;
@@ -637,6 +650,7 @@
 			};
 		};
 		02C3D64DFF65A62711CA29CE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOFWDVComponents.r;
 			refType = 4;
@@ -702,6 +716,7 @@
 //043
 //044
 		04B6B6E4FF76D54211CA29CE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IsochronousDataHandler.i;
 			refType = 4;
@@ -738,6 +753,7 @@
 			refType = 4;
 		};
 		0647D2F1007A83D311CE206D = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = English;
 			path = English.lproj/Localized.r;
@@ -750,6 +766,7 @@
 			};
 		};
 		0647D2F4007A85AF11CE206D = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOFWDVComponents.h;
 			refType = 4;
@@ -790,7 +807,7 @@
 				088997A2FF7ABFC811CA29CE,
 			);
 			buildSettings = {
-				HEADER_SEARCH_PATHS = "/System/Library/Frameworks/QuickTime.framework/headers /System/Library/Frameworks/CarbonCore.framework/headers /System/Library/Frameworks/Carbon.framework/Headers /System/Library/Frameworks/HIToolbox.framework/Headers";
+				HEADER_SEARCH_PATHS = "/System/Library/Frameworks/Carbon.framework/Headers /System/Library/Frameworks/QuickTime.framework/headers /System/Library/Frameworks/CarbonCore.framework/headers /System/Library/Frameworks/HIToolbox.framework/Headers";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -843,6 +860,7 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		088997A4FF7AC00911CA29CE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = readtest.c;
 			path = tests/readtest.c;
@@ -860,6 +878,7 @@
 			buildStyles = (
 				014F01A8FF9D02F711CE206C,
 				014F01A9FF9D02F711CE206C,
+				4D537F0E039BF1D900CE20D6,
 			);
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
@@ -949,11 +968,11 @@
 	<key>CFBundlePackageType</key>
 	<string>thng</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.2</string>
+	<string>1.2.3</string>
 	<key>CFBundleSignature</key>
 	<string>appl</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.2</string>
+	<string>1.2.3</string>
 	<key>CSResourcesFileMapped</key>
 	<true/>
 </dict>
@@ -1141,6 +1160,7 @@
 			target = 089C1673FE841209C02AAC07;
 		};
 		0C08A46BFF67027911CA29CE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IsochronousDataHandler.h;
 			refType = 4;
@@ -1212,11 +1232,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.2</string>
+	<string>1.2.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.2</string>
+	<string>1.2.3</string>
 </dict>
 </plist>
 ";
@@ -1277,6 +1297,7 @@
 			refType = 4;
 		};
 		13FACEA4FF67164A11CA29CE = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = DVFamily.c;
 			refType = 4;
@@ -1320,6 +1341,26 @@
 //192
 //193
 //194
+//4D0
+//4D1
+//4D2
+//4D3
+//4D4
+		4D537F0E039BF1D900CE20D6 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
+			};
+			isa = PBXBuildStyle;
+			name = FireLog;
+		};
+//4D0
+//4D1
+//4D2
+//4D3
+//4D4
 //8C0
 //8C1
 //8C2
@@ -1386,6 +1427,7 @@
 			};
 		};
 		8CA281E300E2BF7B04CE206D = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = devicetest.c;
 			path = tests/devicetest.c;
@@ -1472,6 +1514,7 @@
 			};
 		};
 		8CD463AA010E321C04CE206D = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = DVIsochComponent.c;
 			refType = 4;
@@ -1494,6 +1537,7 @@
 			refType = 4;
 		};
 		8CDC69E301F4EFF304CE206E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = DVLib.c;
 			refType = 4;
@@ -1505,6 +1549,7 @@
 			};
 		};
 		8CDC69E501F4F0F904CE206E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = DVLib.h;
 			refType = 4;
@@ -1618,6 +1663,7 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		8CFF00AD0282097104CE237C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = CFTest.c;
 			path = /Network/Servers/abel/homes/sauron/wgulland/Snippets/CFTest.c;
@@ -1646,6 +1692,7 @@
 //F53
 //F54
 		F51B1CA3034B53C401CD2849 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = DVVers.h;
 			refType = 4;

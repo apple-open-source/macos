@@ -62,14 +62,14 @@ static IOHIDPointingDevice * CreateHIDPointingDeviceNub(IOService * owner, UInt8
 }
 
 
-static void DetachHIDPointingDeviceNub(IOService * owner, IOService * nub)
+static void DetachHIDPointingDeviceNub(IOService * owner, IOService ** nub)
 {
-    if ( nub ) {
-        nub->stop(owner);
-        nub->detach(owner);
+    if ( (*nub) ) {
+        (*nub)->stop(owner);
+        (*nub)->detach(owner);
         
-        nub->release();
-        nub = 0;
+        (*nub)->release();
+        (*nub) = 0;
     }
 }
 
@@ -155,7 +155,7 @@ bool IOHIPointing::start(IOService * provider)
 
 void IOHIPointing::stop(IOService * provider)
 {
-    DetachHIDPointingDeviceNub(this, _hidPointingNub);
+    DetachHIDPointingDeviceNub(this, &_hidPointingNub);
 
     super::stop(provider);
 }
@@ -654,7 +654,7 @@ void IOHIPointing::dispatchScrollWheelEvent(short deltaAxis1,
     // to include a scroll whell
     if (_hidPointingNub && !_hidPointingNub->isScrollPresent())
     {
-        DetachHIDPointingDeviceNub(this, _hidPointingNub);
+        DetachHIDPointingDeviceNub(this, &_hidPointingNub);
         _hidPointingNub = CreateHIDPointingDeviceNub(this, buttonCount(), resolution() >> 16, true);
     }
 

@@ -18,13 +18,16 @@
  * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
- */ 
+ */
+#include <UserNotification/KUNCUserNotifications.h>
+
 #include <IOKit/IOKitKeys.h>
 #include <IOKit/usb/USBSpec.h>  // USBHub.h should include this file
 #include <IOKit/usb/USBHub.h>
 #include <IOKit/usb/IOUSBDevice.h>
 #include <IOKit/usb/IOUSBControllerV2.h>
 #include <IOKit/usb/IOUSBLog.h>
+#include <IOKit/usb/IOUSBRootHubDevice.h>
 #include "AppleUSBHubPort.h"
 
 #define super OSObject
@@ -68,7 +71,7 @@ AppleUSBHubPort::init( AppleUSBHub *parent, int portNum, UInt32 powerAvailable, 
     _runLock = IOLockAlloc();
     if (!_runLock)
         return kIOReturnError;
-        
+
     _initThread = thread_call_allocate((thread_call_func_t)PortInitEntry, (thread_call_param_t)this);
     if (!_initThread)
     {
@@ -151,7 +154,7 @@ AppleUSBHubPort::stop(void)
 	    }
 	    else
 	    {
-		USBLog(2, "AppleUSBHubPort[%p]::stop - trying command sleep (%d/%d).", this,_statusChangedThreadActive, _initThreadActive);
+		USBLog(2, "AppleUSBHubPort[%p]::stop - trying command sleep, port %d on hub %p (%d/%d).", this,_portNum, _hub,_statusChangedThreadActive, _initThreadActive);
 		_inCommandSleep = true;
 		if (_statusChangedThreadActive)
 		    gate->commandSleep(&_statusChangedThreadActive, THREAD_UNINT);
@@ -228,7 +231,7 @@ AppleUSBHubPort::PortInit()
     // non captive devices will come in through the status change handler
     if (!_captive)
     {
-        USBLog(5, "***** AppleUSBHubPort[%p]::PortInit - port %d on hub %p captive device - leaving PortInit", this, _portNum, _hub);
+        USBLog(5, "***** AppleUSBHubPort[%p]::PortInit - port %d on hub %p non-captive device - leaving PortInit", this, _portNum, _hub);
         goto errorExit;
     }
         
@@ -366,23 +369,27 @@ AppleUSBHubPort::RemoveDevice(void)
 {
     bool			ok;
     const IORegistryPlane 	* usbPlane;
+    IOUSBDevice			*cachedPortDevice;
         
     
     if (_portDevice) 
     {
-        USBLog(3, "AppleUSBHubPort[%p]::RemoveDevice start (%s)", this, _portDevice->getName());
-        usbPlane = _portDevice->getPlane(kIOUSBPlane);
+        // Cache our port device so that we can set it to NULL so we don't reenter
+        // this code (due to above check)
+        //
+        cachedPortDevice = _portDevice;
+        _portDevice = NULL;
+        
+        USBLog(3, "AppleUSBHubPort[%p]::RemoveDevice start (%s)", this, cachedPortDevice->getName());
+        usbPlane = cachedPortDevice->getPlane(kIOUSBPlane);
         
         if ( usbPlane )
-            _portDevice->detachAll(usbPlane);
-            
-	// ok = _portDevice->terminate(kIOServiceRequired | kIOServiceSynchronous);
-	ok = _portDevice->terminate(kIOServiceRequired);
-        if( !ok)
-            IOLog("AppleUSBHubPort:RemoveDevice: _portDevice->terminate() failed\n");
-	_portDevice->release();
-	_portDevice = 0;
+            cachedPortDevice->detachAll(usbPlane);
+
+        cachedPortDevice->terminate(kIOServiceRequired);
+        cachedPortDevice->release();
     }
+    
     InitPortVectors();
 }
 
@@ -738,7 +745,7 @@ AppleUSBHubPort::AddDeviceResetChangeHandler(UInt16 changeFlags)
             IOSleep( 2 );
 
             // Release devZero lock
-            USBLog(5, "**5** AppleUSBHubPort[%p]::AddDeviceResetChangeHandler - port %d, Releasing DeviceZero after successful SetAddress", this, _portNum);
+            USBLog(5, "**5** AppleUSBHubPort[%p]::AddDeviceResetChangeHandler - port %d, Releasing DeviceZero after successful SetAddress to %d", this, _portNum, address);
             _bus->ReleaseDeviceZero();
             _devZero = false;
             _state = hpsNormal;
@@ -846,7 +853,8 @@ AppleUSBHubPort::AddDeviceResetChangeHandler(UInt16 changeFlags)
         // In MacOS 9, we attempt to get the full DeviceDescriptor at this point, if we had missed it earlier.  On X, we do NOT do this
         // because we would have failed the IOUSBDevice::start if we didn't get it.
         //
-        
+
+        USBLog(5, "**10** AppleUSBHubPort[%p]::AddDeviceResetChangeHandler -  port %d, at addr: %d, Succesful", this, _portNum, address);
         // MacOS STATE 10
         //
         _attachRetry = 0;
@@ -1172,16 +1180,61 @@ AppleUSBHubPort::HandleSuspendPortHandler(UInt16 changeFlags)
 IOReturn 
 AppleUSBHubPort::DefaultOverCrntChangeHandler(UInt16 changeFlags)
 {
-    USBLog(3, "AppleUSBHubPort[%p]::DefaultOverCrntChangeHandler for port %d returning kIOReturnUnsupported", this, _portNum);
-    return kIOReturnUnsupported;
-}
+    IOUSBHubDescriptor		hubDescriptor;
+    bool			individualPortPower = FALSE;
+    UInt16			characteristics;
+    IOUSBHubPortStatus		portStatus;
+    IOReturn			err;
+    IOUSBRootHubDevice		 *roothubdevice;
 
+    USBLog(5, "AppleUSBHubPort[%p]::DefaultOverCrntChangeHandler. Port %d", this,  _portNum );
+    err = _hub->GetPortStatus(&portStatus, _portNum);
+
+    if ( err == kIOReturnSuccess )
+    {
+        if ( _hub && _hub->_device )
+        {
+            // Workaround for #3205416:  Don't display an overcurrent if we are the root hub
+            //
+            roothubdevice = OSDynamicCast(IOUSBRootHubDevice, _hub->_device);
+
+            if ( roothubdevice == NULL )
+            {
+                if ( (portStatus.statusFlags & kHubPortOverCurrent))
+                {
+                    USBLog(1, "AppleUSBHubPort[%p]::DefaultOverCrntChangeHandler. OverCurrent condition in Port %d", this,  _portNum );
+                    hubDescriptor = _hub->GetCachedHubDescriptor();
+
+                    characteristics = USBToHostWord(hubDescriptor.characteristics);
+
+                    if ( (characteristics & 0x18) == 0x8 )
+                        individualPortPower = TRUE;
+
+                    DisplayOverCurrentNotice( individualPortPower );
+                }
+            }
+            else
+            {
+                USBLog(3,"AppleUSBHubPort[%p]::DefaultOverCrntChangeHandler. Ignoring overcurrent condition on Root Hub");
+                return kIOReturnUnsupported;
+            }
+        }
+        else
+        {
+            // the OverCurrent status for this port has changed to zero.
+            //
+            USBLog(1, "AppleUSBHubPort[%p]::DefaultOverCrntChangeHandler. No OverCurrent condition. Ignoring. Port %d", this, _portNum );
+        }
+    }
+    
+    return err;
+}
 
 
 IOReturn 
 AppleUSBHubPort::DefaultResetChangeHandler(UInt16 changeFlags)
 {
-    USBLog(5, "AppleUSBHubPort[%p]::DefaultOverCrntChangeHandler for port %d returning kIOReturnSuccess", this, _portNum);
+    USBLog(5, "AppleUSBHubPort[%p]::DefaultResetChangeHandler for port %d returning kIOReturnSuccess", this, _portNum);
     return kIOReturnSuccess;
 }
 
@@ -1449,13 +1502,14 @@ AppleUSBHubPort::PortStatusChangedHandler(void)
             USBLog(3,"AppleUSBHubPort[%p]::PortStatusChangedHandler - port %d - error %x from (%d) handler", this, _portNum, err, which);
             break;
         }
-    }
-    while (true);
+    } while (true);
 
 errorExit:
 	
     if ( _devZero )
     {
+        // We should disable the port here as well..
+        //
         _bus->ReleaseDeviceZero();
         _devZero = false;
     }
@@ -1545,7 +1599,7 @@ AppleUSBHubPort::ReleaseDevZeroLock()
     {
         (void) _hub->ClearPortFeature(kUSBHubPortEnableFeature, _portNum);
         
-        IOLog("AppleUSBHubPort Releasing devZero lock\n");
+        USBError(1,"AppleUSBHubPort[%p]::ReleaseDevZeroLock for port (%d) force releasing lock", this, _portNum);
         _state = hpsNormal;
  
         if ( _bus )
@@ -1731,4 +1785,40 @@ AppleUSBHubPort::AcquireDeviceZero()
         _devZeroCounter++;
     
     return devZero;
+}
+
+void
+AppleUSBHubPort::DisplayOverCurrentNotice(bool individual)
+{
+    if ( individual )
+    {
+        if ( _hub && _hub->_device )
+            IOLog("USB Notification:  The device \"%s\" has caused an overcurrent condition.  The port it is attached to has been disabled\n",_hub->_device->getName());
+        
+        KUNCUserNotificationDisplayNotice(
+                                          0,		// Timeout in seconds
+                                          0,		// Flags (for later usage)
+                                          "",		// iconPath (not supported yet)
+                                          "",		// soundPath (not supported yet)
+                                          "/System/Library/Extensions/IOUSBFamily.kext",		// localizationPath
+                                          "USB OverCurrent Header",					// the header
+                                          "USB Individual OverCurrent Notice",				// the notice - look in Localizable.strings
+                                          "OK");
+    }
+    else
+    {
+        if ( _hub && _hub->_device )
+            IOLog("USB Notification:  The device \"%s\" has caused an overcurrent condition.  The hub it is attached to has been disabled\n",_hub->_device->getName());
+
+        KUNCUserNotificationDisplayNotice(
+                                          0,		// Timeout in seconds
+                                          0,		// Flags (for later usage)
+                                          "",		// iconPath (not supported yet)
+                                          "",		// soundPath (not supported yet)
+                                          "/System/Library/Extensions/IOUSBFamily.kext",		// localizationPath
+                                          "USB OverCurrent Header",					// the header
+                                          "USB Gang OverCurrent Notice",				// the notice - look in Localizable.strings
+                                          "OK");
+    }
+    return;
 }

@@ -107,7 +107,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Apple16X50Serial;
-				MODULE_VERSION = 1.0.5;
+				MODULE_VERSION = 1.0.6;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -132,6 +132,8 @@
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>Apple16X50Serial</string>
+	<key>CFBundleGetInfoString</key>
+	<string>Apple16X50Serial 1.0.6, Copyright 2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -143,11 +145,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.5</string>
+	<string>1.0.6</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.5</string>
+	<string>1.0.6</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.5</string>
 	<key>OSBundleLibraries</key>
@@ -358,7 +360,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Apple16X50PCCard;
-				MODULE_VERSION = 1.0.5;
+				MODULE_VERSION = 1.0.6;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -383,7 +385,7 @@
 	<key>CFBundleExecutable</key>
 	<string>Apple16X50PCCard</string>
 	<key>CFBundleGetInfoString</key>
-	<string></string>
+	<string>Apple16X50PCCard 1.0.6, Copyright 2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -395,11 +397,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.5</string>
+	<string>1.0.6</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.5</string>
+	<string>1.0.6</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PCCard 16X50 Serial Port</key>
@@ -423,7 +425,7 @@
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.driver.Apple16X50Serial</key>
-		<string>1.0.5</string>
+		<string>1.0.6</string>
 		<key>com.apple.iokit.IOPCCardFamily</key>
 		<string>1.1.0</string>
 		<key>com.apple.kernel.iokit</key>

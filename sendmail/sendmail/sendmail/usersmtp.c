@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2002 Sendmail, Inc. and its suppliers.
+ * Copyright (c) 1998-2003 Sendmail, Inc. and its suppliers.
  *	All rights reserved.
  * Copyright (c) 1983, 1995-1997 Eric P. Allman.  All rights reserved.
  * Copyright (c) 1988, 1993
@@ -13,7 +13,7 @@
 
 #include <sendmail.h>
 
-SM_RCSID("@(#)$Id: usersmtp.c,v 1.1.1.3 2002/10/15 02:38:36 zarzycki Exp $")
+SM_RCSID("@(#)$Id: usersmtp.c,v 1.2 2003/03/29 20:22:05 zarzycki Exp $")
 
 #include <sysexits.h>
 
@@ -127,6 +127,7 @@ smtpinit(m, mci, e, onlyhelo)
 		goto helo;
 
 	mci->mci_state = MCIS_OPENING;
+	clrsessenvelope(e);
 
 	/*
 	**  Get the greeting message.
@@ -222,13 +223,20 @@ tryhelo:
 		return;
 	}
 
-#if !_FFR_DEPRECATE_MAILER_FLAG_I
 	/*
 	**  If this is expected to be another sendmail, send some internal
 	**  commands.
 	*/
 
-	if (bitnset(M_INTERNAL, m->m_flags))
+	if (false
+# if !_FFR_DEPRECATE_MAILER_FLAG_I
+	    || bitnset(M_INTERNAL, m->m_flags)
+# endif /* !_FFR_DEPRECATE_MAILER_FLAG_I */
+# if _FFR_MSP_VERBOSE
+	    /* If we're running as MSP, "propagate" -v flag if possible. */
+	    || (UseMSP && Verbose && bitset(MCIF_VERB, mci->mci_flags))
+# endif /* _FFR_MSP_VERBOSE */
+	   )
 	{
 		/* tell it to be verbose */
 		smtpmessage("VERB", m, mci);
@@ -236,7 +244,6 @@ tryhelo:
 		if (r < 0)
 			goto tempfail1;
 	}
-#endif /* !_FFR_DEPRECATE_MAILER_FLAG_I */
 
 	if (mci->mci_state != MCIS_CLOSED)
 	{
@@ -453,6 +460,8 @@ helo_options(line, firstline, m, mci, e)
 		mci->mci_flags |= MCIF_ENHSTAT;
 	else if (sm_strcasecmp(line, "pipelining") == 0)
 		mci->mci_flags |= MCIF_PIPELINED;
+	else if (sm_strcasecmp(line, "verb") == 0)
+		mci->mci_flags |= MCIF_VERB;
 #if STARTTLS
 	else if (sm_strcasecmp(line, "starttls") == 0)
 		mci->mci_flags |= MCIF_TLS;
@@ -2261,7 +2270,7 @@ smtprcpt(to, m, mci, e, ctladdr, xstart)
 	*/
 
 	while (mci->mci_nextaddr != NULL &&
-	       sm_io_getinfo(mci->mci_in, SM_IO_IS_READABLE, NULL))
+	       sm_io_getinfo(mci->mci_in, SM_IO_IS_READABLE, NULL) > 0)
 	{
 		int r;
 
@@ -2668,7 +2677,7 @@ smtpdata(m, mci, e, ctladdr, xstart)
 #endif /* PIPELINING */
 
 #if _FFR_CATCH_BROKEN_MTAS
-	if (sm_io_getinfo(mci->mci_in, SM_IO_IS_READABLE, NULL))
+	if (sm_io_getinfo(mci->mci_in, SM_IO_IS_READABLE, NULL) > 0)
 	{
 		/* terminate the message */
 		(void) sm_io_fprintf(mci->mci_out, SM_TIME_DEFAULT, ".%s",
@@ -2814,6 +2823,7 @@ smtpgetstat(m, mci, e)
 	ENVELOPE *e;
 {
 	int r;
+	int off;
 	int status, xstat;
 	char *enhsc;
 
@@ -2835,13 +2845,12 @@ smtpgetstat(m, mci, e)
 	else
 		status = EX_PROTOCOL;
 	if (bitset(MCIF_ENHSTAT, mci->mci_flags) &&
-	    (r = isenhsc(SmtpReplyBuffer + 4, ' ')) > 0)
-		r += 5;
+	    (off = isenhsc(SmtpReplyBuffer + 4, ' ')) > 0)
+		off += 5;
 	else
-		r = 4;
-	e->e_statmsg = sm_rpool_strdup_x(e->e_rpool, &SmtpReplyBuffer[r]);
-	mci_setstat(mci, xstat, ENHSCN(enhsc, smtptodsn(r)),
-		    SmtpReplyBuffer);
+		off = 4;
+	e->e_statmsg = sm_rpool_strdup_x(e->e_rpool, &SmtpReplyBuffer[off]);
+	mci_setstat(mci, xstat, ENHSCN(enhsc, smtptodsn(r)), SmtpReplyBuffer);
 	if (LogLevel > 1 && status == EX_PROTOCOL)
 	{
 		sm_syslog(LOG_CRIT, e->e_id,

@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_io.c,v 1.10.34.1 2003/01/08 03:24:39 lindak Exp $
+ * $Id: smbfs_io.c,v 1.10.34.2 2003/03/14 00:05:54 lindak Exp $
  *
  */
 #include <sys/param.h>
@@ -304,6 +304,7 @@ smbfs_0extend(struct vnode *vp, u_quad_t from, u_quad_t to,
 		}
 		from += len - uio.uio_resid;
 	}
+
 	return (error);
 }
 #endif /* APPLE */
@@ -358,23 +359,17 @@ smbfs_writevnode(struct vnode *vp, struct uio *uiop,
 	if (uiop->uio_offset > np->n_size) {
 		error = smbfs_0extend(vp, np->n_size, uiop->uio_offset,
 				      &scred, p);
-		if (!error) {
-			np->n_size = uiop->uio_offset;
-			vnode_pager_setsize(vp, np->n_size);
-		}
+		if (!error)
+			smbfs_setsize(vp, uiop->uio_offset);
 	}
+#endif /* APPLE */
 	if (!error)
 		error = smb_write(smp->sm_share, np->n_fid, uiop, &scred);
-#else
-	error = smb_write(smp->sm_share, np->n_fid, uiop, &scred);
-#endif /* APPLE */
 	np->n_flag |= NFLUSHWIRE;
 	SMBVDEBUG("after: ofs=%d,resid=%d\n",(int)uiop->uio_offset, uiop->uio_resid);
 	if (!error) {
-		if (uiop->uio_offset > np->n_size) {
-			np->n_size = uiop->uio_offset;
-			vnode_pager_setsize(vp, np->n_size);
-		}
+		if (uiop->uio_offset > np->n_size)
+			smbfs_setsize(vp, uiop->uio_offset);
 	}
 	return error;
 }

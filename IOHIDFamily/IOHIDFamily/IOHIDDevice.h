@@ -29,6 +29,8 @@
 #include "IOHIDKeys.h"
 
 class  IOHIDPointing;
+class  IOHIDKeyboard;
+class  IOHIDConsumer;
 class  IOHIDElement;
 class  IOHIDEventQueue;
 struct IOHIDReportHandler;
@@ -96,6 +98,8 @@ private:
 
     struct ExpansionData { 
         IOHIDPointing *		pointingNub;
+        IOHIDKeyboard *		keyboardNub;
+        IOHIDConsumer *		consumerNub;
         OSSet *                 clientSet;
         IOService *		displayManager;
         IONotifier *		publishNotify;
@@ -107,6 +111,8 @@ private:
     
     #define _clientSet		_reserved->clientSet
     #define _pointingNub	_reserved->pointingNub
+    #define _keyboardNub	_reserved->keyboardNub
+    #define _consumerNub	_reserved->consumerNub
     #define _displayManager	_reserved->displayManager
     #define _publishNotify	_reserved->publishNotify
     #define _activityTickleCall	_reserved->activityTickleCall
@@ -596,8 +602,15 @@ public:
                                 IOOptionBits         options,
                                 UInt32               completionTimeout,
                                 IOHIDCompletion	*    completion = 0);    
+
+/*! @function newVendorIDSourceNumber
+    @abstract Returns a number object that describes the vendor ID
+    source of the HID device.  
+    @result A number object. The caller must decrement the retain count
+    on the object returned. */
+    OSMetaClassDeclareReservedUsed(IOHIDDevice,  6);
+    virtual OSNumber * newVendorIDSourceNumber() const;
     
-    OSMetaClassDeclareReservedUnused(IOHIDDevice,  6);
     OSMetaClassDeclareReservedUnused(IOHIDDevice,  7);
     OSMetaClassDeclareReservedUnused(IOHIDDevice,  8);
     OSMetaClassDeclareReservedUnused(IOHIDDevice,  9);

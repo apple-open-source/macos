@@ -1,7 +1,7 @@
 # file: help.tcl
 # toplevel widget to display a help text (modal)
 #
-# $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/tcl-lib/help.tcl,v 1.1.1.1 2001/05/18 23:14:10 mb Exp $
+# $Header: /cvs/root/Security/SecuritySNACCRuntime/tcl-lib/Attic/help.tcl,v 1.1.1.1 2001/05/18 23:14:10 mb Exp $
 # $Log: help.tcl,v $
 # Revision 1.1.1.1  2001/05/18 23:14:10  mb
 # Move from private repository to open source repository

@@ -173,17 +173,21 @@ wackBridgeBusNumbers(IOPCIDevice * bridgeDevice)
 static bool
 hasPCIExpansionChassis(IOService * provider)
 {
-	IORegistryEntry * entry;
-	OSIterator * iter;
+    IORegistryEntry * entry;
+    OSIterator * iter;
+    bool foundIt = false;
 
-	if (iter = provider->getChildIterator(gIODTPlane)) {
-		while (entry = OSDynamicCast(IORegistryEntry, iter->getNextObject())) {
-			const char *name = entry->getName();
-			if (name && (strcmp ("pci-bridge", name) == 0))
-				return true;
-		}
+    if (iter = provider->getChildIterator(gIODTPlane)) {
+	while (entry = OSDynamicCast(IORegistryEntry, iter->getNextObject())) {
+	    const char *name = entry->getName();
+	    if (name && (strcmp ("pci-bridge", name) == 0)) {
+		foundIt = true;
+		break;
+	    }
 	}
-	return false;
+	iter->release();
+    }
+    return foundIt;
 }
 
 //*****************************************************************************
@@ -246,6 +250,14 @@ IOPCCardBridge::free(void)
     
     IOLockLock(gIOPCCardBridgeLock);
     
+    if (gIOPCCardConfigurationInited > 1) {
+	gIOPCCardConfigurationInited--;
+    } else if (gIOPCCardConfigurationInited == 1) {
+	gAvailableIORanges->release();
+	gAvailableMemRanges->release();
+	gIOPCCardConfigurationInited = 0;
+    }
+
     if (gIOPCCardGlobalsInited > 1) {
 	gIOPCCardGlobalsInited--;
     } else if (gIOPCCardGlobalsInited == 1) {
@@ -344,6 +356,92 @@ IOPCCardBridge::getModuleParameters(void)
 }
 
 bool
+IOPCCardBridge::getOFConfigurationSettings(OSArray **ioRanges, OSArray **memRanges)
+{
+    // find all cardbus controllers in the system, and build a list of all
+    // the i/o and memory address ranges that have been configured.
+
+    OSIterator * iter = IORegistryIterator::iterateOver(gIODTPlane, kIORegistryIterateRecursively);
+    if (!iter) return false;
+
+    OSArray * newIORanges = OSArray::withCapacity(1);
+    OSArray * newMemRanges = OSArray::withCapacity(1);
+    if (!newIORanges || !newMemRanges) return false;
+
+    OSSymbol * myName = (OSSymbol *)bridgeDevice->copyName();
+
+    IORegistryEntry * entry;
+    while (entry = OSDynamicCast(IORegistryEntry, iter->getNextObject())) {
+
+	if (!entry->compareName(myName)) continue;
+
+	// get the address ranges from the Open Firmware "ranges" property.
+	// 
+	// the "ranges" property is a set of tuples consisting of:
+	//       <child-phys parent-phys size>
+	    
+	extern void IODTGetCellCounts(IORegistryEntry * entry, UInt32 * sizeCount, UInt32 * addressCount);
+
+	UInt32 sizeCells, addressCells, tupleSize;
+	IODTGetCellCounts(entry, &sizeCells, &addressCells);
+
+	// add up the cells for child, parent and size cells, this code makes
+	// the assumption that since our parent is also pci it's encodes addresses
+	// with the same number of cells and the pci based child.
+	tupleSize = addressCells + addressCells + sizeCells;
+	if (!addressCells || !sizeCells) break;
+
+	OSData * prop = OSDynamicCast(OSData, entry->getProperty("ranges"));
+	if (prop) {
+	    UInt32 * range = (UInt32 *) prop->getBytesNoCopy();
+	    UInt32 * endOfRange = range + ((UInt32)prop->getLength() / sizeof(UInt32));
+
+	    while (range < endOfRange) {
+
+		UInt32 data[2];
+		data[0] = IOPhysical32(0, range[addressCells - 1]);
+		data[1] = IOPhysical32(0, range[addressCells - 1] + range[tupleSize - 1] - 1);
+
+		UInt32 spaceCode = ((IOPCIAddressSpace *)range)->s.space;
+
+		// OpenFirmware likes to hand out i/o addresses above 0xffff when
+		// there is more than one controller, just ignore addresses above 0xffff
+
+		if (spaceCode == kIOPCIIOSpace) {
+		    if (data[0] < 0xffff) {
+			if (data[1] > 0xffff) data[1] = 0xffff;
+			OSData * temp = OSData::withBytes(data, sizeof(UInt32) * 2);
+			newIORanges->setObject(temp);
+			temp->release();
+		    }
+		}
+		    
+		if (spaceCode == kIOPCI32BitMemorySpace) {
+		    OSData * temp = OSData::withBytes(data, sizeof(UInt32) * 2);
+		    newMemRanges->setObject(temp);
+		    temp->release();
+		}
+
+		range += tupleSize;
+	    }
+	}
+    }
+    iter->release();
+    myName->release();
+
+    if ((newIORanges->getCount() == 0) || (newMemRanges->getCount() == 0)) {
+	newIORanges->release();
+	newMemRanges->release();
+	return false;
+    }
+
+    *ioRanges = newIORanges;
+    *memRanges = newMemRanges;
+
+    return true;
+}
+
+bool
 IOPCCardBridge::getConfigurationSettings(void)
 {
     // Get the settings for this platforms memory, io ports, and irq ranges.
@@ -375,11 +473,25 @@ IOPCCardBridge::getConfigurationSettings(void)
 	    return false;
 	}
 	OSDictionary * settings = OSDynamicCast(OSDictionary, config->getObject(modelName));
+
+	// the plist settings are meant to make up for machines that don't have a
+	// Open Firmware capable of properly describing the needed configuration
+	// information (or incorrectly describing it).  Not finding a model in the
+	// plist settings should be considered a good thing.
+
+	if (!settings) {
+	    if (getOFConfigurationSettings(&gAvailableIORanges, &gAvailableMemRanges)) {
+		gIOPCCardConfigurationInited = 1;
+		IOLockUnlock(gIOPCCardBridgeLock); 
+		return true;
+	    }
+	    IOLog("IOPCCardBridge::getOFConfigurationSettings: failed to the configure machine\n");
+	}
 #ifdef PCMCIA_DEBUG
 	if (!settings) settings = OSDynamicCast(OSDictionary, config->getObject("Test Machine"));
 #endif
 	if (!settings) {
-	    IOLog("IOPCCardBridge::getConfigurationSettings: can't find model name \"%s\" in Configuration Settings?\n", modelName);
+	    IOLog("IOPCCardBridge::getConfigurationSettings: unable to configure model name \"%s\".\n", modelName);
 	    IOLockUnlock(gIOPCCardBridgeLock); 
 	    return false;
 	}
@@ -390,6 +502,7 @@ IOPCCardBridge::getConfigurationSettings(void)
 	    IOLockUnlock(gIOPCCardBridgeLock); 
 	    return false;
 	}
+	gAvailableIORanges->retain();
     
 	gAvailableMemRanges = OSDynamicCast(OSArray, settings->getObject("Memory Ranges"));
 	if (!gAvailableMemRanges) {
@@ -397,6 +510,7 @@ IOPCCardBridge::getConfigurationSettings(void)
 	    IOLockUnlock(gIOPCCardBridgeLock); 
 	    return false;
 	}
+	gAvailableMemRanges->retain();
     
 #ifdef NOTYET
 	gAvailableIRQRanges = OSDynamicCast(OSArray, settings->getObject("IRQ Ranges"));
@@ -405,6 +519,7 @@ IOPCCardBridge::getConfigurationSettings(void)
 	    IOLockUnlock(gIOPCCardBridgeLock); 
 	    return false;
 	}
+	gAvailableIRQRanges->retain();
 #endif
 	gIOPCCardConfigurationInited = 1;
     }
@@ -1317,11 +1432,16 @@ IOPCCardBridge::probe(IOService * provider, SInt32 * score)
 
     DEBUG(2, "IOPCCardBridge::probe\n");
 
-    if (!getConfigurationSettings()) return 0;
-
     bridgeDevice = OSDynamicCast(IOPCIDevice, provider);
     if (!bridgeDevice) return 0;
-    
+
+    // OF uses the "ranges" property differently when we have a
+    // pci expansion chassis attached, just skip looking at it
+    pciExpansionChassis = hasPCIExpansionChassis(provider);
+    if (!pciExpansionChassis) {
+	if (!getConfigurationSettings()) return 0;
+    }
+
     return super::probe(provider, score);
 }
 
@@ -1371,6 +1491,12 @@ IOPCCardBridge::start(IOService * provider)
 
 	if (!success) break;
 	
+	// tell PCI Family to not cache our config space registers
+	bridgeDevice->setProperty(kIOPMPCIConfigSpaceVolatileKey, kOSBooleanFalse);
+
+	// mark config space backup as unused
+	bridgeConfig[0] = 0;
+
 	// this ends up calling configure
 	if (!super::start(provider)) break;
 	
@@ -1498,21 +1624,33 @@ IOPCCardBridge::setBridgePowerState(unsigned long powerState,
 
     DEBUG(1, "IOPCCardBridge::setBridgePowerState state=%d\n", powerState);
 
+    // save/restore bridge state
+    for (unsigned cnt = 0; cnt < kIOPCCardBridgeRegCount; cnt++)
+    {
+	if (powerState == kIOPCIDeviceOnState) {
+	    if (bridgeConfig[0] != 0)
+		bridgeDevice->configWrite32(cnt * 4, bridgeConfig[cnt]);
+	}
+	if (powerState == kIOPCIDeviceOffState) {
+	    bridgeConfig[cnt] = bridgeDevice->configRead32(cnt * 4);
+	}
+    }
+
     // for all sockets on this bridge do
     for (unsigned i=0; i < sockets; i++) {
 	socket_info_t *s = &socket_table[i];
 	if (s->bridge != this) continue;
 
-	if ((powerState == kIOPCIDeviceOnState) || (powerState == 1)) {
+	if (powerState == kIOPCIDeviceOnState) {
 	    if (!(s->state & SOCKET_SUSPEND)) return IOPMAckImplied;
 	    s->state &= ~SOCKET_SUSPEND;
 
 	    bridgeDevice->enableInterrupt(0);
 
-	    if (s->state & SOCKET_PRESENT) {
-		ret = CardServices(ResumeCard, s->handle, NULL, NULL);
-		if (ret) cs_error(s->configHandle, ResumeCard, ret);
+	    ret = CardServices(ResumeCard, s->handle, NULL, NULL);
+	    if (ret) cs_error(s->configHandle, ResumeCard, ret);
 
+	    if (s->state & SOCKET_PRESENT) {
 		// return the max time to power up in usec
 		// CS can take over to 5 seconds to reset a card in
 		// the worse case, add another second for scheduler delays

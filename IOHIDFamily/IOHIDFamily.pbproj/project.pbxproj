@@ -32,8 +32,8 @@
 			children = (
 				019150F3FFE6F74111CA29FD,
 				014D176BFFE1C65511CA2CF6,
-				01ABF5C2FFEAD77011CA29FD,
 				01ABF5C3FFEAD77011CA29FD,
+				01ABF5C2FFEAD77011CA29FD,
 				014D176CFFE1C65511CA2CF6,
 				014D176DFFE1C65511CA2CF6,
 				014D176EFFE1C65511CA2CF6,
@@ -43,8 +43,7 @@
 				0140D13CFFF91A5311CA29FD,
 				01ABF5C6FFEAF24711CA29FD,
 				01ABF5C7FFEAF24711CA29FD,
-				58DBF979020875DE04CA2A11,
-				58DBF97A020875DE04CA2A11,
+				F5982CEF0319699C01000107,
 				014D176FFFE1C65511CA2CF6,
 			);
 			isa = PBXGroup;
@@ -321,7 +320,7 @@
 			files = (
 				5801C60502400F4E04CA2A11,
 				019D7CBCFFE82BC211CA2CF6,
-				5806B71A032587E304CA2A11,
+				585665F80389AD9D04CA2A11,
 			);
 			isa = PBXCopyFilesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 1;
@@ -586,7 +585,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDFamily;
-				MODULE_VERSION = 1.2.2;
+				MODULE_VERSION = 1.2.5;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -626,11 +625,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.2</string>
+	<string>1.2.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.2</string>
+	<string>1.2.5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOHIDLibUserClient</key>
@@ -703,6 +702,8 @@
 				F5AB671C02ADD67601FF6135,
 				F592DCCC02AFC562012FD7AD,
 				F50AFCA802B4429701E77AAF,
+				583C4C93030989AE04CA2A11,
+				F5982CED0319687801000107,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -773,6 +774,9 @@
 				F5AB670C02ADD67601FF6135,
 				F53BF60B02AFC6F201AF3D4D,
 				F50AFCA702B4429701E77AAF,
+				583C4C94030989AE04CA2A11,
+				583C4D8A0309B2BA04CA2A11,
+				F5982CEE0319687801000107,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -854,11 +858,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.1</string>
+	<string>1.2.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.1</string>
+	<string>1.2.2</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
@@ -1035,7 +1039,40 @@
 			settings = {
 			};
 		};
-		5806B71A032587E304CA2A11 = {
+		583C4C91030989AE04CA2A11 = {
+			isa = PBXFileReference;
+			path = IOHIDKeyboard.h;
+			refType = 4;
+		};
+		583C4C92030989AE04CA2A11 = {
+			isa = PBXFileReference;
+			path = IOHIDKeyboard.cpp;
+			refType = 4;
+		};
+		583C4C93030989AE04CA2A11 = {
+			fileRef = 583C4C91030989AE04CA2A11;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		583C4C94030989AE04CA2A11 = {
+			fileRef = 583C4C92030989AE04CA2A11;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		583C4D890309B2BA04CA2A11 = {
+			isa = PBXFileReference;
+			path = Cosmo_USB2ADB.c;
+			refType = 4;
+		};
+		583C4D8A0309B2BA04CA2A11 = {
+			fileRef = 583C4D890309B2BA04CA2A11;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		585665F80389AD9D04CA2A11 = {
 			fileRef = F5AB66D302ADD67601FF6135;
 			isa = PBXBuildFile;
 			settings = {
@@ -1222,6 +1259,42 @@
 			isa = PBXBuildFile;
 			settings = {
 			};
+		};
+		F5982CEB0319687801000107 = {
+			isa = PBXFileReference;
+			path = IOHIDConsumer.h;
+			refType = 4;
+		};
+		F5982CEC0319687801000107 = {
+			isa = PBXFileReference;
+			path = IOHIDConsumer.cpp;
+			refType = 4;
+		};
+		F5982CED0319687801000107 = {
+			fileRef = F5982CEB0319687801000107;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5982CEE0319687801000107 = {
+			fileRef = F5982CEC0319687801000107;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5982CEF0319699C01000107 = {
+			children = (
+				58DBF979020875DE04CA2A11,
+				58DBF97A020875DE04CA2A11,
+				583C4D890309B2BA04CA2A11,
+				583C4C92030989AE04CA2A11,
+				583C4C91030989AE04CA2A11,
+				F5982CEC0319687801000107,
+				F5982CEB0319687801000107,
+			);
+			isa = PBXGroup;
+			name = IOHIDSystemSupport;
+			refType = 4;
 		};
 		F59AD16902ADDC1B0193FF54 = {
 			isa = PBXTargetDependency;

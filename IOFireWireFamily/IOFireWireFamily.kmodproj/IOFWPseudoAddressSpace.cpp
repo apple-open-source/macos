@@ -29,8 +29,8 @@ OSData *IOFWPseudoAddressSpace::allocatedAddresses = NULL;  // unused
 
 OSDefineMetaClassAndStructors(IOFWPseudoAddressSpaceAux, IOFWAddressSpaceAux);
 
-OSMetaClassDefineReservedUnused(IOFWPseudoAddressSpaceAux, 0);
-OSMetaClassDefineReservedUnused(IOFWPseudoAddressSpaceAux, 1);
+OSMetaClassDefineReservedUsed(IOFWPseudoAddressSpaceAux, 0);
+OSMetaClassDefineReservedUsed(IOFWPseudoAddressSpaceAux, 1);
 OSMetaClassDefineReservedUnused(IOFWPseudoAddressSpaceAux, 2);
 OSMetaClassDefineReservedUnused(IOFWPseudoAddressSpaceAux, 3);
 OSMetaClassDefineReservedUnused(IOFWPseudoAddressSpaceAux, 4);
@@ -39,6 +39,90 @@ OSMetaClassDefineReservedUnused(IOFWPseudoAddressSpaceAux, 6);
 OSMetaClassDefineReservedUnused(IOFWPseudoAddressSpaceAux, 7);
 OSMetaClassDefineReservedUnused(IOFWPseudoAddressSpaceAux, 8);
 OSMetaClassDefineReservedUnused(IOFWPseudoAddressSpaceAux, 9);
+
+#pragma mark -
+
+// init
+//
+//
+
+bool IOFWPseudoAddressSpaceAux::init( IOFWAddressSpace * primary )
+{
+	bool success = true;		// assume success
+	
+	// init super
+	
+    if( !IOFWAddressSpaceAux::init( primary ) )
+        success = false;
+	
+	// create member variables
+	
+	if( success )
+	{
+		fMembers = (MemberVariables*)IOMalloc( sizeof(MemberVariables) );
+		if( fMembers == NULL )
+			success = false;
+	}
+	
+	// zero member variables
+	
+	if( success )
+	{
+		bzero( fMembers, sizeof(MemberVariables) );
+	}
+
+	// clean up on failure
+	
+	if( !success )
+	{
+		if( fMembers != NULL )
+		{
+			IOFree( fMembers, sizeof(MemberVariables) );
+			fMembers = NULL;
+		}
+	}
+			
+	return success;
+}
+
+// free
+//
+//
+
+void IOFWPseudoAddressSpaceAux::free()
+{	
+	if( fMembers != NULL )
+	{		
+		// free member variables
+		
+		IOFree( fMembers, sizeof(MemberVariables) );
+		fMembers = NULL;
+	}
+	
+	IOFWAddressSpaceAux::free();
+}
+
+// handleARxReqIntComplete
+//
+//
+
+void IOFWPseudoAddressSpaceAux::handleARxReqIntComplete( void )
+{
+	if( fMembers->fARxReqIntCompleteHandler != NULL )
+	{
+		(*fMembers->fARxReqIntCompleteHandler)( fMembers->fARxReqIntCompleteHandlerRefcon );
+	}
+}
+
+// setARxReqIntCompleteHandler
+//
+//
+	
+void IOFWPseudoAddressSpaceAux::setARxReqIntCompleteHandler( void * refcon, IOFWARxReqIntCompleteHandler handler )
+{
+	fMembers->fARxReqIntCompleteHandler = handler;
+	fMembers->fARxReqIntCompleteHandlerRefcon = refcon;
+}
 
 #pragma mark -
 

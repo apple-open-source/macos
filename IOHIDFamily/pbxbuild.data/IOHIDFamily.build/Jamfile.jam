@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = IOHIDFamily ;
-export deferred SRCROOT = /Volumes/Mistake/IOHIDFamily ;
+export deferred SRCROOT = /Volumes/Junk/Merge/IOHIDFamily ;
 
 # User-defined project-wide settings for project
 
@@ -31,7 +31,7 @@ export deferred KERNEL_MODULE = YES ;
 export deferred LIBRARY_SEARCH_PATHS =  ;
 export deferred MODULE_IOKIT = YES ;
 export deferred MODULE_NAME = com.apple.iokit.IOHIDFamily ;
-export deferred MODULE_VERSION = 1.2.2 ;
+export deferred MODULE_VERSION = 1.2.5 ;
 export deferred OTHER_CFLAGS =  ;
 export deferred OTHER_LDFLAGS =  ;
 export deferred OTHER_REZFLAGS =  ;
@@ -95,7 +95,9 @@ HEADERS =
 	IOHIDSystem/IOKit/hidsystem/IOHITabletPointer.h
 	IOHIDSystem/IOKit/hidsystem/IOLLEvent.h
 	IOHIDSystem/IOHIDPointingDevice.h
-	IOHIDSystem/IOHIDKeyboardDevice.h ;
+	IOHIDSystem/IOHIDKeyboardDevice.h
+	IOHIDFamily/IOHIDKeyboard.h
+	IOHIDFamily/IOHIDConsumer.h ;
 ProcessHeaders "<IOHIDFamily>IOHIDFamily.kext" : "$(HEADERS)" : BPTag000 : BPTag001 ;
 
 # Script Build Phase Files
@@ -169,7 +171,10 @@ SOURCES =
 	IOHIDSystem/IOHIPointing.cpp
 	IOHIDSystem/IOHITablet.cpp
 	IOHIDSystem/IOHIDPointingDevice.cpp
-	IOHIDSystem/IOHIDKeyboardDevice.cpp ;
+	IOHIDSystem/IOHIDKeyboardDevice.cpp
+	IOHIDFamily/IOHIDKeyboard.cpp
+	IOHIDFamily/Cosmo_USB2ADB.c
+	IOHIDFamily/IOHIDConsumer.cpp ;
 ProcessSources "<IOHIDFamily>IOHIDFamily.kext" : "$(SOURCES)" : BPTag003 : BPTag004 ;
 
 # Frameworks & Libraries

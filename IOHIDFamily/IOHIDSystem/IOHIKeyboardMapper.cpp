@@ -1607,12 +1607,20 @@ bool IOHIKeyboardMapper::f12EjectFilterKey (UInt8 key, bool keyDown, kbdBitVecto
     // Portable2001 ISO  = 0xcb = 203 d
     // Andy ANSI	 = 0xcc = 204 d  |  0x204 = 516 d = USB Product ID
     // Andy ISO  	 = 0xcd = 205 d  |  0x205 = 517 d = USB Product ID
-    // Andy JIS  	 = 0xce = 206 d  |  0x206 = 528 d = USB Product ID
+    // Andy JIS  	 = 0xce = 206 d  |  0x206 = 518 d = USB Product ID
     // Portable2001 JIS  = 0xcf = 207 d
+    // Q6 ANSI	 	 = 0x1f = 31 d  |  0x208 = 520 d = USB Product ID
+    // Q6 ISO  	 	 = 0x20 = 32 d  |  0x209 = 521 d = USB Product ID
+    // Q6 JIS  	 	 = 0x21 = 33 d  |  0x20a = 522 d = USB Product ID
+    // Q30 ANSI	 	 = 0x22 = 34 d  |  0x20b = 523 d = USB Product ID
+    // Q30 ISO   	 = 0x23 = 35 d  |  0x20c = 524 d = USB Product ID
+    // Q30 JIS	 	 = 0x24 = 36 d  |  0x20d = 525 d = USB Product ID
 
-    if ((_delegate->deviceType() >= 0xca) && (_delegate->deviceType() <= 0xcf))
+
+    if (((_delegate->deviceType() >= 0xca) && (_delegate->deviceType() <= 0xcf)) || 
+        ((_delegate->deviceType() >= 0x1f) && (_delegate->deviceType() <= 0x24)))
         return false;
-
+        
     // We will be using ADB key codes, so we need to make sure we an ADB Keyboard.
     // No need to worry, USB Keyboard drivers trick IOHIDSystem into thinking
     // that they are ADB Keyboards.  This might be a problem when we introduce

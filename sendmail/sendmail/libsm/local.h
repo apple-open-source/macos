@@ -11,7 +11,7 @@
  * forth in the LICENSE file which can be found at the top level of
  * the sendmail distribution.
  *
- *	$Id: local.h,v 1.1.1.2 2002/10/15 02:38:07 zarzycki Exp $
+ *	$Id: local.h,v 1.1.1.3 2003/02/22 09:24:34 zarzycki Exp $
  */
 
 /*
@@ -278,6 +278,11 @@ extern const char SmFileMagic[];
 	{ \
 		sm_io_to.tv_sec = (to) / 1000; \
 		sm_io_to.tv_usec = ((to) - (sm_io_to.tv_sec * 1000)) * 10; \
+	} \
+	if (FD_SETSIZE > 0 && (fd) >= FD_SETSIZE) \
+	{ \
+		errno = EINVAL; \
+		return SM_IO_EOF; \
 	} \
 	FD_ZERO(&sm_io_to_mask); \
 	FD_SET((fd), &sm_io_to_mask); \

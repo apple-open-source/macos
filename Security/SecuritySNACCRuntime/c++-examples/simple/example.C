@@ -22,7 +22,7 @@
 // AUTHOR: Mike Sample
 // DATE:   Aug 92
 //
-// $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/c++-examples/simple/example.C,v 1.1.1.1 2001/05/18 23:14:05 mb Exp $
+// $Header: /cvs/root/Security/SecuritySNACCRuntime/c++-examples/simple/Attic/example.C,v 1.1.1.1 2001/05/18 23:14:05 mb Exp $
 // $Log: example.C,v $
 // Revision 1.1.1.1  2001/05/18 23:14:05  mb
 // Move from private repository to open source repository

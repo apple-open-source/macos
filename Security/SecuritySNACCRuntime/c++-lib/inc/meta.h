@@ -18,7 +18,7 @@
 
 // file: .../c++-lib/inc/meta.h
 //
-// $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/c++-lib/inc/meta.h,v 1.1.1.1 2001/05/18 23:14:06 mb Exp $
+// $Header: /cvs/root/Security/SecuritySNACCRuntime/c++-lib/inc/Attic/meta.h,v 1.1.1.1 2001/05/18 23:14:06 mb Exp $
 // $Log: meta.h,v $
 // Revision 1.1.1.1  2001/05/18 23:14:06  mb
 // Move from private repository to open source repository

@@ -178,6 +178,41 @@ public:
     inline UInt32 getReportSize() const
     { return _reportSize; }
     
+    inline UInt32 getReportBits() const
+    { return _reportBits; }
+    
+    inline UInt32 getReportCount() const
+    { return _reportCount; }
+    
+    inline UInt32 getLogicalMin() const
+    { return _logicalMin; }
+
+    inline UInt32 getLogicalMax() const
+    { return _logicalMax; }
+
+    inline UInt32 getPhysicalMin() const
+    { return _physicalMin; }
+
+    inline UInt32 getPhysicalMax() const
+    { return _physicalMax; }
+
+    inline UInt32 getUsagePage() const
+    { return _usagePage; }
+    
+    inline UInt32 getUnits() const
+    { return _units; }
+    
+    inline UInt32 getUnitExponent() const
+    { return _unitExponent; }
+    
+    inline UInt32 getUsage() const
+    { return (_usageMax != _usageMin) ?
+                 _usageMin + _rangeIndex  :
+                 _usageMin; }
+                 
+    inline IOHIDElementValue * getElementValue() const
+    { return _elementValue;}
+    
     inline void setTransactionState(UInt32 state)
     { _transactionState = state;}
     

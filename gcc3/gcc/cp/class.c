@@ -1350,9 +1350,6 @@ check_bases (t, cant_have_default_ctor_p, cant_have_const_ctor_p,
   int i;
   int seen_non_virtual_nearly_empty_base_p;
   tree binfos;
-  /* APPLE LOCAL begin apple-kext Radar 3008388 */
-  int has_virtual_base = 0;
-  /* APPLE LOCAL end apple-kext Radar 3008388 */
 
   binfos = TYPE_BINFO_BASETYPES (t);
   n_baseclasses = CLASSTYPE_N_BASECLASSES (t);
@@ -1419,9 +1416,7 @@ check_bases (t, cant_have_default_ctor_p, cant_have_const_ctor_p,
 
       if (TREE_VIA_VIRTUAL (base_binfo))
 	/* A virtual base does not effect nearly emptiness. */
-	/* APPLE LOCAL begin apple-kext Radar 3008388 */
-	has_virtual_base = 1;
-	/* APPLE LOCAL end apple-kext Radar 3008388 */
+	;
       else if (CLASSTYPE_NEARLY_EMPTY_P (basetype))
 	{
 	  if (seen_non_virtual_nearly_empty_base_p)
@@ -1450,18 +1445,6 @@ check_bases (t, cant_have_default_ctor_p, cant_have_const_ctor_p,
       TYPE_OVERLOADS_ARROW (t) |= TYPE_OVERLOADS_ARROW (basetype);
       TYPE_POLYMORPHIC_P (t) |= TYPE_POLYMORPHIC_P (basetype);
     }
-
-  /* APPLE LOCAL begin apple-kext Radar 3008388 */
-  if (flag_indirect_virtual_calls) 
-    {
-      const char *flag = flag_apple_kext ? "-fapple-kext" 
-                                         : "-findirect-virtual-calls";
-      if (n_baseclasses > 1)
-	cp_error_at ("`%#T' has multiple bases, conflicts with %s", t, flag);
-      if (has_virtual_base)
-	cp_error_at ("`%#T' has virtual base, conflicts with %s", t, flag);
-    }
-  /* APPLE LOCAL end apple-kext Radar 3008388 */
 }
 
 /* Binfo FROM is within a virtual hierarchy which is being reseated to
@@ -5687,15 +5670,16 @@ init_class_processing ()
   current_class_stack 
     = (class_stack_node_t) xmalloc (current_class_stack_size 
 				    * sizeof (struct class_stack_node));
-  /* APPLE LOCAL PFE - PFE_VARRAY is pfe indicator or null */   
-  VARRAY_TREE_INIT (local_classes, 8, PFE_VARRAY "local_classes");
-  ggc_add_tree_varray_root (&local_classes, 1);
 
 /* APPLE LOCAL PFE */
 #ifdef PFE
   if (pfe_operation != PFE_LOAD)
     {
 #endif
+  /* APPLE LOCAL PFE - PFE_VARRAY is pfe indicator or null */   
+  VARRAY_TREE_INIT (local_classes, 8, PFE_VARRAY "local_classes");
+  ggc_add_tree_varray_root (&local_classes, 1);
+
   access_default_node = build_int_2 (0, 0);
   access_public_node = build_int_2 (ak_public, 0);
   access_protected_node = build_int_2 (ak_protected, 0);

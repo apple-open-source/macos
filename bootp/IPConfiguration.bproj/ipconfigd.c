@@ -181,6 +181,10 @@
 
 typedef dynarray_t	IFStateList_t;
 
+#ifndef kSCEntNetRefreshConfiguration
+#define kSCEntNetRefreshConfiguration	CFSTR("RefreshConfiguration")
+#endif kSCEntNetRefreshConfiguration
+
 #ifndef kSCEntNetIPv4ARPCollision
 #define kSCEntNetIPv4ARPCollision	CFSTR("IPv4ARPCollision")
 #endif kSCEntNetIPv4ARPCollision
@@ -4046,6 +4050,14 @@ notifier_init(SCDynamicStoreRef session)
     CFArrayAppendValue(patterns, key);
     my_CFRelease(&key);
 
+    /* notify for a refresh configuration request */
+    key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+							kSCDynamicStoreDomainState,
+							kSCCompAnyRegex,
+							kSCEntNetRefreshConfiguration);
+    CFArrayAppendValue(patterns, key);
+    my_CFRelease(&key);
+
     /* notify when there's an ARP collision on any interface */
     key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
 							kSCDynamicStoreDomainState,
@@ -4530,7 +4542,8 @@ handle_change(SCDynamicStoreRef session, CFArrayRef changes, void * arg)
     for (i = 0; i < count; i++) {
 	CFStringRef	cache_key = CFArrayGetValueAtIndex(changes, i);
 
-	if (CFStringHasSuffix(cache_key, kSCEntNetLink)) {
+	if (CFStringHasSuffix(cache_key, kSCEntNetLink)
+	    || CFStringHasSuffix(cache_key, kSCEntNetRefreshConfiguration)) {
 	    link_key_changed(session, cache_key);
 	}
 	else {

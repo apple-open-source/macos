@@ -1022,6 +1022,8 @@ static OSStatus doAVCTransaction(DeviceDescriptionPtr deviceDescriptionPtr,
 {
     IOReturn result = kIDHErrDeviceNotConfigured;
     if(deviceDescriptionPtr->fConnected) {
+        if(!deviceDescriptionPtr->fActive)
+            return kIDHErrDeviceDisconnected;
         if(deviceDescriptionPtr->fNoAVC > 1)
             return kIOReturnTimeout;
         else {
@@ -2145,12 +2147,14 @@ FWDVIDHGetDeviceStatus(IsochComponentInstancePtr ih, const QTAtomSpec *devSpec, 
 
         //еее need to make this work with camera tracking
         status->deviceActive = 			deviceDescriptionPtr->fActive;
-        status->inputStandard =			deviceDescriptionPtr->fDevice->standard;
         status->inputFormat =			inputFormat;
+        if(deviceDescriptionPtr->fActive) {
+            status->inputStandard =			deviceDescriptionPtr->fDevice->standard;
         
-        // Does caller want extended status?
-        if(status->version == 0x200)
-            status->outputFormats = 	deviceDescriptionPtr->fDevice->fDVFormats;
+            // Does caller want extended status?
+            if(status->version == 0x200)
+                status->outputFormats = 	deviceDescriptionPtr->fDevice->fDVFormats;
+        }
 // JKL *** what to to with this? does this mean deviceID, cameraFWClientID, or localNodeFWClientID
 // Think this is for clock to set the localFWReferenceID
         status->localNodeID	= 		(PsuedoID) deviceDescriptionPtr->fDevice;

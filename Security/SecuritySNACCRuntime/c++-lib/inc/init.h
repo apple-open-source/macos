@@ -19,7 +19,7 @@
 /*
  * file: .../c++-lib/inc/init.h
  *
- * $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/c++-lib/inc/init.h,v 1.1.1.1 2001/05/18 23:14:06 mb Exp $
+ * $Header: /cvs/root/Security/SecuritySNACCRuntime/c++-lib/inc/Attic/init.h,v 1.1.1.1 2001/05/18 23:14:06 mb Exp $
  * $Log: init.h,v $
  * Revision 1.1.1.1  2001/05/18 23:14:06  mb
  * Move from private repository to open source repository

@@ -36,6 +36,11 @@ enum {
 };
 
 enum {
+    kIOFBHWCursorSupported		= 0x00000001,
+    kIOFBCursorPans			= 0x00010000
+};
+
+enum {
     // Controller attributes
     kIOSystemPowerAttribute		= 'spwr',
     kIOVRAMSaveAttribute		= 'vrsv',
@@ -70,6 +75,9 @@ enum {
 #define kIOFBCLUTDeferKey		"IOFBCLUTDefer"
 
 #define kIONDRVFramebufferGenerationKey "IONDRVFramebufferGeneration"
+
+#define kIODisplayOverscanKey		"oscn"
+#define kIODisplayVideoBestKey		"vbst"
 
 #endif /* ! _IOKIT_IOGRAPHICSTYPESPRIVATE_H */
 

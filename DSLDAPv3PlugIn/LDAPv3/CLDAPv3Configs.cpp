@@ -128,7 +128,7 @@ sInt32 CLDAPv3Configs::Init ( CPlugInRef *inConfigTable, uInt32 &inConfigTableLe
 	if (!CheckForConfig((char *)"unknown", sIndex))
 	{
 			//build a default config entry that can be used when no config exists
-			pConfig = MakeLDAPConfigData((char *)"Generic",(char *)"unknown",true,120,120,389,false, 0, 0, false, false, false);
+			pConfig = MakeLDAPConfigData((char *)"Generic",(char *)"unknown",true,120,2,120,120,389,false, 0, 0, false, false, false);
 			pConfigTable->AddItem( fConfigTableLen, pConfig );
 			fConfigTableLen++;
 	}
@@ -3148,8 +3148,10 @@ sInt32 CLDAPv3Configs::MakeLDAPConfig ( CFDictionaryRef ldapDict, sInt32 inIndex
 	char			   *account		= nil;
 	char			   *password	= nil;
 	int					passwordLen	= 0;
-	int					opencloseTO	= 0;
-	int					searchTO	= 0;
+	int					opencloseTO	= 120;
+	int					idleTO		= 2;
+	int					delayRebindTry = 120;
+	int					searchTO	= 120;
 	int					portNumber	= 389;
 	bool				bIsSSL		= false;
 	bool				bServerMappings	= false;
@@ -3264,6 +3266,26 @@ sInt32 CLDAPv3Configs::MakeLDAPConfig ( CFDictionaryRef ldapDict, sInt32 inIndex
 				}
 			}
 
+			if ( CFDictionaryContainsKey( ldapDict, CFSTR( kXMLIdleTimeoutMinsKey ) ) )
+			{
+				cfNumber = (CFNumberRef)CFDictionaryGetValue( ldapDict, CFSTR( kXMLIdleTimeoutMinsKey ) );
+				if ( cfNumber != nil )
+				{
+					cfNumBool = CFNumberGetValue(cfNumber, kCFNumberIntType, &idleTO);
+					//CFRelease(cfNumber); // no since pointer only from Get
+				}
+			}
+
+			if ( CFDictionaryContainsKey( ldapDict, CFSTR( kXMLDelayedRebindTrySecsKey ) ) )
+			{
+				cfNumber = (CFNumberRef)CFDictionaryGetValue( ldapDict, CFSTR( kXMLDelayedRebindTrySecsKey ) );
+				if ( cfNumber != nil )
+				{
+					cfNumBool = CFNumberGetValue(cfNumber, kCFNumberIntType, &delayRebindTry);
+					//CFRelease(cfNumber); // no since pointer only from Get
+				}
+			}
+
 			if ( CFDictionaryContainsKey( ldapDict, CFSTR( kXMLSearchTimeoutSecsKey ) ) )
 			{
 				cfNumber = (CFNumberRef)CFDictionaryGetValue( ldapDict, CFSTR( kXMLSearchTimeoutSecsKey ) );
@@ -3369,7 +3391,7 @@ sInt32 CLDAPv3Configs::MakeLDAPConfig ( CFDictionaryRef ldapDict, sInt32 inIndex
 
 			//setup the config table
 			// MakeLDAPConfigData does not consume the strings passed in so we need to free them below
-			pConfig = MakeLDAPConfigData( uiName, server, bUseStdMap, opencloseTO, searchTO, portNumber, bUseSecure, account, password, bMakeDefLDAP, bServerMappings, bIsSSL );
+			pConfig = MakeLDAPConfigData( uiName, server, bUseStdMap, opencloseTO, idleTO, delayRebindTry, searchTO, portNumber, bUseSecure, account, password, bMakeDefLDAP, bServerMappings, bIsSSL );
 			
 			if (!bUseStdMap) //TODO bUseStdMap will be replaced with templates
 			{
@@ -3942,7 +3964,8 @@ CFArrayRef CLDAPv3Configs::GetNativeTypeMapArray ( CFDictionaryRef configDict )
 // ---------------------------------------------------------------------------
 
 sLDAPConfigData *CLDAPv3Configs::MakeLDAPConfigData (	char *inName, char *inServerName, bool inUseStd,
-													int inOpenCloseTO, int inSearchTO, int inPortNum,
+													int inOpenCloseTO, int inIdleTO, int inDelayRebindTry,
+													int inSearchTO, int inPortNum,
 													bool inUseSecure,
 													char *inAccount, char *inPassword,
 													bool inMakeDefLDAP,
@@ -3973,6 +3996,8 @@ sLDAPConfigData *CLDAPv3Configs::MakeLDAPConfigData (	char *inName, char *inServ
 			
 			configOut->bUseStdMapping		= inUseStd;
 			configOut->fOpenCloseTimeout	= inOpenCloseTO;
+			configOut->fIdleTimeout			= inIdleTO;
+			configOut->fDelayRebindTry		= inDelayRebindTry;
 			configOut->fSearchTimeout		= inSearchTO;
 			configOut->fServerPort			= inPortNum;
 			configOut->bSecureUse			= inUseSecure;
@@ -4059,6 +4084,8 @@ sInt32 CLDAPv3Configs::CleanLDAPConfigData ( sLDAPConfigData *inConfig )
 		}
 		inConfig->bUseStdMapping		= true;
 		inConfig->fOpenCloseTimeout		= 120;
+		inConfig->fIdleTimeout			= 2;
+		inConfig->fDelayRebindTry		= 120;
 		inConfig->fSearchTimeout		= 120;
 		inConfig->fServerPort			= 389;
 		inConfig->bSecureUse			= false;

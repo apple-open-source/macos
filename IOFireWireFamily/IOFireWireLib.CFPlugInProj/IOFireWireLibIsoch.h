@@ -41,6 +41,15 @@
 // === [CFPlugIn support constants] ========================================
 
 //
+// v4 interfaces
+//
+
+//	uuid string: FECAA2F6-4E84-11D7-B6FD-0003938BEB0A
+#define kIOFireWireLocalIsochPortInterfaceID_v4 CFUUIDGetConstantUUIDWithBytes( kCFAllocatorDefault \
+											,0xFE, 0xCA, 0xA2, 0xF6, 0x4E, 0x84, 0x11, 0xD7\
+											,0xB6, 0xFD, 0x00, 0x03, 0x93, 0x8B, 0xEB, 0x0A )
+
+//
 //	v3 interfaces
 //
 
@@ -100,6 +109,8 @@ typedef IOReturn	(*IOFireWireLibIsochPortGetSupportedCallback)(
 	IOFireWireLibIsochPortRef		interface,
 	IOFWSpeed*						outMaxSpeed,
 	UInt64*							outChanSupported) ;
+
+typedef IOReturn	(*IOFireWireLibIsochPortFinalizeCallback)( void* refcon ) ;
 
 // ============================================================
 //
@@ -342,6 +353,31 @@ public:
 			[buffer, buffer+size] is not in the range of memory locked
 			down for this program.*/
 	IOReturn	(*ModifyTransferPacketDCL)( IOFireWireLibLocalIsochPortRef self, DCLTransferPacket* inDCL, void* buffer, IOByteCount size ) ;
+
+	//
+	// v4
+	// 
+	
+	/*!	@function SetFinalizeCallback
+		@abstract Set the finalize callback for a local isoch port
+		@discussion When Stop() is called on a LocalIsochPortInterface, there may or
+			may not be isoch callbacks still pending for this isoch port. The port must be allowed
+			to handle any pending callbacks, so the isoch runloop should not be stopped until a port 
+			has handled all pending callbacks. The finalize callback is called after the final 
+			callback has been made on the isoch runloop. After this callback is sent, it is safe
+			to stop the isoch runloop.
+			
+			You should not access the isoch port after the finalize callback has been made; it may
+			be released immediately after this callback is sent.
+						
+			Availability: IOFireWireLocalIsochPortInterface_v4 and newer.
+			
+		@param self The local isoch port interface to use.
+		@param finalizeCalback The finalize callback.
+		@result Returns true if this isoch port has no more pending callbacks and does not
+			need any more runloop time.*/
+	IOReturn		(*SetFinalizeCallback)( IOFireWireLibLocalIsochPortRef self, IOFireWireLibIsochPortFinalizeCallback finalizeCallback ) ;
+	
 } IOFireWireLocalIsochPortInterface ;
 
 // ============================================================

@@ -66,6 +66,9 @@ void KeyLargoWatchDogTimer::setWatchDogTimer(UInt32 timeOut)
 	UInt32 timeLow, timeHigh, watchDogLow, watchDogHigh;
 	UInt64 offset, time;
   
+    if(fSleeping)
+        return;	// Don't touch the watchdog timer while the system is sleeping or dozing
+        
 	if (timeOut != 0) {
 		offset = (UInt64)timeOut * kKeyLargoGTimerFreq;
     
@@ -87,5 +90,14 @@ void KeyLargoWatchDogTimer::setWatchDogTimer(UInt32 timeOut)
 	keyLargo->writeRegUInt32(kKeyLargoWatchDogEnableOffset, (timeOut != 0) ? 1 : 0);
 	
 	return;
+}
+
+void KeyLargoWatchDogTimer::setSleeping(bool val)
+{
+    // If we're sleeping disable the watchdog
+    if(val)
+        keyLargo->writeRegUInt32(kKeyLargoWatchDogEnableOffset, 0);
+        
+    fSleeping = val;
 }
 
