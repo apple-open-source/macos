@@ -21,7 +21,7 @@
  */
 
 #import <Cocoa/Cocoa.h>
-#import "mainController.h"
+#import "MainController.h"
 
 #import <Foundation/Foundation.h>
 #import <stdio.h>

@@ -23,6 +23,7 @@
 
 #include <CoreFoundation/CFMachPort.h>
 #include <CoreFoundation/CFNumber.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 #include "IOUSBInterfaceClass.h"
 #include <IOKit/usb/USB.h>
@@ -139,6 +140,8 @@ IOUSBInterfaceClass::start(CFDictionaryRef propertyTable, io_service_t inService
     mach_msg_type_number_t 	len = 1;
 
     fService = inService;
+    fNextCookie = 0;
+    fUserBufferInfoListHead = NULL;
     res = IOServiceOpen(fService, mach_task_self(), 0, &fConnection);
     if (res != kIOReturnSuccess)
         return res;
@@ -354,6 +357,8 @@ IOReturn
 IOUSBInterfaceClass::USBInterfaceClose()
 {
     IOReturn		ret;
+    LowLatencyUserBufferInfo *	buffer;
+    LowLatencyUserBufferInfo *	nextBuffer;
     
     allChecks();
 
@@ -368,6 +373,35 @@ IOUSBInterfaceClass::USBInterfaceClose()
 	fConnection = MACH_PORT_NULL;
 	ret = kIOReturnNoDevice;
     }
+
+#if 0    
+    // Need to free any buffers that has been allocated by the low latency stuff that has not been
+    // released!
+    //
+    if (fUserBufferInfoListHead != NULL)
+    {
+        nextBuffer = fUserBufferInfoListHead;
+        buffer = fUserBufferInfoListHead;
+        printf("fUserBufferInfoListHead != NULL: %p, next: %p\n",fUserBufferInfoListHead, buffer->nextBuffer);
+        
+        // Traverse the list and release memory
+        //
+        while ( nextBuffer != NULL )
+        {
+            nextBuffer = buffer->nextBuffer;
+            
+            printf("Releasing %p, %p\n", buffer->bufferAddress, buffer );
+            free ( buffer->bufferAddress );
+            free ( buffer );
+            
+            buffer = nextBuffer;
+        }
+        
+        fUserBufferInfoListHead = NULL;
+    }
+
+#endif
+ 
     return ret;
 }
 
@@ -1094,6 +1128,8 @@ IOUSBInterfaceClass::LowLatencyReadIsochPipeAsync(UInt8 pipeRef, void *buf, UInt
     mach_msg_type_number_t		len = 0;
     UInt32				i, total;
     IOReturn				ret;
+    LowLatencyUserBufferInfo *		dataBufferInfo;
+    LowLatencyUserBufferInfo *		frameListData;
 
     allChecks();
 
@@ -1104,13 +1140,41 @@ IOUSBInterfaceClass::LowLatencyReadIsochPipeAsync(UInt8 pipeRef, void *buf, UInt
     for(i=0; i < numFrames; i++)
         total += frameList[i].frReqCount;
 
+    // Find the data buffer in our list of buffers
+    //
+    dataBufferInfo = FindBufferAddressRangeInList( buf, total);
+    if ( dataBufferInfo != NULL )
+    {
+        pb.fDataBufferCookie = dataBufferInfo->cookie;
+        pb.fDataBufferOffset = (UInt32) buf - (UInt32)dataBufferInfo->bufferAddress;
+        // printf("LLRead: Found Data buffer: offset = %ld, cookie: %ld\n", pb.fDataBufferOffset, dataBufferInfo->cookie);
+    }
+    else
+    {
+        // printf("LL Read: Ooops, couldn't find buffer %p in our list\n",buf);
+        return kIOUSBLowLatencyBufferNotPreviouslyAllocated;
+    }
+    
+    // Find the frame list buffer in our list of buffers
+    //
+    frameListData = FindBufferAddressRangeInList( frameList, sizeof (IOUSBLowLatencyIsocFrame) * numFrames);
+    if ( frameListData != NULL )
+    {
+        pb.fFrameListBufferCookie = frameListData->cookie;
+        pb.fFrameListBufferOffset = (UInt32) frameList - (UInt32)frameListData->bufferAddress;
+        // printf("LL Read: Found FrameList buffer: offset = %ld, cookie : %ld\n", pb.fFrameListBufferOffset, frameListData->cookie);
+    }
+    else
+    {
+        // printf("LL Read: Ooops, couldn't find buffer %p in our list\n",frameList);
+        return kIOUSBLowLatencyFrameListNotPreviouslyAllocated;
+    }
+
     pb.fPipe = pipeRef;
-    pb.fBuffer = buf;
     pb.fBufSize = total;
     pb.fStartFrame = frameStart;
     pb.fNumFrames = numFrames;
     pb.fUpdateFrequency = updateFrequency;
-    pb.fFrameCounts = frameList;
 
     asyncRef[kIOAsyncCalloutFuncIndex] = (natural_t) callback;
     asyncRef[kIOAsyncCalloutRefconIndex] = (natural_t) refcon;
@@ -1136,6 +1200,8 @@ IOUSBInterfaceClass::LowLatencyWriteIsochPipeAsync(UInt8 pipeRef, void *buf, UIn
     mach_msg_type_number_t		len = 0;
     UInt32				i, total;
     IOReturn				ret;
+    LowLatencyUserBufferInfo *		dataBufferInfo;
+    LowLatencyUserBufferInfo *		frameListData;
 
     allChecks();
 
@@ -1146,13 +1212,41 @@ IOUSBInterfaceClass::LowLatencyWriteIsochPipeAsync(UInt8 pipeRef, void *buf, UIn
     for(i=0; i < numFrames; i++)
         total += frameList[i].frReqCount;
 
+    // Find the data buffer in our list of buffers
+    //
+    dataBufferInfo = FindBufferAddressRangeInList( buf, total);
+    if ( dataBufferInfo != NULL )
+    {
+        pb.fDataBufferCookie = dataBufferInfo->cookie;
+        pb.fDataBufferOffset = (UInt32) buf - (UInt32)dataBufferInfo->bufferAddress;
+       //  printf("LLWrite: Found Data buffer: offset = %ld, cookie: %ld\n", pb.fDataBufferOffset, dataBufferInfo->cookie);
+    }
+    else
+    {
+       // printf("LLWrite: Ooops, couldn't find buffer %p in our list\n",buf);
+        return kIOUSBLowLatencyBufferNotPreviouslyAllocated;
+    }
+    
+    // Find the frame list buffer in our list of buffers
+    //
+    frameListData = FindBufferAddressRangeInList( frameList, sizeof (IOUSBLowLatencyIsocFrame) * numFrames);
+    if ( frameListData != NULL )
+    {
+        pb.fFrameListBufferCookie = frameListData->cookie;
+        pb.fFrameListBufferOffset = (UInt32) frameList - (UInt32)frameListData->bufferAddress;
+        // printf("LLWrite: Found FrameList buffer: offset = %ld, cookie = %ld\n", pb.fFrameListBufferOffset, frameListData->cookie);
+    }
+    else
+    {
+        // printf("LLWrite: Ooops, couldn't find buffer %p in our list\n",frameList);
+        return kIOUSBLowLatencyFrameListNotPreviouslyAllocated;
+    }
+
     pb.fPipe = pipeRef;
-    pb.fBuffer = buf;
     pb.fBufSize = total;
     pb.fStartFrame = frameStart;
     pb.fNumFrames = numFrames;
     pb.fUpdateFrequency = updateFrequency;
-    pb.fFrameCounts = frameList;
 
     asyncRef[kIOAsyncCalloutFuncIndex] = (natural_t) callback;
     asyncRef[kIOAsyncCalloutRefconIndex] = (natural_t) refcon;
@@ -1168,6 +1262,295 @@ IOUSBInterfaceClass::LowLatencyWriteIsochPipeAsync(UInt8 pipeRef, void *buf, UIn
 }
 
 
+IOReturn
+IOUSBInterfaceClass::LowLatencyCreateBuffer( void ** buffer, IOByteCount bufferSize, UInt32 bufferType )
+{
+    LowLatencyUserBufferInfo *	bufferInfo;
+    IOReturn			result = kIOReturnSuccess;
+    mach_msg_type_number_t 	outSize = 0;
+    
+    allChecks();
+
+    // printf("In LowLatencyCreateBuffer, size: %d, type, %d\n", (int)bufferSize, (int)bufferType);
+    
+    // Allocate our buffer Data and zero it
+    //
+    bufferInfo = ( LowLatencyUserBufferInfo *) malloc( sizeof(LowLatencyUserBufferInfo) );
+    if ( bufferInfo == NULL )
+    {
+        *buffer = NULL;
+        result = kIOReturnNoMemory;
+        goto ErrorExit;
+    }
+    
+    // bzero(bufferInfo, sizeof(LowLatencyUserBufferInfo));
+    
+    // Now, attempt to allocate the users data
+    //
+    *buffer = malloc( bufferSize );
+    if ( *buffer == NULL )
+    {
+        result = kIOReturnNoMemory;
+        goto ErrorExit;
+    }
+    
+    // printf("\tBuffer: %p\n", *buffer);
+    
+    // Update our buffer Data
+    //
+    bufferInfo->cookie = fNextCookie++;
+    bufferInfo->bufferAddress = *buffer;
+    bufferInfo->bufferSize = bufferSize;
+    bufferInfo->bufferType = bufferType;
+    bufferInfo->isPrepared = false;
+    bufferInfo->nextBuffer = NULL;
+    
+    // OK, ready to call the kernel so that it does its thing with this buffer
+    //
+    // kIOUCStructIStructO  io_connect_method_structureI_structureO(..., UInt32 * bufferIn,  UInt32 bufferSizeIn,   UInt32 * bufferOut,  UInt32 * bufferSizeInOut )
+    //
+    result = io_connect_method_structureI_structureO(fConnection, kUSBInterfaceUserClientLowLatencyPrepareBuffer, (char *)bufferInfo, sizeof(LowLatencyUserBufferInfo), NULL, &outSize);
+    
+    if ( result == kIOReturnSuccess )
+    {
+        // Cool, we have a good buffer, add it to our list
+        //
+        AddDataBufferToList( bufferInfo );
+    }
+    else
+    {
+        // OK, something went wrong, so we need to release anything we allocated
+        //
+        fNextCookie--;
+        free( *buffer );
+        *buffer = NULL;
+        free ( bufferInfo );
+        
+        // Fall through to return result
+        //
+    }
+    
+    
+ErrorExit:    
+    return result;
+}
+
+
+IOReturn
+IOUSBInterfaceClass::LowLatencyDestroyBuffer( void * buffer )
+{
+    LowLatencyUserBufferInfo *	bufferData;
+    IOReturn			result = kIOReturnSuccess;
+    mach_msg_type_number_t 	outSize = 0;
+    bool			found;
+    
+    allChecks();
+
+    //printf("In LowLatencyDestroyBuffer, buffer %p\n", buffer);
+    
+    // We need to find the LowLatencyUserBufferInfo structure that contains
+    // this buffer and then remove it from the list and free the structure
+    // and the memory that was allocated for it
+    //
+    bufferData = FindBufferAddressInList( buffer );
+    if ( bufferData == NULL )
+    {
+        result = kIOReturnBadArgument;
+        goto ErrorExit;
+    }
+    
+    // Now, remove this bufferData from the list
+    //
+    found = RemoveDataBufferFromList( bufferData );
+    if ( !found )
+    {
+        result = kIOReturnBadArgument;
+        goto ErrorExit;
+    }
+    
+    // Call into the kernel to release the kernel objects for this buffer data
+    //
+    // kIOUCStructIStructO  io_connect_method_structureI_structureO(..., UInt32 * bufferIn,  UInt32 bufferSizeIn,   UInt32 * bufferOut,  UInt32 * bufferSizeInOut )
+    //
+    result = io_connect_method_structureI_structureO(fConnection, kUSBInterfaceUserClientLowLatencyReleaseBuffer, (char *)bufferData, sizeof(LowLatencyUserBufferInfo), NULL, &outSize);
+
+    // If there is an error, we still need to free our data
+    // Now, free the memory
+    //
+    free ( bufferData->bufferAddress );
+    free ( bufferData );
+    
+
+ErrorExit:
+    
+    return result;
+}
+
+void
+IOUSBInterfaceClass::AddDataBufferToList( LowLatencyUserBufferInfo * insertBuffer )
+{
+    LowLatencyUserBufferInfo *	buffer;
+    
+    // Traverse the list looking for last buffer and insert ours into it
+    //
+    if ( fUserBufferInfoListHead == NULL )
+    {
+        fUserBufferInfoListHead = insertBuffer;
+        return;
+    }
+    
+    buffer = fUserBufferInfoListHead;
+    
+    while ( buffer->nextBuffer != NULL )
+    {
+        buffer = buffer->nextBuffer;
+    }
+    
+    // When we get here, nextBuffer is pointing to NULL.  Our insert buffer
+    // already has nextBuffer = NULL, so we just insert it
+    //
+    buffer->nextBuffer = insertBuffer;
+}
+
+
+LowLatencyUserBufferInfo *
+IOUSBInterfaceClass::FindBufferAddressInList( void *address )
+{
+    LowLatencyUserBufferInfo *	buffer;
+    bool			foundIt = true;
+    
+    // Traverse the list looking for this buffer
+    //
+    if ( fUserBufferInfoListHead == NULL )
+    {
+        return NULL;
+    }
+    
+    buffer = fUserBufferInfoListHead;
+    
+    // Now, we need to see if our address is the same as one in the buffer list
+    //
+    while ( buffer->bufferAddress != address )
+    {
+        buffer = buffer->nextBuffer;
+        if ( buffer == NULL )
+        {
+            foundIt = false;
+            break;
+        }
+    }
+    
+    if ( foundIt )
+        return buffer;
+    else
+        return false;
+}
+
+LowLatencyUserBufferInfo *
+IOUSBInterfaceClass::FindBufferAddressRangeInList( void * address, UInt32 size )
+{
+    // Need to find and see if this address range is within any of the buffers
+    // in our buffer data list
+    //
+    LowLatencyUserBufferInfo *	buffer;
+    UInt32			addressStart;
+    UInt32			addressEnd;
+    UInt32			bufferStart;
+    UInt32			bufferEnd;
+    bool			foundIt = false;
+    
+    // If no list, return NULL
+    //
+    if (fUserBufferInfoListHead == NULL)
+        return NULL;
+        
+    // Convert pointers to integers
+    //
+    addressStart = (UInt32) address;
+    addressEnd = addressStart + size;
+    
+    // Start at the beginning of the list
+    //
+    buffer = fUserBufferInfoListHead;
+    
+    do {
+        // Calculate the bufferStart and bufferEnd for this buffer
+        //
+        bufferStart = (UInt32) buffer->bufferAddress;
+        bufferEnd = bufferStart + buffer->bufferSize;
+        
+        // Now, is our address in that range and
+        //
+        if ( ( addressStart >= bufferStart) && ( addressStart < bufferEnd) )
+        {
+            // Yes, it is.  Now, does it fit
+            //
+            if ( addressEnd <= bufferEnd )
+            {
+                // And it fits, so we have our buffer
+                //
+                foundIt = true;
+                break;
+            }
+        }
+        
+        // Look at the next buffer
+        //
+        buffer = buffer->nextBuffer;
+    
+    } while ( buffer != NULL );
+    
+    if ( foundIt )
+        return buffer;
+    else
+        return NULL;
+}
+
+
+bool
+IOUSBInterfaceClass::RemoveDataBufferFromList( LowLatencyUserBufferInfo * removeBuffer )
+{
+    LowLatencyUserBufferInfo *	buffer;
+    LowLatencyUserBufferInfo *	previousBuffer;
+    
+    // If our head is NULL, then this buffer does not exist in our list
+    //
+    if ( fUserBufferInfoListHead == NULL )
+    {
+        return false;
+    }
+    
+    buffer = fUserBufferInfoListHead;
+    
+    // if our removeBuffer is the first one in the list, then just update the head and
+    // exit
+    //
+    if ( buffer == removeBuffer )
+    {
+        fUserBufferInfoListHead = buffer->nextBuffer;
+    }
+    else
+    {    
+        // Need to start previousBuffer pointing to our initial buffer, in case we match
+        // the first time
+        //
+        previousBuffer = buffer;
+        
+        while ( buffer->nextBuffer != removeBuffer )
+        {
+            previousBuffer = buffer;
+            buffer = previousBuffer->nextBuffer;
+        }
+        
+        // When we get here, buffer is pointing to the same buffer as removeBuffer
+        // and previous buffer is pointing to the previous element in the link list,
+        // so, update the link in previous to point to removeBuffer->nextBuffer;
+        //
+        buffer->nextBuffer = removeBuffer->nextBuffer;
+    }
+    
+    return true;
+}
 
 
 IOCFPlugInInterface 
@@ -1240,6 +1623,8 @@ IOUSBInterfaceClass::sUSBInterfaceInterfaceV192 = {
     // ---------- new with 1.9.2
     &IOUSBInterfaceClass::interfaceLowLatencyReadIsochPipeAsync,
     &IOUSBInterfaceClass::interfaceLowLatencyWriteIsochPipeAsync,
+    &IOUSBInterfaceClass::interfaceLowLatencyCreateBuffer,
+    &IOUSBInterfaceClass::interfaceLowLatencyDestroyBuffer
 };
 
 
@@ -1480,4 +1865,12 @@ IOUSBInterfaceClass::interfaceLowLatencyReadIsochPipeAsync(void *self, UInt8 pip
 IOReturn 
 IOUSBInterfaceClass::interfaceLowLatencyWriteIsochPipeAsync(void *self, UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames, UInt32 updateFrequency, IOUSBLowLatencyIsocFrame *frameList, IOAsyncCallback1 callback, void *refcon)
     { return getThis(self)->LowLatencyWriteIsochPipeAsync(pipeRef, buf, frameStart, numFrames, updateFrequency, frameList, callback, refcon); }
+
+IOReturn 
+IOUSBInterfaceClass::interfaceLowLatencyCreateBuffer(void *self, void * *buffer, IOByteCount size, UInt32 bufferType)
+    { return getThis(self)->LowLatencyCreateBuffer( buffer, size, bufferType); }
+    
+IOReturn 
+IOUSBInterfaceClass::interfaceLowLatencyDestroyBuffer(void *self, void * buffer )
+    { return getThis(self)->LowLatencyDestroyBuffer( buffer); }
 

@@ -842,16 +842,16 @@ IOUSBPipe::Write(IOMemoryDescriptor * buffer, UInt64 frameStart, UInt32 numFrame
     {
         // put in our own completion routine if none was specified to
         // fake synchronous operation
-        IOUSBIsocCompletion	tap;
+        IOUSBLowLatencyIsocCompletion	tap;
         IOSyncer *		syncer;
 
         syncer  = IOSyncer::create();
 
         tap.target = syncer;
-        tap.action = &IOUSBSyncIsoCompletion;
+        tap.action = (IOUSBLowLatencyIsocCompletionAction)&IOUSBSyncIsoCompletion;
         tap.parameter = NULL;
 
-        err = _controller->IsocIO(buffer, frameStart, numFrames, pFrames, _address, &_endpoint, (IOUSBLowLatencyIsocCompletion *) &tap, updateFrequency);
+        err = _controller->IsocIO(buffer, frameStart, numFrames, pFrames, _address, &_endpoint, &tap, updateFrequency);
 
         if (err == kIOReturnSuccess)
         {

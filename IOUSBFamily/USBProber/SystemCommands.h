@@ -21,7 +21,7 @@
  */
 
 #import <Foundation/Foundation.h>
-#import "authorization.h"
+#import "Authorization.h"
 
 @interface systemCommands : NSObject {
     

@@ -32,9 +32,9 @@
 
 #include <IOKit/IOService.h>
 #include <IOKit/firewire/IOFWIsochChannel.h>
-#include <IOKit/firewire/IOFWRegs.h>
-#include <IOKit/firewire/IOFWCommand.h>
 #include <IOKit/firewire/IOFWAddressSpace.h>
+#include <IOKit/firewire/IOFWCommand.h>
+#include <IOKit/firewire/IOFireWireFamilyCommon.h>
 
 extern const OSSymbol *gFireWireROM;
 extern const OSSymbol *gFireWireNodeID;
@@ -47,9 +47,9 @@ extern const OSSymbol *gFireWire_GUID;
 extern const OSSymbol *gFireWireVendor_Name;
 extern const OSSymbol *gFireWireProduct_Name;
 
-class IOFWIsochPort;
-class IOFWLocalIsochPort;
-struct DCLCommandStruct;
+class IOFireWireDevice ;
+class IOLocalConfigDirectory ;
+class IOFWLocalIsochPort ;
 
 class IOFireWireBus : public IOService
 {
@@ -73,12 +73,12 @@ static const IORegistryPlane * gIOFireWirePlane;
     // Create an Isochronous Channel object
     virtual IOFWIsochChannel *createIsochChannel(
         bool doIRM, UInt32 bandwidth, IOFWSpeed prefSpeed,
-        FWIsochChannelForceStopNotificationProc stopProc=NULL,
+        IOFWIsochChannel::ForceStopNotificationProc stopProc=NULL,
         void *stopRefCon=NULL) = 0;
  
    // Create a local isochronous port to run the given DCL program
     virtual IOFWLocalIsochPort *createLocalIsochPort(bool talking,
-        DCLCommandStruct *opcodes, DCLTaskInfo *info = 0,
+        DCLCommand *opcodes, DCLTaskInfo *info = 0,
         UInt32 startEvent = 0, UInt32 startState = 0, UInt32 startMask = 0) = 0;
 
     virtual IOReturn getCycleTime(UInt32 &cycleTime) = 0;
@@ -127,11 +127,15 @@ static const IORegistryPlane * gIOFireWirePlane;
     // Extract info about the async request - was the request ack'ed complete already?
     virtual bool isCompleteRequest(IOFWRequestRefCon refcon) = 0;
     
+    virtual IOFWAsyncStreamCommand *createAsyncStreamCommand( UInt32 generation,
+    			UInt32 channel, UInt32 sync, UInt32 tag, IOMemoryDescriptor *hostMem,
+				UInt32 size, int speed,FWAsyncStreamCallback completion=NULL, void *refcon=NULL) = 0;
+    
 private:
     OSMetaClassDeclareReservedUsed(IOFireWireBus, 0);
     OSMetaClassDeclareReservedUsed(IOFireWireBus, 1);
     OSMetaClassDeclareReservedUsed(IOFireWireBus, 2);
-    OSMetaClassDeclareReservedUnused(IOFireWireBus, 3);
+    OSMetaClassDeclareReservedUsed(IOFireWireBus, 3);
     OSMetaClassDeclareReservedUnused(IOFireWireBus, 4);
     OSMetaClassDeclareReservedUnused(IOFireWireBus, 5);
     OSMetaClassDeclareReservedUnused(IOFireWireBus, 6);

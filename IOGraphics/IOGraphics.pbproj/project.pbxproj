@@ -95,7 +95,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOGraphicsFamily;
-				MODULE_VERSION = 1.2;
+				MODULE_VERSION = 1.2.2;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -120,7 +120,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOGraphicsFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2, Copyright Apple Computer, Inc. 2000-2001</string>
+	<string>1.2.2, Copyright Apple Computer, Inc. 2000-2001</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -132,11 +132,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2</string>
+	<string>1.2.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2</string>
+	<string>1.2.2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleBacklightDisplay</key>
@@ -293,7 +293,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONDRVSupport;
-				MODULE_VERSION = 1.2;
+				MODULE_VERSION = 1.2.2;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -318,7 +318,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IONDRVSupport</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2, Copyright Apple Computer, Inc. 2000-2001</string>
+	<string>1.2.2, Copyright Apple Computer, Inc. 2000-2001</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -330,11 +330,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2</string>
+	<string>1.2.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2</string>
+	<string>1.2.2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>1</key>

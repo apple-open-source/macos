@@ -119,6 +119,13 @@ public:
     virtual UInt32 getNodeFlags( void );
 	virtual IOReturn configureNode( void );
 
+    /*
+     * Create local FireWire address spaces for the device to access
+     */
+    virtual IOFWPhysicalAddressSpace *createPhysicalAddressSpace(IOMemoryDescriptor *mem);
+    virtual IOFWPseudoAddressSpace *createPseudoAddressSpace(FWAddress *addr, UInt32 len,
+                    FWReadCallback reader, FWWriteCallback writer, void *refcon);
+
 protected:
 	virtual IOReturn readRootDirectory( IOConfigDirectory * directory, OSDictionary * propTable );
 	virtual IOReturn processRootDirectory( OSDictionary * propTable );
@@ -128,6 +135,8 @@ protected:
 	virtual void setRegistrationState( RegistrationState fRegistrationState );
 	
 	virtual void preprocessDirectories( OSDictionary * rootPropTable, OSSet * unitSet );
+	
+	virtual void configurePhysicalFilter( void );
 	
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireDevice, 0);

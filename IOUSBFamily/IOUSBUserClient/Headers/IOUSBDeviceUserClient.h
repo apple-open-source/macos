@@ -46,7 +46,8 @@ private:
     UInt32				fOutstandingIO;
     bool				fDead;
     bool				fNeedToClose;
-
+    IOWorkLoop	*			fWorkLoop;
+    
     static const IOExternalMethod	sMethods[kNumUSBDeviceMethods];
     static const IOExternalAsyncMethod	sAsyncMethods[kNumUSBDeviceAsyncMethods];
 

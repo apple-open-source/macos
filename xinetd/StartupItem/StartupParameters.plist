@@ -1,0 +1,12 @@
+{
+  Description     = "TCP/IP Internet services";
+  Provides        = ("Super Server");
+  Requires        = ("Resolver");
+  Uses            = ("Network Time");
+  OrderPreference = "None";
+  Messages =
+  {
+    start = "Starting TCP/IP services";
+    stop  = "Stopping TCP/IP services";
+  };
+}

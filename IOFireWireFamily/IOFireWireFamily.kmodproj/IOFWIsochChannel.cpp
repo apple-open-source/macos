@@ -47,11 +47,11 @@ void IOFWIsochChannel::threadFunc(thread_call_param_t arg, thread_call_param_t)
 }
 
 bool IOFWIsochChannel::init(IOFireWireController *control, bool doIRM,
-	UInt32 packetSize, IOFWSpeed prefSpeed,
-	FWIsochChannelForceStopNotificationProcPtr stopProc, void *stopRefCon)
+		UInt32 packetSize, IOFWSpeed prefSpeed, ForceStopNotificationProc* stopProc, void *stopRefCon)
 {
-    if(!OSObject::init())
-	return false;
+    if( !OSObject::init() )
+		return false;
+		
     fControl = control;
     fDoIRM = doIRM;
     fPacketSize = packetSize;

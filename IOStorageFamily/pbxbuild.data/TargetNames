@@ -1,2 +1,9 @@
-Targets='IOStorageFamily Headers
+if [ "${Target}" = "IOStorageFamily" ]; then
+	Targets='IOStorageFamily Headers
 IOStorageFamily'
+elif [ "${Target}" = "IOStorageFamily Headers" ]; then
+	Targets='IOStorageFamily Headers'
+else
+	Targets='IOStorageFamily Headers
+IOStorageFamily'
+fi

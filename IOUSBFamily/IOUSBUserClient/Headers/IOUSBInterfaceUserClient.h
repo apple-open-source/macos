@@ -21,6 +21,73 @@
  */
 #include <IOKit/IOUserClient.h>
 #include <IOKit/usb/IOUSBUserClient.h>
+#include <IOKit/IOCommandPool.h>
+
+enum
+{
+    kSizeToIncrementLowLatencyCommandPool = 10
+};
+
+
+struct AsyncPB {
+    OSAsyncReference 		fAsyncRef;
+    UInt32 			fMax;
+    IOMemoryDescriptor 		*fMem;
+    IOUSBDevRequestDesc		req;
+};
+
+struct IsoAsyncPB {
+    OSAsyncReference 	fAsyncRef;
+    int			frameLen;	// In bytes
+    void *		frameBase;	// In user task
+    IOMemoryDescriptor *dataMem;
+    IOMemoryDescriptor *countMem;
+    IOUSBIsocFrame	frames[0];
+};
+
+typedef struct LowLatencyUserClientBufferInfo  LowLatencyUserClientBufferInfo;
+
+struct LowLatencyUserClientBufferInfo
+{
+    UInt32				cookie;
+    UInt32				bufferType;
+    void *				bufferAddress;
+    UInt32				bufferSize;
+    IOMemoryDescriptor *		bufferDescriptor;
+    IOMemoryDescriptor *		frameListDescriptor;
+    IOMemoryMap *			frameListMap;
+    IOVirtualAddress			frameListKernelAddress;
+    LowLatencyUserClientBufferInfo * 	nextBuffer;
+};
+
+class IOUSBLowLatencyCommand : public IOCommand
+{
+    OSDeclareAbstractStructors(IOUSBLowLatencyCommand)
+
+private:
+
+    OSAsyncReference		fAsyncRef;
+    IOByteCount			fFrameLength;	// In bytes
+    void *			fFrameBase;	// In user task
+    IOMemoryDescriptor *	fDataBufferDescriptor;
+
+public:
+
+    // static constructor
+    static IOUSBLowLatencyCommand *	NewCommand(void);
+
+    // accessor methods
+    //
+    void  			SetAsyncReference(OSAsyncReference  ref);
+    void  			SetFrameLength(IOByteCount frameLength) { fFrameLength = frameLength; }
+    void  			SetFrameBase(void * frameBase) { fFrameBase = frameBase; }
+    void  			SetDataBuffer(IOMemoryDescriptor * dataMem) {fDataBufferDescriptor = dataMem; }
+
+    void	 	 	GetAsyncReference(OSAsyncReference *ref) {  *ref = fAsyncRef; }
+    IOByteCount 		GetFrameLength(void) { return fFrameLength; }
+    void * 			GetFrameBase(void){ return fFrameBase; }
+    IOMemoryDescriptor * 	GetDataBuffer(void){ return fDataBufferDescriptor; }
+};
 
 
 class IOUSBInterfaceUserClient : public IOUserClient
@@ -39,13 +106,17 @@ private:
     mach_port_t 			fWakePort;
     bool				fDead;
     bool				fNeedToClose;
+    IOCommandPool *			fFreeUSBLowLatencyCommandPool;
+    UInt32				fCurrentSizeOfCommandPool;
+    IOWorkLoop	*			fWorkLoop;
+    LowLatencyUserClientBufferInfo *	fUserClientBufferInfoListHead;
 
     static const IOExternalMethod	sMethods[kNumUSBInterfaceMethods];
     static const IOExternalAsyncMethod	sAsyncMethods[kNumUSBInterfaceAsyncMethods];
 
    // my protected methods
     virtual void 			SetExternalMethodVectors(void);
-    
+    void 			IncreaseCommandPool();
 
     // IOKit methods
     virtual void 	stop(IOService * provider);
@@ -121,6 +192,15 @@ private:
     void		IncrementOutstandingIO(void);
     UInt32		GetOutstandingIO(void);
     
+    // Low Latency Buffer methods
+    //
+    virtual IOReturn			LowLatencyPrepareBuffer(LowLatencyUserBufferInfo *dataBuffer);
+    virtual IOReturn			LowLatencyReleaseBuffer(LowLatencyUserBufferInfo *dataBuffer);
+    virtual void			AddDataBufferToList( LowLatencyUserClientBufferInfo * insertBuffer );
+    virtual LowLatencyUserClientBufferInfo *	FindBufferCookieInList( UInt32 cookie);
+    virtual bool			RemoveDataBufferFromList( LowLatencyUserClientBufferInfo *removeBuffer);
+    
+    
     // static methods
     static void 	ReqComplete(void *obj, void *param, IOReturn status, UInt32 remaining);
     static void		IsoReqComplete(void *obj, void *param, IOReturn res, IOUSBIsocFrame *pFrames);
@@ -129,3 +209,4 @@ private:
     static IOReturn	GetGatedOutstandingIO(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
 
 };
+

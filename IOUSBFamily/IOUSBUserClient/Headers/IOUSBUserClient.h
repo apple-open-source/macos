@@ -76,6 +76,9 @@ enum {
     kUSBInterfaceUserClientSetPipePolicy,
     kUSBInterfaceUserClientGetBandwidthAvailable,
     kUSBInterfaceUserClientGetEndpointProperties,
+    // new with 1.9.2
+    kUSBInterfaceUserClientLowLatencyPrepareBuffer,
+    kUSBInterfaceUserClientLowLatencyReleaseBuffer,
     kNumUSBInterfaceMethods
     };
 

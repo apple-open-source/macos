@@ -22,24 +22,36 @@
 #include "AppleDBDMAAudioDMAEngine.h"
 
 enum {
-    kOutMute = 0,
-    kOutVolLeft = 1,
-    kOutVolRight = 2,
-    kPassThruToggle = 3,
-    kInGainLeft = 4,
-    kInGainRight = 5,
-    kInputSelector = 6,
-	kOutVolMaster = 7,
-	kPRAMVol = 8,
-	kHeadphoneInsert = 9,
-	kInputInsert = 10,
+    kOutMute			= 0,
+    kOutVolLeft			= 1,
+    kOutVolRight		= 2,
+    kPassThruToggle		= 3,
+    kInGainLeft			= 4,
+    kInGainRight		= 5,
+    kInputSelector		= 6,
+	kOutVolMaster		= 7,
+	kPRAMVol			= 8,
+	kHeadphoneInsert	= 9,
+	kInputInsert		= 10,
     kNumControls
 };
 
+enum invokeInternalFunctionSelectors {
+	kInvokeHeadphoneInterruptHandler,
+	kInvokeSpeakerInterruptHandler
+};
+		
 #define kBatteryPowerDownDelayTime		30000000000ULL				// 30 seconds
 #define kACPowerDownDelayTime			300000000000ULL				// 300 seconds == 5 minutes
-#define kiSubMaxVolume		60
-#define kiSubVolumePercent	92
+#define kiSubMaxVolume					60
+#define kiSubVolumePercent				92
+
+typedef struct {
+	UInt32			layoutID;			//	identify the target CPU
+	UInt32			portID;				//	identify port (see: AudioPortTypes in AudioHardwareConstants.h)
+	UInt32			speakerID;			//	dallas ROM ID (concatenates all fields)
+} SpeakerIDStruct;
+typedef SpeakerIDStruct * SpeakerIDStructPtr;
 
 class IOAudioControl;
 
@@ -107,6 +119,9 @@ protected:
 	bool 						mRangeInChanged;	
 	
 	DualMonoModeType			mInternalMicDualMonoMode;	// aml 6.17.02
+	
+	UInt32						mProcessingParams[kMaxProcessingParamSize/sizeof(UInt32)];
+	bool						disableLoadingEQFromFile;
 
 public:
 	// Classical Unix funxtions
@@ -202,11 +217,28 @@ public:
     virtual  UInt32 	sndHWGetProgOutput() = 0;
     virtual  IOReturn   sndHWSetProgOutput(UInt32 outputBits) = 0;
 
-	// User Client calls
-	virtual Boolean	getGPIOActiveState (UInt32 gpioSelector) = 0;
-	virtual UInt8	readGPIO (UInt32 selector) = 0;
-	virtual void	writeGPIO (UInt32 selector, UInt8 data) = 0;
-
+	// User Client calls residing in AOA derived object (accessed indirectly through public APIs)
+	virtual UInt8		readGPIO (UInt32 selector) = 0;
+	virtual void		writeGPIO (UInt32 selector, UInt8 data) = 0;
+	virtual Boolean		getGPIOActiveState (UInt32 gpioSelector) = 0;
+	virtual void		setGPIOActiveState ( UInt32 selector, UInt8 gpioActiveState ) = 0;
+	virtual Boolean		checkGpioAvailable ( UInt32 selector ) {return 0;}
+	virtual IOReturn	readHWReg32 ( UInt32 selector, UInt32 * registerData ) = 0;
+	virtual IOReturn	writeHWReg32 ( UInt32 selector, UInt32 registerData ) = 0;
+	virtual IOReturn	readCodecReg ( UInt32 selector, void * registerData,  UInt32 * registerDataSize ) = 0;
+	virtual IOReturn	writeCodecReg ( UInt32 selector, void * registerData ) = 0;
+	virtual IOReturn	readSpkrID ( UInt32 selector, UInt32 * speakerIDPtr ) = 0;
+	virtual IOReturn	getCodecRegSize ( UInt32 selector, UInt32 * codecRegSizePtr ) = 0;
+	virtual IOReturn	getVolumePRAM ( UInt32 * pramDataPtr ) = 0;
+	virtual IOReturn	getDmaState ( UInt32 * dmaStatePtr ) = 0;
+	virtual IOReturn	getStreamFormat ( IOAudioStreamFormat * streamFormatPtr ) = 0;
+	virtual IOReturn	readPowerState ( UInt32 selector, IOAudioDevicePowerState * powerState ) = 0;
+	virtual IOReturn	setPowerState ( UInt32 selector, IOAudioDevicePowerState powerState ) = 0;
+	virtual IOReturn	setBiquadCoefficients ( UInt32 selector, void * biquadCoefficients, UInt32 coefficientSize ) = 0;
+	virtual IOReturn	getBiquadInformation ( UInt32 scalarArg1, void * outStructPtr, IOByteCount * outStructSizePtr ) = 0;
+	virtual IOReturn	getProcessingParameters ( UInt32 scalarArg1, void * outStructPtr, IOByteCount * outStructSizePtr ) = 0;
+	virtual IOReturn	setProcessingParameters ( UInt32 scalarArg1, void * inStructPtr, UInt32 inStructSize ) = 0;
+	virtual	IOReturn	invokeInternalFunction ( UInt32 functionSelector, void * inData ) = 0;
 protected:
 
 	// activation functions
@@ -250,11 +282,38 @@ class	AppleOnboardAudioUserClient : public IOUserClient
 		
 	public:
 		
+		//	WARNING:	The following enumerations must maintain the current order.  New
+		//				enumerations may be added to the end of the list but must not
+		//				be inserted into the center of the list.  Insertion of enumerations
+		//				in the center of the list will cause the 'Audio Hardware Utility'
+		//				to panic.  
 		enum
 		{
-			kgpioReadIndex	 		= 0,
-			kgpioWriteIndex 		= 1
+			kgpioReadIndex	 		=	0,		/*	returns data from gpio																		*/
+			kgpioWriteIndex 		=	1,		/*	writes data to gpio																			*/
+			kgetGpioActiveState		=	2,		/*	returns TRUE if gpio is active high															*/
+			ksetGpioActiveState		=	3,		/*	sets the gpio active state (polarity)														*/
+			kcheckIfGpioExists		=	4,		/*	returns TRUE if gpio exists on host CPU														*/
+			kreadHWRegister32		=	5,		/*	returns data memory mapped I/O by hardware register reference								*/
+			kwriteHWRegister32		=	6,		/*	writed stat to memory mapped I/O by hardware register reference								*/
+			kreadCodecRegister		=	7,		/*	returns data CODEC (i.e. Screamer, DACA, Burgundy, Tumbler, Snapper by register reference	*/
+			kwriteCodecRegister		=	8,		/*	writes data to CODEC (i.e. Screamer, DACA, Burgundy, Tumbler, Snapper by register reference	*/
+			kreadSpeakerID			=	9,		/*	returns data from Dallas ROM																*/
+			kgetCodecRegisterSize	=	10,		/*	return the size of a codec register in expressed in bytes									*/
+			kreadPRAM				=	11,		/*	return PRAM contents																		*/
+			kreadDMAState			=	12,		/*	return DMA state																			*/
+			kreadStreamFormat		=	13,		/*	return IOAudioStreamFormat																	*/
+			kreadPowerState			=	14,
+			ksetPowerState			=	15,
+			ksetBiquadCoefficients	=	16,
+			kgetBiquadInfo			=	17,
+			kgetProcessingParams	=	18,		/*	tbd: (see Aram)	*/
+			ksetProcessingParams	=	19,		/*	tbd: (see Aram)	*/
+			kinvokeInternalFunction	=	20
 		};
+
+		
+		//	END WARNING:
 		
 		// Static member functions
 		
@@ -267,11 +326,27 @@ class	AppleOnboardAudioUserClient : public IOUserClient
 		
 		// Public API's
 		
-		virtual IOReturn	gpioRead (UInt32 selector, UInt8 * gpioState);
-
-		virtual IOReturn	gpioWrite (UInt32 selector, UInt8 gpioState);
-
+		virtual IOReturn	gpioRead ( UInt32 selector, UInt8 * gpioState );
+		virtual IOReturn	gpioWrite ( UInt32 selector, UInt8 gpioState );
 		virtual IOReturn	gpioGetActiveState (UInt32 selector, UInt8 * gpioActiveState);
+		virtual IOReturn	gpioSetActiveState ( UInt32 selector, UInt8 gpioActiveState );
+		virtual IOReturn	gpioCheckAvailable ( UInt32 selector, UInt8 * gpioExists );
+		virtual IOReturn	hwRegisterRead32 ( UInt32 selector, UInt32 * registerData );
+		virtual IOReturn	hwRegisterWrite32 ( UInt32 selector, UInt32 registerData );
+		virtual IOReturn	codecReadRegister ( UInt32 scalarArg1, void * outStructPtr, IOByteCount * outStructSizePtr );
+		virtual IOReturn	codecWriteRegister ( UInt32 selector, void * data, UInt32 inStructSize );
+		virtual IOReturn	readSpeakerID ( UInt32 selector, UInt32 * speakerIDPtr );
+		virtual IOReturn	codecRegisterSize ( UInt32 selector, UInt32 * codecRegSizePtr );
+		virtual IOReturn	readPRAMVolume ( UInt32 selector, UInt32 * pramDataPtr );
+		virtual IOReturn	readDMAState ( UInt32 selector, UInt32 * dmaStatePtr );
+		virtual IOReturn	readStreamFormat ( UInt32 selector, IOAudioStreamFormat * outStructPtr, IOByteCount * outStructSizePtr );
+		virtual IOReturn	readPowerState ( UInt32 selector, IOAudioDevicePowerState * powerState );
+		virtual IOReturn	setPowerState ( UInt32 selector, IOAudioDevicePowerState powerState );
+		virtual IOReturn	setBiquadCoefficients ( UInt32 selector, void * biquadCoefficients, UInt32 coefficientSize );
+		virtual IOReturn	getBiquadInfo ( UInt32 scalarArg1, void * outStructPtr, IOByteCount * outStructSizePtr );
+		virtual IOReturn	getProcessingParams ( UInt32 scalarArg1, void * outStructPtr, IOByteCount * outStructSizePtr );
+		virtual IOReturn	setProcessingParams ( UInt32 scalarArg1, void * inStructPtr, UInt32 inStructSize );
+		virtual IOReturn	invokeInternalFunction ( UInt32 functionSelector, void * inData, UInt32 inDataSize );
 
 	protected:
 		

@@ -1,21 +1,19 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * The Original Code and all software distributed under the License are
+ * This Original Code and all software distributed under the License are
  * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
  * License for the specific language governing rights and limitations
  * under the License.
  * 
@@ -77,14 +75,14 @@ typedef struct ISOVolumeDescriptor
 
 /* ************************************ P R O T O T Y P E S *************************************** */
 
-static void 			DoDisplayUsage( const char *argv[] );
-static void 			StripTrailingSpaces( char *theContentsPtr );
+static void 	DoDisplayUsage( const char *argv[] );
+static void 	StripTrailingSpaces( char *theContentsPtr );
 
-static void 			DoFileSystemFile( char *theFileNameSuffixPtr, char *theContentsPtr );
-static int 			DoMount( char *theDeviceNamePtr, const char *theMountPointPtr );
-static int 			DoProbe( char *theDeviceNamePtr );
-static int 			DoUnmount( char *theDeviceNamePtr );
-static int 			DoVerifyArgs( int argc, const char *argv[] );
+static void 	DoFileSystemFile( char *theFileNameSuffixPtr, char *theContentsPtr );
+static int	DoMount( char *theDeviceNamePtr, const char *theMountPointPtr, int mnt_flag );
+static int 	DoProbe( char *theDeviceNamePtr );
+static int 	DoUnmount( const char *theDeviceNamePtr );
+static int 	DoVerifyArgs( int argc, const char *argv[], int *mnt_flag);
 
 static int	get_ssector(const char *devpath, int devfd);
 static u_char *	get_cdtoc(const char * devpath);
@@ -109,64 +107,36 @@ int main( int argc, const char *argv[] )
 	int				myError = FSUR_IO_SUCCESS;
 	char				myRawDeviceName[256];
 	char				myDeviceName[256];
+	int mnt_flag;
 
-#if DEBUG
-{
-	int		i;
-	printf("\n cd9660.util - entering with argc of %d \n", argc );
-	
-	for ( i = 0; i < argc; i++ )
-	{
-		printf("argv[%d] is \"%s\" \n", i, argv[i] );
-	}
-}
-#endif //
-
-   	/* Verify our arguments */
-   	if ( (myError = DoVerifyArgs( argc, argv )) != 0 )
-   		goto AllDone;
+	/* Verify our arguments */
+	if ( (myError = DoVerifyArgs( argc, argv, &mnt_flag )) != 0 )
+		goto AllDone;
    		
    	/* Build our device name (full path), should end up with something like: */
-   	/* /dev/sd2a */
-   	strcpy( &myDeviceName[0], DEVICE_PREFIX );
-    strcat( &myDeviceName[0], argv[2] );
+   	/* /dev/disk1s2 */
+	strcpy( &myDeviceName[0], DEVICE_PREFIX );
+	strcat( &myDeviceName[0], argv[2] );
    	strcpy( &myRawDeviceName[0], RAW_DEVICE_PREFIX );
-    strcat( &myRawDeviceName[0], argv[2] );
+	strcat( &myRawDeviceName[0], argv[2] );
    
 	/* call the appropriate routine to handle the given action argument after becoming root */
 	myActionPtr = &argv[1][1];
 	myError = seteuid( 0 );
-#if DEBUG
-                printf ("Error setting uid\n");
-                printf ("Error %d was from seteuid call %s\n",errno,strerror(errno));
-#endif
 
-	myError = setegid( 0 );	// PPD - is this necessary?
-
-#if DEBUG
-                printf ("Error setting gid\n");
-                printf ("Error %d was from setegid call %s\n",errno,strerror(errno));
-#endif
-
-#if DEBUG
-	printf ("Entering the switch with myaction = %s\n",myActionPtr);
-#endif
     switch( *myActionPtr ) 
     {
 	case FSUC_PROBE:
-#if DEBUG
-	    printf ("Calling DoProbe \n");
-#endif
 	    myError = DoProbe( &myRawDeviceName[0] );
 	    break;
 	    
 	case FSUC_MOUNT:
-	case FSUC_MOUNT_FORCE:
-	    myError = DoMount( &myDeviceName[0], argv[3] );
+	case FSUC_MOUNT_FORCE:    
+	    myError = DoMount( &myDeviceName[0], argv[3], mnt_flag );
 	    break;
 	    
 	case FSUC_UNMOUNT:
-        myError = DoUnmount( argv[3] );
+	    myError = DoUnmount( argv[3] );
 	    break;
 	    
 	default:
@@ -177,9 +147,6 @@ int main( int argc, const char *argv[] )
 
 AllDone:
 
-#if DEBUG
-	printf("\n cd9660.util - leaving with result of %d \n", myError );
-#endif //
 
    exit	(myError);
    return myError; /* and make main fit the ANSI spec. */
@@ -192,33 +159,35 @@ Purpose -
 	This routine will fire off a system command to mount the given device at the given mountpoint.
 	NOTE - Workspace will make sure the mountpoint exists and will remove it at Unmount time.
 Input - 
-	theDeviceNamePtr - pointer to the device name (full path, like /dev/rsd2a).
+	theDeviceNamePtr - pointer to the device name (full path, like /dev/rdisk1s2).
 	theMountPointPtr - pointer to the mount point.
 Output -
 	returns FSUR_IO_SUCCESS everything is cool else one of several other FSUR_xxx error codes.
 *************************************************************************************************** */
 
-static int DoMount( char *theDeviceNamePtr, const char *theMountPointPtr )
+static int DoMount( char *theDeviceNamePtr, const char *theMountPointPtr, int mnt_flag )
 {
     int		myError;
     union wait  status;
     int    	pid;
-	
+
     if ( theMountPointPtr == NULL || *theMountPointPtr == 0x00 )
     {
 	myError = FSUR_IO_FAIL;
 	goto ExitThisRoutine;
     }
-	
-    /* ISO 9660 CDs use the system mount command */
+
+   /* ISO 9660 CDs use the system mount command */
     pid = fork();
     if (pid == 0) {
-        myError = execl(MOUNT_COMMAND, MOUNT_COMMAND, "-t", MOUNT_FS_TYPE, theDeviceNamePtr, theMountPointPtr, NULL);
+        myError = execl(MOUNT_COMMAND, MOUNT_COMMAND,
+        	"-t", MOUNT_FS_TYPE,
+        	"-o", "rdonly",
+        	"-o", (mnt_flag & MNT_NODEV ? "nodev" : "dev"),
+        	"-o", (mnt_flag & MNT_NOSUID ? "nosuid" : "suid"),
+        	theDeviceNamePtr, theMountPointPtr, NULL);
 
         /* IF WE ARE HERE, WE WERE UNSUCCESFULL */
-#if DEBUG
-        printf ("Error %d from system command %s\n",myError,strerror(myError));
-#endif
         myError = FSUR_IO_FAIL;
         goto ExitThisRoutine;
     }
@@ -251,12 +220,12 @@ ExitThisRoutine:
 Purpose -
 	This routine will fire off a system command to unmount the given device.
 Input - 
-	theDeviceNamePtr - pointer to the device name (full path, like /dev/sd2a).
+	theDeviceNamePtr - pointer to the device name (full path, like /dev/disk1s2).
 Output -
 	returns FSUR_IO_SUCCESS everything is cool else FSUR_IO_FAIL.
 *************************************************************************************************** */
 
-static int DoUnmount( char *theDeviceNamePtr )
+static int DoUnmount( const char *theDeviceNamePtr )
 {
 	int						myError;
     int						mountflags = 0; /* for future stuff */
@@ -285,7 +254,7 @@ Purpose -
 	This routine will open the given raw device and check to make sure there is media that looks
 	like an ISO 9660 CD.
 Input - 
-	theDeviceNamePtr - pointer to the device name (full path, like /dev/rsd2a).
+	theDeviceNamePtr - pointer to the device name (full path, like /dev/rdisk1s2).
 Output -
 	returns FSUR_RECOGNIZED if we can handle the media else one of the FSUR_xxx error codes.
 *************************************************************************************************** */
@@ -407,19 +376,20 @@ Purpose -
 		-i (Initialize - not supported)
 
 	deviceArg:
-		sd2 (for example)
+		disk2s3 (for example)
 
 	mountPointArg:
 		/foo/bar/ (required for Mount and Force Mount actions)
 
 	flagsArg:
-		(these are ignored for CDROMs)
 		either "readonly" OR "writable"
 		either "removable" OR "fixed"
+		either "suid" OR "nosuid"
+		either "dev" OR "nodev"
 		
 	examples:
-		cd9660.util -p sd2
-		cd9660.util -m sd2 /cd9660MountPoint
+		cd9660.util -p disk2s3
+		cd9660.util -m disk2s3 /Volumes/cd9660MountPoint
 		
 Input - 
 	argc - the number of arguments in argv.
@@ -428,7 +398,7 @@ Output -
 	returns FSUR_INVAL if we find a bad argument else 0.
 *************************************************************************************************** */
 
-static int DoVerifyArgs( int argc, const char *argv[] )
+static int DoVerifyArgs( int argc, const char *argv[], int *mnt_flag)
 {
 	int			myError = FSUR_INVAL;
 	int			myDeviceLength;
@@ -436,37 +406,48 @@ static int DoVerifyArgs( int argc, const char *argv[] )
 	/* If there are no arguments at all, we'll display useage.  Otherwise we'll just return    */
         /* with FSUR_INVAL.  It is set at the beginning so each of the various if statements below */
   	/* will just jump to the error exit and return myerror unchanged.			   */
-	
+
 	if (argc == 1)
 	{
 		DoDisplayUsage( argv );
 		goto ExitThisRoutine;
 	}
-	
-	
+
 	/* Must have at least 3 arguments and the action argument must start with a '-' */
 	if ( (argc < 3) || (argv[1][0] != '-') )
 	{
 		goto ExitThisRoutine;
 	}
 
-	/* we only support actions Probe, Mount, Force Mount, and Unmount */
-    	if ( !((argv[1][1] == FSUC_PROBE) || (argv[1][1] == FSUC_MOUNT) ||
-    	  (argv[1][1] == FSUC_UNMOUNT) || (argv[1][1] == FSUC_MOUNT_FORCE)) ) 
-        {
-		goto ExitThisRoutine;
-	}
+	switch (argv[1][1])
+	{
+		case FSUC_PROBE:
+			break;
 
-	/* action Mount and ForceMount require 4 arguments (need the mountpoint) */
-     	if ( (argv[1][1] == FSUC_MOUNT) || (argv[1][1] == FSUC_MOUNT_FORCE) )
-    	{
-    		if ( argc < 4 ) 
-    		{
+		case FSUC_MOUNT:
+		case FSUC_MOUNT_FORCE:
+	     		if (argc < 4)
+				goto ExitThisRoutine;
+
+			/* Start with safe defaults */
+			*mnt_flag = MNT_NOSUID | MNT_NODEV | MNT_RDONLY;
+			
+			/* Allow suid and dev overrides */
+			if ((argc > 6) && (strcmp(argv[6],"suid") == 0))
+				*mnt_flag &= ~MNT_NOSUID;
+			if ((argc > 7) && (strcmp(argv[7],"dev") == 0))
+				*mnt_flag &= ~MNT_NODEV;
+			break;
+
+		case FSUC_UNMOUNT:
+			break;
+		
+		default:
+			DoDisplayUsage(argv);
 			goto ExitThisRoutine;
-		}
 	}
 
-	/* Make sure device (argv[2]) is something reasonable (we expect something like "sd2") */
+	/* Make sure device (argv[2]) is something reasonable */
 	myDeviceLength = strlen( argv[2] );
     	if ( myDeviceLength < 2 )
     	{
@@ -499,15 +480,12 @@ static void DoDisplayUsage( const char *argv[] )
     printf("       -%c (Unmount)\n", FSUC_UNMOUNT);
     printf("       -%c (Force Mount)\n", FSUC_MOUNT_FORCE);
     printf("device_arg:\n");
-    printf("       device we are acting upon (for example, \"sd2\")\n");
+    printf("       device we are acting upon (for example, \"disk2s1\")\n");
     printf("mount_point_arg:\n");
     printf("       required for Mount and Force Mount \n");
     printf("Examples:\n");
-    printf("       %s -p sd2 \n", argv[0]);
-    printf("       %s -m sd2 /my/cdrom \n", argv[0]);
-
-	return;
-		
+    printf("       %s -p disk2s1 \n", argv[0]);
+    printf("       %s -m disk2s1 /Volumes/mycdrom \n", argv[0]);
 } /* DoDisplayUsage */
 
 static void StripTrailingSpaces( char *theContentsPtr )

@@ -1,0 +1,21 @@
+#!/bin/sh
+
+. /etc/rc.common
+
+StartService ()
+{
+    ConsoleMessage "Starting TCP/IP services"
+    xinetd 
+}
+
+StopService ()
+{
+    # FIXME
+}
+
+RestartService ()
+{
+    # FIXME
+}
+
+RunService "$1"

@@ -120,7 +120,7 @@ hfs_swap_HFSPlusVolumeHeader (
     src->attributes			= SWAP_BE32 (src->attributes);
     src->lastMountedVersion	= SWAP_BE32 (src->lastMountedVersion);
 
-    /* Don't swap reserved */
+    src->journalInfoBlock	= SWAP_BE32 (src->journalInfoBlock);
 
     src->createDate			= SWAP_BE32 (src->createDate);
     src->modifyDate			= SWAP_BE32 (src->modifyDate);

@@ -27,18 +27,51 @@
  *  Copyright (c) 2000-2001 Apple Computer, Inc. All rights reserved.
  *
  */
+/*
+	$Log: IOFireWireFamilyCommon.h,v $
+	Revision 1.37  2002/10/01 02:40:27  collin
+	security mode support
+	
+	Revision 1.36  2002/09/25 21:17:14  collin
+	fix headers again.
+	
+	Revision 1.35  2002/09/25 00:27:23  niels
+	flip your world upside-down
+	
+	Revision 1.34  2002/09/12 22:41:53  niels
+	add GetIRMNodeID() to user client
+	
+*/
 
 /*! @header IOFireWireFamilyCommon.h
 This file contains useful definitions for working with FireWire
-for both in-kernel and user-space use
+in the kernel and in user space
 */
 
 #ifndef __IOFireWireFamilyCommon_H__
 #define __IOFireWireFamilyCommon_H__
 
+#ifdef KERNEL
 #ifndef __IOKIT_IOTYPES_H
 	#include <IOKit/IOTypes.h>
 #endif
+#else
+#include <IOKit/IOKitLib.h>
+#endif
+
+#define FW_OLD_DCL_DEFS
+#define FW_OLD_BIT_DEFS
+
+// =================================================================
+// bit ranges and fields
+// =================================================================
+#pragma mark -
+#pragma mark BITS
+
+// FireWire bit defs.
+
+#define BIT(x)		( 1 << (x) )
+#define FW_BIT(x)	( 1 << (31 - (x) ) )
 
 #define FWBitRange(start, end)						\
 (													\
@@ -48,70 +81,86 @@ for both in-kernel and user-space use
 )
 
 #define FWBitRangePhase(start, end)					\
-	(31 - end)
+	(31 - (end))
 
-// 
+#define BitRange(start, end)						\
+(													\
+	((((UInt32) 0xFFFFFFFF) << (31 - (end))) >>		\
+	 ((31 - (end)) + (start))) <<					\
+	(start)											\
+)
+ 
+
+#define BitRangePhase(start, end)					\
+	(start)
+
+// =================================================================
 // FireWire messages & errors
-//
+// =================================================================
+#pragma mark -
+#pragma mark MESSAGES AND ERRORS
+
 #define	iokit_fw_err(return) (sys_iokit|sub_iokit_firewire|return)
 
-    // e0008010 -> 0xe000801f Response codes from response packets
-#define kIOFireWireResponseBase iokit_fw_err(0x10)	/* Base of Response error codes  */
+// e0008010 -> 0xe000801f Response codes from response packets
 
-	// e0008020 -- Bus reset during command execution (current bus generation does
-	//             not match that specified in command.)
-#define kIOFireWireBusReset	(kIOFireWireResponseBase+kFWResponseBusResetError)
-	// e0008001 -- Can't find requested entry in ROM
-#define kIOConfigNoEntry			iokit_fw_err(1)
-	// e0008002 -- In pending queue waiting to execute
-#define kIOFireWirePending			iokit_fw_err(2)
-	// e0008003 -- Last DCL callback of program (internal use)
-#define kIOFireWireLastDCLToken		iokit_fw_err(3)
-	// e0008004
-#define kIOFireWireConfigROMInvalid	iokit_fw_err(4)
+// Base of Response error codes
+#define kIOFireWireResponseBase							iokit_fw_err(0x10)
 
-	// e00087d0
-#define kIOFWMessageServiceIsRequestingClose (UInt32)iokit_fw_err(2000)
+// e0008020 -- Bus reset during command execution (current bus generation does
+//             not match that specified in command.)
+#define kIOFireWireBusReset								(kIOFireWireResponseBase+kFWResponseBusResetError)
 
-// 8 quadlets
-#define kFWUserCommandSubmitWithCopyMaxBufferBytes	32
+// e0008001 -- Can't find requested entry in ROM
+#define kIOConfigNoEntry								iokit_fw_err(1)
 
-////////////////////////////////////////////////////////////////////////////////
-//
-// Useful FireWire types
-//
+// e0008002 -- In pending queue waiting to execute
+#define kIOFireWirePending								iokit_fw_err(2)
 
-//
-// Flags to be set on IOFireWireLib command objects
-// Passed to SetFlags()
-//
-enum
-{
-	kFWCommandNoFlags					= 0 ,
-	kFWCommandInterfaceForceNoCopy		= (1 << 0) ,
-	kFWCommandInterfaceForceCopyAlways	= (1 << 1) ,
-	kFWCommandInterfaceSyncExecute		= (1 << 2) ,
-	kFWCommandInterfaceAbsolute			= (1 << 3)
-} ;
+// e0008003 -- Last DCL callback of program (internal use)
+#define kIOFireWireLastDCLToken							iokit_fw_err(3)
 
+// e0008004
+#define kIOFireWireConfigROMInvalid						iokit_fw_err(4)
 
-//
-// Flags for creating pseudo address spaces
-//
-typedef enum
-{
-	kFWAddressSpaceNoFlags			= 0,
-	kFWAddressSpaceNoWriteAccess 	= (1 << 0) ,
-	kFWAddressSpaceNoReadAccess 	= (1 << 1) ,
-	kFWAddressSpaceAutoWriteReply	= (1 << 2) ,
-	kFWAddressSpaceAutoReadReply	= (1 << 3) ,
-	kFWAddressSpaceAutoCopyOnWrite	= (1 << 4) ,
-	kFWAddressSpaceShareIfExists	= (1 << 5)
-} FWAddressSpaceFlags ;
+// e0008005
+#define kIOFireWireAlreadyRegistered					iokit_fw_err(5)
 
-//
+// e0008006
+#define kIOFireWireMultipleTalkers						iokit_fw_err(6)
+
+// e0008007
+#define kIOFireWireChannelActive						iokit_fw_err(7)
+
+// e0008008
+#define kIOFireWireNoListenerOrTalker					iokit_fw_err(8)
+
+// e0008009
+#define kIOFireWireNoChannels							iokit_fw_err(9)
+
+// e000800A
+#define kIOFireWireChannelNotAvailable					iokit_fw_err(10)
+
+// e000800B
+#define kIOFireWireSeparateBus							iokit_fw_err(11)
+
+// e000800C
+#define kIOFireWireBadSelfIDs							iokit_fw_err(12)
+
+// e000800D
+#define kIOFireWireLowCableVoltage						iokit_fw_err(13)
+
+// e000800E
+#define kIOFireWireInsufficientPower					iokit_fw_err(14)
+
+// e00087d0
+#define kIOFWMessageServiceIsRequestingClose 			(UInt32)iokit_fw_err(2000)
+
+// =================================================================
 // Pseudo address space response codes
-//
+// =================================================================
+#pragma mark -
+#pragma mark PSEDUO ADDRESS SPACE RESPONSE CODES
 enum
 {
 	kFWResponseComplete			= 0,	// OK!
@@ -138,20 +187,31 @@ enum
 	kFWAckTypeError				= 14
 };
 
-
-//
+// =================================================================
 // FireWire bus speed numbers
-//
+// =================================================================
+#pragma mark -
+#pragma mark BUS SPEED NUMBERS
 
 typedef enum
 {
 	kFWSpeed100MBit				= 0,
 	kFWSpeed200MBit				= 1,
 	kFWSpeed400MBit				= 2,
+	kFWSpeed800MBit				= 3,
+	kFWSpeedReserved			= 3,			// 1394B Devices report this no matter what speed the PHY allows
+												// Worse, each port of the PHY could be different
+	kFWSpeedUnknownMask			= 0x80,			// Set this bit is speed map if speed was reserved and
+												// we haven't probed it further
 	kFWSpeedMaximum				= 0x7FFFFFFF,	//zzz what are the best numbers???
 	kFWSpeedInvalid				= 0x80000000
 } IOFWSpeed;
 
+// =================================================================
+// FWAddress
+// =================================================================
+#pragma mark -
+#pragma mark FWADDRESS
 //
 // The venerable FWAddress structure. This is the standard
 // struct to use for passing FireWire addresses.
@@ -176,17 +236,27 @@ typedef struct FWAddressStruct
 	#endif
 } FWAddress, *FWAddressPtr ;
 
+// =================================================================
+// Config ROM
+// =================================================================
+#pragma mark -
+#pragma mark CONFIG ROM
+
 //
-// Key types.
+// CSR bit defs.
 //
-typedef enum
-{
-	kCSRImmediateKeyType		= 0,
-	kCSROffsetKeyType			= 1,
-	kCSRLeafKeyType				= 2,
-	kCSRDirectoryKeyType		= 3,
-    kInvalidCSRROMEntryType		= 0xff
-} IOCSRKeyType;
+
+#define CSR_BIT(x) FW_BIT(x)
+
+#define CSRBitRange(start, end)						\
+(													\
+	((((UInt32) 0xFFFFFFFF) << (start)) >>			\
+	((start) + (31 - (end)))) <<					\
+	(31 - (end))									\
+)
+
+#define CSRBitRangePhase(start, end)				\
+	(31 - end)
 
 //
 // Key types.
@@ -201,57 +271,250 @@ typedef enum
 	kInvalidConfigROMEntryType	= 0xff
 } IOConfigKeyType;
 
-////////////////////////////////////////////////////////////////////////////////
-//
-// Useful FireWire constants
-//
-
 //
 // Key values.
 //
 
 enum
 {
-	kConfigTextualDescriptorKey	= 0x01,
-	kConfigBusDependentInfoKey	= 0x02,
-	kConfigModuleVendorIdKey	= 0x03,
-	kConfigModuleHwVersionKey	= 0x04,
-	kConfigModuleSpecIdKey		= 0x05,
-	kConfigModuleSwVersionKey	= 0x06,
+	kConfigTextualDescriptorKey		= 0x01,
+	kConfigBusDependentInfoKey		= 0x02,
+	kConfigModuleVendorIdKey		= 0x03,
+	kConfigModuleHwVersionKey		= 0x04,
+	kConfigModuleSpecIdKey			= 0x05,
+	kConfigModuleSwVersionKey		= 0x06,
 	kConfigModuleDependentInfoKey	= 0x07,
-	kConfigNodeVendorIdKey		= 0x08,
-	kConfigNodeHwVersionKey		= 0x09,
-	kConfigNodeSpecIdKey		= 0x0A,
-	kConfigNodeSwVersionKey		= 0x0B,
-	kConfigNodeCapabilitiesKey	= 0x0C,
-	kConfigNodeUniqueIdKey		= 0x0D,
-	kConfigNodeUnitsExtentKey	= 0x0E,
-	kConfigNodeMemoryExtentKey	= 0x0F,
-	kConfigNodeDependentInfoKey	= 0x10,
-	kConfigUnitDirectoryKey		= 0x11,
-	kConfigUnitSpecIdKey		= 0x12,
-	kConfigUnitSwVersionKey		= 0x13,
-	kConfigUnitDependentInfoKey	= 0x14,
-	kConfigUnitLocationKey		= 0x15,
-	kConfigUnitPollMaskKey		= 0x16,
-	kConfigModelIdKey			= 0x17,
-	kConfigGenerationKey		= 0x38,		// Apple-specific
+	kConfigNodeVendorIdKey			= 0x08,
+	kConfigNodeHwVersionKey			= 0x09,
+	kConfigNodeSpecIdKey			= 0x0A,
+	kConfigNodeSwVersionKey			= 0x0B,
+	kConfigNodeCapabilitiesKey		= 0x0C,
+	kConfigNodeUniqueIdKey			= 0x0D,
+	kConfigNodeUnitsExtentKey		= 0x0E,
+	kConfigNodeMemoryExtentKey		= 0x0F,
+	kConfigNodeDependentInfoKey		= 0x10,
+	kConfigUnitDirectoryKey			= 0x11,
+	kConfigUnitSpecIdKey			= 0x12,
+	kConfigUnitSwVersionKey			= 0x13,
+	kConfigUnitDependentInfoKey		= 0x14,
+	kConfigUnitLocationKey			= 0x15,
+	kConfigUnitPollMaskKey			= 0x16,
+	kConfigModelIdKey				= 0x17,
+	kConfigGenerationKey			= 0x38,		// Apple-specific
 
-        kConfigRootDirectoryKey		= 0xffff	// Not a real key
+	kConfigRootDirectoryKey			= 0xffff	// Not a real key
+};
+
+// Core CSR registers.
+enum
+{
+	kCSRStateUnitDepend			= CSRBitRange(0, 15),
+	kCSRStateUnitDependPhase	= CSRBitRangePhase(0, 15),
+
+	kCSRStateBusDepend			= CSRBitRange(16, 23),
+	kCSRStateBusDependPhase		= CSRBitRangePhase(16, 23),
+
+	kCSRStateLost				= CSR_BIT(24),
+	kCSRStateDReq				= CSR_BIT(25),
+	kCSRStateELog				= CSR_BIT(27),
+	kCSRStateAtn				= CSR_BIT(28),
+	kCSRStateOff				= CSR_BIT(29),
+
+	kCSRStateState				= CSRBitRange(30, 31),
+	kCSRStateStatePhase			= CSRBitRangePhase(30, 31),
+	kCSRStateStateRunning		= 0,
+	kCSRStateStateInitializing	= 1,
+	kCSRStateStateTesting		= 2,
+	kCSRStateStateDead			= 3
+};
+
+// Config ROM entry bit locations.
+
+enum
+{
+	kConfigBusInfoBlockLength		= CSRBitRange (0, 7),
+	kConfigBusInfoBlockLengthPhase	= CSRBitRangePhase (0, 7),
+
+	kConfigROMCRCLength				= CSRBitRange (8, 15),
+	kConfigROMCRCLengthPhase		= CSRBitRangePhase (8, 15),
+
+	kConfigROMCRCValue				= CSRBitRange (16, 31),
+	kConfigROMCRCValuePhase			= CSRBitRangePhase (16, 31),
+
+	kConfigEntryKeyType				= CSRBitRange (0, 1),
+	kConfigEntryKeyTypePhase		= CSRBitRangePhase (0, 1),
+
+	kConfigEntryKeyValue			= CSRBitRange (2, 7),
+	kConfigEntryKeyValuePhase		= CSRBitRangePhase (2, 7),
+
+	kConfigEntryValue				= CSRBitRange (8, 31),
+	kConfigEntryValuePhase			= CSRBitRangePhase (8, 31),
+
+	kConfigLeafDirLength			= CSRBitRange (0, 15),
+	kConfigLeafDirLengthPhase		= CSRBitRangePhase (0, 15),
+
+	kConfigLeafDirCRC				= CSRBitRange (16, 31),
+	kConfigLeafDirCRCPhase			= CSRBitRangePhase (16, 31)
 };
 
 //
-// Passed when calling/creating read/write commands
+// Key types.
 //
+typedef enum
+{
+	kCSRImmediateKeyType		= 0,
+	kCSROffsetKeyType			= 1,
+	kCSRLeafKeyType				= 2,
+	kCSRDirectoryKeyType		= 3,
+    kInvalidCSRROMEntryType		= 0xff
+} IOCSRKeyType;
 
-enum {
-	kFWDontFailOnReset = false,
-	kFWFailOnReset = true
-} ;
+// CSR 64-bit fixed address defs.
 
-//
-// isoch defines
-//
+enum
+{
+	kCSRNodeID								= CSRBitRange (0, 15),
+	kCSRNodeIDPhase							= CSRBitRangePhase (0, 15),
+
+	kCSRInitialMemorySpaceBaseAddressHi		= 0x00000000,
+	kCSRInitialMemorySpaceBaseAddressLo		= 0x00000000,
+
+	kCSRPrivateSpaceBaseAddressHi			= 0x0000FFFF,
+	kCSRPrivateSpaceBaseAddressLo			= 0xE0000000,
+
+	kCSRRegisterSpaceBaseAddressHi			= 0x0000FFFF,
+	kCSRRegisterSpaceBaseAddressLo			= 0xF0000000,
+
+	kCSRCoreRegistersBaseAddress			= kCSRRegisterSpaceBaseAddressLo,
+	kCSRStateClearAddress					= kCSRCoreRegistersBaseAddress + 0x0000,
+	kCSRStateSetAddress						= kCSRCoreRegistersBaseAddress + 0x0004,
+	kCSRNodeIDsAddress						= kCSRCoreRegistersBaseAddress + 0x0008,
+	kCSRResetStartAddress					= kCSRCoreRegistersBaseAddress + 0x000C,
+	kCSRIndirectAddressAddress				= kCSRCoreRegistersBaseAddress + 0x0010,
+	kCSRIndirectDataAddress					= kCSRCoreRegistersBaseAddress + 0x0014,
+	kCSRSplitTimeoutHiAddress				= kCSRCoreRegistersBaseAddress + 0x0018,
+	kCSRSplitTimeoutLoAddress				= kCSRCoreRegistersBaseAddress + 0x001C,
+	kCSRArgumentHiAddress					= kCSRCoreRegistersBaseAddress + 0x0020,
+	kCSRArgumentLoAddress					= kCSRCoreRegistersBaseAddress + 0x0024,
+	kCSRTestStartAddress					= kCSRCoreRegistersBaseAddress + 0x0028,
+	kCSRTestStatusAddress					= kCSRCoreRegistersBaseAddress + 0x002C,
+	kCSRUnitsBaseHiAddress					= kCSRCoreRegistersBaseAddress + 0x0030,
+	kCSRUnitsBaseLoAddress					= kCSRCoreRegistersBaseAddress + 0x0034,
+	kCSRUnitsBoundHiAddress					= kCSRCoreRegistersBaseAddress + 0x0038,
+	kCSRUnitsBoundLoAddress					= kCSRCoreRegistersBaseAddress + 0x003C,
+	kCSRMemoryBaseHiAddress					= kCSRCoreRegistersBaseAddress + 0x0040,
+	kCSRMemoryBaseLoAddress					= kCSRCoreRegistersBaseAddress + 0x0044,
+	kCSRMemoryBoundHiAddress				= kCSRCoreRegistersBaseAddress + 0x0048,
+	kCSRMemoryBoundLoAddress				= kCSRCoreRegistersBaseAddress + 0x004C,
+	kCSRInterruptTargetAddress				= kCSRCoreRegistersBaseAddress + 0x0050,
+	kCSRInterruptMaskAddress				= kCSRCoreRegistersBaseAddress + 0x0054,
+	kCSRClockValueHiAddress					= kCSRCoreRegistersBaseAddress + 0x0058,
+	kCSRClockValueMidAddress				= kCSRCoreRegistersBaseAddress + 0x005C,
+	kCSRClockTickPeriodMidAddress			= kCSRCoreRegistersBaseAddress + 0x0060,
+	kCSRClockTickPeriodLoAddress			= kCSRCoreRegistersBaseAddress + 0x0064,
+	kCSRClockStrobeArrivedHiAddress			= kCSRCoreRegistersBaseAddress + 0x0068,
+	kCSRClockStrobeArrivedMidAddress		= kCSRCoreRegistersBaseAddress + 0x006C,
+	kCSRClockInfo0Address					= kCSRCoreRegistersBaseAddress + 0x0070,
+	kCSRClockInfo1Address					= kCSRCoreRegistersBaseAddress + 0x0074,
+	kCSRClockInfo2Address					= kCSRCoreRegistersBaseAddress + 0x0078,
+	kCSRClockInfo3Address					= kCSRCoreRegistersBaseAddress + 0x007C,
+	kCSRMessageRequestAddress				= kCSRCoreRegistersBaseAddress + 0x0080,
+	kCSRMessageResponseAddress				= kCSRCoreRegistersBaseAddress + 0x00C0,
+	kCSRErrorLogBufferAddress				= kCSRCoreRegistersBaseAddress + 0x0180,
+
+	kCSRBusDependentRegistersBaseAddress	= kCSRRegisterSpaceBaseAddressLo + 0x0200,
+	kCSRBusyTimeout							= kCSRRegisterSpaceBaseAddressLo + 0x0210,
+	kCSRBusManagerID						= kCSRRegisterSpaceBaseAddressLo + 0x021C,
+	kCSRBandwidthAvailable					= kCSRRegisterSpaceBaseAddressLo + 0x0220,
+	kCSRChannelsAvailable31_0				= kCSRRegisterSpaceBaseAddressLo + 0x0224,
+	kCSRChannelsAvailable63_32				= kCSRRegisterSpaceBaseAddressLo + 0x0228,
+	kConfigROMBaseAddress					= kCSRRegisterSpaceBaseAddressLo + 0x0400,
+	kConfigBIBHeaderAddress					= kConfigROMBaseAddress,
+	kConfigBIBBusNameAddress				= kConfigROMBaseAddress + 4,
+	
+	kPCRBaseAddress							= kCSRRegisterSpaceBaseAddressLo + 0x900,
+	kFCPCommandAddress						= kCSRRegisterSpaceBaseAddressLo + 0xb00,
+	kFCPResponseAddress						= kCSRRegisterSpaceBaseAddressLo + 0xd00
+};
+
+
+// CSR defined 64 bit unique ID.
+
+typedef UInt64 CSRNodeUniqueID;
+
+// FireWire core CSR registers.
+
+enum
+{
+	kFWCSRStateGone				= FW_BIT(16),
+	kFWCSRStateLinkOff			= FW_BIT(22),
+	kFWCSRStateCMstr			= FW_BIT(23)
+};
+
+// FireWire bus/nodeID address defs.
+
+enum
+{
+	kFWAddressBusID				= FWBitRange (16, 25) << kCSRNodeIDPhase,
+	kFWAddressBusIDPhase		= FWBitRangePhase (16, 25) + kCSRNodeIDPhase,
+
+	kFWAddressNodeID			= FWBitRange (26, 31) << kCSRNodeIDPhase,
+	kFWAddressNodeIDPhase		= FWBitRangePhase (26, 31) + kCSRNodeIDPhase,
+
+	kFWLocalBusID				= 1023,
+	kFWBroadcastNodeID			= 63,
+	kFWBadNodeID				= 0xffff,
+
+	kFWLocalBusAddress			= kFWLocalBusID << kFWAddressBusIDPhase,
+	kFWBroadcastAddress			= kFWBroadcastNodeID << kFWAddressNodeIDPhase
+};
+
+#define FWNodeBaseAddress(busID, nodeID)												\
+(																						\
+	(busID << kFWAddressBusIDPhase) |													\
+	(nodeID << kFWAddressNodeIDPhase)													\
+)
+
+#define FWNodeRegisterSpaceBaseAddressHi(busID, nodeID)									\
+(																						\
+	FWNodeBaseAddress (busID, nodeID) |													\
+	kCSRRegisterSpaceBaseAddressHi														\
+)
+
+// FireWire CSR bus info block defs.
+
+enum
+{
+	kFWBIBHeaderAddress					= kConfigBIBHeaderAddress,
+	kFWBIBBusNameAddress				= kConfigBIBBusNameAddress,
+	kFWBIBNodeCapabilitiesAddress		= kConfigROMBaseAddress + 8,
+	kFWBIBNodeUniqueIDHiAddress			= kConfigROMBaseAddress + 12,
+	kFWBIBNodeUniqueIDLoAddress			= kConfigROMBaseAddress + 16,
+
+	kFWBIBBusName						= 0x31333934, //'1394'
+
+	kFWBIBIrmc							= FW_BIT(0),
+	kFWBIBCmc							= FW_BIT(1),
+	kFWBIBIsc							= FW_BIT(2),
+	kFWBIBBmc							= FW_BIT(3),
+	kFWBIBCycClkAcc						= FWBitRange (8, 15),
+	kFWBIBCycClkAccPhase				= FWBitRangePhase (8, 15),
+	kFWBIBMaxRec						= FWBitRange (16, 19),
+	kFWBIBMaxRecPhase					= FWBitRangePhase (16, 19),
+	kFWBIBMaxROM						= FWBitRange (20, 21),
+	kFWBIBMaxROMPhase					= FWBitRangePhase (20, 21),
+	kFWBIBGeneration					= FWBitRange (24, 27),
+	kFWBIBGenerationPhase				= FWBitRangePhase (24, 27),
+	kFWBIBLinkSpeed						= FWBitRange (29, 31),
+	kFWBIBLinkSpeedPhase				= FWBitRangePhase (29, 31),
+};
+
+// =================================================================
+// Isoch defines
+// =================================================================
+#pragma mark -
+#pragma mark ISOCH
+
 enum
 {
 	kFWIsochDataLength		= FWBitRange (0, 15),
@@ -270,426 +533,228 @@ enum
 	kFWIsochSyPhase			= FWBitRangePhase (28, 31)
 };
 
+#define CHAN_BIT(x) 		(((UInt64)1) << (63 - (x))
+#define CHAN_MASK(x) 		(~CHAN_BIT(X))
 
-////////////////////////////////////////////////////////////////////////////////
-//
-// Useful FireWire utility functions.
-//
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-UInt16 FWComputeCRC16(const UInt32 *pQuads, UInt32 numQuads);
-UInt16 FWUpdateCRC16(UInt16 crc16, UInt32 quad);
-
-UInt32 AddFWCycleTimeToFWCycleTime( UInt32 cycleTime1, UInt32 cycleTime2 );
-UInt32 SubtractFWCycleTimeFromFWCycleTime( UInt32 cycleTime1, UInt32 cycleTime2);
-
-#ifdef __cplusplus
-}
-#endif
-
-// ============================================================
-//
-//	(INTERNAL USE ONLY)
-//
-// ============================================================
-
-typedef enum IOFireWireFamilyUserClientSelector_t {
-	// --- open/close ----------------------------
-	kFireWireOpen = 0,
-	kFireWireOpenWithSessionRef,
-	kFireWireClose,
-	
-	// --- user client general methods -----------
-	kFireWireReadQuad,
-	kFireWireRead,
-	kFireWireWriteQuad,
-	kFireWireWrite,
-	kFireWireCompareSwap,
-	kFireWireBusReset,
-	kFireWireCycleTime,
-	kFireWireGetGenerationAndNodeID,
-	kFireWireGetLocalNodeID,
-	kFireWireGetResetTime,
-	
-	// --- debugging -----------------------------
-	kFireWireFireBugMsg,
-	
-	// --- conversion helpers --------------------
-	kFWGetOSStringData,
-	kFWGetOSDataData,
-	
-	// --- user unit directory methods -----------
-	kFWUnitDirCreate,
-	kFWUnitDirRelease,
-	kFWUnitDirAddEntry_Buffer,
-	kFWUnitDirAddEntry_UInt32,
-	kFWUnitDirAddEntry_FWAddr,
-	kFWUnitDirAddEntry_UnitDir,
-	kFWUnitDirPublish,
-	kFWUnitDirUnpublish,
-	
-	// --- pseudo address space methods ----------
-	kFWPseudoAddrSpace_Allocate,
-	kFWPseudoAddrSpace_Release,
-	kFWPseudoAddrSpace_GetFWAddrInfo,
-	kFWPseudoAddrSpace_ClientCommandIsComplete,
-	
-	// --- physical address space methods ----------
-	kFWPhysicalAddrSpace_Allocate,
-	kFWPhysicalAddrSpace_Release,
-	kFWPhysicalAddrSpace_GetSegmentCount,
-	kFWPhysicalAddrSpace_GetSegments,
-	
-	// --- command completion --------------------
-	kFWClientCommandIsComplete,
-	
-	// --- config directory ----------------------
-	kFWConfigDirectoryCreate,
-	kFWConfigDirectoryUpdate,
-	kFWConfigDirectoryGetKeyType,
-	
-	kFWConfigDirectoryGetKeyValue_UInt32,
-	kFWConfigDirectoryGetKeyValue_Data,
-	kFWConfigDirectoryGetKeyValue_ConfigDirectory,
-	
-	kFWConfigDirectoryGetKeyOffset_FWAddress,	
-	
-	kFWConfigDirectoryGetIndexType,
-	kFWConfigDirectoryGetIndexKey,
-	
-	kFWConfigDirectoryGetIndexValue_UInt32,
-	kFWConfigDirectoryGetIndexValue_Data,
-	kFWConfigDirectoryGetIndexValue_String,
-	kFWConfigDirectoryGetIndexValue_ConfigDirectory,
-	
-	kFWConfigDirectoryGetIndexOffset_FWAddress,
-	kFWConfigDirectoryGetIndexOffset_UInt32,
-	
-	kFWConfigDirectoryGetIndexEntry,
-	kFWConfigDirectoryGetSubdirectories,
-	
-	kFWConfigDirectoryGetKeySubdirectories,
-	kFWConfigDirectoryGetType,
-	kFWConfigDirectoryGetNumEntries,
-	kFWConfigDirectoryRelease,
-	
-	// --- isoch port methods ----------------------------
-	kFWIsochPort_Allocate,
-	kFWIsochPort_Release,
-	kFWIsochPort_GetSupported,
-	kFWIsochPort_AllocatePort,
-	kFWIsochPort_ReleasePort,
-	kFWIsochPort_Start,
-	kFWIsochPort_Stop,
-	kFWIsochPort_SetSupported,
-	
-	// --- local isoch port methods ----------------------
-	kFWLocalIsochPort_Allocate,
-	kFWLocalIsochPort_ModifyJumpDCL,
-	kFWLocalIsochPort_ModifyTransferPacketDCLSize,
-	kFWLocalIsochPort_ModifyTransferPacketDCL,
-	
-	// --- isoch channel methods -------------------------
-	kFWIsochChannel_Allocate,
-	kFWIsochChannel_Release,
-	kFWIsochChannel_UserAllocateChannelBegin,
-	kFWIsochChannel_UserReleaseChannelComplete,
-	
-	// --- firewire command objects ----------------------
-	kFWCommand_Release,
-	kFWCommand_Cancel,
-	kFWCommand_DidLock,
-	kFWCommand_Locked32,
-	kFWCommand_Locked64,
-	
-	// --- seize service ----------
-	kFWSeize,
-	
-	// --- firelog ----------
-	kFireLog,
-	
-    // --- More user client general methods (new in v3)
-    kFireWireGetBusCycleTime,
-	
-	//
-	// v4
-	//
-    
-	kFWGetBusGeneration,
-	kFWGetLocalNodeIDWithGeneration,
-	kFWGetRemoteNodeID,
-	kFWGetSpeedToNode,
-	kFWGetSpeedBetweenNodes,
-	
-	// -------------------------------------------
-	kNumFireWireMethods
-} IOFireWireFamilyUserClientMethodSelector ;
-
-
-typedef enum IOFireWireFamilyUserClientAsyncMethodSelector_t {
-
-	kFWSetAsyncRef_BusReset,
-	kFWSetAsyncRef_BusResetDone,
-
-	//
-	// pseudo address space
-	//
-	kFWSetAsyncRef_Packet,
-	kFWSetAsyncRef_SkippedPacket,
-	kFWSetAsyncRef_Read,
-
-	//
-	// user command objects
-	//
-	kFWCommand_Submit,
-	
-	//
-	// isoch channel
-	//
-	kFWSetAsyncRef_IsochChannelForceStop,
-
-	//
-	// isoch port
-	//
-	kFWSetAsyncRef_DCLCallProc,
-	
-	kNumFireWireAsyncMethods
-
-} IOFireWireFamilyUserClientAsyncMethodSelector ;
-
-typedef enum IOFireWireCommandType_t {
-	kFireWireCommandType_Read,
-	kFireWireCommandType_ReadQuadlet,
-	kFireWireCommandType_Write,
-	kFireWireCommandType_WriteQuadlet,
-	kFireWireCommandType_CompareSwap
-} IOFireWireCommandType ;
-
-enum {
-	kFireWireCommandStale				= (1 << 0),
-	kFireWireCommandStale_Buffer		= (1 << 1),
-	kFireWireCommandStale_MaxPacket		= (1 << 2)
-} ;
-
-enum {
-	kFireWireCommandUseCopy				= (1 << 16),
-	kFireWireCommandAbsolute			= (1 << 17)
-} ;
-
-#define kFireWireCommandUserFlagsMask (0x0000FFFF)
-
-#ifdef KERNEL
-	class IOFWUserPseudoAddressSpace ;
-	class IOFWUserClientPhysicalAddressSpace ;
-	class IOConfigDirectory ;
-	class IOLocalConfigDirectory ;
-	class OSString ;
-	class OSData ;
-	class IOFWUserIsochPortProxy ;
-	class IOFWUserIsochChannel ;
-	class IOFWUserCommand ;
-	
-	typedef IOFWUserPseudoAddressSpace*			FWKernAddrSpaceRef ;
-	typedef IOFWUserClientPhysicalAddressSpace*	FWKernPhysicalAddrSpaceRef ;
-	typedef IOConfigDirectory* 					FWKernConfigDirectoryRef ;
-	typedef IOLocalConfigDirectory*				FWKernUnitDirRef ;
-	typedef OSString*							FWKernOSStringRef ;
-	typedef OSData*								FWKernOSDataRef ;
-	typedef IOFWUserIsochPortProxy*				FWKernIsochPortRef ;
-	typedef IOFWUserIsochChannel*				FWKernIsochChannelRef ;
-	typedef IOFWUserCommand*					FWKernCommandRef ;
-	
-#else
-	typedef struct FWKernAddrSpaceOpaqueStruct* 		FWKernAddrSpaceRef ;
-	typedef struct FWKernPhysicalAddrSpaceOpaqueStruct*	FWKernPhysicalAddrSpaceRef ;
-	typedef struct FWKernConfigDirectoryOpaqueStruct*	FWKernConfigDirectoryRef ;
-	typedef struct FWKernUnitDirOpaqueStruct*			FWKernUnitDirRef ;
-	typedef struct FWKernOSStringOpaqueStruct*			FWKernOSStringRef ;
-	typedef struct FWKernOSDataOpqaueStruct*			FWKernOSDataRef ;
-	typedef struct FWKernIsochPortOpaqueStruct*			FWKernIsochPortRef ;
-	typedef struct FWKernIsochChannelOpaqueStruct*		FWKernIsochChannelRef ;
-	typedef struct FWKernCommandOpaqueStruct*			FWKernCommandRef ;
-#endif // KERNEL
-
-typedef void* FWUserPacketQueueRef ;
-typedef void* FWClientCommandID ;
-
-typedef struct FWWriteQuadParamsStruct_t
-{
-	FWAddress					addr ;
-	const UInt32  			 	val ;
-	Boolean						failOnReset ;
-	UInt32						generation ;
-	Boolean						isAbs ;
-} FWWriteQuadParams ;
-
-typedef struct FWReadWriteParamsStruct_t
-{	
-	FWAddress					addr ;
-	const void*  			 	buf ;
-	UInt32						size ;
-	Boolean						failOnReset ;
-	UInt32						generation ;
-	Boolean						isAbs ;
-} FWReadParams, FWWriteParams, FWReadQuadParams ;
-
-typedef struct FWCompareSwapParamsStruct_t
-{
-	FWAddress					addr ;
-	UInt64						cmpVal ;
-	UInt64						swapVal ;
-	IOByteCount					size ;
-	Boolean						failOnReset ;
-	UInt32						generation ;
-	Boolean						isAbs ;
-} FWCompareSwapParams ;
-
-typedef struct FWUserCommandSubmitParamsStruct_t
-{
-	FWKernCommandRef			kernCommandRef ;
-	IOFireWireCommandType		type ;
-	void*						callback ;
-	void*						refCon ;
-	UInt32						flags ;
-	
-	UInt32						staleFlags ;
-	FWAddress					newTarget ;
-	void*						newBuffer ;
-	IOByteCount					newBufferSize ;	// note: means numQuads for quadlet commands!
-	Boolean						newFailOnReset ;
-	UInt32						newGeneration ;
-	IOByteCount					newMaxPacket ;
-
-} FWUserCommandSubmitParams ;
-
-typedef struct FWUserCommandSubmitResult_t
-{
-	FWKernCommandRef			kernCommandRef ;
-	IOReturn					result ;
-	IOByteCount					bytesTransferred ;
-} FWUserCommandSubmitResult ;
-
-typedef struct 
-{
-	Boolean 	didLock ;
-	UInt64		value ;
-} FWCompareSwapLockInfo ;
-
-typedef struct FWUserCompareSwapSubmitResult_t
-{
-	FWKernCommandRef			kernCommandRef ;
-	IOReturn					result ;
-	IOByteCount					bytesTransferred ;
-	FWCompareSwapLockInfo		lockInfo ;
-} FWUserCompareSwapSubmitResult ;
-
-typedef struct FWAddrSpaceCreateParams_t {
-	UInt32		size ;
-	void*		backingStore ;
-	UInt32		queueSize ;
-	void*		queueBuffer ;
-	UInt32		flags ;
-	UInt32		refCon ;
-
-	// for initial units address spaces:
-	Boolean		isInitialUnits ;
-	UInt32		addressLo ;
-} FWAddrSpaceCreateParams ;
-
-
-typedef struct FWIsochPortAllocateParams_t
-{
-	UInt32		reserved ;
-} FWIsochPortAllocateParams ;
-
-typedef struct FWLocalIsochPortAllocateParams_t
-{
-	Boolean				talking ;
-	
-	struct DCLCommandStruct*	userDCLProgram ;
-	UInt32						userDCLProgramDCLCount ;
-
-	IOVirtualRange*		userDCLProgramRanges ;
-	UInt32				userDCLProgramRangeCount ;
-	IOVirtualRange*		userDCLBufferRanges ;
-	UInt32				userDCLBufferRangeCount ;
-	
-	UInt32				startEvent ;
-	UInt32				startState ;
-	UInt32				startMask ;
-	
-	void*				userObj ;
-} FWLocalIsochPortAllocateParams ;
-
-typedef struct FWAddrSpaceCreateResult
-{
-	FWKernAddrSpaceRef	kernAddrSpaceRef ;
-} FWAddrSpaceCreateResult ;
-
-typedef struct FWPhysicalAddrSpaceCreateParams_t
-{
-	UInt32		size ;
-	void*		backingStore ;
-	UInt32		flags ;
-} FWPhysicalAddrSpaceCreateParams ;
-
-typedef struct FWGetKeyValueDataResults_t
-{
-	FWKernOSDataRef		data ;
-	IOByteCount			dataLength ;
-	FWKernOSStringRef	text ;
-	UInt32				textLength ;	
-} FWGetKeyValueDataResults ;
-
-typedef struct FWGetKeyOffsetResults_t
-{
-	FWAddress			address ;
-	FWKernOSStringRef	text ;
-	UInt32				length ;
-} FWGetKeyOffsetResults ;
-
-typedef struct IOFireWireSessionRefOpaqueStuct* IOFireWireSessionRef ;
-
-// Generic bit defs.
+// =================================================================
+// DCL opcode defs.
+// =================================================================
+#pragma mark -
+#pragma mark DCL OPCODES
 
 enum
 {
-	kBit0						= (1 << 0),
-	kBit1						= (1 << 1),
-	kBit2						= (1 << 2),
-	kBit3						= (1 << 3),
-	kBit4						= (1 << 4),
-	kBit5						= (1 << 5),
-	kBit6						= (1 << 6),
-	kBit7						= (1 << 7),
-	kBit8						= (1 << 8),
-	kBit9						= (1 << 9),
-	kBit10						= (1 << 10),
-	kBit11						= (1 << 11),
-	kBit12						= (1 << 12),
-	kBit13						= (1 << 13),
-	kBit14						= (1 << 14),
-	kBit15						= (1 << 15),
-	kBit16						= (1 << 16),
-	kBit17						= (1 << 17),
-	kBit18						= (1 << 18),
-	kBit19						= (1 << 19),
-	kBit20						= (1 << 20),
-	kBit21						= (1 << 21),
-	kBit22						= (1 << 22),
-	kBit23						= (1 << 23),
-	kBit24						= (1 << 24),
-	kBit25						= (1 << 25),
-	kBit26						= (1 << 26),
-	kBit27						= (1 << 27),
-	kBit28						= (1 << 28),
-	kBit29						= (1 << 29),
-	kBit30						= (1 << 30),
-	kBit31						= (1 << 31)
+	kFWDCLImmediateEvent				= 0,
+	kFWDCLCycleEvent					= 1,
+	kFWDCLSyBitsEvent					= 2
 };
+
+enum
+{
+	kFWDCLInvalidNotification			= 0,
+	kFWDCLUpdateNotification			= 1,
+	kFWDCLModifyNotification			= 2
+};
+
+enum
+{
+	kFWDCLOpDynamicFlag					= BIT(16),
+	kFWDCLOpVendorDefinedFlag			= BIT(17),
+	kFWDCLOpFlagMask					= BitRange (16, 31),
+	kFWDCLOpFlagPhase					= BitRangePhase (16, 31)
+};
+
+enum
+{
+	kDCLInvalidOp						= 0,
+	kDCLSendPacketStartOp				= 1,
+	kDCLSendPacketWithHeaderStartOp		= 2,
+	kDCLSendPacketOp					= 3,
+	kDCLSendBufferOp					= 4,	// obsolete - do not use
+	kDCLReceivePacketStartOp			= 5,
+	kDCLReceivePacketOp					= 6,
+	kDCLReceiveBufferOp					= 7,	// obsolete - do not use
+	kDCLCallProcOp						= 8,
+	kDCLLabelOp							= 9,
+	kDCLJumpOp							= 10,
+	kDCLSetTagSyncBitsOp				= 11,
+	kDCLUpdateDCLListOp					= 12,
+	kDCLTimeStampOp						= 13,
+	kDCLPtrTimeStampOp					= 14,
+};
+
+#ifdef FW_OLD_DCL_DEFS
+
+//typedef struct DCLCommandStruct ;
+//typedef void (DCLCallCommandProc)(DCLCommandStruct* command);
+
+#else
+
+//typedef struct DCLCommand ;
+//typedef void (DCLCallCommandProc)(DCLCommand* command);
+
+#endif
+
+// =================================================================
+// DCL structs
+// =================================================================
+#pragma mark -
+#pragma mark DCL
+
+#ifdef FW_OLD_DCL_DEFS
+
+typedef struct DCLCommandStruct
+{
+	struct DCLCommandStruct*	pNextDCLCommand;		// Next DCL command.
+	UInt32						compilerData;			// Data for use by DCL compiler.
+	UInt32						opcode;					// DCL opcode.
+	UInt32						operands[1];			// DCL operands (size varies)
+} DCLCommand ;
+
+#else
+
+typedef struct DCLCommand
+{
+	DCLCommand*				pNextDCLCommand;		// Next DCL command.
+	UInt32					compilerData;			// Data for use by DCL compiler.
+	UInt32					opcode;					// DCL opcode.
+	UInt32					operands[1];			// DCL operands (size varies)
+} DCLCommand ;
+
+#endif
+
+typedef void (DCLCallCommandProc)(DCLCommand* command);
+
+typedef struct DCLTransferPacketStruct
+{
+	DCLCommand*				pNextDCLCommand;		// Next DCL command.
+	UInt32					compilerData;			// Data for use by DCL compiler.
+	UInt32					opcode;					// DCL opcode.
+	void *					buffer;					// Packet buffer.
+	UInt32					size;					// Buffer size.
+} DCLTransferPacket ;
+
+typedef struct DCLTransferBufferStruct
+{
+	DCLCommand*				pNextDCLCommand;		// Next DCL command.
+	UInt32					compilerData;			// Data for use by DCL compiler.
+	UInt32					opcode;					// DCL opcode.
+	void *					buffer;					// Buffer.
+	UInt32					size;					// Buffer size.
+	UInt16					packetSize;				// Size of packets to send.
+	UInt16					reserved;
+	UInt32					bufferOffset;			// Current offset into buffer.
+} DCLTransferBuffer ;
+
+typedef struct DCLCallProcStruct
+{
+	DCLCommand*				pNextDCLCommand;	// Next DCL command.
+	UInt32					compilerData;		// Data for use by DCL compiler.
+	UInt32					opcode;				// DCL opcode.
+	DCLCallCommandProc*		proc;				// Procedure to call.
+	UInt32					procData;			// Data for use by called procedure.
+} DCLCallProc ;
+
+typedef struct DCLLabelStruct
+{
+	DCLCommand*				pNextDCLCommand;	// Next DCL command.
+	UInt32					compilerData;		// Data for use by DCL compiler.
+	UInt32					opcode;				// DCL opcode.
+} DCLLabel ;
+
+typedef struct DCLJumpStruct
+{
+	DCLCommand*				pNextDCLCommand;	// Next DCL command.
+	UInt32					compilerData;		// Data for use by DCL compiler.
+	UInt32					opcode;				// DCL opcode.
+	DCLLabel*				pJumpDCLLabel;		// DCL label to jump to.
+} DCLJump ;
+
+typedef struct DCLSetTagSyncBitsStruct
+{
+	DCLCommand*				pNextDCLCommand;	// Next DCL command.
+	UInt32					compilerData;		// Data for use by DCL compiler.
+	UInt32					opcode;				// DCL opcode.
+	UInt16					tagBits;			// Tag bits for following packets.
+	UInt16					syncBits;			// Sync bits for following packets.
+} DCLSetTagSyncBits ;
+
+typedef struct DCLUpdateDCLListStruct
+{
+	DCLCommand*				pNextDCLCommand;	// Next DCL command.
+	UInt32					compilerData;		// Data for use by DCL compiler.
+	UInt32					opcode;				// DCL opcode.
+	DCLCommand**			dclCommandList;		// List of DCL commands to update.
+	UInt32					numDCLCommands;		// Number of DCL commands in list.
+} DCLUpdateDCLList ;
+
+typedef struct DCLTimeStampStruct
+{
+	DCLCommand*				pNextDCLCommand;	// Next DCL command.
+	UInt32					compilerData;		// Data for use by DCL compiler.
+	UInt32					opcode;				// DCL opcode.
+	UInt32					timeStamp;			// Time stamp.
+} DCLTimeStamp ;
+
+typedef struct DCLPtrTimeStampStruct
+{
+	DCLCommand*				pNextDCLCommand;	// Next DCL command.
+	UInt32					compilerData;		// Data for use by DCL compiler.
+	UInt32					opcode;				// DCL opcode.
+	UInt32*					timeStampPtr;		// Where to store the time stamp.
+} DCLPtrTimeStamp ;
+
+#ifdef FW_OLD_DCL_DEFS
+
+//  should not use these...
+
+typedef DCLCommand*				DCLCommandPtr ;
+typedef DCLTransferBuffer*		DCLTransferBufferPtr ;
+typedef DCLTransferPacket*		DCLTransferPacketPtr ;
+typedef DCLCallProc*			DCLCallProcPtr ;
+typedef DCLLabel*				DCLLabelPtr ;
+typedef DCLJump*				DCLJumpPtr ;
+typedef DCLSetTagSyncBits*		DCLSetTagSyncBitsPtr ;
+typedef DCLUpdateDCLList*		DCLUpdateDCLListPtr ;
+typedef DCLTimeStamp*			DCLTimeStampPtr ;
+typedef DCLPtrTimeStamp*		DCLPtrTimeStampPtr ;
+typedef DCLCallCommandProc* 	DCLCallCommandProcPtr ;
+
+#endif
+
+// =================================================================
+// Miscellaneous
+// =================================================================
+#pragma mark -
+#pragma mark MISCELLANEOUS
+
+typedef void* FWClientCommandID ;
+
+typedef struct IOFireWireSessionRefOpaqueStuct* IOFireWireSessionRef ;
+
+//
+// bus management constants.
+//
+
+enum
+{
+	kFWBusManagerArbitrationTimeoutDuration	= 625 // durationMillisecond
+};
+
+//
+// bus characteristics.
+//
+
+enum
+{
+	kFWMaxBusses				= 1023,
+	kFWMaxNodesPerBus			= 63,
+	kFWMaxNodeHops				= 16
+};
+
+//
+// node flags
+//
 
 enum
 {
@@ -698,14 +763,64 @@ enum
 	kIOFWEnableRetryOnAckD			= (1 << 2)
 };
 
-#define BitRange(start, end)						\
-(													\
-	((((UInt32) 0xFFFFFFFF) << (31 - (end))) >>		\
-	 ((31 - (end)) + (start))) <<					\
-	(start)											\
-)
+//
+// security modes
+//
 
-#define BitRangePhase(start, end)					\
-	(start)
+enum IOFWSecurityMode
+{
+	kIOFWSecurityModeNormal = 0,
+	kIOFWSecurityModeSecure = 1,
+	kIOFWSecurityModeSecurePermanent = 2
+};
+
+//
+// physical access settings
+//
+
+enum IOFWPhysicalAccessMode
+{
+	kIOFWPhysicalAccessEnabled = 0,
+	kIOFWPhysicalAccessDisabled = 1,
+	kIOFWPhysicalAccessDisabledForGeneration = 2
+};
+
+// old style bit defs
+#ifdef FW_OLD_BIT_DEFS
+
+	#define kBit0	BIT(0)
+	#define kBit1	BIT(1)
+	#define kBit2	BIT(2)
+	#define kBit3	BIT(3)
+	#define kBit4	BIT(4)
+	#define kBit5	BIT(5)
+	#define kBit6	BIT(6)
+	#define kBit7	BIT(7)
+	#define kBit8	BIT(8)
+	#define kBit9	BIT(9)
+	#define kBit10	BIT(10)
+	#define kBit11	BIT(11)
+	#define kBit12	BIT(12)
+	#define kBit13	BIT(13)
+	#define kBit14	BIT(14)
+	#define kBit15	BIT(15)
+	#define kBit16	BIT(16)
+	#define kBit17	BIT(17)
+	#define kBit18	BIT(18)
+	#define kBit19	BIT(19)
+	#define kBit20	BIT(20)
+	#define kBit21	BIT(21)
+	#define kBit22	BIT(22)
+	#define kBit23	BIT(23)
+	#define kBit24	BIT(24)
+	#define kBit25	BIT(25)
+	#define kBit26	BIT(26)
+	#define kBit27	BIT(27)
+	#define kBit28	BIT(28)
+	#define kBit29	BIT(29)
+	#define kBit30	BIT(30)
+	#define kBit31	BIT(31)
+
+#endif
 
 #endif //__IOFireWireFamilyCommon_H__

@@ -25,77 +25,6 @@
 
 #include <libkern/OSTypes.h>
 
-/*
- *	Feature Control Registers
- */
-#define	kFCR0Offset					0x00000038
-#define	kFCR1Offset					0x0000003C
-#define	kFCR2Offset					0x00000040
-#define	kFCR3Offset					0x00000044
-#define	kFCR4Offset					0x00000048
-
-enum FCR1_Bit_Addresses {			//	bit addresses
-	kI2S0Enable					=	13,
-	kI2S0ClkEnBit				=	12,
-	kI2S0SwReset				=	11,
-	kI2S0CellEn					=	10,
-	kChooseI2S0					=	 9,
-	kChooseAudio				=	 7,
-	kAUDIOCellEN				=	 6
-};
-
-enum FCR1_Field_Width {
-	kI2S0Enable_bitWidth		=	1,
-	kI2S0ClkEnBit_bitWidth		=	1,
-	kI2S0SwReset_bitWidth		=	1,
-	kI2S0CellEn_bitWidth		=	1,
-	kChooseI2S0_bitWidth		=	1,
-	kChooseAudio_bitWidth		=	1,
-	kAUDIOCellEN_bitWidth		=	1
-};
-
-enum FCR3_Bit_Addresses {
-	kClk18_EN_h					=	14,
-	kClk45_EN_h					=	10,
-	kClk49_EN_h					=	 9,
-	kShutdown_PLLKW4			=	 2,
-	kShutdown_PLLKW6			=	 1,
-	kShutdown_PLL_Total			=	 0
-};
-
-enum FCR3_FieldWidth {
-	kClk18_EN_h_bitWidth			=	1,
-	kClk45_EN_h_bitWidth			=	1,
-	kClk49_EN_h_bitWidth			=	1,
-	kShutdown_PLLKW4_bitWidth		=	1,
-	kShutdown_PLLKW6_bitWidth		=	1,
-	kShutdown_PLL_Total_bitWidth	=	1
-};
-
-/*
- * I2S registers:
- */
-
-#define		kI2S0BaseOffset			0x10000
-#define		kI2S1BaseOffset			0x11000
-
-#define		kI2SClockOffset			0x0003C
-#define		kI2S0ClockEnable 		(UInt32)(0x00000001<<12)
-#define		kI2S1ClockEnable 		(UInt32)(0x00000001<<19)
-#define		kI2S0InterfaceEnable 	(UInt32)(0x00000001<<13)
-#define		kI2S1InterfaceEnable 	(UInt32)(0x00000001<<20)
-
-#define		kI2SIntCtlOffset		0x0000
-#define		kI2SSerialFormatOffset	0x0010
-#define		kI2SCodecMsgOutOffset	0x0020
-#define		kI2SCodecMsgInOffset	0x0030
-#define		kI2SFrameCountOffset	0x0040
-#define		kI2SFrameMatchOffset	0x0050
-#define		kI2SDataWordSizesOffset	0x0060
-#define		kI2SPeakLevelSelOffset	0x0070
-#define		kI2SPeakLevelIn0Offset	0x0080
-#define		kI2SPeakLevelIn1Offset	0x0090
-
 #define		kDontRestoreOnNormal		0
 #define		kRestoreOnNormal			1
 
@@ -110,73 +39,6 @@ enum FCR3_FieldWidth {
  * Status register:
  */
 #define		kHeadphoneBit		0x02
-
-enum {
-	// 12c bus address for the chip and sub-addresses for registers
-	i2cBusAddrDAC3550A		= 0x4d,
-	i2cBusSubAddrSR_REG		= 0x01,
-	i2cBusSubAddrAVOL		= 0x02,
-	i2cBusSubaddrGCFG		= 0x03,
-
-	kSRC_48SR_REG			= 0x00,				// 32 - 48 KHz default
-	kSRC_32SR_REG			= 0x01,				// 26 - 32 KHz
-	kSRC_24SR_REG			= 0x02,				// 20 - 26 KHz
-	kSRC_16SR_REG			= 0x03,				// 14 - 20 KHz
-	kSRC_12SR_REG			= 0x04,				// 10 - 14 KHz
-	kSRC_8SR_REG			= 0x05,				// 8 - 10 KHz
-	kSRC_Auto_REG			= 0x06,				// autoselect
-	kSampleRateControlMask  = 0x07
-};
-
-enum {
-	kClockSourceMask		=	(3<<30),		// mask off clock sources
-	kClockSource18MHz		=	(0<<30),		// select 18 MHz clock base
-	kClockSource45MHz		=	(1<<30),		// select 45 MHz clock base
-	kClockSource49MHz		=	(2<<30),		// select 49 MHz clock base
-	kMClkDivisorShift		=	24,			    // shift to position value in MClk divisor field
-	kMClkDivisorMask		=	(0x1F<<24),		// mask MClk divisor field
-	kMClkDivisor1			=	(0x14<<24),	 	// MClk == clock source
-	kMClkDivisor3			=	(0x13<<24),		// MClk == clock source/3
-	kMClkDivisor5			=	(0x12<<24),		// MClk == clock source/5
-	kSClkDivisorShift		=	20,			    // shift to position value in SClk divisor field
-	kSClkDivisorMask		=	(0xF<<20),		// mask SClk divisor field
-	kSClkDivisor1			=	(8<<20),	    // SClk == MClk
-	kSClkDivisor3			=	(9<<20),	    // SClk == MClk/3
-	kSClkMaster				=	(1<<19),		// SClk in master mode
-	kSClkSlave				=	(0<<19),		// SClk in slave mode
-	kSerialFormatShift		=	16,				// shift to position value in I2S serial format field
-	kSerialFormatMask		=	(7<<16),		// mask serial format field
-	kSerialFormatSony		=	(0<<16),		// Sony mode
-	kSerialFormat64x		=	(1<<16),		// I2S 64x mode
-	kSerialFormat32x		=	(2<<16),		// I2S 32x mode
-	kSerialFormatDAV		=	(4<<16),		// DAV mode
-	kSerialFormatSiliLabs	=	(5<<16),		// Silicon Labs mode
-	kExtSampleFreqIntShift	=	12,			    // shift to position for external sample frequency interrupt
-	kExtSampleFreqIntMask	=	(0xF<<12),		// mask external sample frequency interrupt field
-	kExtSampleFreqMask		=	0xFFF			// mask for external sample frequency
-};
-
-/*
- * interrupt control register definitions
- */
-enum {
-	kFrameCountEnable		=	(1<<31),		 // enable frame count interrupt
-	kFrameCountPending		=	(1<<30),	 // frame count interrupt pending
-	kMsgFlagEnable		=	(1<<29),				 // enable message flag interrupt
-	kMsgFlagPending		=	(1<<28),	   // message flag interrupt pending
-	kNewPeakEnable		=	(1<<27),	    // enable new peak interrupt
-	kNewPeakPending		=	(1<<26),	   // new peak interrupt pending
-	kClocksStoppedEnable	=	(1<<25),	// enable clocks stopped interrupt
-	kClocksStoppedPending	=	(1<<24),		// clocks stopped interrupt pending
-	kExtSyncErrorEnable		=	(1<<23),	// enable external sync error interrupt
-	kExtSyncErrorPending	=	(1<<22),	// external sync error interrupt pending
-	kExtSyncOKEnable		=	(1<<21),	   // enable external sync OK interrupt
-	kExtSyncOKPending		=	(1<<20),	  // external sync OK interrupt pending
-	kNewSampleRateEnable	=	(1<<19),	// enable new sample rate interrupt
-	kNewSampleRatePending	=	(1<<18),		// new sample rate interrupt pending
-	kStatusFlagEnable		=	(1<<17),	  // enable status flag interrupt
-	kStatusFlagPending		=	(1<<16)		 // status flag interrupt pending
-};
 
 typedef UInt8	biquadParams[15];
 
@@ -334,7 +196,7 @@ enum Texas2Registers {
 	kFL									=	7,		//	N.......	[bit address]	Load Mode:		0 = normal,		1 = Fast Load
 	kSC									=	6,		//	.N......	[bit address]	SCLK frequency:	0 = 32 fs,		1 = 64 fs
 	kE0									=	4,		//	..NN....	[bit address]	Output Serial Mode
-	kF0									=	0,		//	....10..	[bit address]	
+	kF0									=	2,		//	....10..	[bit address]	
 	kW0									=	0,		//	......NN	[bit address]	Serial Port Word Length
 
 	kNormalLoad							=	0,		//	use:	( kNormalLoad << kFL )
@@ -463,7 +325,7 @@ enum biquadInformation{
 	kBiquadRefNum_5						=	 5,
 	kBiquadRefNum_6						=	 6,
 	kTexas2MaxBiquadRefNum				=	 6,
-	kTexas2NumBiquads					=	 6,
+	kTexas2NumBiquads					=	 7,
 	kTexas2CoefficientsPerBiquad		=	 5,
 	kTexas2CoefficientBitWidth			=	24,
 	kTexas2CoefficientIntegerBitWidth	=	 4,
@@ -608,7 +470,6 @@ enum {
 #define kGPIODTEntry				"gpio"
 #define kI2CDTEntry					"i2c"
 #define kDigitalEQDTEntry			"deq"
-#define ki2saEntry					"i2s-a"
 #define kSoundEntry					"sound"
 
 #define kNumInputs					"#-inputs"

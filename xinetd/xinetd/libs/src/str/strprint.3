@@ -1,0 +1,157 @@
+.\"(c) Copyright 1992, 1993 by Panagiotis Tsirigotis
+.\"All rights reserved.  The file named COPYRIGHT specifies the terms 
+.\"and conditions for redistribution.
+.\"
+.\" $Id: strprint.3,v 1.1.1.1 2002/01/31 07:09:04 zarzycki Exp $
+.TH STRPRINT 3X "30 September 1992"
+.SH NAME
+str_sprint, tr_sprintv, str_nprint, str_nprintv, str_print, str_printv, strx_sprint, strx_sprintv, strx_nprint, strx_nprintv, strx_print, strx_printv -- formatted conversion to string
+.SH SYNOPSIS
+.LP
+.nf
+.ft B
+#include "str.h"
+.LP
+.ft B
+char *str_sprint( buf, format, ... )
+char *buf ;
+char *format ;
+.LP
+.ft B
+char *str_sprintv( buf, format, ap )
+char *buf ;
+char *format ;
+va_list ap ;
+.LP
+.ft B
+int str_nprint( buf, format, ... )
+char *buf ;
+char *format ;
+.LP
+.ft B
+int str_nprintv( buf, format, ap )
+char *buf ;
+char *format ;
+va_list ap ;
+.LP
+.ft B
+void str_print( countp, buf, format, ... )
+int *countp ;
+char *buf ;
+char *format ;
+.LP
+.ft B
+void str_printv( countp, buf, format, ap )
+int *countp ;
+char *buf ;
+char *format ;
+va_list ap ;
+.LP
+.ft B
+char *strx_sprint( buf, len, format, ... )
+char *buf ;
+int len ;
+char *format ;
+.LP
+.ft B
+char *strx_sprintv( buf, len, format, ap )
+char *buf ;
+int len ;
+char *format ;
+va_list ap ;
+.LP
+.ft B
+int strx_nprint( buf, len, format, ... )
+char *buf ;
+int len ;
+char *format ;
+.LP
+.ft B
+int strx_nprintv( buf, len, format, ap )
+char *buf ;
+int len ;
+char *format ;
+va_list ap ;
+.LP
+.ft B
+void strx_print( countp, buf, len, format, ... )
+int *countp ;
+char *buf ;
+int len ;
+char *format ;
+.LP
+.ft B
+void strx_printv( countp, buf, len, format, ap )
+int *countp ;
+char *buf ;
+int len ;
+char *format ;
+va_list ap ;
+.SH DESCRIPTION
+.LP
+All functions are similar in functionality to \fIsprintf()\fR.
+Their only difference is in their return values. For information about their
+conversion capabilities, check \fISprint(3)\fR.
+.LP
+The difference between the \fIstr_*\fR and the \fIstrx_*\fR functions
+is that the latter take an extra argument, the size of the buffer, so
+that they will never write beyond the end of the buffer. Writing
+beyond the end of the buffer is possible with the \fIstr_*\fR functions.
+Previously, invoking any of the \fIstrx_*\fR functions with the
+.I len
+argument set to 0
+used to be the same as calling the equivalent \fIstr_*\fR function.
+This dangerous behavior has since been changed and now the \fIstrx_*\fR
+functions don't touch the buffer when
+.I len
+is 0 or negative.
+.LP
+All functions will append a
+.SM NUL
+at the end of
+.I buf
+(the \fIstrx_*\fR functions will not do this if it would cause 
+a buffer overrun).
+.LP
+.B str_print(),
+.B str_printv(),
+.B strx_print(),
+and
+.B strx_printv()
+will put in
+.I "*countp"
+the number of characters placed in 
+.I buf
+excluding the ending
+.SM NUL
+(this happens only if
+.I "*countp"
+is not
+.SM NULL
+).
+.LP
+The functions that have a name ending in 'v' are similar to those without
+the 'v' at the end of their name
+except that instead of accepting a variable number of arguments, they
+expect a \fIstdarg(3)\fR argument list.
+.SH "RETURN VALUES"
+.LP
+.B str_sprint(),
+.B str_sprintv(),
+.B strx_sprint(),
+and
+.B strx_sprintv()
+return
+.I buf.
+.LP
+.B str_nprint(),
+.B str_nprintv(),
+.B strx_nprint(),
+and
+.B strx_nprintv()
+return the number of characters placed in 
+.I buf
+excluding the ending
+.SM NUL.
+.SH "SEE ALSO"
+Sprint(3)

@@ -1,0 +1,270 @@
+.\"(c) Copyright 1992, 1993 by Panagiotis Tsirigotis
+.\"All rights reserved.  The file named COPYRIGHT specifies the terms 
+.\"and conditions for redistribution.
+.\"
+.\" $Id: pset.3,v 1.1.1.1 2002/01/31 07:09:04 zarzycki Exp $
+.TH PSET 3X "23 April 1993"
+.SH NAME
+pset_create, pset_destroy, pset_add, pset_insert, pset_remove, pset_delete, pset_remove_index, pset_clear, pset_count, pset_pointer, pset_compact, pset_sort, pset_apply - routines that handle pointer sets
+.SH SYNOPSIS
+.LP
+.nf
+.ft B
+#include "pset.h"
+.LP
+.ft B
+pset_h pset_create( alloc_start, alloc_step )
+unsigned alloc_start, alloc_step ;
+.LP
+.ft B
+void pset_destroy( pset )
+pset_h pset ;
+.LP
+.ft B
+ANY_TYPE *pset_add( pset, ptr )
+pset_h pset ;
+ANY_TYPE *ptr ;
+.LP
+.ft B
+void *pset_insert( pset, ptr )
+pset_h pset ;
+void *ptr ;
+.LP
+.ft B
+void pset_remove( pset, ptr )
+pset_h pset ;
+ANY_TYPE *ptr ;
+.LP
+.ft B
+void pset_delete( pset, ptr )
+pset_h pset ;
+void *ptr ;
+.LP
+.ft B
+void pset_remove_index( pset, index )
+pset_h pset ;
+unsigned index ;
+.LP
+.ft B
+void pset_clear( pset )
+pset_h pset ;
+.LP
+.ft B
+unsigned pset_count( pset )
+pset_h pset ;
+.LP
+.ft B
+void *pset_pointer( pset, index )
+pset_h pset ;
+unsigned index ;
+.LP
+.ft B
+void pset_compact( pset )
+pset_h pset ;
+.LP
+.ft B
+void pset_sort( pset, compfunc )
+pset_h pset ;
+int (*compfunc)() ;
+.LP
+.ft B
+void pset_apply( pset, func, arg )
+pset_h pset ;
+void (*func)() ;
+void *arg ;
+.SH DESCRIPTION
+This library provides functions that handle sets of pointers. Pointers
+can be inserted and deleted from sets and the sets can be enumerated.
+Pointers are inserted in sets in no particular order. However it is 
+guaranteed
+that a sequence of insertions will result in a set which if enumerated
+will provide the pointers in the same order in which they were inserted
+(assuming no intervening deletions).
+.LP
+.B pset_create()
+creates a pointer set.
+.I alloc_start
+determines the initial table size, and
+.I alloc_step
+determines the amount by which the set size is increased in case of
+overflow. If any of these parameters is 0, a default value is used.
+.LP
+.B pset_destroy()
+destroys the specified pointer set.
+.LP
+.B pset_add()
+is a macro that adds a pointer to the specified set.
+The pointer can be of any type.
+.LP
+.B pset_insert()
+inserts a pointer to the specified set.
+This is the same operation as
+.B pset_add().
+.LP
+.B pset_remove()
+removes a pointer from the specified set.
+.LP
+.B pset_delete()
+deletes a pointer from the specified set.
+This is the same operation as
+.B pset_remove().
+.LP
+.B pset_remove_index()
+removes the pointer that is at position
+.I index
+in the set.
+.I index
+should be in the range [0, \fBpset_count(pset)\fP) (but there is no
+check to enforce this).
+After this operation, the
+.I index
+position will be occupied by another pointer.
+.LP
+.B pset_clear()
+removes all pointers from the specified set.
+.LP
+.B pset_count()
+returns the number of pointers in the specified set.
+.LP
+.B pset_pointer()
+returns the pointer at position
+.I index
+in the specified set.
+.I index
+must be between 0 and
+.B "pset_count(pset)."
+.B pset_pointer()
+is a macro and it can also be used in the left-hand side of assignments.
+.LP
+.B pset_compact()
+removes all NULL pointers from
+.I pset.
+.LP
+.B pset_sort()
+sorts the pointers in
+.I pset
+using the specified function.
+.I compfunc
+is invoked with 2 arguments that are pointers pointing to pointers stored in 
+.I pset.
+For example, if the pset holds pointers to objects of type T, then
+the function F whose address is in
+.I compfunc
+should be defined as:
+F( T **p1, T **p2 ).
+.br
+.I compfunc 
+should return a negative, zero or positive value 
+if its first argument is less than, equal to, or greater than its
+second argument.
+.LP
+.B pset_apply()
+applies
+.I func
+to all pointers in
+.I pset.
+If 
+.I arg
+is not
+.SM NULL
+the function is invoked as:
+.RS
+(*func)( arg, p )
+.RE
+where
+.I p
+is a pset pointer.  If 
+.I arg
+is
+.SM NULL
+the function is invoked as:
+.RS
+(*func)( p )
+.RE
+.SH EXAMPLE
+The following code fragment reads lines from standard input
+and places them in a pset. Then it sorts the pset, prints the
+sorted contents to standard output and then it eliminates duplicate
+lines (which it also prints to standard output).
+.RS
+.sp 1
+.ft B
+.nf
+pset_h ph ;
+char buf[ 80 ] ;
+unsigned u ;
+int compstr() ;
+void printstr() ;
+.sp 1
+ph = pset_create( 0, 0 ) ;
+while ( gets( buf ) )
+.RS
+pset_add( strcpy( malloc( strlen( buf ) + 1 ), buf ) ) ;
+.RE
+pset_sort( ph, compstr ) ;
+for ( u = 0 ; u < pset_count( ph ) ; u++ )
+.RS
+printf( "%s\\n", (char *) pset_pointer( ph, u ) ) ;
+.RE
+.RE
+.fi
+.ft R
+.LP
+The function
+.I compstr()
+follows:
+.sp 1
+.RS
+.ft B
+.nf
+int compstr( p1, p2 )
+.RS
+char **p1, **p2 ;
+.RE
+{
+.RS
+return( strcmp( *p1, *p2 ) ) ;
+.RE
+}
+.RE
+.SH "RETURN VALUES"
+.LP
+.I pset_h
+is a pointer type. Functions that return
+.I pset_h
+will return
+.SM NULL
+to indicate an error.
+.LP
+.B pset_create()
+returns a pointer set handle or
+.SM NULL
+if it fails.
+.LP
+.B pset_add()
+returns its second argument if successful or
+.SM NULL
+if it fails.
+.LP
+.B pset_insert()
+returns its second argument if successful or
+.SM NULL
+if it fails.
+.LP
+.B pset_count()
+always returns the number of pointers in the set.
+.LP
+.B pset_pointer()
+always returns a pointer. There is no check if the specified index is within
+range.
+.SH BUGS
+.LP
+.B pset_add(),
+.B pset_remove(),
+.B pset_remove_index(),
+.B pset_count(),
+.B pset_clear(),
+.B pset_pointer()
+and 
+.B pset_sort()
+are macros, therefore the \fI&\fR operator cannot be applied to them.

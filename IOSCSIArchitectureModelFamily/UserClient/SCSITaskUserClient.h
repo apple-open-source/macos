@@ -42,7 +42,7 @@
 // Private includes
 #include "SCSITaskLib.h"
 #include "SCSITaskLibPriv.h"
-
+#include "SCSITaskDefinition.h"
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Constants

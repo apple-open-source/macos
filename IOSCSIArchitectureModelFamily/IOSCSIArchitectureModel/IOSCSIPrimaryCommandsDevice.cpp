@@ -34,7 +34,9 @@
 
 // SCSI Architecture Model Family includes
 #include <IOKit/scsi-commands/SCSICommandOperationCodes.h>
-#include "IOSCSIPrimaryCommandsDevice.h"
+#include <IOKit/scsi-commands/IOSCSIPrimaryCommandsDevice.h>
+
+#include "SCSIPrimaryCommands.h"
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Macros
@@ -135,7 +137,6 @@ IOSCSIPrimaryCommandsDevice::start ( IOService * provider )
 	OSString *		string			= NULL;
 	OSIterator *	iterator		= NULL;
 	OSObject *		obj				= NULL;
-	UInt64			maxByteCount	= 0;
 	bool			result			= false;
 	
 	// Call our super class' start routine so that all inherited
@@ -227,40 +228,12 @@ IOSCSIPrimaryCommandsDevice::start ( IOService * provider )
 		}
 		
 	}
-
-	// See if the transport driver wants us to limit the transfer byte count
-	// if so, publish the keys to get the system to deblock with desired contraints
-	if ( IsProtocolServiceSupported ( kSCSIProtocolFeature_MaximumReadTransferByteCount, &maxByteCount ) )
-	{
-		
-		if ( maxByteCount > 0 )
-		{
-			
-			setProperty ( kIOMaximumSegmentCountReadKey, maxByteCount / page_size, 64 );
-			
-		}
-		
-	}
-	
-	maxByteCount = 0;
-	
-	if ( IsProtocolServiceSupported ( kSCSIProtocolFeature_MaximumWriteTransferByteCount, &maxByteCount ) )
-	{
-		
-		if ( maxByteCount > 0 )
-		{
-			
-			setProperty ( kIOMaximumSegmentCountWriteKey, maxByteCount / page_size, 64 );
-			
-		}
-		
-	}
 	
 	fProtocolAccessEnabled = true;
 	
 	require ( InitializeDeviceSupport ( ), CloseProvider );
 	
-	iterator = getMatchingServices ( nameMatching ( kAppleKeySwitchProperty  ) );
+	iterator = getMatchingServices ( nameMatching ( kAppleKeySwitchProperty ) );
 	if ( iterator != NULL )
 	{
 		
@@ -389,6 +362,14 @@ IOSCSIPrimaryCommandsDevice::free ( void )
 		IOFree ( fIOSCSIPrimaryCommandsDeviceReserved,
 				 sizeof ( IOSCSIPrimaryCommandsDeviceExpansionData ) );
 		fIOSCSIPrimaryCommandsDeviceReserved = NULL;
+		
+	}
+	
+	if ( fDeviceCharacteristicsDictionary != NULL )
+	{
+		
+		fDeviceCharacteristicsDictionary->release ( );
+		fDeviceCharacteristicsDictionary = NULL;
 		
 	}
 	
@@ -1122,6 +1103,17 @@ ProtocolAccessDisabledError:
 #pragma mark -
 #endif
 
+bool
+IOSCSIPrimaryCommandsDevice::ResetForNewTask (	
+									SCSITaskIdentifier 		request )
+{
+	SCSITask *	scsiRequest;
+	
+	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
+	return scsiRequest->ResetForNewTask ( );
+}
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 // ¥ SetTaskAttribute - Sets the SCSITaskAttribute.					[PROTECTED]
@@ -1229,6 +1221,170 @@ IOSCSIPrimaryCommandsDevice::GetTaskStatus ( SCSITaskIdentifier request )
 	check ( scsiRequest );
 	
 	return scsiRequest->GetTaskStatus ( );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ SetCommandDescriptorBlock - Sets 6-byte CDB.					[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSIPrimaryCommandsDevice::SetCommandDescriptorBlock (
+									SCSITaskIdentifier 		request,
+									UInt8					cdbByte0,
+									UInt8					cdbByte1,
+									UInt8					cdbByte2,
+									UInt8					cdbByte3,
+									UInt8					cdbByte4,
+									UInt8					cdbByte5 )
+{
+	
+	SCSITask *	scsiRequest;
+	
+	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
+	return scsiRequest->SetCommandDescriptorBlock (
+									cdbByte0,
+									cdbByte1,
+									cdbByte2,
+									cdbByte3,
+									cdbByte4,
+									cdbByte5 );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ SetCommandDescriptorBlock - Sets 10-byte CDB.					[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSIPrimaryCommandsDevice::SetCommandDescriptorBlock (
+									SCSITaskIdentifier 		request,
+									UInt8					cdbByte0,
+									UInt8					cdbByte1,
+									UInt8					cdbByte2,
+									UInt8					cdbByte3,
+									UInt8					cdbByte4,
+									UInt8					cdbByte5,
+									UInt8					cdbByte6,
+									UInt8					cdbByte7,
+									UInt8					cdbByte8,
+									UInt8					cdbByte9 )
+{
+	
+	SCSITask *	scsiRequest;
+	
+	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
+	return scsiRequest->SetCommandDescriptorBlock (
+									cdbByte0,
+									cdbByte1,
+									cdbByte2,
+									cdbByte3,
+									cdbByte4,
+									cdbByte5,
+									cdbByte6,
+									cdbByte7,
+									cdbByte8,
+									cdbByte9 );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ SetCommandDescriptorBlock - Sets 12-byte CDB.					[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSIPrimaryCommandsDevice::SetCommandDescriptorBlock ( 
+									SCSITaskIdentifier 		request,
+									UInt8					cdbByte0,
+									UInt8					cdbByte1,
+									UInt8					cdbByte2,
+									UInt8					cdbByte3,
+									UInt8					cdbByte4,
+									UInt8					cdbByte5,
+									UInt8					cdbByte6,
+									UInt8					cdbByte7,
+									UInt8					cdbByte8,
+									UInt8					cdbByte9,
+									UInt8					cdbByte10,
+									UInt8					cdbByte11 )
+{
+	
+	SCSITask *	scsiRequest;
+	
+	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
+	return scsiRequest->SetCommandDescriptorBlock (
+									cdbByte0,
+									cdbByte1,
+									cdbByte2,
+									cdbByte3,
+									cdbByte4,
+									cdbByte5,
+									cdbByte6,
+									cdbByte7,
+									cdbByte8,
+									cdbByte9,
+									cdbByte10,
+									cdbByte11 );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ SetCommandDescriptorBlock - Sets 16-byte CDB.					[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSIPrimaryCommandsDevice::SetCommandDescriptorBlock (
+									SCSITaskIdentifier 		request,
+									UInt8					cdbByte0,
+									UInt8					cdbByte1,
+									UInt8					cdbByte2,
+									UInt8					cdbByte3,
+									UInt8					cdbByte4,
+									UInt8					cdbByte5,
+									UInt8					cdbByte6,
+									UInt8					cdbByte7,
+									UInt8					cdbByte8,
+									UInt8					cdbByte9,
+									UInt8					cdbByte10,
+									UInt8					cdbByte11,
+									UInt8					cdbByte12,
+									UInt8					cdbByte13,
+									UInt8					cdbByte14,
+									UInt8					cdbByte15 )
+{
+	
+	SCSITask *	scsiRequest;
+	
+	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
+	return scsiRequest->SetCommandDescriptorBlock (
+									cdbByte0,
+									cdbByte1,
+									cdbByte2,
+									cdbByte3,
+									cdbByte4,
+									cdbByte5,
+									cdbByte6,
+									cdbByte7,
+									cdbByte8,
+									cdbByte9,
+									cdbByte10,
+									cdbByte11,
+									cdbByte12,
+									cdbByte13,
+									cdbByte14,
+									cdbByte15 );
 	
 }
 
@@ -1621,6 +1777,24 @@ IOSCSIPrimaryCommandsDevice::GetApplicationLayerReference (
 	check ( scsiRequest );
 	
 	return scsiRequest->GetApplicationLayerReference ( );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ sGetOwnerForTask - Gets the owner for a task			[STATIC][PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+OSObject *
+IOSCSIPrimaryCommandsDevice::sGetOwnerForTask ( SCSITaskIdentifier request )
+{
+	
+	SCSITask *	scsiRequest = NULL;
+	
+	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
+	return scsiRequest->GetTaskOwner ( );
 	
 }
 

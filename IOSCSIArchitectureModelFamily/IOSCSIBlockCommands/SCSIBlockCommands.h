@@ -51,7 +51,7 @@
 #include <IOKit/IOService.h>
 
 // SCSI Architecture Model Family includes
-#include <IOKit/scsi-commands/SCSIPrimaryCommands.h>
+#include "SCSIPrimaryCommands.h"
 #include <IOKit/scsi-commands/SCSICommandDefinitions.h>
 
 

@@ -1,0 +1,11 @@
+service tftp
+{
+	disable		= yes
+	socket_type	= dgram
+	wait		= yes
+	user		= nobody
+	server		= /usr/libexec/tftpd
+	server_args	= /private/tftpboot
+	groups		= yes
+	flags		= REUSE
+}

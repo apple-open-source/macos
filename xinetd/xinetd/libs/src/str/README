@@ -1,0 +1,73 @@
+======================================================================
+NOTE: I use vi with a tabstop value of 3. Using the same tabstop
+		value will make the text/code look properly indented.
+======================================================================
+
+
+1. What is this library about ?
+
+The STR library consists of string handling functions. These
+functions can be separated into 4 groups:
+
+A. String matching functions. A variety of algorithms are available
+	for string matching:
+			brute force
+			Rabin-Karp
+			Knuth-Morris-Pratt
+			Boyer-Moore
+			Shift-or
+
+B. String printing functions (similar to sprintf). These functions offer
+	2 significant advantages over sprintf:
+		1) they include functions that will *not* overrun the string buffer 
+			provided
+		2) they include functions returning "char *" as well as functions
+			returning "int" so that one can pick the most appropriate one.
+
+C. String parsing functions. These functions offer an easy way of breaking
+	a string into pieces.
+
+D. String utility functions. This group includes functions that will
+	convert a string to upper/lower case etc.
+
+
+2. Setting up the STR library
+
+All you need to do is type 'make'. This will create the library in the
+current directory.  The string printing functions use (and therefore
+require) the underlying format conversion facility of my SIO (Stream
+I/O) library.  If you don't want to bother with it, you can define the
+flag NO_SIO in the Makefile (check the Makefile comments on how to do
+this) which will turn all string printing functions to no-ops.  The SIO
+library is available from mystique.cs.colorado.edu in the directory
+pub/libs (it may also be available at other places).  Make sure you get
+SIO version 1.6.2 or later; versions prior to 1.6.2 will result in
+identical behavior between the strx_*print* and the str_*print*
+functions.
+
+To install the library and the associated man pages and include files
+type 'make install'. This will install the library in LIBDIR, the man
+pages in MANDIR and the include files in INCLUDEDIR.  LIBDIR,
+INCLUDEDIR, and MANDIR are Makefile variables that you can edit in the
+Makefile or override when you invoke 'make'.
+
+
+
+3. Epilogue
+
+Please send bug-reports/comments to panos@cs.colorado.edu
+
+You can obtain the latest version of this library from
+mystique.cs.colorado.edu in the directory pub/libs.
+
+Feel free to modify the library to suit your needs.  If you want to
+distribute modifications to this library, please read the COPYRIGHT
+file.  It basically says that you are free to redistribute as long as
+you retain the original copyright notice and you make sure that your
+modifications are identifiable. In order to achieve this I have
+reserved the first 3 components of the version number (for example,
+1.4.2) and you can identify your mods by appending another component to
+that version number (for example, 1.4.2.A2). Also, if you distribute a
+modified version of the library, you take full responsibility for any
+bugs in the code (not just your code; the whole thing).
+

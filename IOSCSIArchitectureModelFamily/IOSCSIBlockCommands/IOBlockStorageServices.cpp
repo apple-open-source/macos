@@ -598,19 +598,20 @@ IOReturn
 IOBlockStorageServices::reportMaxReadTransfer ( UInt64 		blockSize,
 												UInt64 * 	max )
 {
-	
-	if ( fMaxReadBlocks == 0 )
-	{
-		*max = blockSize * 256;
-	}
-	
-	else
-	{
-		*max = blockSize * fMaxReadBlocks;
-	}
-	
-	return kIOReturnSuccess;
-	
+	return kIOReturnUnsupported;
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ reportMaxWriteTransfer - Reports maximum write transfer in bytes.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+IOBlockStorageServices::reportMaxWriteTransfer ( UInt64		blockSize,
+												 UInt64 * 	max )
+{
+	return kIOReturnUnsupported;
 }
 
 
@@ -624,31 +625,6 @@ IOBlockStorageServices::reportMaxValidBlock ( UInt64 * maxBlock )
 {
 	
 	*maxBlock = ( fProvider->ReportMediumTotalBlockCount ( ) - 1 );
-	return kIOReturnSuccess;
-	
-}
-
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ reportMaxWriteTransfer - Reports maximum write transfer in bytes.
-//																	   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
-IOReturn
-IOBlockStorageServices::reportMaxWriteTransfer ( UInt64		blockSize,
-												 UInt64 * 	max )
-{
-	
-	if ( fMaxWriteBlocks == 0 )
-	{
-		*max = blockSize * 256;
-	}
-	
-	else
-	{
-		*max = blockSize * fMaxWriteBlocks;
-	}
-	
 	return kIOReturnSuccess;
 	
 }
@@ -730,10 +706,7 @@ IOBlockStorageServices::attach ( IOService * provider )
 				  fProvider->GetProtocolCharacteristicsDictionary ( ) );
 	setProperty ( kIOPropertyDeviceCharacteristicsKey,
 				  fProvider->GetDeviceCharacteristicsDictionary ( ) );
-	
-	fMaxReadBlocks 	= fProvider->ReportDeviceMaxBlocksReadTransfer ( );
-	fMaxWriteBlocks = fProvider->ReportDeviceMaxBlocksWriteTransfer ( );
-	
+		
 	result = true;
 	
 	

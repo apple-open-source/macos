@@ -80,7 +80,7 @@ INSTALL_AS_USER = root
         # User/group ownership 
 #INSTALL_AS_GROUP = wheel
         # (probably want to set both of these) 
-INSTALL_PERMISSIONS = 4555
+#INSTALL_PERMISSIONS = 4555
         # If set, 'install' chmod's executable to this
 
 

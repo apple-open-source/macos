@@ -37,6 +37,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 #include <syslog.h>
 #include <unistd.h>
 
@@ -83,6 +84,11 @@ int	gNoCreate = FALSE;
 int	gWrapper = FALSE;
 int	gUserCatNodeSize = FALSE;
 
+#define JOURNAL_DEFAULT_SIZE (8*1024*1024)
+int     gJournaled = FALSE;
+char    *gJournalDevice = NULL;
+int     gJournalSize = JOURNAL_DEFAULT_SIZE;
+
 UInt32	catnodesiz = 8192;
 UInt32	extnodesiz = 4096;
 UInt32	atrnodesiz = 4096;
@@ -97,6 +103,26 @@ UInt32	freewrapperblks = 0;  /* minimum free blocks to leave in wrapper */
 UInt32	hfsgrowblks = 0;      /* maximum growable size of wrapper */
 
 
+int
+get_num(char *str)
+{
+    int num;
+    char *ptr;
+
+    num = strtoul(str, &ptr, 0);
+
+    if (*ptr) {
+	if (tolower(*ptr) == 'k') {
+	    num *= 1024;
+	} else if (tolower(*ptr) == 'm') {
+	    num *= (1024 * 1024);
+	} else if (tolower(*ptr) == 'g') {
+	    num *= (1024 * 1024 * 1024);
+	}
+    }
+
+    return num;
+}
 
 int
 main(argc, argv)
@@ -118,8 +144,23 @@ main(argc, argv)
 
 	forceHFS = FALSE;
 
-	while ((ch = getopt(argc, argv, "hNwb:c:i:n:v:")) != EOF)
+	while ((ch = getopt(argc, argv, "J:hNwb:c:i:n:v:")) != EOF)
 		switch (ch) {
+		case 'J':
+			gJournaled = TRUE;
+			if (isdigit(optarg[0])) {
+			    gJournalSize = get_num(optarg);
+			    if (gJournalSize < 512*1024) {
+					printf("%s: journal size %dk too small.  Reset to %dk.\n",
+						progname, gJournalSize/1024, JOURNAL_DEFAULT_SIZE/1024);
+					gJournalSize = JOURNAL_DEFAULT_SIZE;
+			    }
+			} else {
+				/* back up because there was no size argument */
+			    optind--;
+			}
+			break;
+			
 		case 'N':
 			gNoCreate = TRUE;
 			break;
@@ -180,11 +221,14 @@ main(argc, argv)
 	(void) sprintf(rawdevice, "%sr%s", _PATH_DEV, special);
 	(void) sprintf(blkdevice, "%s%s", _PATH_DEV, special);
 
+	if (forceHFS && gJournaled) {
+		fprintf(stderr, "-h -J: incompatible options specified\n");
+		usage();
+	}
 	if (gWrapper && forceHFS) {
 		fprintf(stderr, "-h -w: incompatible options specified\n");
 		usage();
 	}
-
 	if (!gWrapper && (freewrapperblks || hfsgrowblks)) {
 		fprintf(stderr, "f and g clump options require -w option\n");
 		exit(1);
@@ -446,12 +490,17 @@ hfs_newfs(char *device, int forceHFS, int isRaw)
 		hfsplus_params(dip.totalSectors, dip.sectorSize, &defaults);
 		if (gNoCreate == 0) {
 			retval = make_hfsplus(&dip, &defaults);
-			if (retval == 0)
-				printf("Initialized %s as a %ld %s HFS Plus volume\n",
+			if (retval == 0) {
+				printf("Initialized %s as a %ld %s HFS Plus volume",
 					device, (dip.totalSectors > 0x2000000) ?
 					(long)((dip.totalSectors + (1024*1024))/(2048*1024)) :
 					(long)((dip.totalSectors + 1024)/2048),
 					(dip.totalSectors > 0x2000000) ? "GB" : "MB");
+				if (gJournaled)
+					printf(" with a %dk journal\n", (int)defaults.journalSize/1024);
+				else
+					printf("\n");
+			}
 		}
 	}
 
@@ -479,6 +528,9 @@ static void hfsplus_params (UInt64 sectorCount, UInt32 sectorSize, hfsparams_t *
 	defaults->nextFreeFileID = gNextCNID;
 	defaults->createDate = createtime + MAC_GMT_FACTOR;     /* Mac OS GMT time */
 	defaults->hfsAlignment = 0;
+	defaults->journaledHFS = gJournaled;
+	defaults->journalDevice = gJournalDevice;
+	defaults->journalSize = gJournalSize;
 
 	strncpy(defaults->volumeName, gVolumeName, sizeof(defaults->volumeName) - 1);
 
@@ -583,6 +635,8 @@ static void hfsplus_params (UInt64 sectorCount, UInt32 sectorSize, hfsparams_t *
 		printf("\tvolume name: \"%s\"\n", gVolumeName);
 		printf("\tblock-size: %lu\n", defaults->blockSize);
 		printf("\ttotal blocks: %lu\n", totalBlocks);
+		if (gJournaled)
+			printf("\tjournal-size: %dk\n", (int)defaults->journalSize/1024);
 		printf("\tfirst free catalog node id: %lu\n", defaults->nextFreeFileID);
 		printf("\tcatalog b-tree node size: %lu\n", defaults->catalogNodeSize);
 		printf("\tinitial catalog file size: %lu\n", defaults->catalogClumpSize);
@@ -901,9 +955,10 @@ void usage()
 	fprintf(stderr, "  options:\n");
 	fprintf(stderr, "\t-h create an HFS format filesystem (HFS Plus is the default)\n");
 	fprintf(stderr, "\t-N do not create file system, just print out parameters\n");
-	fprintf(stderr, "\t-w add a HFS wrapper (i.e. Native Mac OS 8/9 bootable)\n");
+	fprintf(stderr, "\t-w add a HFS wrapper (i.e. Native Mac OS 9 bootable)\n");
 
 	fprintf(stderr, "  where hfsplus-options are:\n");
+	fprintf(stderr, "\t-J [journal-size] make this HFS+ volume journaled\n");
 	fprintf(stderr, "\t-b allocation block size (4096 optimal)\n");
 	fprintf(stderr, "\t-c clump size list (comma separated)\n");
 	fprintf(stderr, "\t\te=blocks (extents file)\n");

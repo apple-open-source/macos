@@ -80,6 +80,9 @@ static CFStringRef	   	EnergyPrefsKey;
 static SCDynamicStoreRef   	energyDS;
 static io_connect_t         gPowerManager;
 
+/* Tracking sleeping state */
+static unsigned long        deferredPSChangeNotify = 0;
+static unsigned long        _pmcfgd_impendingSleep = 0;
 
 /* activate_profiles
  *
@@ -186,7 +189,7 @@ isUPSPresent(CFTypeRef power_sources)
     CFStringRef			transport_type;
     int				i, count;
 
-    if(!array) return;
+    if(!array) return NULL;
     count = CFArrayGetCount(array);
     name = NULL;
 
@@ -230,7 +233,7 @@ isInternalBatteryPresent(CFTypeRef power_sources)
     CFStringRef			transport_type;
     int				i, count;
 
-    if(!array) return;
+    if(!array) return NULL;
     count = CFArrayGetCount(array);
     name = NULL;
 
@@ -441,6 +444,31 @@ copyBatteryInfo(void)
     return battery_info;
 }
 
+void _pmcfgd_goingToSleep()
+{
+    _pmcfgd_impendingSleep = 1;
+}
+
+void _pmcfgd_wakeFromSleep()
+{
+    _pmcfgd_impendingSleep = 0;
+    if(deferredPSChangeNotify)
+    {
+        deferredPSChangeNotify = 0;
+        _pmcfgd_impendingSleep = 0;    
+
+        if(currentPowerSource && CFEqual(currentPowerSource, CFSTR(kIOPMACPowerKey)))
+        {
+            // ac power
+            IOPMSetAggressiveness(gPowerManager, kPMPowerSource, kIOPMExternalPower);
+        } else {
+            // battery power
+            IOPMSetAggressiveness(gPowerManager, kPMPowerSource, kIOPMInternalPower);            
+        }
+    }
+
+}
+
 /* BatteryPollingTimer
  *
  * typedef void (*CFRunLoopTimerCallBack)(CFRunLoopTimerRef timer, void *info);
@@ -485,19 +513,36 @@ BatteryPollingTimer(CFRunLoopTimerRef timer, void *info) {
     changed_flags = flags ^ old_flags;
     old_flags = flags;
 
+    // Handle charger plug/unplug event
     if(changed_flags & kIOBatteryChargerConnect)
     {
         oldPowerSource = CFStringCreateCopy(kCFAllocatorDefault, currentPowerSource);
+        
+        // Keep track of current power source
         if(flags & kIOBatteryChargerConnect) 
         {
-            IOPMSetAggressiveness(gPowerManager, kPMPowerSource, kIOPMExternalPower);
             currentPowerSource = CFSTR(kIOPMACPowerKey); // AC
         } else 
         {
-            IOPMSetAggressiveness(gPowerManager, kPMPowerSource, kIOPMInternalPower);
             currentPowerSource = CFSTR(kIOPMBatteryPowerKey); // battery
         }
-
+        
+        // Are we in the middle of a sleep?
+        if(!_pmcfgd_impendingSleep)
+        {
+            // If not, tell drivers that the power source changed
+            if(flags & kIOBatteryChargerConnect) 
+            {
+                IOPMSetAggressiveness(gPowerManager, kPMPowerSource, kIOPMExternalPower);
+            } else 
+            {
+                IOPMSetAggressiveness(gPowerManager, kPMPowerSource, kIOPMInternalPower);
+            }
+        } else {
+            // If so, delay the notification until we're awake from sleep
+            deferredPSChangeNotify = 1;
+        }
+        
         if(0 != CFStringCompare(oldPowerSource, currentPowerSource, NULL))
         {
             //PowerSourceHasChanged(oldPowerSource, currentPowerSource);
@@ -506,6 +551,7 @@ BatteryPollingTimer(CFRunLoopTimerRef timer, void *info) {
         CFRelease(oldPowerSource);
     }
     
+    // Do we need to override the low processor speed setting?
     if(changed_flags & kForceLowSpeed)
     {
         //syslog(LOG_INFO, "kForceLowSpeed bit changed to %08x", (flags & kForceLowSpeed));

@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#import "authorization.h"
+#import "Authorization.h"
 
 
 @implementation authorization

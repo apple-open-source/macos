@@ -30,17 +30,9 @@
 #ifndef _IOKIT_IOFIREWIREUSERCLIENT_H
 #define _IOKIT_IOFIREWIREUSERCLIENT_H
 
-#include <IOKit/IOUserClient.h>
-#include <IOKit/firewire/IOFWIsoch.h>
-#include <IOKit/firewire/IOLocalConfigDirectory.h>
-#include <IOKit/firewire/IOFWAddressSpace.h>
-#include <IOKit/firewire/IOFireWireNub.h>
-#include <IOKit/firewire/IOFireWireFamilyCommon.h>
-#include <IOKit/firewire/IOFireWireBus.h>
-
-#ifndef Byte
-typedef unsigned char Byte ;
-#endif
+#import <IOKit/IOUserClient.h>
+#import "IOFWCommand.h"
+#import "IOFireWireLibPriv.h"
 
 #if IOFIREWIREUSERCLIENTDEBUG > 0
 	#define IOFireWireUserClientLog_(x...) IOLog(x)
@@ -60,6 +52,8 @@ typedef unsigned char Byte ;
 	#define IOFireWireUserClientLogIfTrue_(x, y...)
 #endif
 
+using namespace IOFireWireLib ;
+
 typedef struct AsyncRefHolder_t
 {
 	OSAsyncReference	asyncRef ;
@@ -78,6 +72,7 @@ class IOFireWireUserClientStatistics
 
 
 class IOFireWireDevice;
+class IOFWIsochChannel ;
 
 class IOFireWireUserClient : public IOUserClient
 {
@@ -86,8 +81,8 @@ class IOFireWireUserClient : public IOUserClient
 private:
     IOFireWireNub *			fOwner;
     task_t					fTask;
-	IOExternalMethod		fMethods[ kNumFireWireMethods ];
-	IOExternalAsyncMethod 	fAsyncMethods[ kNumFireWireAsyncMethods ];
+	IOExternalMethod		fMethods[ kNumMethods ];
+	IOExternalAsyncMethod 	fAsyncMethods[ kNumAsyncMethods ];
 
 	IOLock*					fSetLock ;
 
@@ -168,11 +163,11 @@ public:
 											OSSet* 					set) ;
 
 	// --- read/write/lock ----------------
-	virtual IOReturn				readQuad( const FWReadQuadParams* inParams, UInt32* outVal ) ;
-	virtual IOReturn 				read( const FWReadParams* inParams, IOByteCount* outBytesTransferred ) ;
-    virtual IOReturn 				writeQuad( const FWWriteQuadParams* inParams ) ;
-    virtual IOReturn 				write( const FWWriteParams* inParams, IOByteCount* outBytesTransferred ) ;
-    virtual IOReturn 				compareSwap( const FWCompareSwapParams* inParams, UInt64* oldVal) ;
+	virtual IOReturn				readQuad( const ReadQuadParams* inParams, UInt32* outVal ) ;
+	virtual IOReturn 				read( const ReadParams* inParams, IOByteCount* outBytesTransferred ) ;
+    virtual IOReturn 				writeQuad( const WriteQuadParams* inParams ) ;
+    virtual IOReturn 				write( const WriteParams* inParams, IOByteCount* outBytesTransferred ) ;
+    virtual IOReturn 				compareSwap( const CompareSwapParams* inParams, UInt64* oldVal) ;
 
 	// --- other -----------------
     virtual IOReturn 				busReset();
@@ -189,12 +184,12 @@ public:
 											void* 					argument );
 	// --- my conversion helpers -------
 	virtual IOReturn				getOSStringData(
-											FWKernOSStringRef		inStringRef,
+											KernOSStringRef			inStringRef,
 											UInt32					inStringLen,
 											char*					inStringBuffer,
 											UInt32*					outStringLen) ;
 	virtual IOReturn				getOSDataData(
-											FWKernOSDataRef			inDataRef,
+											KernOSDataRef			inDataRef,
 											IOByteCount				inDataLen,
 											char*					inDataBuffer,
 											IOByteCount*			outDataLen) ;
@@ -202,56 +197,29 @@ public:
 	//
     // --- CSR ROM Methods ----------
 	//
-	virtual IOReturn				unitDirCreate(
-											FWKernUnitDirRef*		outDir) ;
-	virtual IOReturn				unitDirRelease(
-											FWKernUnitDirRef		dir) ;
-	virtual IOReturn				addEntry_Buffer(
-											FWKernUnitDirRef		dir, 
-											int 					key,
-											char*					buffer,
-											UInt32					kr_size ) ;
-	virtual IOReturn				addEntry_UInt32(
-											FWKernUnitDirRef		inDir,
-											int						key,
-											UInt32					value) ;
-	virtual IOReturn				addEntry_FWAddr(
-											FWKernUnitDirRef		dir, 
-											int 					key,
-											FWAddress				value ) ;
-	virtual IOReturn				addEntry_UnitDir(
-											FWKernUnitDirRef		dir,
-											int						key,
-											FWKernUnitDirRef		value) ;
+	virtual IOReturn				unitDirCreate( KernUnitDirRef* dir ) ;
+	virtual IOReturn				unitDirRelease( KernUnitDirRef dir ) ;
+	virtual IOReturn				addEntry_Buffer( KernUnitDirRef dir, int key, char* buffer, UInt32 kr_size ) ;
+	virtual IOReturn				addEntry_UInt32( KernUnitDirRef dir, int key, UInt32 value ) ;
+	virtual IOReturn				addEntry_FWAddr( KernUnitDirRef dir,  int key, FWAddress value ) ;
+	virtual IOReturn				addEntry_UnitDir( KernUnitDirRef dir, int key, KernUnitDirRef value ) ;
 	virtual IOReturn				publish(
-											FWKernUnitDirRef		inDir ) ;
+											KernUnitDirRef		inDir ) ;
 	virtual IOReturn				unpublish(
-											FWKernUnitDirRef		inDir) ;
+											KernUnitDirRef		inDir) ;
 
 	//
     // --- Address Spaces Methods ----------
 	//
-	virtual IOReturn				allocateAddressSpace(
-											FWAddrSpaceCreateParams* inParams,
-											FWKernAddrSpaceRef* 	outKernAddrSpaceRef) ;
-	virtual IOReturn				releaseAddressSpace(
-											FWKernAddrSpaceRef		inAddrSpace) ;
-	virtual IOReturn				getPseudoAddressSpaceInfo(
-											FWKernAddrSpaceRef		inAddrSpaceRef,
-											UInt32*					outNodeID,
-											UInt32*					outAddressHi,
-											UInt32*					outAddressLo) ;
-	virtual IOReturn				setAsyncRef_Packet(
-											OSAsyncReference		asyncRef,
-											FWKernAddrSpaceRef		inAddrSpaceRef,
-											void*					inCallback,
-											void*					inUserRefCon,
-											void*,
-											void*,
-											void*) ;
+	virtual IOReturn				allocateAddressSpace( AddressSpaceCreateParams* params, KernAddrSpaceRef* outKernAddrSpaceRef) ;
+	virtual IOReturn				releaseAddressSpace( KernAddrSpaceRef addrSpace ) ;
+	virtual IOReturn				getPseudoAddressSpaceInfo( KernAddrSpaceRef addrSpace, UInt32* outNodeID,
+											UInt32* outAddressHi, UInt32* outAddressLo) ;
+	virtual IOReturn				setAsyncRef_Packet( OSAsyncReference asyncRef, KernAddrSpaceRef addrSpace,
+											void* callback, void* userRefCon, void*, void*, void* ) ;
 	virtual IOReturn				setAsyncRef_SkippedPacket(
 											OSAsyncReference		asyncRef,
-											FWKernAddrSpaceRef		inAddrSpaceRef,
+											KernAddrSpaceRef		inAddrSpaceRef,
 											void*					inCallback,
 											void*					inUserRefCon,
 											void*,
@@ -259,7 +227,7 @@ public:
 											void*) ;
 	virtual IOReturn				setAsyncRef_Read(
 											OSAsyncReference		asyncRef,
-											FWKernAddrSpaceRef		inAddrSpaceRef,
+											KernAddrSpaceRef		inAddrSpaceRef,
 											void*					inCallback,
 											void*					inUserRefCon,
 											void*,
@@ -282,16 +250,14 @@ public:
 											void*,
 											void*) ;
 	virtual IOReturn				clientCommandIsComplete(
-											FWKernAddrSpaceRef		inAddrSpaceRef,
+											KernAddrSpaceRef		inAddrSpaceRef,
 											FWClientCommandID		inCommandID,
 											IOReturn				inResult ) ;
 
 	//
 	//	--- physical address space stuff ----------
 	//
-	virtual IOReturn				allocatePhysicalAddressSpace(
-											FWPhysicalAddrSpaceCreateParams* 	inParams,
-											FWKernPhysicalAddrSpaceRef* 		outKernAddrSpaceRef) ;
+	virtual IOReturn				allocatePhysicalAddressSpace( PhysicalAddressSpaceCreateParams* params, KernPhysicalAddrSpaceRef* outKernAddrSpaceRef) ;
 	virtual IOReturn				releasePhysicalAddressSpace(
 											IOFWUserClientPhysicalAddressSpace*	inAddrSpace) ;
 	virtual IOReturn				getPhysicalAddressSpaceSegmentCount(
@@ -307,13 +273,11 @@ public:
 	//
 	//	--- async commands ----------
 	//
-	virtual IOReturn				lazyAllocateUserCommand(
-											FWUserCommandSubmitParams*	inParams,
-											IOFWUserCommand**			outCommand) ;
+	virtual IOReturn				lazyAllocateUserCommand( CommandSubmitParams* params, IOFWUserCommand** outCommand) ;
 	virtual IOReturn				userAsyncCommand_Submit(
 											OSAsyncReference			asyncRef,
-											FWUserCommandSubmitParams*	inParams,
-											FWUserCommandSubmitResult*	outResult,
+											CommandSubmitParams*	inParams,
+											CommandSubmitResult*	outResult,
 											IOByteCount					inParamsSize,
 											IOByteCount*				outResultSize) ;
 	static void						asyncReadWriteCommandCompletion(
@@ -325,127 +289,73 @@ public:
 	//
 	//	--- config directory functions ----------
 	//
-	virtual IOReturn configDirectoryCreate(
-							FWKernConfigDirectoryRef*	outDirRef) ;
-	virtual IOReturn configDirectoryRelease(
-							FWKernConfigDirectoryRef	dirRef) ;
-	virtual IOReturn configDirectoryUpdate(
-							FWKernConfigDirectoryRef 	dirRef, 
-							UInt32 						offset, 
-							const UInt32*&				romBase) ;
-    virtual IOReturn configDirectoryGetKeyType(
-							FWKernConfigDirectoryRef 	dirRef, 
-							int 						key, 
-							IOConfigKeyType* 			type);
-    virtual IOReturn configDirectoryGetKeyValue_UInt32(
-							FWKernConfigDirectoryRef	inDirRef,
-							int							key,
-							UInt32						wantText,
-							UInt32*						outValue,
-							FWKernOSStringRef*			outString,
-							UInt32*						outStringLen);
-    virtual IOReturn configDirectoryGetKeyValue_Data( FWKernConfigDirectoryRef inDirRef, int key, UInt32 wantText,
-							FWGetKeyValueDataResults* results ) ;
-    virtual IOReturn configDirectoryGetKeyValue_ConfigDirectory(
-							FWKernConfigDirectoryRef	inDirRef,
-							int							key,
-							UInt32						wantText,
-							FWKernConfigDirectoryRef*	outValue,
-							FWKernOSStringRef*			outString,
-							UInt32*						outStringLen);
-    virtual IOReturn configDirectoryGetKeyOffset_FWAddress( FWKernConfigDirectoryRef inDirRef, int key, UInt32 wantText,
-							FWGetKeyOffsetResults* results ) ;
-    virtual IOReturn configDirectoryGetIndexType(
-							FWKernConfigDirectoryRef	inDirRef,
-							int							index,
-							IOConfigKeyType*			outType);
-    virtual IOReturn configDirectoryGetIndexKey(
-							FWKernConfigDirectoryRef	inDirRef,
-							int							index,
-							int*						outKey);
-    virtual IOReturn configDirectoryGetIndexValue_UInt32(
-							FWKernConfigDirectoryRef	inDirRef,
-							int							index,
-							UInt32*						outKey);
-    virtual IOReturn configDirectoryGetIndexValue_Data(
-							FWKernConfigDirectoryRef	inDirRef,
-							int							index,
-							FWKernOSDataRef*			outDataRef,
-							IOByteCount*				outDataLen);
-    virtual IOReturn configDirectoryGetIndexValue_String(
-							FWKernConfigDirectoryRef	inDirRef,
-							int							index,
-							FWKernOSStringRef*			outString,
-							UInt32*						outStringLen);
-    virtual IOReturn configDirectoryGetIndexValue_ConfigDirectory(
-							FWKernConfigDirectoryRef	inDirRef,
-							int							index,
-							FWKernConfigDirectoryRef*	outDirRef);
-    virtual IOReturn configDirectoryGetIndexOffset_FWAddress(
-							FWKernConfigDirectoryRef	inDirRef,
-							int							index,
-							UInt32*						addressHi,
-							UInt32*						addressLo);
-    virtual IOReturn configDirectoryGetIndexOffset_UInt32(
-							FWKernConfigDirectoryRef	inDirRef,
-							int							index,
-							UInt32*						outValue);
-    virtual IOReturn configDirectoryGetIndexEntry(
-							FWKernConfigDirectoryRef	inDirRef,
-							int							index,
-							UInt32*						outValue);
-    virtual IOReturn configDirectoryGetSubdirectories(
-							FWKernConfigDirectoryRef	inDirRef,
-							OSIterator**				outIterator);
-	virtual IOReturn configDirectoryGetKeySubdirectories(
-							FWKernConfigDirectoryRef	inDirRef,
-							int							key,
-							OSIterator**				outIterator);
-	virtual IOReturn configDirectoryGetType(
-							FWKernConfigDirectoryRef dirRef, int *outType) ;
-	virtual IOReturn configDirectoryGetNumEntries(
-							FWKernConfigDirectoryRef dirRef, int *outNumEntries) ;
+	virtual IOReturn 				configDirectoryCreate( KernConfigDirectoryRef*	outDirRef) ;
+	virtual IOReturn 				configDirectoryRelease( KernConfigDirectoryRef	dirRef) ;
+	virtual IOReturn 				configDirectoryUpdate( KernConfigDirectoryRef 	dirRef, UInt32 offset, const UInt32*& romBase ) ;
+    virtual IOReturn 				configDirectoryGetKeyType( KernConfigDirectoryRef dirRef, int key, IOConfigKeyType* type );
+    virtual IOReturn 				configDirectoryGetKeyValue_UInt32( KernConfigDirectoryRef dirRef,
+											int key, UInt32 wantText, UInt32* outValue, KernOSStringRef* outString,
+											UInt32* outStringLen);
+    virtual IOReturn 				configDirectoryGetKeyValue_Data( KernConfigDirectoryRef inDirRef, int key, UInt32 wantText,
+											GetKeyValueDataResults* results ) ;
+    virtual IOReturn 				configDirectoryGetKeyValue_ConfigDirectory( KernConfigDirectoryRef dirRef,
+											int key, UInt32 wantText, KernConfigDirectoryRef* outValue, 
+											KernOSStringRef* outString, UInt32* outStringLen);
+    virtual IOReturn 				configDirectoryGetKeyOffset_FWAddress( KernConfigDirectoryRef inDirRef, int key, 
+											UInt32 wantText, GetKeyOffsetResults* results ) ;
+    virtual IOReturn 				configDirectoryGetIndexType( KernConfigDirectoryRef inDirRef, int index, IOConfigKeyType* outType);
+    virtual IOReturn 				configDirectoryGetIndexKey( KernConfigDirectoryRef dirRef, int index, int* outKey );
+    virtual IOReturn 				configDirectoryGetIndexValue_UInt32( KernConfigDirectoryRef dirRef, int index, UInt32* outKey);
+    virtual IOReturn 				configDirectoryGetIndexValue_Data( KernConfigDirectoryRef dirRef, int index, KernOSDataRef* outDataRef, IOByteCount* outDataLen );
+    virtual IOReturn 				configDirectoryGetIndexValue_String( KernConfigDirectoryRef dirRef, int index, KernOSStringRef* outString, UInt32* outStringLen );
+    virtual IOReturn 				configDirectoryGetIndexValue_ConfigDirectory( KernConfigDirectoryRef dirRef,
+											int index, KernConfigDirectoryRef* outDirRef );
+    virtual IOReturn 				configDirectoryGetIndexOffset_FWAddress( KernConfigDirectoryRef inDirRef,
+											int index, UInt32* addressHi, UInt32* addressLo );
+    virtual IOReturn 				configDirectoryGetIndexOffset_UInt32( KernConfigDirectoryRef inDirRef,
+											int index, UInt32* outValue );
+    virtual IOReturn 				configDirectoryGetIndexEntry( KernConfigDirectoryRef dirRef, int index,
+											UInt32* outValue );
+    virtual IOReturn 				configDirectoryGetSubdirectories( KernConfigDirectoryRef dirRef, OSIterator** outIterator );
+	virtual IOReturn 				configDirectoryGetKeySubdirectories( KernConfigDirectoryRef dirRef,
+											int key, OSIterator** outIterator);
+	virtual IOReturn 				configDirectoryGetType( KernConfigDirectoryRef dirRef, int *outType) ;
+	virtual IOReturn 				configDirectoryGetNumEntries( KernConfigDirectoryRef dirRef, int *outNumEntries) ;
 							
 	//
 	// --- isoch port -------------
 	//
-	virtual IOReturn	isochPortAllocate(
-								FWIsochPortAllocateParams*	inParams,
-								FWKernIsochPortRef*			outPortRef) ;
+	virtual IOReturn	isochPortAllocate( IsochPortAllocateParams* params, KernIsochPortRef* outPortRef) ;
 	virtual IOReturn	isochPortRelease(
-								FWKernIsochPortRef		inPortRef) ;
+								KernIsochPortRef		inPortRef) ;
 	virtual IOReturn	isochPortGetSupported(
-								FWKernIsochPortRef		inPortRef,
+								KernIsochPortRef		inPortRef,
 								IOFWSpeed*				outMaxSpeed,
 								UInt32*					outChanSupportedHi,
 								UInt32*					outChanSupportedLo) ;
 	virtual IOReturn	isochPortAllocatePort(
-								FWKernIsochPortRef		inPortRef,
+								KernIsochPortRef		inPortRef,
 								IOFWSpeed				inSpeed,
 								UInt32					inChannel) ;
 	virtual IOReturn	isochPortReleasePort(
-								FWKernIsochPortRef		inPortRef) ;
+								KernIsochPortRef		inPortRef) ;
 	virtual IOReturn	isochPortStart(
-								FWKernIsochPortRef		inPortRef) ;
+								KernIsochPortRef		inPortRef) ;
 	virtual IOReturn	isochPortStop(
-								FWKernIsochPortRef		inPortRef) ;
+								KernIsochPortRef		inPortRef) ;
 
 	//
 	// local isoch port
 	//
-	virtual IOReturn	localIsochPortAllocate(
-								FWLocalIsochPortAllocateParams*	inParams,
-								FWKernIsochPortRef*		outPortRef) ;
-	virtual IOReturn	localIsochPortModifyJumpDCL(
-								FWKernIsochPortRef		inPortRef,
-								UInt32					inJumpDCLCompilerData,
-								UInt32					inLabelDCLCompilerData) ;
-	virtual IOReturn	localIsochPortModifyJumpDCLSize( FWKernIsochPortRef inPortRef, UInt32 inDCLCompilerData,
-								IOByteCount newSize ) ;
-	virtual IOReturn	setAsyncRef_DCLCallProc(
-								OSAsyncReference		asyncRef,
-								FWKernIsochPortRef		inPortRef,
-								DCLCallCommandProcPtr	inProc ) ;
+	virtual IOReturn				localIsochPortAllocate( LocalIsochPortAllocateParams* params, KernIsochPortRef* portRef ) ;
+	virtual IOReturn				localIsochPortModifyJumpDCL(
+											KernIsochPortRef		inPortRef,
+											UInt32					inJumpDCLCompilerData,
+											UInt32					inLabelDCLCompilerData) ;
+	virtual IOReturn				localIsochPortModifyJumpDCLSize( KernIsochPortRef inPortRef, UInt32 inDCLCompilerData,
+											IOByteCount newSize ) ;
+	virtual IOReturn				setAsyncRef_DCLCallProc( OSAsyncReference asyncRef, KernIsochPortRef portRef, 
+											DCLCallCommandProc* proc ) ;
 	
 	//
 	// --- isoch channel ----------
@@ -458,11 +368,11 @@ public:
 								bool					inDoIRM,
 								UInt32					inPacketSize,
 								IOFWSpeed				inPrefSpeed,
-								FWKernIsochChannelRef*	outIsochChannelRef) ;
+								KernIsochChannelRef*	outIsochChannelRef) ;
 	virtual IOReturn	isochChannelRelease(
-								FWKernIsochChannelRef	inChannelRef) ;
+								KernIsochChannelRef	inChannelRef) ;
 	virtual IOReturn	isochChannelUserAllocateChannelBegin(
-								FWKernIsochChannelRef	inChannelRef,
+								KernIsochChannelRef	inChannelRef,
 								IOFWSpeed				inSpeed,
 								UInt32					inAllowedChansHi,
 								UInt32					inAllowedChansLo,
@@ -470,7 +380,7 @@ public:
 								IOFWSpeed*				outSpeed,
 								UInt32*					outChannel) ;
 	virtual IOReturn	isochChannelUserReleaseChannelComplete(
-								FWKernIsochChannelRef	inChannelRef) ;
+								KernIsochChannelRef	inChannelRef) ;
 	virtual IOReturn	setAsyncRef_IsochChannelForceStop(
 								OSAsyncReference		asyncRef,
 								void*					inCallback,
@@ -483,17 +393,14 @@ public:
 	//
 	// --- firewire command objects ----------------------
 	//
-	virtual IOReturn	userAsyncCommand_Release(
-								FWKernCommandRef		inCommandRef) ;
-	virtual IOReturn	userAsyncCommand_Cancel(
-								FWKernCommandRef		inCommandRef,
-								IOReturn				reason) { return kIOReturnUnsupported; }
+	virtual IOReturn				userAsyncCommand_Release( KernCommandRef command ) ;
+	virtual IOReturn				userAsyncCommand_Cancel( KernCommandRef command, IOReturn reason ) 	{ return kIOReturnUnsupported; }
 
 	//
 	// --- statistics ----------
 	//
 	const IOFireWireUserClientStatistics*	
-						getStatistics()			{ return fStatistics ; }
+									getStatistics()							{ return fStatistics ; }
 
 
 	//
@@ -543,6 +450,12 @@ public:
 	IOReturn 	getSpeedToNode( UInt32 generation, UInt32* outSpeed ) ;
 	IOReturn 	getSpeedBetweenNodes( UInt32 generation, UInt32 fromNode, UInt32 toNode, UInt32* outSpeed ) ;
 
+	//
+	// v5
+	//
+	
+	IOReturn	getIRMNodeID( UInt32 generation, UInt32* irmNodeID ) ;
+	
  protected:
 	IOFireWireUserClientStatistics*		fStatistics ;
 };

@@ -45,6 +45,9 @@
  * - specify the interface name when installing the default route
  * - this ensures that default traffic goes to the highest priority
  *   service when multiple interfaces are configured to be on the same subnet
+ * September 16, 2002	Dieter Siegmund (dieter@apple.com)
+ * - don't elect a link-local service to be primary unless it's the only
+ *   one that's available
  */
 
 #include <stdlib.h>
@@ -112,7 +115,7 @@ S_netboot_root()
     int mib[2];
     size_t len;
     int netboot = 0;
-    
+
     mib[0] = CTL_KERN;
     mib[1] = KERN_NETBOOT;
     len = sizeof(netboot);
@@ -317,26 +320,6 @@ append_netinfo_broadcast_addresses(CFDictionaryRef netinfo_dict,
     return;
 }
 
-CFTypeRef
-highest_serviceID(CFArrayRef list, CFArrayRef order)
-{
-    int 	i;
-    CFRange 	range = CFRangeMake(0, CFArrayGetCount(list));
-
-    if (list == NULL || CFArrayGetCount(list) == 0) {
-	return (NULL);
-    }
-    if (order) {
-	for (i = 0; i < CFArrayGetCount(order); i++) {
-	    CFTypeRef	serviceID = CFArrayGetValueAtIndex(order, i);
-	    if (CFArrayContainsValue(list, range, serviceID)) {
-		return (serviceID);
-	    }
-	}
-    }
-    return (CFArrayGetValueAtIndex(list, 0));
-}
-
 static CFDictionaryRef
 make_netinfo_dict(SCDynamicStoreRef session,
 		  CFStringRef state_key,
@@ -536,8 +519,8 @@ get_changes(SCDynamicStoreRef session, CFStringRef serviceID,
 	    prot_dict = dict;
 	}
 	else if (CFEqual(pkey, kSCEntNetNetInfo)) {
-	    prot_dict = make_netinfo_dict(session, state_key, setup_key,
-					  ipv4_dict);
+	    prot_dict = make_netinfo_dict(session, state_key,
+					  S_setup_global_netinfo, ipv4_dict);
 	}
 	else {
 	    setup_dict = my_SCDCopy(session, setup_key);
@@ -592,49 +575,59 @@ get_changes(SCDynamicStoreRef session, CFStringRef serviceID,
 }
 
 static boolean_t
-default_route(int cmd, struct in_addr router, char * ifname,
-	      boolean_t proxy_arp)
+route(int cmd, struct in_addr gateway, struct in_addr netaddr,
+      struct in_addr netmask, char * ifname, boolean_t proxy_arp)
 {
-    int sockfd;
+    boolean_t			default_route = (netaddr.s_addr == 0);
+    int 			len;
+    boolean_t			ret = TRUE;
+    int 			rtm_seq = 0;
     struct {
 	struct rt_msghdr	hdr;
 	struct sockaddr_in	dst;
 	struct sockaddr_in	gway;
 	struct sockaddr_in	mask;
 	struct sockaddr_dl	link;
-    } rtmsg;
-    int len;
-    int rtm_seq = 0;
+    } 				rtmsg;
+    int 			sockfd = -1;
 
-    if (S_netboot) {
+    if (default_route && S_netboot) {
 	return (TRUE);
     }
+
     if ((sockfd = socket(PF_ROUTE, SOCK_RAW, AF_INET)) < 0) {
 	SCLog(TRUE, LOG_INFO,
-	      CFSTR("default_route: open routing socket failed, %s"),
+	      CFSTR("route: open routing socket failed, %s"),
 	      strerror(errno));
 	return (FALSE);
     }
 
     memset(&rtmsg, 0, sizeof(rtmsg));
     rtmsg.hdr.rtm_type = cmd;
-    if (proxy_arp) {
-	/* if we're doing proxy arp, don't set the gateway flag */
-	rtmsg.hdr.rtm_flags = RTF_UP | RTF_STATIC;
+    if (default_route) {
+	if (proxy_arp) {
+	    /* if we're doing proxy arp, don't set the gateway flag */
+	    rtmsg.hdr.rtm_flags = RTF_UP | RTF_STATIC;
+	}
+	else {
+	    rtmsg.hdr.rtm_flags = RTF_UP | RTF_GATEWAY | RTF_STATIC;
+	}
     }
     else {
-	rtmsg.hdr.rtm_flags = RTF_UP | RTF_GATEWAY | RTF_STATIC;
+	rtmsg.hdr.rtm_flags = RTF_UP | RTF_CLONING | RTF_STATIC;
     }
     rtmsg.hdr.rtm_version = RTM_VERSION;
     rtmsg.hdr.rtm_seq = ++rtm_seq;
     rtmsg.hdr.rtm_addrs = RTA_DST | RTA_GATEWAY | RTA_NETMASK;
     rtmsg.dst.sin_len = sizeof(rtmsg.dst);
     rtmsg.dst.sin_family = AF_INET;
+    rtmsg.dst.sin_addr = netaddr;
     rtmsg.gway.sin_len = sizeof(rtmsg.gway);
     rtmsg.gway.sin_family = AF_INET;
-    rtmsg.gway.sin_addr = router;
+    rtmsg.gway.sin_addr = gateway;
     rtmsg.mask.sin_len = sizeof(rtmsg.mask);
     rtmsg.mask.sin_family = AF_INET;
+    rtmsg.mask.sin_addr = netmask;
 
     len = sizeof(rtmsg);
     if (ifname) {
@@ -650,39 +643,75 @@ default_route(int cmd, struct in_addr router, char * ifname,
     }
     rtmsg.hdr.rtm_msglen = len;
     if (write(sockfd, &rtmsg, len) < 0) {
-	SCLog(TRUE, LOG_DEBUG,
-	      CFSTR("default_route: write routing socket failed, %s"),
-	      strerror(errno));
-	close(sockfd);
-	return (FALSE);
+	if ((cmd == RTM_ADD) && (errno == EEXIST)) {
+		// no sense complaining about a route which already exists
+		;
+	}
+	else if ((cmd == RTM_DELETE) && (errno == ESRCH)) {
+		// no sense complaining about a route which isn't there
+		;
+	}
+	else {
+	    SCLog(TRUE, LOG_DEBUG,
+		  CFSTR("route: write routing socket failed, %s"),
+		  strerror(errno));
+	    ret = FALSE;
+	}
     }
 
     close(sockfd);
-    return (TRUE);
+    return (ret);
 }
 
 static boolean_t
 default_route_delete()
 {
-    struct in_addr ip_zeroes = { 0 };
-    return (default_route(RTM_DELETE, ip_zeroes, NULL, FALSE));
+    struct in_addr ip_zeros = { 0 };
+    return (route(RTM_DELETE, ip_zeros, ip_zeros, ip_zeros, NULL, FALSE));
 }
 
 static boolean_t
 default_route_add(struct in_addr router, char * ifname, boolean_t proxy_arp)
 {
-    return (default_route(RTM_ADD, router, ifname, proxy_arp));
+    struct in_addr ip_zeros = { 0 };
+    return (route(RTM_ADD, router, ip_zeros, ip_zeros, ifname, proxy_arp));
+}
+
+
+static boolean_t
+multicast_route_delete()
+{
+    struct in_addr gateway = { htonl(INADDR_LOOPBACK) };
+    struct in_addr netaddr = { htonl(INADDR_UNSPEC_GROUP) };
+    struct in_addr netmask = { htonl(IN_CLASSD_NET) };
+
+    return (route(RTM_DELETE, gateway, netaddr, netmask, "lo0", FALSE));
+}
+
+static boolean_t
+multicast_route_add()
+{
+    struct in_addr gateway = { htonl(INADDR_LOOPBACK) };
+    struct in_addr netaddr = { htonl(INADDR_UNSPEC_GROUP) };
+    struct in_addr netmask = { htonl(IN_CLASSD_NET) };
+
+    return (route(RTM_ADD, gateway, netaddr, netmask, "lo0", FALSE));
 }
 
 
 static void
 set_router(struct in_addr router, char * ifname, boolean_t proxy_arp)
 {
-    /* assign the new default route */
+    /* assign the new default route, ensure local multicast route available */
     (void)default_route_delete();
     if (router.s_addr) {
 	(void)default_route_add(router, ifname, proxy_arp);
+	(void)multicast_route_delete();
     }
+    else {
+	(void)multicast_route_add();
+    }
+
     return;
 }
 
@@ -807,10 +836,11 @@ set_netinfo(CFDictionaryRef dict)
 static void
 remove_global(SCDynamicStoreRef session)
 {
+    struct in_addr ip_zeros = { 0 };
     CFMutableArrayRef remove = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 
     /* router */
-    (void)default_route_delete();
+    set_router(ip_zeros, NULL, FALSE);
     CFArrayAppendValue(remove, S_state_global_ipv4);
 
     /* dns */
@@ -927,8 +957,10 @@ update_global(SCDynamicStoreRef session, CFStringRef primary,
 	    }
 	}
 	else {
+	    struct in_addr ip_zeros = { 0 };
+
 	    CFArrayAppendValue(keys_remove, S_state_global_ipv4);
-	    (void)default_route_delete();
+	    set_router(ip_zeros, NULL, FALSE);
 	}
     }
     if (dns_changed) {
@@ -948,32 +980,23 @@ update_global(SCDynamicStoreRef session, CFStringRef primary,
 	}
     }
     if (netinfo_changed) {
-	CFDictionaryRef		dict = NULL;
+	CFDictionaryRef	dict = NULL;
+	CFDictionaryRef	ipv4_dict = NULL;
 
-	dict = CFDictionaryGetValue(service_dict, kSCEntNetNetInfo);
-	if (dict) {
-	    CFRetain(dict);
+	ipv4_dict = CFDictionaryGetValue(service_dict, kSCEntNetIPv4);
+	if (ipv4_dict) {
+	    CFStringRef		state_key = NULL;
+
+	    state_key
+		= SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+							      kSCDynamicStoreDomainState,
+							      primary,
+							      kSCEntNetNetInfo);
+	    dict = make_netinfo_dict(session, state_key,
+				     S_setup_global_netinfo,
+				     ipv4_dict);
+	    my_CFRelease(&state_key);
 	}
-	else {
-	    CFDictionaryRef	ipv4_dict = NULL;
-
-	    ipv4_dict = CFDictionaryGetValue(service_dict, kSCEntNetIPv4);
-
-	    if (ipv4_dict) {
-		CFStringRef		state_key = NULL;
-
-		state_key
-		    = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
-								  kSCDynamicStoreDomainState,
-								  primary,
-								  kSCEntNetNetInfo);
-		dict = make_netinfo_dict(session, state_key,
-					 S_setup_global_netinfo,
-					 ipv4_dict);
-		my_CFRelease(&state_key);
-	    }
-	}
-
 	if (dict == NULL) {
 	    empty_netinfo(session);
 	    CFArrayAppendValue(keys_remove, S_state_global_netinfo);
@@ -1069,12 +1092,19 @@ get_service_rank(CFArrayRef arr, CFStringRef serviceID)
     return (1024 * 1024);
 }
 
+static __inline__ boolean_t
+in_addr_is_linklocal(struct in_addr iaddr)
+{
+    return (IN_LINKLOCAL(ntohl(iaddr.s_addr)));
+}
+
 static CFStringRef
 elect_new_primary(SCDynamicStoreRef session, CFArrayRef order)
 {
     CFIndex		count;
     CFIndex 		i;
     const void * *	keys;
+    boolean_t		new_is_linklocal = TRUE;
     CFStringRef		new_primary = NULL;
     unsigned int 	primary_index = 0;
     const void * *	values;
@@ -1097,6 +1127,7 @@ elect_new_primary(SCDynamicStoreRef session, CFArrayRef order)
 	struct in_addr		addr = { 0 };
 	CFArrayRef 		arr;
 	CFDictionaryRef 	ipv4_dict = NULL;
+	boolean_t		is_linklocal;
 	CFStringRef		serviceID = keys[i];
 	CFDictionaryRef		service_dict = values[i];
 	unsigned int		service_index;
@@ -1114,12 +1145,19 @@ elect_new_primary(SCDynamicStoreRef session, CFArrayRef order)
 	    SCLog(S_debug, LOG_INFO, CFSTR("%@ has no address, ignoring"), serviceID);
 	    continue;
 	}
+	is_linklocal = in_addr_is_linklocal(addr);
+	if (is_linklocal && new_is_linklocal == FALSE) {
+	    /* avoid making the link-local service primary */
+	    continue;
+	}
 	service_index = get_service_rank(order, serviceID);
-	if (new_primary == NULL || service_index < primary_index) {
+	if (new_primary == NULL || service_index < primary_index
+	    || (is_linklocal == FALSE && new_is_linklocal == TRUE)) {
 	    my_CFRelease(&new_primary);
 	    CFRetain(serviceID);
 	    new_primary = serviceID;
 	    primary_index = service_index;
+	    new_is_linklocal = is_linklocal;
 	}
     }
  done:

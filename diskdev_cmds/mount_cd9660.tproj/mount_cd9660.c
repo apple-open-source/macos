@@ -76,10 +76,7 @@
 
 #include <CoreFoundation/CFBase.h>
 #include <IOKit/IOKitLib.h>
-
-#define PROCESS_OPTIONS 0
-#if PROCESS_OPTIONS
-#include "mntopts.h"
+#include "../disklib/mntopts.h"
 
 struct mntopt mopts[] = {
 	MOPT_STDOPTS,
@@ -90,7 +87,6 @@ struct mntopt mopts[] = {
 	{ "joliet", 1, ISOFSMNT_NOJOLIET, 1 },
 	{ NULL }
 };
-#endif
 
 typedef struct ISOVolumeDescriptor
 {
@@ -120,6 +116,7 @@ main(int argc, char **argv)
 	struct iso_args args;
 	int ch, mntflags, opts;
 	char *dev, *dir;
+	int altflg;
 	
 	mntflags = opts = 0;
 	memset(&args, 0, sizeof args);
@@ -135,11 +132,9 @@ main(int argc, char **argv)
 		case 'j':
 			opts |= ISOFSMNT_NOJOLIET;
 			break;
-#if PROCESS_OPTIONS
 		case 'o':
-			getmntopts(optarg, mopts, &mntflags);
+			getmntopts(optarg, mopts, &mntflags, &altflg);
 			break;
-#endif
 		case 'r':
 			opts |= ISOFSMNT_NORRIP;
 			break;

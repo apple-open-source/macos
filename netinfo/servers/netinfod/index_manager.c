@@ -85,17 +85,11 @@ im_forget(
 	ni_index i;
 	im_private *priv = (im_private *)handle->private;
 
-	for (i = 0; i < priv->nheld; i++) {
-		if (priv->held[i].refcount == 0) {
-			im_holder_unalloc(&priv->held[i]);
-			priv->held[i] = priv->held[priv->nheld - 1];
-			MM_SHRINK_ARRAY(priv->held, priv->nheld);
-			priv->nheld--;
-			i--;
-		} else {
-			priv->held[i].refcount = 0;
-		}
-	}
+	for (i = 0; i < priv->nheld; i++) im_holder_unalloc(&priv->held[i]);
+
+	free(priv->held);
+	priv->held = NULL;
+	priv->nheld = 0;
 }
 
 void

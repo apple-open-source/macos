@@ -1,0 +1,157 @@
+.\"(c) Copyright 1992, 1993 by Panagiotis Tsirigotis
+.\"All rights reserved.  The file named COPYRIGHT specifies the terms 
+.\"and conditions for redistribution.
+.\"
+.\" $Id: Sprint.3,v 1.1.1.1 2002/01/31 07:09:04 zarzycki Exp $
+.TH Sprint 3X "29 May 1992"
+.SH NAME
+Sprint -- formatted stream output
+.SH SYNOPSIS
+.LP
+.nf
+.ft B
+int Sprint( fd, format [ , ... ] )
+int fd ;
+char *format ;
+.SH DESCRIPTION
+\fBSprint()\fR provides formatted output conversion. The formatting is
+controlled by the \fIformat\fR argument. All characters in
+\fIformat\fR that do not specify a conversion are printed. A conversion
+is specified by a '%' followed by a string that ends with a
+conversion type character. The string may contain flags, a field width,
+a precision, and a modifier.
+.LP
+Possible flags (more that one can be specified and they can be in any order)
+include:
+.TP 10
+.B \'-'
+specifies left adjustment of the converted argument. The default
+is right adjustment. This flag is meaningful only if a field width
+is specified.
+.TP
+.B \'+'
+specifies that a number will always have a sign as a prefix (this
+forces a '+' sign to appear if the number is positive).
+.TP
+.B \' '
+prefixes a \fIspace\fR to the number if the number has not a sign
+(therefore the '+' flag overrides this flag).
+.TP
+.B \'#'
+The meaning of '#' depends on the conversion type character: for \fBo\fR 
+conversions the first digit will be 0; for \fBx\fR or \fBX\fR conversions
+\fB0x\fR or \fB0X\fR respectively will be prefixed to the number (if it
+is not zero); for \fBe\fR, \fBE\fR, \fBf\fR, \fBg\fR, and \fBG\fR conversions
+the number will always have a decimal point.
+.TP
+.B \'0'
+specifies padding with zeros instead of spaces.
+.LP
+The field width is specified by a number. This number indicates the
+\fIminimum\fR width for the field. A '*' may be used instead of the number.
+In that case the width is the value of the next argument which should
+be an \fBint\fR. 
+A negative width value specifies left adjustment with a width equal
+to the absolute width value.
+.LP
+A precision is specified by a '.' followed by a number. The meaning of
+the precision depends on the type conversion character. For a string
+conversion, precision determines how many characters are printed from
+the string. For integer conversions, precision determines the 
+number of digits used to print the number (zero padding is done if
+the precision exceeds the length of the number). For floating point
+conversions, precision determines the number of digits after the
+decimal point (\fBe\fR, \fBE\fR, \fBf\fR) or the number of
+significant digits (\fBg\fR, \fBG\fR).
+A '*' may be used instead of a number to specify the precision. In that
+case the precision is the value of the next argument which should
+be an \fBint\fR.
+The behavior of \fBSprint()\fR is undefined if the precision is negative.
+.LP
+The length modifier is \fBl\fR and indicates that the argument is
+a \fBlong\fR integer.
+.LP
+The type conversion characters are:
+\fBd, i, o, x, X, u, c, s, f, e, E, g, G, p, n, %\fR.
+For floating point conversions the argument should be of type \fIdouble\fR.
+.TP 10
+.B d,i
+specify signed decimal conversion.
+.TP
+.B u
+specifies unsigned decimal conversion.
+.TP
+.B o
+specifies octal conversion.
+.TP
+.B x,X
+specify hexadecimal conversion. For 
+.B x
+the hex digits used are 0123456789abcdef. For
+.B X
+the hex digits used are 0123456789ABCDEF.
+There is no leading
+.B 0x
+or
+.B 0X
+(use the '#' flag for that).
+.TP
+.B c
+specifies character conversion; the argument should be of type
+\fIchar\fR.
+.TP
+.B s
+specifies string conversion; the argument should be of type
+\fIchar *\fR.
+.TP
+.B f
+specifies conversion to the form [-]ddd.dddd. The number
+of digits after the decimal point depends on precision; the default is 6.
+If the precision is 0, the decimal point is not printed (this can
+be overriden with the '#' flag).
+.B e,E
+specify conversion to the form [-]ddd.dddd[eE][+-]ddd.
+The number of digits after the decimal point depends on precision;
+the default is 6. If the precision is 0, the decimal point is not printed
+(this can be overriden with the '#' flag).
+The exponent is at least 2 digit wide.
+.TP
+.B g,G
+specify a conversion using the
+.B e,E
+format respectively if the
+exponent is less than -4 or greater than or equal to the precision;
+otherwise the 
+.B f
+format is used.
+.TP
+.B p
+is used to print pointers (type \fIvoid *\fR,
+or \fIchar *\fR if the compiler does not support the former).
+.TP
+.B n
+expects a \fIint *\fR argument and puts in that integer 
+the number of characters already printed by this call.
+.TP
+.B %
+is used to print a \fI%\fR.
+.LP
+If an unknown conversion character is specified, the percent sign
+followed by that character will be printed.
+.SH RETURN VALUE
+.LP
+If no error occured, \fBSprint()\fR returns the number of characters
+printed. In case of error, it returns \fBSIO_ERR\fR.
+.SH BUGS
+.LP
+This is a list of differences between \fBSprint()\fR and the ANSI C Standard
+\fBprintf()\fR:
+.LP
+\fBSprint()\fR does not support non-removal of trailing zeroes for
+\fBg\fR and \fBG\fR conversions when the '#' flag is used.
+.LP
+\fBSprint()\fR does not support the h and L modifiers.
+.LP
+The current implementation assumes that \fIsizeof(int)==sizeof(long)\fR.
+.LP
+\fBSprint()\fR supports "%p" only if \fIsizeof(pointer)<=sizeof(int)\fR.

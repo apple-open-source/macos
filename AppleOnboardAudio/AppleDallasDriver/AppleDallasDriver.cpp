@@ -467,6 +467,9 @@ bool AppleDallasDriver::readDataROM (UInt8 *bEEPROM,int dallasAddress, int size)
 	int				retryCount;
     
     resultSuccess = FALSE;			//	assume that it failed
+	
+	FailIf ( NULL == bEEPROM, exit );
+
     map = gpioRegMem->map (0);
     FailIf (!map, exit);
     gpioPtr = (UInt8*)map->getVirtualAddress ();
@@ -494,16 +497,20 @@ bool AppleDallasDriver::readDataROM (UInt8 *bEEPROM,int dallasAddress, int size)
     failure = TRUE;
 	retryCount = kRetryCountSeed;
     for (i=0; i<size; i++) {
-        do {
-            while (failure) {
-                ROMReset(gpioPtr);
-                failure = ROMSendByte(gpioPtr, kROMSkipROM);
-                failure = failure || ROMSendByte(gpioPtr, kROMReadScratch);
-                failure = failure || ROMSendByte(gpioPtr, i);
+		bEEPROM[0] = 0;		//	device family
+		bEEPROM[1] = 0;		//	device type
+		bEEPROM[2] = 0;		//	device subtype
+		bEEPROM[3] = 0;		//	device reserved
+       do {
+            while ( failure ) {
+                ROMReset ( gpioPtr );
+                failure = ROMSendByte ( gpioPtr, kROMSkipROM );
+                failure = failure || ROMSendByte ( gpioPtr, kROMReadScratch );
+                failure = failure || ROMSendByte ( gpioPtr, i);
 				retryCount--;
             }
-            failure = ROMReadByte(gpioPtr, &bEEPROM[i]);
-        } while (failure && retryCount);
+            failure = ROMReadByte ( gpioPtr, &bEEPROM[i] );
+        } while ( failure && retryCount && ( 0xFF != bEEPROM[0] ) );
     }
 	if ( !failure ) {
 		resultSuccess = TRUE;

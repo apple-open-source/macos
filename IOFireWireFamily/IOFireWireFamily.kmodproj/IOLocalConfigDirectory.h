@@ -25,7 +25,7 @@
 
 #include <libkern/c++/OSObject.h>
 #include <IOKit/IOReturn.h>
-#include <IOKit/firewire/IOFWRegs.h>
+#include <IOKit/firewire/IOFireWireFamilyCommon.h>
 #include <IOKit/firewire/IOConfigDirectory.h>
 
 class OSArray;

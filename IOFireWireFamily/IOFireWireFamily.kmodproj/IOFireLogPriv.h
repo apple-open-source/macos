@@ -30,8 +30,8 @@
 #include <libkern/c++/OSObject.h>
 #include <IOKit/system.h>
 
-#include <IOKit/firewire/IOFireWireController.h>
-#include <IOKit/firewire/IOLocalConfigDirectory.h>
+#import "IOFireWireController.h"
+#import "IOLocalConfigDirectory.h"
 
 #include <IOKit/IOBufferMemoryDescriptor.h>
 

@@ -39,6 +39,8 @@
 #include <IOKit/scsi-commands/IOSCSIPeripheralDeviceNub.h>
 #include "SCSITaskLib.h"
 #include "SCSITaskLibPriv.h"
+#include "SCSIPrimaryCommands.h"
+
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Macros
@@ -83,7 +85,6 @@ OSDefineMetaClassAndStructors ( IOSCSIPeripheralDeviceNub, IOSCSIProtocolService
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 #define kMaxInquiryAttempts 					8
-#define kInquiryDataPeripheralDeviceTypeSize	8
 
 
 #if 0
@@ -137,7 +138,7 @@ IOSCSIPeripheralDeviceNub::start ( IOService * provider )
 	require_quiet ( ( fProvider == NULL ), ErrorExit );
 	
 	// Make sure our provider is a protocol services driver.
-	fProvider = OSDynamicCast ( IOSCSIProtocolServices, provider );
+	fProvider = OSDynamicCast ( IOSCSIProtocolInterface, provider );
 	require_nonzero_quiet ( fProvider, ErrorExit );
 	
 	fSCSIPrimaryCommandObject = new SCSIPrimaryCommands;
@@ -885,7 +886,7 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
    	// Set the Peripheral Device Type property for the device.
    	setProperty ( kIOPropertySCSIPeripheralDeviceType,
    				( UInt64 ) ( inqData->PERIPHERAL_DEVICE_TYPE & kINQUIRY_PERIPHERAL_TYPE_Mask ),
-   				kInquiryDataPeripheralDeviceTypeSize );
+   				kIOPropertySCSIPeripheralDeviceTypeSize );
 	
    	// Set the Vendor Identification property for the device.
    	for ( index = 0; index < kINQUIRY_VENDOR_IDENTIFICATION_Length; index++ )
@@ -974,16 +975,6 @@ IOSCSIPeripheralDeviceNub::InterrogateDevice ( void )
 		
 		setProperty ( kIOPropertySCSIProductRevisionLevel, string );
 		string->release ( );
-		
-	}
-	
-	// Check if the protocol layer driver needs the inquiry data for
-	// any reason. SCSI Parallel uses this to determine Wide,
-	// Sync, DT, QAS, IU, etc.
-	if ( IsProtocolServiceSupported ( kSCSIProtocolFeature_SubmitDefaultInquiryData, inqData ) == true )
-	{
-		
-		HandleProtocolServiceFeature ( kSCSIProtocolFeature_SubmitDefaultInquiryData, inqData );
 		
 	}
 	
@@ -1076,7 +1067,7 @@ IOSCSILogicalUnitNub::start ( IOService * provider )
 	fProvider = OSDynamicCast ( IOSCSIPeripheralDeviceNub, provider );
 	require_nonzero_quiet ( ( fProvider == NULL ), ErrorExit );
 	
-	fProvider = OSDynamicCast ( IOSCSIProtocolServices, provider );
+	fProvider = OSDynamicCast ( IOSCSIProtocolInterface, provider );
 	require_nonzero_quiet ( fProvider, ErrorExit );
 	
 	fSCSIPrimaryCommandObject = new SCSIPrimaryCommands;

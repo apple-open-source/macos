@@ -32,6 +32,7 @@
 #include "AudioHardwareCommon.h"
 #include "AudioHardwareConstants.h"
 #include "AudioHardwareUtilities.h"
+#include "AudioI2SHardwareConstants.h"
 
 #include "AppleDACAAudio.h"
 #include "daca_hw.h"

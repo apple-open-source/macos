@@ -98,6 +98,7 @@ DoAgain:
 	dataArea.itemsProcessed		= 0;	//	Initialize to 0% complete
 	dataArea.itemsToProcess		= 1;
 	dataArea.chkLevel			= checkLevel;
+	dataArea.repairLevel			= repairLevel;
 	dataArea.logLevel			= logLevel;
 
 	dataArea.DrvNum				= fsReadRef;
@@ -115,6 +116,16 @@ DoAgain:
 	
 	if (checkLevel == kNeverCheck || (checkLevel == kDirtyCheck && dataArea.cleanUnmount)) {
 		goto termScav;
+	}
+
+	if (CheckIfJournaled(&dataArea)
+	    && didRebuild == 0
+	    && checkLevel != kForceCheck
+	    && !(checkLevel == kPartialCheck && repairLevel == kForceRepairs)) {
+	    printf("fsck_hfs: Volume is journaled.  No checking performed.\n");
+	    printf("fsck_hfs: Use the -f option to force checking.\n");
+	    scavError = 0;
+	    goto termScav;
 	}
 
 	//
@@ -291,7 +302,7 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 				break;
 			
 			if (GPtr->chkLevel == kNeverCheck || GPtr->chkLevel == kDirtyCheck) {
-				int clean;
+			    	int clean;
 
 				clean = CheckForClean(GPtr, false);
 				if (clean == 1)
@@ -307,6 +318,13 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 
 				if (GPtr->cleanUnmount)
 					break;
+			}
+			
+			if (CheckIfJournaled(GPtr)
+			    && GPtr->chkLevel != kForceCheck
+			    && !(GPtr->chkLevel == kPartialCheck && GPtr->repairLevel == kForceRepairs)
+				&& !(GPtr->chkLevel == kAlwaysCheck && GPtr->repairLevel == kMajorRepairs)) {
+			    break;
 			}
 			
 			result = IVChk( GPtr );
@@ -325,7 +343,7 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 			gettimeofday( &myEndTime, &zone );
 			timersub( &myEndTime, &myStartTime, &myElapsedTime );
 			printf( "\n%s - BitMapCheck elapsed time \n", __FUNCTION__ );
-			printf( ">>>>>>>>>>>>> secs %d msecs %d \n\n", 
+			printf( "########## secs %d msecs %d \n\n", 
 				myElapsedTime.tv_sec, myElapsedTime.tv_usec );
 #endif
 

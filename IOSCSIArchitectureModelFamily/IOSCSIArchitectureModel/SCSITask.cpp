@@ -27,7 +27,7 @@
 
 // SCSI Architecture Model Family includes
 #include "SCSITask.h"
-
+#include "SCSITaskDefinition.h"
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Macros
@@ -159,6 +159,8 @@ SCSITask::ResetForNewTask ( void )
 	require ( ( IsTaskActive ( ) == false ), ErrorExit );
 	
 	fTaskAttribute 					= kSCSITask_SIMPLE;
+	fTaskTagIdentifier				= kSCSIUntaggedTaskIdentifier;
+	
    	fTaskState 						= kSCSITaskState_NEW_TASK;
 	fTaskStatus						= kSCSITaskStatus_GOOD;
 	fLogicalUnitNumber				= 0;	
@@ -327,6 +329,28 @@ SCSITaskAttribute
 SCSITask::GetTaskAttribute ( void )
 {
 	return fTaskAttribute;
+}
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetTaggedTaskIdentifier - Sets the SCSITaggedTaskIdentifier.	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+SCSITask::SetTaggedTaskIdentifier ( SCSITaggedTaskIdentifier newTag )
+{
+	fTaskTagIdentifier = newTag;
+	return true;
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetTaggedTaskIdentifier - Gets the SCSITaggedTaskIdentifier. 	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSITaggedTaskIdentifier 
+SCSITask::GetTaggedTaskIdentifier ( void )
+{
+	return fTaskTagIdentifier;
 }
 
 

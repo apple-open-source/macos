@@ -568,21 +568,7 @@ IOReducedBlockServices::reportMaxReadTransfer (
 								UInt64 *	max )
 {
 	
-	return fProvider->ReportMaxReadTransfer ( blockSize, max );
-	
-}
-
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ reportMaxValidBlock - Reports maximum valid block on the media.
-//																	   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
-IOReturn
-IOReducedBlockServices::reportMaxValidBlock ( UInt64 * maxBlock )
-{
-
-	return fProvider->ReportMaxValidBlock ( maxBlock );
+	return kIOReturnUnsupported;
 	
 }
 
@@ -597,7 +583,21 @@ IOReducedBlockServices::reportMaxWriteTransfer ( UInt64		blockSize,
 												 UInt64 *	max )
 {
 	
-	return fProvider->ReportMaxWriteTransfer ( blockSize, max );
+	return kIOReturnUnsupported;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ reportMaxValidBlock - Reports maximum valid block on the media.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+IOReducedBlockServices::reportMaxValidBlock ( UInt64 * maxBlock )
+{
+
+	return fProvider->ReportMaxValidBlock ( maxBlock );
 	
 }
 

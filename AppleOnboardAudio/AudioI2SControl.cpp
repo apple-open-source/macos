@@ -28,6 +28,7 @@
 
 #include "AudioI2SControl.h"
 #include "daca_hw.h"
+#include "AudioI2SHardwareConstants.h"
 
 #define super OSObject
 OSDefineMetaClassAndStructors(AudioI2SControl, OSObject)
@@ -64,12 +65,12 @@ bool AudioI2SControl::init(AudioI2SInfo *theInfo)
     if ((((UInt32)soundConfigSpace ^ kI2S0BaseOffset) & 0x0001FFFF) == 0) 
     {
         ioBaseAddress = (void *)((UInt32)soundConfigSpace - kI2S0BaseOffset);
-        i2SInterfaceNumber = 0;
+        i2SInterfaceNumber = kUseI2SCell0;
     }
     else if ((((UInt32)soundConfigSpace ^ kI2S1BaseOffset) & 0x0001FFFF) == 0) 
     {
         ioBaseAddress = (void *)((UInt32)soundConfigSpace - kI2S1BaseOffset);
-        i2SInterfaceNumber = 1;
+        i2SInterfaceNumber = kUseI2SCell1;
     }
     else 
     {
@@ -97,6 +98,7 @@ bool AudioI2SControl::init(AudioI2SInfo *theInfo)
 }
 
 
+// --------------------------------------------------------------------------
 void AudioI2SControl::free()
 {
     super::free();
@@ -118,11 +120,11 @@ bool AudioI2SControl::setSampleParameters(UInt32 sampleRate, UInt32 mclkToFsRati
     reqMClkRate = sampleRate * mclkRatio;	// this is the required MClk rate
 
 	// look for a source clock that divides down evenly into the MClk
-    if ((kClock18MHz % reqMClkRate) == 0) {  // preferential source is 18 MHz
+    if ((kClock18MHz % reqMClkRate) == 0) {  		// preferential source is 18 MHz
         dacaClockSource = kClock18MHz;
-    } else if ((kClock45MHz % reqMClkRate) == 0) { // next check 45 MHz clock
+    } else if ((kClock45MHz % reqMClkRate) == 0) {	// next check 45 MHz clock (11.025, 22.050 & 44.100 KHz sample rates)
         dacaClockSource = kClock45MHz;
-    } else if ((kClock49MHz % reqMClkRate) == 0) { // last, try 49 Mhz clock
+    } else if ((kClock49MHz % reqMClkRate) == 0) {	// last, try 49 Mhz clock (48.000 & 96.000 KHz sample rates)
         dacaClockSource = kClock49MHz;
     } else {
         CLOG("AppleDACAAudio::setSampleParameters Unable to find a suitable source clock (no globals changes take effect)\n");
@@ -156,59 +158,31 @@ void AudioI2SControl::setSerialFormatRegister(ClockSource clockSource, UInt32 mc
     UInt32	regValue = 0;
 
     switch ((int)clockSource) {
-        case kClock18MHz:
-            regValue = kClockSource18MHz;
-            break;
-        case kClock45MHz:
-            regValue = kClockSource45MHz;
-            break;
-        case kClock49MHz:
-            regValue = kClockSource49MHz;
-            break;
-        default:
-            break;
+        case kClock18MHz:			regValue = kClockSource18MHz;														break;
+        case kClock45MHz:			regValue = kClockSource45MHz;														break;
+        case kClock49MHz:			regValue = kClockSource49MHz;														break;
+        default:																										break;
     }
 
     switch (mclkDivisor) {
-        case 1:
-            regValue |= kMClkDivisor1;
-            break;
-        case 3:
-            regValue |= kMClkDivisor3;
-            break;
-        case 5:
-            regValue |= kMClkDivisor5;
-            break;
-        default:
-            regValue |= (((mclkDivisor / 2) - 1) << kMClkDivisorShift) & kMClkDivisorMask;
-            break;
+        case 1:						regValue |= kMClkDivisor1;															break;
+        case 3:						regValue |= kMClkDivisor3;															break;
+        case 5:						regValue |= kMClkDivisor5;															break;
+        default:					regValue |= (((mclkDivisor / 2) - 1) << kMClkDivisorShift) & kMClkDivisorMask;		break;
     }
 
-    switch ((int)sclkDivisor) {
-        case 1:
-            regValue |= kSClkDivisor1;
-            break;
-        case 3:
-            regValue |= kSClkDivisor3;
-            break;
-        default:
-            regValue |= (((sclkDivisor / 2) - 1) << kSClkDivisorShift) & kSClkDivisorMask;
-            break;
+    switch ((int)sclkDivisor) {		//	sclk is equivalent to Bclk
+        case 1:						regValue |= kSClkDivisor1;															break;
+        case 3:						regValue |= kSClkDivisor3;															break;
+        default:					regValue |= (((sclkDivisor / 2) - 1) << kSClkDivisorShift) & kSClkDivisorMask;		break;
     }
-    regValue |= kSClkMaster;										// force master mode
+    regValue |= kSClkMaster;		// force master mode
 
     switch (serialFormat) {
-        case kSndIOFormatI2SSony:
-            regValue |= kSerialFormatSony;
-            break;
-        case kSndIOFormatI2S64x:
-            regValue |= kSerialFormat64x;
-            break;
-        case kSndIOFormatI2S32x:
-            regValue |= kSerialFormat32x;
-            break;
-        default:
-            break;
+        case kSndIOFormatI2SSony:	regValue |= kSerialFormatSony;														break;
+        case kSndIOFormatI2S64x:	regValue |= kSerialFormat64x;														break;
+        case kSndIOFormatI2S32x:	regValue |= kSerialFormat32x;														break;
+        default:																										break;
     }
 
 	// This is a 3 step process:
@@ -216,7 +190,10 @@ void AudioI2SControl::setSerialFormatRegister(ClockSource clockSource, UInt32 mc
 	// 1] Stop the clock:
     clockRun(false);
 	// 2] Setup the serial format register
-    I2SSetSerialFormatReg(regValue);
+	switch ( i2SInterfaceNumber ) {
+			case kUseI2SCell0:    I2S0_SetSerialFormatReg(regValue);		break;
+			case kUseI2SCell1:    I2S1_SetSerialFormatReg(regValue);		break;
+	}
 	// 3 restarts the clock:
     clockRun(true);    
 }
@@ -301,6 +278,7 @@ INLINE UInt32 AudioI2SControl::ReadWordLittleEndian(void *address, UInt32 offset
 #endif
 }
 
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 INLINE void AudioI2SControl::WriteWordLittleEndian(void *address, UInt32 offset, UInt32 value)
 {
 #if 0
@@ -318,119 +296,267 @@ INLINE void AudioI2SControl::WriteWordLittleEndian(void *address, UInt32 offset,
 }
 
 // INLINEd methods to access to all the I2S registers:
-// ===================================================
-INLINE UInt32 AudioI2SControl::I2SGetIntCtlReg(void)
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE UInt32 AudioI2SControl::I2S0_GetIntCtlReg(void)
 {
-    return ReadWordLittleEndian(soundConfigSpace, kI2SIntCtlOffset);
+	return ReadWordLittleEndian(ioBaseAddress, kI2S0BaseOffset + kI2SIntCtlOffset);
 }
 
-INLINE void AudioI2SControl::I2SSetIntCtlReg(UInt32 value)
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE UInt32 AudioI2SControl::I2S1_GetIntCtlReg(void)
 {
-    WriteWordLittleEndian(soundConfigSpace, kI2SIntCtlOffset, value);
+	return ReadWordLittleEndian(ioBaseAddress, kI2S1BaseOffset + kI2SIntCtlOffset);
 }
 
-INLINE UInt32 AudioI2SControl::I2SGetSerialFormatReg(void)
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE void AudioI2SControl::I2S0_SetIntCtlReg(UInt32 value)
 {
-    return ReadWordLittleEndian(soundConfigSpace, kI2SSerialFormatOffset);
+    WriteWordLittleEndian(ioBaseAddress, kI2S0BaseOffset + kI2SIntCtlOffset, value);
 }
 
-INLINE void AudioI2SControl::I2SSetSerialFormatReg(UInt32 value)
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE void AudioI2SControl::I2S1_SetIntCtlReg(UInt32 value)
 {
-    WriteWordLittleEndian(soundConfigSpace, kI2SSerialFormatOffset, value);
+    WriteWordLittleEndian(ioBaseAddress, kI2S1BaseOffset + kI2SIntCtlOffset, value);
 }
 
-INLINE UInt32 AudioI2SControl::I2SGetCodecMsgOutReg(void)
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE UInt32 AudioI2SControl::I2S0_GetSerialFormatReg(void)
 {
-    return ReadWordLittleEndian(soundConfigSpace, kI2SCodecMsgOutOffset);
+    return ReadWordLittleEndian(ioBaseAddress, kI2S0BaseOffset + kI2SSerialFormatOffset);
 }
 
-INLINE void AudioI2SControl::I2SSetCodecMsgOutReg(UInt32 value)
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE UInt32 AudioI2SControl::I2S1_GetSerialFormatReg(void)
 {
-    WriteWordLittleEndian(soundConfigSpace, kI2SCodecMsgOutOffset, value);
+    return ReadWordLittleEndian(ioBaseAddress, kI2S1BaseOffset + kI2SSerialFormatOffset);
 }
 
-INLINE UInt32 AudioI2SControl::I2SGetCodecMsgInReg(void)
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE void AudioI2SControl::I2S0_SetSerialFormatReg(UInt32 value)
 {
-    return ReadWordLittleEndian(soundConfigSpace, kI2SCodecMsgInOffset);
+    WriteWordLittleEndian(ioBaseAddress, kI2S0BaseOffset + kI2SSerialFormatOffset, value);
 }
 
-INLINE void AudioI2SControl::I2SSetCodecMsgInReg(UInt32 value)
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE void AudioI2SControl::I2S1_SetSerialFormatReg(UInt32 value)
 {
-    WriteWordLittleEndian(soundConfigSpace, kI2SCodecMsgInOffset, value);
+    WriteWordLittleEndian(ioBaseAddress, kI2S1BaseOffset + kI2SSerialFormatOffset, value);
 }
 
-INLINE UInt32 AudioI2SControl::I2SGetFrameCountReg(void)
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE UInt32 AudioI2SControl::I2S0_GetCodecMsgOutReg(void)
 {
-    return ReadWordLittleEndian(soundConfigSpace, kI2SFrameCountOffset);
+    return ReadWordLittleEndian(ioBaseAddress, kI2S0BaseOffset + kI2SCodecMsgOutOffset);
 }
 
-INLINE void AudioI2SControl::I2SSetFrameCountReg(UInt32 value)
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE UInt32 AudioI2SControl::I2S1_GetCodecMsgOutReg(void)
 {
-    WriteWordLittleEndian(soundConfigSpace, kI2SFrameCountOffset, value);
+    return ReadWordLittleEndian(ioBaseAddress, kI2S1BaseOffset + kI2SCodecMsgOutOffset);
 }
 
-INLINE UInt32 AudioI2SControl::I2SGetFrameMatchReg(void)
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE void AudioI2SControl::I2S0_SetCodecMsgOutReg(UInt32 value)
 {
-    return ReadWordLittleEndian(soundConfigSpace, kI2SFrameMatchOffset);
+    WriteWordLittleEndian(ioBaseAddress, kI2S0BaseOffset + kI2SCodecMsgOutOffset, value);
 }
 
-INLINE void AudioI2SControl::I2SSetFrameMatchReg(UInt32 value)
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE void AudioI2SControl::I2S1_SetCodecMsgOutReg(UInt32 value)
 {
-    WriteWordLittleEndian(soundConfigSpace, kI2SFrameMatchOffset, value);
+    WriteWordLittleEndian(ioBaseAddress, kI2S1BaseOffset + kI2SCodecMsgOutOffset, value);
 }
 
-INLINE UInt32 AudioI2SControl::I2SGetDataWordSizesReg(void)
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE UInt32 AudioI2SControl::I2S0_GetCodecMsgInReg(void)
 {
-    return ReadWordLittleEndian(soundConfigSpace, kI2SDataWordSizesOffset);
+    return ReadWordLittleEndian(ioBaseAddress, kI2S0BaseOffset + kI2SCodecMsgInOffset);
 }
 
-INLINE void AudioI2SControl::I2SSetDataWordSizesReg(UInt32 value)
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE UInt32 AudioI2SControl::I2S1_GetCodecMsgInReg(void)
 {
-    WriteWordLittleEndian(soundConfigSpace, kI2SDataWordSizesOffset, value);
+    return ReadWordLittleEndian(ioBaseAddress, kI2S1BaseOffset + kI2SCodecMsgInOffset);
 }
 
-INLINE UInt32 AudioI2SControl::I2SGetPeakLevelSelReg(void)
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE void AudioI2SControl::I2S0_SetCodecMsgInReg(UInt32 value)
 {
-    return ReadWordLittleEndian(soundConfigSpace, kI2SPeakLevelSelOffset);
+    WriteWordLittleEndian(ioBaseAddress, kI2S0BaseOffset + kI2SCodecMsgInOffset, value);
 }
 
-INLINE void AudioI2SControl::I2SSetPeakLevelSelReg(UInt32 value)
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE void AudioI2SControl::I2S1_SetCodecMsgInReg(UInt32 value)
 {
-    WriteWordLittleEndian(soundConfigSpace, kI2SPeakLevelSelOffset, value);
+    WriteWordLittleEndian(ioBaseAddress, kI2S1BaseOffset + kI2SCodecMsgInOffset, value);
 }
 
-INLINE UInt32 AudioI2SControl::I2SGetPeakLevelIn0Reg(void)
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE UInt32 AudioI2SControl::I2S0_GetFrameCountReg(void)
 {
-    return ReadWordLittleEndian(soundConfigSpace, kI2SPeakLevelIn0Offset);
+    return ReadWordLittleEndian(ioBaseAddress, kI2S0BaseOffset + kI2SFrameCountOffset);
 }
 
-INLINE void AudioI2SControl::I2SSetPeakLevelIn0Reg(UInt32 value)
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE UInt32 AudioI2SControl::I2S1_GetFrameCountReg(void)
 {
-    WriteWordLittleEndian(soundConfigSpace, kI2SPeakLevelIn0Offset, value);
+    return ReadWordLittleEndian(ioBaseAddress, kI2S1BaseOffset + kI2SFrameCountOffset);
 }
 
-INLINE UInt32 AudioI2SControl::I2SGetPeakLevelIn1Reg(void)
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE void AudioI2SControl::I2S0_SetFrameCountReg(UInt32 value)
 {
-    return ReadWordLittleEndian(soundConfigSpace, kI2SPeakLevelIn1Offset);
+    WriteWordLittleEndian(ioBaseAddress, kI2S0BaseOffset + kI2SFrameCountOffset, value);
 }
 
-INLINE void AudioI2SControl::I2SSetPeakLevelIn1Reg(UInt32 value)
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE void AudioI2SControl::I2S1_SetFrameCountReg(UInt32 value)
 {
-    WriteWordLittleEndian(soundConfigSpace, kI2SPeakLevelIn1Offset, value);
+    WriteWordLittleEndian(ioBaseAddress, kI2S1BaseOffset + kI2SFrameCountOffset, value);
 }
 
-INLINE UInt32 AudioI2SControl::I2SCounterReg(void )
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE UInt32 AudioI2SControl::I2S0_GetFrameMatchReg(void)
 {
-    return ((UInt32)(soundConfigSpace) + kI2SFrameCountOffset);
+    return ReadWordLittleEndian(ioBaseAddress, kI2S0BaseOffset + kI2SFrameMatchOffset);
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE UInt32 AudioI2SControl::I2S1_GetFrameMatchReg(void)
+{
+    return ReadWordLittleEndian(ioBaseAddress, kI2S1BaseOffset + kI2SFrameMatchOffset);
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE void AudioI2SControl::I2S0_SetFrameMatchReg(UInt32 value)
+{
+    WriteWordLittleEndian(ioBaseAddress, kI2S0BaseOffset + kI2SFrameMatchOffset, value);
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE void AudioI2SControl::I2S1_SetFrameMatchReg(UInt32 value)
+{
+    WriteWordLittleEndian(ioBaseAddress, kI2S1BaseOffset + kI2SFrameMatchOffset, value);
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE UInt32 AudioI2SControl::I2S0_GetDataWordSizesReg(void)
+{
+    return ReadWordLittleEndian(ioBaseAddress, kI2S0BaseOffset + kI2SDataWordSizesOffset);
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE UInt32 AudioI2SControl::I2S1_GetDataWordSizesReg(void)
+{
+    return ReadWordLittleEndian(ioBaseAddress, kI2S1BaseOffset + kI2SDataWordSizesOffset);
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE void AudioI2SControl::I2S0_SetDataWordSizesReg(UInt32 value)
+{
+    WriteWordLittleEndian(ioBaseAddress, kI2S0BaseOffset + kI2SDataWordSizesOffset, value);
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE void AudioI2SControl::I2S1_SetDataWordSizesReg(UInt32 value)
+{
+    WriteWordLittleEndian(ioBaseAddress, kI2S1BaseOffset + kI2SDataWordSizesOffset, value);
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE UInt32 AudioI2SControl::I2S0_GetPeakLevelSelReg(void)
+{
+    return ReadWordLittleEndian(ioBaseAddress, kI2S0BaseOffset + kI2SPeakLevelSelOffset);
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE UInt32 AudioI2SControl::I2S1_GetPeakLevelSelReg(void)
+{
+    return ReadWordLittleEndian(ioBaseAddress, kI2S1BaseOffset + kI2SPeakLevelSelOffset);
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE void AudioI2SControl::I2S0_SetPeakLevelSelReg(UInt32 value)
+{
+    WriteWordLittleEndian(ioBaseAddress, kI2S0BaseOffset + kI2SPeakLevelSelOffset, value);
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE void AudioI2SControl::I2S1_SetPeakLevelSelReg(UInt32 value)
+{
+    WriteWordLittleEndian(ioBaseAddress, kI2S1BaseOffset + kI2SPeakLevelSelOffset, value);
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE UInt32 AudioI2SControl::I2S0_GetPeakLevelIn0Reg(void)
+{
+    return ReadWordLittleEndian(ioBaseAddress, kI2S0BaseOffset + kI2SPeakLevelIn0Offset);
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE UInt32 AudioI2SControl::I2S1_GetPeakLevelIn0Reg(void)
+{
+    return ReadWordLittleEndian(ioBaseAddress, kI2S1BaseOffset + kI2SPeakLevelIn0Offset);
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE void AudioI2SControl::I2S0_SetPeakLevelIn0Reg(UInt32 value)
+{
+    WriteWordLittleEndian(ioBaseAddress, kI2S0BaseOffset + kI2SPeakLevelIn0Offset, value);
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE void AudioI2SControl::I2S1_SetPeakLevelIn0Reg(UInt32 value)
+{
+    WriteWordLittleEndian(ioBaseAddress, kI2S1BaseOffset + kI2SPeakLevelIn0Offset, value);
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE UInt32 AudioI2SControl::I2S0_GetPeakLevelIn1Reg(void)
+{
+    return ReadWordLittleEndian(ioBaseAddress, kI2S0BaseOffset + kI2SPeakLevelIn1Offset);
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE UInt32 AudioI2SControl::I2S1_GetPeakLevelIn1Reg(void)
+{
+    return ReadWordLittleEndian(ioBaseAddress, kI2S1BaseOffset + kI2SPeakLevelIn1Offset);
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE void AudioI2SControl::I2S0_SetPeakLevelIn1Reg(UInt32 value)
+{
+    WriteWordLittleEndian(ioBaseAddress, kI2S0BaseOffset + kI2SPeakLevelIn1Offset, value);
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE void AudioI2SControl::I2S1_SetPeakLevelIn1Reg(UInt32 value)
+{
+    WriteWordLittleEndian(ioBaseAddress, kI2S1BaseOffset + kI2SPeakLevelIn1Offset, value);
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE UInt32 AudioI2SControl::I2S0_GetCounterReg(void )
+{
+    return ((UInt32)(ioBaseAddress) + kI2S0BaseOffset + kI2SFrameCountOffset);
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+INLINE UInt32 AudioI2SControl::I2S1_GetCounterReg(void )
+{
+    return ((UInt32)(ioBaseAddress) + kI2S1BaseOffset + kI2SFrameCountOffset);
 }
 
 // Access to Keylargo registers:
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 INLINE void AudioI2SControl::KLSetRegister(void *klRegister, UInt32 value)
 {
     UInt32 *reg = (UInt32*)klRegister;
     *reg = value;
 }
 
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 INLINE UInt32 AudioI2SControl::KLGetRegister(void *klRegister)
 {
     UInt32 *reg = (UInt32*)klRegister;
@@ -443,24 +569,49 @@ bool AudioI2SControl::clockRun(bool start)
 {
     bool success = true;
 
-    if (start) 
-	{
-        KLSetRegister(ioClockBaseAddress, KLGetRegister(ioClockBaseAddress) | kI2S0ClockEnable);
-    } 
-	else 
-	{
+    if (start) {
+		switch ( i2SInterfaceNumber ) {
+			case kUseI2SCell0:
+				KLSetRegister(ioClockBaseAddress, KLGetRegister(ioClockBaseAddress) | kI2S0ClockEnable);
+				break;
+			case kUseI2SCell1:
+				KLSetRegister(ioClockBaseAddress, KLGetRegister(ioClockBaseAddress) | kI2S1ClockEnable);
+				break;
+		}
+    } else {
         UInt16 loop = 50;
-        KLSetRegister(ioClockBaseAddress, KLGetRegister(ioClockBaseAddress) & (~kI2S0ClockEnable));
+		switch ( i2SInterfaceNumber ) {
+			case kUseI2SCell0:
+				KLSetRegister(ioClockBaseAddress, KLGetRegister(ioClockBaseAddress) & (~kI2S0ClockEnable));
+				break;
+			case kUseI2SCell1:
+				KLSetRegister(ioClockBaseAddress, KLGetRegister(ioClockBaseAddress) & (~kI2S1ClockEnable));
+				break;
+		}
         
-        while (((I2SGetIntCtlReg() & kClocksStoppedPending) == 0) && (loop--)) 
-		{
-            // it does not do anything, jut waites for the clock
-            // to stop
-            IOSleep(10);
+        switch ( i2SInterfaceNumber ) {
+			case kUseI2SCell0:
+				while (((I2S0_GetIntCtlReg() & kClocksStoppedPending) == 0) && (loop--)) {
+					// it does not do anything, jut waites for the clock
+					// to stop
+					IOSleep(10);
+				}
+				// we are successful if the clock actually stopped.
+				success =  ((I2S0_GetIntCtlReg() & kClocksStoppedPending) != 0);
+				break;
+			case kUseI2SCell1:
+				while (((I2S1_GetIntCtlReg() & kClocksStoppedPending) == 0) && (loop--)) {
+					// it does not do anything, jut waites for the clock
+					// to stop
+					IOSleep(10);
+				}
+				// we are successful if the clock actually stopped.
+				success =  ((I2S1_GetIntCtlReg() & kClocksStoppedPending) != 0);
+				break;
+			default:
+				success = false;
+				break;
         }
-
-        // we are successful if the clock actually stopped.
-        success =  ((I2SGetIntCtlReg() & kClocksStoppedPending) != 0);
     }
 
     if (!success)

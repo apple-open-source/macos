@@ -38,7 +38,7 @@ namespace IOFireWireLib {
 			typedef ::IOFireWireLibConfigDirectoryRef 	DirRef ;
 	
 		public:
-			ConfigDirectory( IUnknownVTbl* interface, Device& inUserClient, FWKernConfigDirectoryRef inDirRef ) ;
+			ConfigDirectory( IUnknownVTbl* interface, Device& inUserClient, KernConfigDirectoryRef inDirRef ) ;
 			ConfigDirectory( IUnknownVTbl* interface, Device& inUserClient ) ;
 			virtual ~ConfigDirectory() ;
 			
@@ -74,7 +74,7 @@ namespace IOFireWireLib {
 			IOReturn GetKeyValue(int key, CFDataRef* value, CFStringRef*& text);
 			IOReturn GetKeyValue(int key, DirRef& value, REFIID iid, CFStringRef*& text);
 			IOReturn GetKeyOffset(int key, FWAddress& value, CFStringRef*& text);
-			IOReturn GetKeyValue(int key, FWKernConfigDirectoryRef& value) ;
+			IOReturn GetKeyValue(int key, KernConfigDirectoryRef& value) ;
 		
 			/*!
 				@function getIndexType
@@ -103,7 +103,7 @@ namespace IOFireWireLib {
 			IOReturn GetIndexValue(int index, UInt32& value);
 			IOReturn GetIndexValue(int index, CFDataRef* value);
 			IOReturn GetIndexValue(int index, CFStringRef* value);
-			IOReturn GetIndexValue(int index, FWKernConfigDirectoryRef& value) ;
+			IOReturn GetIndexValue(int index, KernConfigDirectoryRef& value) ;
 			IOReturn GetIndexValue(int index, DirRef& value, REFIID iid);
 		
 			IOReturn GetIndexOffset(int index, FWAddress& value);
@@ -140,7 +140,7 @@ namespace IOFireWireLib {
 		
 		protected:
 			Device&						mUserClient ;
-			FWKernConfigDirectoryRef	mKernConfigDirectoryRef ;			
+			KernConfigDirectoryRef	mKernConfigDirectoryRef ;			
 	} ;
 	
 	class ConfigDirectoryCOM: public ConfigDirectory
@@ -150,7 +150,7 @@ namespace IOFireWireLib {
 	
 		public:
 			ConfigDirectoryCOM(Device& inUserClient) ;
-			ConfigDirectoryCOM(Device& inUserClient, FWKernConfigDirectoryRef inDirRef) ;
+			ConfigDirectoryCOM(Device& inUserClient, KernConfigDirectoryRef inDirRef) ;
 			virtual ~ConfigDirectoryCOM() ;
 
 		private:
@@ -158,7 +158,7 @@ namespace IOFireWireLib {
 
 		public:
 			// --- IUNKNOWN support ----------------
-			static IUnknownVTbl**	Alloc(Device& inUserClient, FWKernConfigDirectoryRef inDirRef) ;
+			static IUnknownVTbl**	Alloc(Device& inUserClient, KernConfigDirectoryRef inDirRef) ;
 			static IUnknownVTbl**	Alloc(Device& inUserClient) ;
 			virtual HRESULT			QueryInterface(REFIID iid, void ** ppv ) ;
 		

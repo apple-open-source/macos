@@ -248,7 +248,7 @@ typedef struct IOUSBLowLatencyIsocCompletion {
     void * 				target;
     IOUSBLowLatencyIsocCompletionAction	action;
     void *				parameter;
-};
+} IOUSBLowLatencyIsocCompletion;
 
 typedef struct IOUSBLowLatencyIsocCompletion IOUSBLowLatencyIsocCompletion;
 
@@ -265,7 +265,9 @@ typedef struct IOUSBLowLatencyIsocCompletion IOUSBLowLatencyIsocCompletion;
 #define kIOUSBTransactionTimeout	iokit_usb_err(81) // 0x51  time out
 #define kIOUSBTransactionReturned	iokit_usb_err(80) // 0x50  The transaction has been returned to the caller
 #define kIOUSBPipeStalled		iokit_usb_err(79) // 0x4f  Pipe has stalled, error needs to be cleared
-#define kIOUSBInterfaceNotFound		iokit_usb_err(78) // 0x4e  Interface ref not recognised
+#define kIOUSBInterfaceNotFound		iokit_usb_err(78) // 0x4e  Interface ref not recognized
+#define kIOUSBLowLatencyBufferNotPreviouslyAllocated	iokit_usb_err(77) // 0x4d  Attempted to use user land low latency isoc calls w/out calling PrepareBuffer first
+#define kIOUSBLowLatencyFrameListNotPreviouslyAllocated	iokit_usb_err(76) // 0x4c  Attempted to use user land low latency isoc calls w/out calling PrepareBuffer first
 
 // USB Hardware Errors
 // These errors are returned by the OHCI controller.  The # in parenthesis (xx) corresponds to the OHCI Completion Code.
@@ -622,12 +624,14 @@ typedef struct {
 //
 struct IOUSBLowLatencyIsocStruct {
     UInt32 			fPipe;
-    void *			fBuffer;
     UInt32 			fBufSize;
     UInt64 			fStartFrame;
     UInt32 			fNumFrames;
     UInt32			fUpdateFrequency;
-    IOUSBLowLatencyIsocFrame *	fFrameCounts;
+    UInt32			fDataBufferCookie;
+    UInt32			fDataBufferOffset;
+    UInt32			fFrameListBufferCookie;
+    UInt32			fFrameListBufferOffset;
 };
 
 typedef struct IOUSBLowLatencyIsocStruct IOUSBLowLatencyIsocStruct;
@@ -665,6 +669,23 @@ enum {
         kUSBLowLatencyIsochTransferKey	= 'llit'	// Set frStatus field of first frame in isoch transfer to designate as low latency
     };
     
+typedef struct LowLatencyUserBufferInfo LowLatencyUserBufferInfo;
+
+struct LowLatencyUserBufferInfo {
+    UInt32			cookie;
+    void *			bufferAddress;
+    IOByteCount			bufferSize;
+    UInt32			bufferType;
+    bool			isPrepared;
+    LowLatencyUserBufferInfo *	nextBuffer;
+};
+
+typedef enum {
+    kUSBLowLatencyWriteBuffer 		= 0,
+    kUSBLowLatencyReadBuffer		= 1,
+    kUSBLowLatencyFrameListBuffer	= 2
+} USBLowLatencyBufferType;
+
 // misc. properties which are useful
 #define	kUSBDevicePropertySpeed			"Device Speed"
 #define kUSBDevicePropertyBusPowerAvailable 	"Bus Power Available"

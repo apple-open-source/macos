@@ -77,6 +77,8 @@ private:
     char			*_arSetDTLocations;
     char			*_arSetDTPaths;
     bool			_arSetIsPaused;
+    bool			_arSetIsDegrading;
+    bool			_arSetIsSyncing;
     bool			_arSetIsEjectable;
     bool			_arSetIsWritable;
     bool			_arSetIsTerminating;
@@ -100,6 +102,7 @@ private:
     UInt32			_arSliceTerminatesActive;
     thread_call_t		_arSliceCloseThreadCall;
     thread_call_t		_arUpdateHeadersThreadCall;
+    thread_call_t		_arSyncronizeCacheThreadCall;
     IOCommandGate::Action	_arActionChangeSliceMediaState;
     IOBufferMemoryDescriptor	*_arHeaderBuffer;
     AppleRAIDHeader		*_arHeader;
@@ -122,6 +125,7 @@ private:
     virtual bool changeSliceMediaState(UInt32 sliceNumber, UInt32 newState);
     virtual IOReturn openSliceMedias(IOOptionBits options, IOStorageAccess access);
     virtual IOReturn closeSliceMedias(IOOptionBits options);
+    virtual IOReturn requestSynchronizeCache(void);
     virtual IOReturn synchronizeCacheSliceMedias(void);
     
 protected:

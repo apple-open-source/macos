@@ -1,0 +1,140 @@
+#!/bin/bash
+#
+# xinetd        This starts and stops xinetd.
+#
+# chkconfig: 345 65 50
+# description: xinetd is a powerful replacement for inetd. \
+#	       xinetd has access control machanisms, extensive \
+#              logging capabilities, the ability to make services \
+#              available based on time, and can place \
+#              limits on the number of servers that can be started, \
+#              among other things.
+#
+# processname: /usr/sbin/xinetd
+# config: /etc/sysconfig/network
+# config: /etc/xinetd.conf
+# pidfile: /var/run/xinetd.pid
+
+PATH=/sbin:/bin:/usr/bin:/usr/sbin
+
+# Source function library.
+. /etc/init.d/functions
+
+# Get config.
+test -f /etc/sysconfig/network && . /etc/sysconfig/network
+
+# More config
+
+test -f /etc/sysconfig/xinetd && . /etc/sysconfig/xinetd
+
+# Check that networking is up.
+[ ${NETWORKING} = "yes" ] || exit 0
+
+[ -f /usr/sbin/xinetd ] || exit 1
+[ -f /etc/xinetd.conf ] || exit 1
+
+RETVAL=0
+
+if [ "$NETWORKING_IPV6" = "yes" ] && [ -x /usr/sbin/xinetd-ipv6 ]; then
+    prog="xinetd-ipv6"
+else
+    prog="xinetd"
+fi
+
+start(){
+    echo -n $"Starting $prog: "
+    # Need to get rid of localization for external services - 
+    # it doesn't make much sense to have i18n on the server side here
+
+    LANG=en_US
+    LC_TIME=en_US
+    LC_ALL=en_US
+    LC_MESSAGES=en_US
+    LC_NUMERIC=en_US
+    LC_MONETARY=en_US
+    LC_COLLATE=en_US
+    export LANG LC_TIME LC_ALL LC_MESSAGES LC_NUMERIC LC_MONETARY LC_COLLATE
+    unset HOME MAIL USER USERNAME
+    daemon $prog -stayalive -reuse -pidfile /var/run/xinetd.pid "$EXTRAOPTIONS"
+    RETVAL=$?
+    echo
+    touch /var/lock/subsys/xinetd
+    return $RETVAL
+}
+
+stop(){
+    echo -n $"Stopping $prog: "
+    killproc $prog
+    RETVAL=$?
+    echo
+    rm -f /var/lock/subsys/xinetd
+    return $RETVAL
+
+}
+
+reload(){
+    echo -n $"Reloading configuration: "	
+    killproc $prog -HUP
+    RETVAL=$?
+    echo
+    return $RETVAL
+}
+
+restart(){
+    stop
+    start
+}
+
+condrestart(){
+    [ -e /var/lock/subsys/xinetd ] && restart
+    return 0
+}
+
+dump(){
+    echo -n $"Dumping configuration: "	
+    killproc $prog -USR1
+    RETVAL=$?
+    echo
+    return $RETVAL
+}
+
+check(){
+    echo -n $"Performing Consistency Check: "	
+    /bin/kill -s IOT $prog
+    RETVAL=$?
+    echo
+    return $RETVAL
+}
+
+# See how we were called.
+case "$1" in
+    start)
+	start
+	;;
+    stop)
+	stop
+	;;
+    status)
+	status $prog
+	;;
+    restart)
+	restart
+	;;
+    reload)
+	reload
+	;;
+    condrestart)
+	condrestart
+	;;
+    dump)
+        dump
+        ;;
+    check)
+        check
+        ;;
+    *)
+	echo $"Usage: $0 {start|stop|status|restart|condrestart|reload|dump|check}"
+	RETVAL=1
+esac
+
+exit $RETVAL

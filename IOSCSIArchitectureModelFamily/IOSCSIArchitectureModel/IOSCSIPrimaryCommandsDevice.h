@@ -40,7 +40,6 @@
 
 // SCSI Architecture Model Family includes
 #include <IOKit/scsi-commands/SCSICommandDefinitions.h>
-#include <IOKit/scsi-commands/SCSIPrimaryCommands.h>
 #include <IOKit/scsi-commands/SCSICmds_INQUIRY_Definitions.h>
 #include <IOKit/scsi-commands/IOSCSIProtocolInterface.h>
 
@@ -73,6 +72,9 @@ enum
 	kModePageControlDefaultValues		= 0x02,
 	kModePageControlSavedValues			= 0x03
 };
+
+// Forward declarations for internal use only classes
+class SCSIPrimaryCommands;
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -138,6 +140,10 @@ protected:
 	// This method will retreive the SCSI Primary Command Set object for
 	// the class.  For subclasses, this will be overridden using a
 	// dynamic cast on the base command set object of the subclass.
+	
+	// ------ DEPRECATED API ----------
+	// This should no longer be called by subclasses as the command builder
+	// objects will be removed in a later release.
 	virtual SCSIPrimaryCommands *	GetSCSIPrimaryCommandObject ( void );
 	
 	// This method is called by the start method to create all the command
@@ -192,7 +198,10 @@ protected:
 	bool							IsProtocolAccessEnabled ( void );
 	bool							IsDeviceAccessEnabled ( void );
 	bool							IsDeviceAccessSuspended ( void );
-	
+
+	// Accessors for saving and retrieving data from an SCSITask object.
+	bool 							ResetForNewTask(	
+										SCSITaskIdentifier 		request );
 	bool							SetTaskAttribute ( 
 										SCSITaskIdentifier 		request, 
 										SCSITaskAttribute 		newAttribute );
@@ -208,6 +217,65 @@ protected:
 										SCSITaskStatus 			newStatus );
 	SCSITaskStatus					GetTaskStatus ( 
 										SCSITaskIdentifier 		request );
+	bool 							SetCommandDescriptorBlock ( 
+										SCSITaskIdentifier 		request,
+										UInt8					cdbByte0,
+										UInt8					cdbByte1,
+										UInt8					cdbByte2,
+										UInt8					cdbByte3,
+										UInt8					cdbByte4,
+										UInt8					cdbByte5 );
+	
+	// Populate the 10 Byte Command Descriptor Block
+	bool 							SetCommandDescriptorBlock ( 
+										SCSITaskIdentifier 		request,
+										UInt8					cdbByte0,
+										UInt8					cdbByte1,
+										UInt8					cdbByte2,
+										UInt8					cdbByte3,
+										UInt8					cdbByte4,
+										UInt8					cdbByte5,
+										UInt8					cdbByte6,
+										UInt8					cdbByte7,
+										UInt8					cdbByte8,
+										UInt8					cdbByte9 );
+	
+	// Populate the 12 Byte Command Descriptor Block
+	bool 							SetCommandDescriptorBlock ( 
+										SCSITaskIdentifier 		request,
+										UInt8					cdbByte0,
+										UInt8					cdbByte1,
+										UInt8					cdbByte2,
+										UInt8					cdbByte3,
+										UInt8					cdbByte4,
+										UInt8					cdbByte5,
+										UInt8					cdbByte6,
+										UInt8					cdbByte7,
+										UInt8					cdbByte8,
+										UInt8					cdbByte9,
+										UInt8					cdbByte10,
+										UInt8					cdbByte11 );
+	
+	// Populate the 16 Byte Command Descriptor Block
+	bool 							SetCommandDescriptorBlock ( 
+										SCSITaskIdentifier 		request,
+										UInt8					cdbByte0,
+										UInt8					cdbByte1,
+										UInt8					cdbByte2,
+										UInt8					cdbByte3,
+										UInt8					cdbByte4,
+										UInt8					cdbByte5,
+										UInt8					cdbByte6,
+										UInt8					cdbByte7,
+										UInt8					cdbByte8,
+										UInt8					cdbByte9,
+										UInt8					cdbByte10,
+										UInt8					cdbByte11,
+										UInt8					cdbByte12,
+										UInt8					cdbByte13,
+										UInt8					cdbByte14,
+										UInt8					cdbByte15 );
+										
 	bool							SetDataTransferDirection ( 
 										SCSITaskIdentifier 		request, 
 										UInt8 					newDirection );
@@ -273,6 +341,10 @@ protected:
 										IOSCSIPrimaryCommandsDevice * self );
 	virtual void					HandleIncrementOutstandingCommandsCount ( void );	
 	
+
+	// This static member routine provides a mechanism for retrieving a pointer to
+	// the object that is claimed as the owner of the specified SCSITask.
+	static OSObject *				sGetOwnerForTask ( SCSITaskIdentifier request );
 	
 public:
 	
@@ -334,10 +406,30 @@ public:
 											void *				serviceValue );
 	
 	// Utility methods for use by all peripheral device objects.
-	bool 		IsMemoryDescriptorValid (
+
+	// isParameterValid are used to validate that the parameter passed into
+	// the command methods are of the correct value.
+	
+	// Validate Parameter used for 1 bit to 1 byte paramaters
+    bool 				IsParameterValid ( 
+							SCSICmdField1Byte 			param,
+							SCSICmdField1Byte 			mask );
+	
+	// Validate Parameter used for 9 bit to 2 byte paramaters
+	bool 				IsParameterValid ( 
+							SCSICmdField2Byte 			param,
+							SCSICmdField2Byte 			mask );
+	
+	// Validate Parameter used for 17 bit to 4 byte paramaters
+	bool 				IsParameterValid ( 
+							SCSICmdField4Byte 			param,
+							SCSICmdField4Byte 			mask );
+	
+
+	bool 				IsMemoryDescriptorValid (
 							IOMemoryDescriptor * 		dataBuffer );
 	
-	bool 		IsMemoryDescriptorValid (
+	bool 				IsMemoryDescriptorValid (
 							IOMemoryDescriptor * 		dataBuffer,
 							UInt64						requiredSize );
 	

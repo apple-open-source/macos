@@ -1,0 +1,3 @@
+Make IPv4 <-> IPv6 redirection work
+Re-add the -loop option to set the default state of the cps directive.
+Optimize the Makefiles for -j

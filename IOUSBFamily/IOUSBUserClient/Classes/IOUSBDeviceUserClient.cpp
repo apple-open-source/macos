@@ -288,8 +288,6 @@ IOUSBDeviceUserClient::initWithTask(task_t owningTask,void *security_id , UInt32
 bool 
 IOUSBDeviceUserClient::start( IOService * provider )
 {
-    IOWorkLoop	*wl;
-    
     IncrementOutstandingIO();		// make sure we don't close until start is done
 
     fOwner = OSDynamicCast(IOUSBDevice, provider);
@@ -314,14 +312,15 @@ IOUSBDeviceUserClient::start( IOService * provider )
 	goto ErrorExit;
     }
 
-    wl = getWorkLoop();
-    if (!wl)
+    fWorkLoop = getWorkLoop();
+    if (!fWorkLoop)
     {
 	USBError(1, "%s[%p]::start - unable to find my workloop", getName(), this);
 	goto ErrorExit;
     }
-    
-    if (wl->addEventSource(fGate) != kIOReturnSuccess)
+    fWorkLoop->retain();
+        
+    if (fWorkLoop->addEventSource(fGate) != kIOReturnSuccess)
     {
 	USBError(1, "%s[%p]::start - unable to add gate to work loop", getName(), this);
 	goto ErrorExit;
@@ -1042,23 +1041,22 @@ IOUSBDeviceUserClient::stop(IOService * provider)
     
     USBLog(7, "+%s[%p]::stop(%p)", getName(), this, provider);
 
-    if ( GetOutstandingIO() > 0 )
-	USBError(1, "%s[%p]::stop called with outstanding IO!!", getName(), this);
-	
     if (fGate)
     {
-	IOWorkLoop		*wl = getWorkLoop();
-	if (wl)
+	if (fWorkLoop)
 	{
-	    wl->removeEventSource(fGate);
+	    fWorkLoop->removeEventSource(fGate);
+            fWorkLoop->release();
+            fWorkLoop = NULL;
 	}
 	else
 	{
-	    USBError(1, "%s[%p]::stop - have gate, but no valid workloop!", getName(), this);
+	    USBError(1, "%s[%p]::free - have gate, but no valid workloop!", getName(), this);
 	}
 	fGate->release();
 	fGate = NULL;
     }
+    
     super::stop(provider);
 
     USBLog(7, "-%s[%p]::stop(%p)", getName(), this, provider);
@@ -1071,10 +1069,11 @@ IOUSBDeviceUserClient::free()
     
     if (fGate)
     {
-	IOWorkLoop		*wl = getWorkLoop();
-	if (wl)
+	if (fWorkLoop)
 	{
-	    wl->removeEventSource(fGate);
+	    fWorkLoop->removeEventSource(fGate);
+            fWorkLoop->release();
+            fWorkLoop = NULL;
 	}
 	else
 	{
@@ -1083,6 +1082,7 @@ IOUSBDeviceUserClient::free()
 	fGate->release();
 	fGate = NULL;
     }
+
     super::free();
 }
 
@@ -1125,10 +1125,11 @@ IOUSBDeviceUserClient::didTerminate( IOService * provider, IOOptionBits options,
     // in which case we can just close our provider and IOKit will take care of the rest. Otherwise, we need to 
     // hold on to the device and IOKit will terminate us when we close it later
     USBLog(3, "%s[%p]::didTerminate isInactive = %d, outstandingIO = %d", getName(), this, isInactive(), fOutstandingIO);
-    if ( GetOutstandingIO() == 0 )
+    if ( fOutstandingIO == 0 )
 	fOwner->close(this);
     else
 	fNeedToClose = true;
+    
     return super::didTerminate(provider, options, defer);
 }
 

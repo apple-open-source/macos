@@ -28,6 +28,7 @@
 .Op Fl b Ar block-size
 .Op Fl c Ar clump-size-list
 .Op Fl i Ar first-cnid
+.Op Fl j Ar [journal-size]
 .Op Fl n Ar node-size-list
 .Op Fl v Ar volume-name
 .Ar special
@@ -58,7 +59,7 @@ primarily used with Mac OS X or Darwin.
 .It Fl w
 Adds an HFS wrapper around the HFS Plus file system.
 This wrapper is required if the file system will be used
-to boot natively into Mac OS 8/9.
+to boot natively into Mac OS 9.
 .It Fl b Ar block-size
 The allocation block size of the file system.  
 The default value is 4096.
@@ -86,6 +87,12 @@ Set the catalog file clump size.
 .It Em e=blocks
 Set the extent overflow file clump size.
 .El
+.It Fl i Ar first-cnid
+This specifies the initial catalog node ID for user files
+and directories. The default value is 16.
+.It Fl j Ar [journal-size]
+Creates a journaled HFS+ volume.
+The default journal size is 4MB.
 .It Fl n Ar node-size-list
 This specifies the b-tree
 .Em node
@@ -109,9 +116,6 @@ Set the catalog b-tree node size.
 .It Em e=bytes
 Set the extent overflow b-tree node size.
 .El
-.It Fl i Ar first-cnid
-This specifies the initial catalog node ID for user files
-and directories. The default value is 16.
 .It Fl v Ar volume-name
 Volume name (file system name) in ascii or UTF-8 format.
 .El

@@ -77,9 +77,6 @@ static int validate_nvestr (nve, metachar, minlen, metaok)
 	
 	/* Check for illegal characters */
 	for (c = nve.str; c < (nve.str + nve.len); c++) {
-	    if (*c == '@')
-	    /*if ((*c < ' ') || (*c > 0xD8) || (*c == ':') || (*c == '@'))*/
-		return (0);
 	    if (((*c == '=' ) || (*c == NBP_SPL_WILDCARD)) && !metaok)
 		return (0);
 	}

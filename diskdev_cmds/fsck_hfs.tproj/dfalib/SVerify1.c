@@ -62,6 +62,77 @@ OSErr	ScavengeVolumeType( SGlobPtr GPtr, HFSMasterDirectoryBlock *mdb, UInt16 *v
 OSErr	SeekVolumeHeader( SGlobPtr GPtr, UInt64 startSector, UInt32 numSectors, UInt64 *vHSector );
 
 /*
+ * Check if a volume is journaled.  
+ *
+ * returns:    	0 not journaled
+ *		1 journaled
+ *
+ */
+int
+CheckIfJournaled(SGlobPtr GPtr)
+{
+#define kIDSector 2
+
+	OSErr err;
+	int result;
+	HFSMasterDirectoryBlock	*mdbp;
+	HFSPlusVolumeHeader *vhp;
+	SVCB *vcb = GPtr->calculatedVCB;
+	ReleaseBlockOptions rbOptions;
+	BlockDescriptor block;
+
+	vhp = (HFSPlusVolumeHeader *) NULL;
+	rbOptions = kReleaseBlock;
+
+	err = GetVolumeBlock(vcb, kIDSector, kGetBlock, &block);
+	if (err) return (0);
+
+	mdbp = (HFSMasterDirectoryBlock	*) block.buffer;
+
+	if (mdbp->drSigWord == kHFSPlusSigWord) {
+		vhp = (HFSPlusVolumeHeader *) block.buffer;
+
+	} else if (mdbp->drSigWord == kHFSSigWord) {
+
+		if (mdbp->drEmbedSigWord == kHFSPlusSigWord) {
+			UInt32 vhSector;
+			UInt32 blkSectors;
+			
+			blkSectors = mdbp->drAlBlkSiz / 512;
+			vhSector  = mdbp->drAlBlSt;
+			vhSector += blkSectors * mdbp->drEmbedExtent.startBlock;
+			vhSector += kIDSector;
+	
+			(void) ReleaseVolumeBlock(vcb, &block, kReleaseBlock);
+			err = GetVolumeBlock(vcb, vhSector, kGetBlock, &block);
+			if (err) return (0);
+
+			vhp = (HFSPlusVolumeHeader *) block.buffer;
+			mdbp = (HFSMasterDirectoryBlock	*) NULL;
+
+		}
+	}
+
+	if ((vhp != NULL) && (ValidVolumeHeader(vhp) == noErr)) {
+		result = ((vhp->attributes & kHFSVolumeJournaledMask) != 0);
+
+		// even if journaling is enabled for this volume, we'll return
+		// false if it wasn't unmounted cleanly and it was previously
+		// mounted by someone that doesn't know about journaling.
+		if (   vhp->lastMountedVersion != kHFSJMountVersion
+			&& (vhp->attributes & kHFSVolumeUnmountedMask) == 0) {
+			result = 0;
+		}
+	} else {
+		result = 0;
+	}
+
+	(void) ReleaseVolumeBlock(vcb, &block, rbOptions);
+
+	return (result);
+}
+
+/*
  * Check if a volume is clean (unmounted safely)
  *
  * returns:    -1 not an HFS/HFS+ volume
@@ -134,7 +205,6 @@ CheckForClean(SGlobPtr GPtr, Boolean markClean)
 
 	return (result);
 }
-
 
 /*------------------------------------------------------------------------------
 
@@ -1745,6 +1815,7 @@ OSErr AttrBTChk( SGlobPtr GPtr )
 
 	return( err );
 }
+
 
 
 #if 0

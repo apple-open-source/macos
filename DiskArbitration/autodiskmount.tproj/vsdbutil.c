@@ -127,18 +127,30 @@ UpdateMountStatus(const char *path, unsigned long volstatus) {
 	int result;
 	union wait status;
 	int pid;
-	
+        int nosuid;
+        int nodev;
+        int noexec;
+        int readonly;
+        char mountline[255];
+        
 	result = statfs(path, &mntstat);
 	if (result != 0) {
 		warn("couldn't look up mount status for '%s'", path);
 		return errno;
 	};
 
+        nosuid = mntstat.f_flags & MNT_NOSUID;
+        nodev = mntstat.f_flags & MNT_NODEV;
+        noexec = mntstat.f_flags & MNT_NOEXEC;
+        readonly = mntstat.f_flags & MNT_RDONLY;
+
+        sprintf(mountline, "%s%s%s%s%s", (volstatus & VOLUME_USEPERMISSIONS) ? "perm" : "noperm",(nosuid)?",nosuid":"",(nodev)?",nodev":"",(noexec)?",noexec":"",(readonly)?",rdonly":"");
+
 	pid = fork();
 	if (pid == 0) {
 		result = execl("/sbin/mount", "mount",
 						"-t", mntstat.f_fstypename,
-						"-u","-o", (volstatus & VOLUME_USEPERMISSIONS) ? "perm" : "noperm",
+						"-u","-o", mountline,
 						mntstat.f_mntfromname, mntstat.f_mntonname, NULL);
 #if DEBUG_TRACE
 		if (result) {

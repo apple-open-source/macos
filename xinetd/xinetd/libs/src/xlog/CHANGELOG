@@ -1,0 +1,12 @@
+
+1.0.8:
+	First release
+
+1.0.9:
+	Fixed bug in the syslog xlogs.
+
+1.1.2:
+	* Timestamps are now always included
+	* If NO_SYSLOG is defined, syslog xlogs become unavailable (this was
+	  available in 1.0.9 but it didn't work right).
+

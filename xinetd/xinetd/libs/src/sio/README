@@ -1,0 +1,128 @@
+======================================================================
+NOTE: I use vi with a tabstop value of 3. Using the same tabstop
+		value will make the text/code look properly indented.
+======================================================================
+
+
+1. What is SIO ?
+
+SIO is a library that provides _stream_ I/O which is what most Unix
+programs do. As such it is a competitor to stdio.
+
+
+2. Why would you care to use it ?
+
+a. SIO is a little faster than stdio
+b. SIO provides an easier-to-use interface (IMHO)
+c. SIO is capable of using memory mapping for reading files if the operating
+	system supports it.
+d. If you have a program that uses read(2)/write(2) it is trivial
+   to convert it to use SIO (just replace read with Sread and 
+   write with Swrite)
+e. You get source
+
+
+
+3. Setting up the Stream I/O (SIO) library
+
+There are 3 steps to the process:
+	1) modifying the SIO configuration file (but you can skip this
+		step if you are using one of the operating systems listed below).
+	2) testing SIO
+	3) installing the library and manpages
+
+
+3.1. How to compile the Stream I/O (SIO) library
+
+All the system-dependent stuff of SIO is placed in the sioconf.h file.
+If your system is not listed below, you will need to read that file
+to see what flags you need to set to properly compile SIO.
+
+For the following systems, here is what you need to do:
+
+	SunOS 4.x:
+		make "DEFS=-DHAVE_MMAP -DHAVE_ONEXIT -DHAVE_MEMCPY -DHAVE_ISATTY"
+
+	SunOS 5.x (aka Solaris 2.y):
+		make "DEFS=-DHAVE_MMAP -DHAVE_ATEXIT -DHAVE_MEMCPY -DHAVE_ISATTY"
+	(I don't have access to a system running Solaris 2.y so I have not
+	tested this)
+
+	Ultrix 4.x:
+		make "DEFS=-DHAVE_MEMCPY -DHAVE_ATEXIT -DHAVE_ISATTY"
+
+If your system is one of the above, then you can skip to the next subsection.
+However, I should mention that the library compiles by default with
+debugging enabled (i.e. uses the -g flag of cc). You can override this
+by appending to the invocation of 'make' the argument "DEBUG=-O"
+
+If your system is not among the above, then you will need to modify the
+sioconf.h file. You do this by uncommenting the inclusion of
+customconf.h. Then, you can override all constants/macros defined in
+sioconf.h by defining them first in customconf.h.  Please read
+sioconf.h for more information on what constants/macros can be
+defined.
+
+The Makefile has a header that explains what the Makefile can do.
+The only flag that you may want to define is -DDEBUG which enables 
+assertions in the SIO code (if an assertion fails, the program is 
+terminated with an error message that lists the SIO file and line 
+number where the error occured).
+
+
+3.2. Testing SIO
+
+After you have successfully compiled SIO, you can use the programs in
+the "suite" directory to test the SIO functions.  Testing should be
+done before installing the library.
+The script testlib does everything; just type:
+
+	testlib all
+
+The script sprint_test (invoked by testlib) tests Sprint by using a variety 
+of formats and comparing its output with that of an ANSI-compatible printf.
+At least on Ultrix 4.1 and 4.2 this test fails because printf is not 
+ANSI-compatible.
+In such a case, you can test the rest of the SIO functions by typing:
+
+	testlib all Sprint
+
+(anything after the 'all' argument is interpreted as a function that
+should not be tested).
+
+The README file in the "suite" directory describes how to do a
+few more tests that cannot be done automatically.
+
+
+3.3. Installing the library and manpages
+
+The 'make' command will create libsio.a in the current directory.
+The Makefile includes an "install" target. Doing a 'make install' will 
+cause the following:
+
+a) libsio.a will be installed in LIBDIR
+b) the necessary SIO header files will be installed in INCLUDEDIR
+c) the SIO man pages will be installed in MANDIR
+
+LIBDIR, INCLUDEDIR, and MANDIR are Makefile variables that you can edit in
+the Makefile or override when you invoke 'make'.
+Here is a sample command to install SIO:
+
+	make install LIBDIR=/usr/local/lib INCLUDEDIR=/usr/local/include MANDIR=/usr/local/man/man3
+
+
+4. Epilogue
+
+Feel free to modify SIO to suit your needs. Please let me know of
+any bugs you find.
+
+If you want to distribute your modifications, please read the COPYRIGHT
+file.  It basically says that you are free to redistribute as long as
+you retain the original copyright notice and you make sure that your
+modifications are identifiable. In order to achieve this I have
+reserved the first 3 components of the version number (for example,
+1.4.2) and you can identify your mods by appending another component to
+that version number (for example, 1.4.2.A2). Also, if you distribute a
+modified version of the library, you take full responsibility for any
+bugs in the code (not just your code; the whole thing).
+

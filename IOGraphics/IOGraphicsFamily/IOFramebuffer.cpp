@@ -2120,16 +2120,18 @@ IOReturn IOFramebuffer::systemPowerChange( void * target, void * refCon,
             ret 		= kIOReturnSuccess;
             break;
 
-	case kIOMessageSystemWillPowerOff:
-	    IOFramebuffer * fb;
+	case kIOMessageSystemWillRestart:
+        case kIOMessageSystemWillPowerOff:
 
             FBLOCK();
-	    if( gAllFramebuffers) {
-		for( UInt32 index = 0; 
-		     (fb = (IOFramebuffer *) gAllFramebuffers->getObject( index));
-		     index++ )
-		fb->setAttribute( kIOSystemPowerAttribute, false );
-	    }
+            if (gAllFramebuffers)
+            {
+		IOFramebuffer * fb;
+                for (UInt32 index = 0;
+                        (fb = (IOFramebuffer *) gAllFramebuffers->getObject(index));
+                        index++)
+                    fb->setAttribute( kIOSystemPowerAttribute, messageType );
+            }
             FBUNLOCK();
 
             params->returnValue = 0;

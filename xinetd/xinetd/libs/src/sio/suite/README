@@ -1,0 +1,44 @@
+
+The 'testlib' script will exercise most of the functions in the SIO
+library.  It invokes the 'tester' script which does the real work.
+'tester' is a Bourne shell script. However, it expects that the shell
+supports functions and /bin/sh does not support functions on all
+operating systems. Therefore, 'testlib' decides what shell to use to
+execute 'tester'. On Suns, it uses /bin/sh. On DECstations, it uses
+/usr/bin/ksh. The decision is made by checking the ARCH environment
+variable.
+
+Exercising some of the SIO functions in an automatic fashion is a
+difficult task, so you will have to do it manually by visually
+inspecting the results of programs that exercise them.  The following
+is a list of functions and programs testing them (with a description of
+the expected behavior):
+
+1. Sbuftype
+
+	PROGRAM: buftest.c
+	DESCRIPTION:
+		This program prints two groups of lines. The first group is printed
+		using line-buffering while the second group is printed using
+		full-buffering.
+		The first group of lines should appear one line at a time every
+		3 seconds. The second group of lines should appear all lines together
+		after about 10 seconds.
+
+2. Stie, Suntie
+	
+	PROGRAM: tietest.c
+	DESCRIPTION:
+		This program ties stdin to stdout and then prompts for input.
+		The prompts do *not* include a NEWLINE. Since the stdout is
+		*line buffered* when connected to a terminal, the Stie call
+		is what causes the prompt to appear.
+		The first 2 prompts happen with tied stdin, stdout. For the
+		3rd prompt, stdin is untied from stdout. This will cause
+		the prompt to appear *after* you type something and hit RETURN.
+
+
+
+PS. If you can make testing of these functions automatic, please send
+	 me your code so that I can include in a future SIO distribution.
+

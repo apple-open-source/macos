@@ -1,32 +1,32 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
+* Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+*
+* @APPLE_LICENSE_HEADER_START@
+* 
+* The contents of this file constitute Original Code as defined in and
+* are subject to the Apple Public Source License Version 1.1 (the
+* "License").  You may not use this file except in compliance with the
+* License.  Please obtain a copy of the License at
+* http://www.apple.com/publicsource and read it before using this file.
+* 
+* This Original Code and all software distributed under the License are
+* distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+* EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+* INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+* License for the specific language governing rights and limitations
+* under the License.
+* 
+* @APPLE_LICENSE_HEADER_END@
+*/
 /*
- *  IOFireWireLibCommand.cpp
- *  IOFireWireLib
- *
- *  Created on Fri Dec 15 2000.
- *  Copyright (c) 2000-2002 Apple, Inc. All rights reserved.
- *
- */
+*  IOFireWireLibCommand.cpp
+*  IOFireWireLib
+*
+*  Created on Fri Dec 15 2000.
+*  Copyright (c) 2000-2002 Apple, Inc. All rights reserved.
+*
+*/
 
 #import <assert.h>
 #import <IOKit/IOKitLib.h>
@@ -126,7 +126,7 @@ namespace IOFireWireLib {
 	Cmd::Cmd( IUnknownVTbl* vtable, Device& userClient, io_object_t device, 
 					const FWAddress& inAddr, CommandCallback inCallback, 
 					const bool inFailOnReset, const UInt32 inGeneration, void* inRefCon,
-					FWUserCommandSubmitParams* params )
+					CommandSubmitParams* params )
 	:	IOFireWireIUnknown( vtable ),
 		mUserClient( userClient ),
 		mDevice( device ),
@@ -157,7 +157,8 @@ namespace IOFireWireLib {
 		{
 			if (mParams->kernCommandRef)
 			{
-				IOReturn result = IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kFWCommand_Release,
+				IOReturn result = kIOReturnSuccess;
+				result = IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kCommand_Release,
 																		1, 0, mParams->kernCommandRef ) ;
 				IOFireWireLibLogIfErr_( result, "Cmd::~Cmd: command release returned 0x%08x\n", result) ;
 			}
@@ -222,9 +223,9 @@ namespace IOFireWireLib {
 
 	IOReturn
 	Cmd::Submit(
-		FWUserCommandSubmitParams*	params,
+		CommandSubmitParams*		params,
 		mach_msg_type_number_t		paramsSize,
-		SubmitResult*				submitResult,
+		CommandSubmitResult*		submitResult,
 		mach_msg_type_number_t*		submitResultSize)
 	{
 		// staleFlags will be reset to 0 on each Submit() call,
@@ -237,7 +238,7 @@ namespace IOFireWireLib {
 														mUserClient.GetAsyncPort(),
 														mAsyncRef,
 														1,
-														kFWCommand_Submit,
+														kCommand_Submit,
 														(char*) params,
 														paramsSize,
 														(char*) submitResult,
@@ -283,7 +284,7 @@ namespace IOFireWireLib {
 			return kIOReturnSuccess ;
 		
 		return IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(),
-											kFWCommand_Cancel,
+											kCommand_Cancel,
 											1,
 											0,
 											mParams->kernCommandRef) ;
@@ -486,7 +487,7 @@ namespace IOFireWireLib {
 							UInt32 generation, void* refcon )
 	: Cmd( reinterpret_cast<IUnknownVTbl*>(& sInterface), userclient, device, addr, callback, 
 				failOnReset, generation, refcon, 
-				reinterpret_cast<FWUserCommandSubmitParams*>(new UInt8[sizeof(FWUserCommandSubmitParams)]) )
+				reinterpret_cast<CommandSubmitParams*>(new UInt8[sizeof(CommandSubmitParams)]) )
 	{
 		mParams->type			 = kFireWireCommandType_Read ;
 		mParams->newBuffer		 = buf ;
@@ -545,10 +546,9 @@ namespace IOFireWireLib {
 		if ( mIsExecuting )
 			return kIOReturnBusy ;
 	
-		IOReturn 				result 			= kIOReturnSuccess ;
-	
-		UInt8						submitResultExtra[sizeof(SubmitResult) + kFWUserCommandSubmitWithCopyMaxBufferBytes] ;
-		SubmitResult*	submitResult = (SubmitResult*) submitResultExtra ;
+		IOReturn					result 				= kIOReturnSuccess ;
+		UInt8						submitResultExtra[ sizeof(CommandSubmitResult) + kFWUserCommandSubmitWithCopyMaxBufferBytes ] ;
+		CommandSubmitResult*		submitResult 		= (CommandSubmitResult*) submitResultExtra ;
 		mach_msg_type_number_t		submitResultSize ;
 		
 		if (mParams->flags & kFireWireCommandUseCopy)
@@ -585,7 +585,7 @@ namespace IOFireWireLib {
 								void*							refcon)
 	: Cmd( reinterpret_cast<IUnknownVTbl*>(&sInterface), userclient, device, addr, callback, 
 				failOnReset, generation, refcon, 
-				reinterpret_cast<FWUserCommandSubmitParams*>(new UInt8[sizeof(FWUserCommandSubmitParams)]) )
+				reinterpret_cast<CommandSubmitParams*>(new UInt8[sizeof(CommandSubmitParams)]) )
 	{		
 		mParams->callback		= (void*)& CommandCompletionHandler ;
 		mParams->type			= kFireWireCommandType_ReadQuadlet ;
@@ -659,9 +659,9 @@ namespace IOFireWireLib {
 	
 		IOReturn 					result 			= kIOReturnSuccess ;
 		Boolean						syncFlag = mParams->flags & kFWCommandInterfaceSyncExecute ;
-		UInt8						submitResultExtra[sizeof(SubmitResult) + (syncFlag ? mParams->newBufferSize : 0)] ;
+		UInt8						submitResultExtra[sizeof(CommandSubmitResult) + (syncFlag ? mParams->newBufferSize : 0)] ;
 		mach_msg_type_number_t		submitResultSize = sizeof(submitResultExtra) ;
-		SubmitResult*				submitResult = reinterpret_cast<SubmitResult*>(submitResultExtra) ;
+		CommandSubmitResult*		submitResult = reinterpret_cast<CommandSubmitResult*>(submitResultExtra) ;
 		
 		result = Cmd::Submit(mParams, sizeof(*mParams), submitResult, & submitResultSize) ;
 		
@@ -715,7 +715,7 @@ namespace IOFireWireLib {
 								CommandCallback callback, bool failOnReset, UInt32 generation, void* refcon )
 	: Cmd( reinterpret_cast<IUnknownVTbl*>(& sInterface), userclient, device, addr, callback, 
 				failOnReset, generation, refcon, 
-				reinterpret_cast<FWUserCommandSubmitParams*>(new UInt8[sizeof(FWUserCommandSubmitParams)]) )
+				reinterpret_cast<CommandSubmitParams*>(new UInt8[sizeof(CommandSubmitParams)]) )
 	{
 		mParams->type			= kFireWireCommandType_Write ;
 		mParams->newBuffer		= buf ;
@@ -767,9 +767,7 @@ namespace IOFireWireLib {
 		if (mIsExecuting)
 			return kIOReturnBusy ;
 	
-//		IOReturn 				result 			= kIOReturnSuccess ;
-	
-		SubmitResult	submitResult ;
+		CommandSubmitResult			submitResult ;
 		mach_msg_type_number_t		submitResultSize = sizeof(submitResult) ;
 		UInt32						paramsSize ;
 	
@@ -790,16 +788,9 @@ namespace IOFireWireLib {
 	WriteQuadCmd::WriteQuadCmd( Device& userclient, io_object_t device, const FWAddress& addr, UInt32 quads[], UInt32 numQuads,
 										CommandCallback callback, bool failOnReset, UInt32 generation, void* refcon )
 	: Cmd( reinterpret_cast<IUnknownVTbl*>(& sInterface), userclient, device, addr, callback, failOnReset, generation, refcon, 
-				reinterpret_cast<FWUserCommandSubmitParams*>(new UInt8[sizeof(FWUserCommandSubmitParams) + numQuads << 2]) ),
-	  mParamsExtra( reinterpret_cast<UInt8*>(mParams) )
+				reinterpret_cast<CommandSubmitParams*>(new UInt8[sizeof(CommandSubmitParams) + numQuads << 2]) ),
+	mParamsExtra( reinterpret_cast<UInt8*>(mParams) )
 	{
-//		if (NULL == (mParamsExtra = new UInt8[sizeof(FWUserCommandSubmitParams) + numQuads << 2]))
-//			return false ;
-//		mParams = (FWUserCommandSubmitParams*) mParamsExtra ;
-//		if ( !Cmd::Init( addr, callback, failOnReset, generation, inRefCon ))
-//			return false ;
-//	
-//		mParams = (FWUserCommandSubmitParams*) mParamsExtra ;
 		mParams->type			= kFireWireCommandType_WriteQuadlet ;
 		mParams->newBuffer 		= mParams+1;//(void*) quads ;
 		mParams->newBufferSize 	= numQuads << 2 ; // * 4
@@ -881,7 +872,7 @@ namespace IOFireWireLib {
 			mParams->newBufferSize = newSize ;
 	
 			// allocate a new submit params + quad storage area:
-			UInt8* newParamsExtra = new UInt8[sizeof(FWUserCommandSubmitParams) + newSize] ;
+			UInt8* newParamsExtra = new UInt8[sizeof(CommandSubmitParams) + newSize] ;
 	
 			IOFireWireLibLogIfNil_(newParamsExtra, ("warning: WriteQuadCmd::SetQuads: out of memory!\n")) ;
 	
@@ -892,7 +883,7 @@ namespace IOFireWireLib {
 			delete[] mParamsExtra ;
 			
 			// assign the new storage to the command object:
-			mParams			= (FWUserCommandSubmitParams*) newParamsExtra ;
+			mParams			= (CommandSubmitParams*) newParamsExtra ;
 			mParamsExtra 	= newParamsExtra ;
 		}
 	
@@ -912,8 +903,7 @@ namespace IOFireWireLib {
 		if (mIsExecuting)
 			return kIOReturnBusy ;
 	
-//		IOReturn	 				result 			= kIOReturnSuccess ;
-		SubmitResult				submitResult ;
+		CommandSubmitResult			submitResult ;
 		mach_msg_type_number_t		submitResultSize = sizeof(submitResult) ;
 
 		return Cmd::Submit(mParams, sizeof(*mParams)+mParams->newBufferSize, & submitResult, & submitResultSize) ;
@@ -938,8 +928,8 @@ namespace IOFireWireLib {
 											unsigned int quads, CommandCallback callback, bool failOnReset,
 											UInt32 generation, void* refcon )
 	: Cmd( reinterpret_cast<IUnknownVTbl*>(& sInterface), userclient, device, addr, callback, failOnReset, generation, refcon, 
-				reinterpret_cast<FWUserCommandSubmitParams*>( new UInt8[sizeof(FWUserCommandSubmitParams) + sizeof(UInt64) * 2] ) ),	// 8 bytes/UInt16 * 2 values/cmd
-	  mParamsExtra( reinterpret_cast<UInt8*>(mParams) )
+				reinterpret_cast<CommandSubmitParams*>( new UInt8[sizeof(CommandSubmitParams) + sizeof(UInt64) * 2] ) ),	// 8 bytes/UInt16 * 2 values/cmd
+	mParamsExtra( reinterpret_cast<UInt8*>(mParams) )
 	{
 		mParams->callback		= (void*)& CommandCompletionHandler ;
 		mParams->type			= kFireWireCommandType_CompareSwap ;
@@ -1060,11 +1050,11 @@ namespace IOFireWireLib {
 	
 		IOReturn error = kIOReturnSuccess ;
 	
-		FWUserCompareSwapSubmitResult			submitResult ;
-		mach_msg_type_number_t					submitResultSize = sizeof(submitResult) ;
+		CompareSwapSubmitResult			submitResult ;
+		mach_msg_type_number_t			submitResultSize = sizeof(submitResult) ;
 
 		error = Cmd::Submit(mParams, (mach_msg_type_number_t)(sizeof(*mParams)+2*sizeof(UInt64)), 
-												reinterpret_cast<FWUserCommandSubmitResult*>(& submitResult), & submitResultSize) ;
+												reinterpret_cast<CommandSubmitResult*>(& submitResult), & submitResultSize) ;
 	
 		if ( not error )
 		{
@@ -1177,7 +1167,7 @@ namespace IOFireWireLib {
 	{
 		CompareSwapCmd*	me = reinterpret_cast<CompareSwapCmd*>(refcon) ;
 	
-		bcopy((FWUserCompareSwapSubmitResult*)quads, & me->mSubmitResult, sizeof(me->mSubmitResult)) ;
+		bcopy((CompareSwapSubmitResult*)quads, & me->mSubmitResult, sizeof(me->mSubmitResult)) ;
 
 		me->mStatus 			= result ;
 		me->mBytesTransferred	= me->mSubmitResult.bytesTransferred ;

@@ -8,9 +8,6 @@
 			sepNavWindowFrame = "{{38, 650}, {750, 502}}";
 		};
 	};
-	013E928F0017D9B711CE16D4 = {
-		activeExec = 0;
-	};
 	017D8EFD0032206011CE16D4 = {
 		activeExec = 0;
 	};
@@ -39,26 +36,23 @@
 	03254995FFDDD25B11CA29EB = {
 		activeExec = 0;
 	};
-	0325499AFFDDD25B11CA29EB = {
-		activeExec = 0;
-	};
 	089C1669FE841209C02AAC07 = {
 		activeBuildStyle = 06AA1265FFB2107B11CA28AA;
 		activeTarget = 089C1673FE841209C02AAC07;
 		addToTargets = (
-			C587DA87015A664F05CE172C,
+			089C1673FE841209C02AAC07,
 		);
 		perUserDictionary = {
 			PBXWorkspaceConfiguration = {
-				ContentSize = "{1413, 1069}";
+				ContentSize = "{1174, 964}";
 				LeftSlideOut = {
-					ActiveTab = 0;
-					Frame = "{{0, 23}, {1413, 1046}}";
+					ActiveTab = 3;
+					Frame = "{{0, 23}, {1174, 941}}";
 					Split0 = {
 						ActiveTab = 2;
-						Frame = "{{427, 0}, {986, 1046}}";
+						Frame = "{{296, 0}, {878, 941}}";
 						Split0 = {
-							Frame = "{{0, 594}, {986, 452}}";
+							Frame = "{{0, 445}, {878, 496}}";
 						};
 						SplitCount = 1;
 						Tab0 = {
@@ -94,18 +88,18 @@
 							};
 						};
 						Tab2 = {
-							BuildMessageFrame = "{{0, 0}, {988, 368}}";
-							BuildTranscriptFrame = "{{0, 377}, {988, 194}}";
-							Frame = "{{0, 0}, {986, 569}}";
+							BuildMessageFrame = "{{0, 0}, {880, 115}}";
+							BuildTranscriptFrame = "{{0, 124}, {880, 299}}";
+							Frame = "{{0, 0}, {878, 421}}";
 						};
 						Tab3 = {
-							Frame = "{{0, 0}, {1157, 556}}";
+							Frame = "{{0, 0}, {878, 556}}";
 						};
 						TabCount = 4;
 					};
 					SplitCount = 1;
 					Tab0 = {
-						Frame = "{{0, 0}, {402, 1046}}";
+						Frame = "{{0, 0}, {311, 941}}";
 					};
 					Tab1 = {
 						ClassesFrame = "{{0, 0}, {202, 56}}";
@@ -114,15 +108,15 @@
 						OptionsSetName = "Hierarchy, all classes";
 					};
 					Tab2 = {
-						Frame = "{{0, 0}, {200, 100}}";
+						Frame = "{{0, 0}, {200, 1011}}";
 					};
 					Tab3 = {
-						Frame = "{{0, 0}, {272, 1046}}";
+						Frame = "{{0, 0}, {272, 941}}";
 						Split0 = {
-							Frame = "{{0, 0}, {272, 499}}";
+							Frame = "{{0, 0}, {272, 429}}";
 						};
 						Split1 = {
-							Frame = "{{0, 508}, {272, 538}}";
+							Frame = "{{0, 438}, {272, 503}}";
 						};
 						SplitCount = 2;
 					};
@@ -131,6 +125,7 @@
 					};
 					TabCount = 5;
 				};
+				WindowLocation = "{82, 142}";
 			};
 		};
 		wantsIndex = 1;
@@ -139,12 +134,26 @@
 	089C1673FE841209C02AAC07 = {
 		activeExec = 0;
 	};
-	3B3C360D013326260ECE145B = {
+	AD440DB0017FA6A304CE15E3 = {
 		activeExec = 0;
 	};
-	C587DA87015A664F05CE172C = {
+	C5A7C7FB0270994A05CD254B = {
 		activeExec = 0;
 		customExecs = {
 		};
+	};
+	C5A7C80A027099CE05CD254B = {
+		activeExec = 0;
+		customExecs = {
+		};
+	};
+	F6635A27017C7E0C01CE1665 = {
+		activeExec = 0;
+	};
+	F6635A3C017C901C01CE1665 = {
+		activeExec = 0;
+	};
+	F6AB50530188E72D01CE1665 = {
+		activeExec = 0;
 	};
 }

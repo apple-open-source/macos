@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -41,7 +41,7 @@ private:
 
 protected:
 	
-    IOUSBMassStorageUFISubclass *	fProvider;
+    IOUSBMassStorageUFIDevice *		fProvider;
 
 	UInt64							fMaxReadBlocks;
 	UInt64							fMaxWriteBlocks;

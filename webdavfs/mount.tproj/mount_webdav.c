@@ -93,6 +93,11 @@ static char sccsid[] = "@(#)mount_webdav.c	8.6 (Berkeley) 4/26/95";
 #include "webdav_inode.h"
 #include "../webdav_fs.kextproj/webdav_fs.kmodproj/webdav.h"
 
+/* to keep builds working with older errno.h where ECANCELED wasn't defined */
+#ifndef ECANCELED
+	#define	ECANCELED	89		/* Operation canceled */
+#endif
+
 /*****************************************************************************/
 
 /* Local Definitions */
@@ -121,7 +126,7 @@ char * gtimeout_string;
 webdav_memcache_header_t gmemcache_header;
 webdav_file_record_t * ginode_hashtbl[WEBDAV_FILE_RECORD_HASH_BUCKETS];
 u_int32_t ginode_cntr = WEBDAV_ROOTFILEID + 1;
-char * gmountpt;
+char gmountpt[MAXPATHLEN];
 webdav_requestqueue_header_t gwaiting_requests;
 /* A ThreadSocket for each thread that might need a socket.
  * Access to this array is protected by grequests_lock.
@@ -753,7 +758,6 @@ int main(argc, argv)
 {
 	struct webdav_args args;
 	struct sockaddr_un un;
-	char *mountpt;
 	int mntflags = 0;
 	int servermntflags = 0;
 	char arguri[MAXPATHLEN + 1];
@@ -972,14 +976,10 @@ int main(argc, argv)
 	 */
 
 	(void)strncpy(arguri, argv[optind], sizeof(arguri) - 1);
-	mountpt = argv[optind + 1];
-	gmountpt = malloc(strlen(mountpt) + 1);
-	if (!gmountpt)
+	if ( realpath(argv[optind + 1], gmountpt) == NULL )
 	{
-		err(ENOMEM, "malloc");
+		err(ENOENT, "realpath");
 	}
-
-	strcpy(gmountpt, mountpt);
 
 	/* If they gave us a full uri, blow off the scheme */
 
@@ -1132,6 +1132,14 @@ int main(argc, argv)
 	}
 	if (error)
 	{
+		/* If EACCES, then the user canceled when asked to authenticate.
+		 * In this case, we want to return ECANCELED so that Carbon will
+		 * translate our error result to userCanceledErr.
+		 */
+		if ( EACCES == error )
+		{
+			error = ECANCELED;
+		}
 		errx(error, "checking server URL: %s", strerror(error));
 	}
 
@@ -1235,7 +1243,7 @@ int main(argc, argv)
 	signal(SIGPROF, sighdlr);
 
 
-	rc = mount(vfc.vfc_name, mountpt, mntflags, &args);
+	rc = mount(vfc.vfc_name, gmountpt, mntflags, &args);
 	if (rc < 0)
 	{
 		err(errno, "mount");
@@ -1254,7 +1262,7 @@ int main(argc, argv)
 	else
 	{
 		daconnect_status = DiskArbDiskAppearedWithMountpointPing_auto(diskIdentifier,
-			kDiskArbDiskAppearedNetworkDiskMask | kDiskArbDiskAppearedEjectableMask, mountpt);
+			kDiskArbDiskAppearedNetworkDiskMask | kDiskArbDiskAppearedEjectableMask, gmountpt);
 	}
 
 	/*
@@ -1418,7 +1426,7 @@ int main(argc, argv)
 		}
 	}
 
-	syslog(LOG_INFO, "%s unmounted", mountpt);
+	syslog(LOG_INFO, "%s unmounted", gmountpt);
 #ifndef DEBUG
 	/* Notify AutoDiskMount of the disappearance of this volume: */
 	DiskArbDiskDisappearedPing_auto(diskIdentifier, 0);

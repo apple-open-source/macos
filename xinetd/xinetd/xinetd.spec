@@ -1,0 +1,76 @@
+
+Summary:	xinetd -- A better inetd.
+Name:		xinetd
+Version:	2.3.8b
+Release:	1
+License:	BSD
+Vendor:		xinetd.org (Rob Braun)
+Group:		System Environment/Daemons
+Packager:	Steve Grubb <linux_4ever@yahoo.com>
+URL:		http://www.xinetd.org/
+Source:		%{name}-%{version}.tar.gz
+BuildRoot:	%{_tmppath}/%{name}-%{version}-root
+Provides:	inetd
+Prereq:		/sbin/chkconfig 
+BuildRequires:  tcp_wrappers >= 7.6
+Obsoletes:	inetd
+
+%description
+Xinetd is a powerful inetd replacement. Xinetd has access control 
+mechanisms, extensive logging capabilities, the ability to make 
+services available based on time, can place limits on the number 
+of servers that can be started, and has a configurable defence 
+mechanism to protect against port scanners, among other things.
+ 
+%prep
+#rm -rf $RPM_BUILD_ROOT
+
+%setup
+
+%build
+  CFLAGS="$RPM_OPT_FLAGS" ./configure \
+	--sbindir=$RPM_BUILD_ROOT/usr/sbin \
+	--mandir=$RPM_BUILD_ROOT/usr/share/man \
+	--with-libwrap \
+	--with-inet6
+  make
+  strip xinetd/xinetd
+  cp xinetd/xinetd xinetd6
+  make distclean
+  CFLAGS="$RPM_OPT_FLAGS" ./configure \
+	--sbindir=$RPM_BUILD_ROOT/usr/sbin \
+	--mandir=$RPM_BUILD_ROOT/usr/share/man \
+	--with-libwrap 
+  make
+  strip xinetd/xinetd
+
+%install
+mkdir -p $RPM_BUILD_ROOT/etc/rc.d/init.d
+mkdir -p $RPM_BUILD_ROOT/usr/sbin
+
+%makeinstall 
+install -m 0755 xinetd6 $RPM_BUILD_ROOT/usr/sbin
+install -m 0755 contrib/xinetd $RPM_BUILD_ROOT/etc/rc.d/init.d/xinetd
+
+%clean
+  rm -rf $RPM_BUILD_ROOT
+
+%post
+chkconfig --del xinetd
+chkconfig --add xinetd
+/etc/rc.d/init.d/xinetd restart
+
+%preun
+/etc/rc.d/init.d/xinetd stop
+chkconfig --del xinetd
+
+%files
+%defattr(-, root, root)
+%doc CHANGELOG COPYRIGHT README xinetd/sample.conf 
+%{_sbindir}/xinetd6
+%{_sbindir}/xinetd
+%{_sbindir}/itox
+%{_sbindir}/xconv.pl
+%{_mandir}/*/*
+%config(noreplace) /etc/rc.d/init.d/xinetd
+ 

@@ -27,25 +27,25 @@
  *
  */
 
-#include "FWDebugging.h"
+#import "FWDebugging.h"
 
 #define DEBUGGING_LEVEL 0	// 1 = low; 2 = high; 3 = extreme
 #ifndef DEBUGLOG
 #define DEBUGLOG kprintf
 #endif
 
-#include <IOKit/assert.h>
+#import <IOKit/assert.h>
 
-#include <IOKit/IOMessage.h>
-#include <IOKit/IODeviceTreeSupport.h>
+#import <IOKit/IOMessage.h>
+#import <IOKit/IODeviceTreeSupport.h>
 
-#include <IOKit/firewire/IOFireWireLink.h>
-#include <IOKit/firewire/IOFireWireDevice.h>
-#include <IOKit/firewire/IOFireWireUnit.h>
-#include <IOKit/firewire/IOFireWireController.h>
-#include <IOKit/firewire/IOConfigDirectory.h>
-#include "IORemoteConfigDirectory.h"
-#include "IOFireWireROMCache.h"
+#import <IOKit/firewire/IOFireWireLink.h>
+#import <IOKit/firewire/IOFireWireDevice.h>
+#import <IOKit/firewire/IOFireWireUnit.h>
+#import <IOKit/firewire/IOFireWireController.h>
+#import <IOKit/firewire/IOConfigDirectory.h>
+#import "IORemoteConfigDirectory.h"
+#import "IOFireWireROMCache.h"
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -143,7 +143,7 @@ void IOFireWireUnitInfo::setPropTable( OSDictionary * propTable )
 	fPropTable = propTable;
 	
 	if( oldPropTable )
-		fPropTable->release();
+		oldPropTable->release();
 }
 
 // getPropTable
@@ -178,6 +178,8 @@ IOConfigDirectory * IOFireWireUnitInfo::getDirectory( void )
 {
 	return fDirectory;
 }
+
+#pragma mark -
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -744,6 +746,9 @@ void IOFireWireDevice::preprocessDirectories( OSDictionary * rootPropTable, OSSe
 			propTable->setObject( gFireWireVendor_Name, vendorNameProperty );
 		}
 	}
+	
+	// always release iterators :)
+	iterator->release();
 }
 
 // readRootDirectory
@@ -951,8 +956,7 @@ IOReturn IOFireWireDevice::readUnitDirectories( IOConfigDirectory * directory, O
 				if( status == kIOReturnSuccess )
 				{
 					OSDictionary * propTable = 0;
-					IOFireWireUnit * newDevice = 0;
-
+					
 					// Add entry to registry.
 					do 
 					{
@@ -995,21 +999,18 @@ IOReturn IOFireWireDevice::readUnitDirectories( IOConfigDirectory * directory, O
 						info->setPropTable( propTable );
 						unitInfo->setObject( info );
 						info->release();
-					} 
-					while( false );
 					
-					if( newDevice != NULL )
-						newDevice->release();
-						
+					}  while( false );
+					
 					if( propTable != NULL )
 						propTable->release();
 				}
 	
 				if( modelName != NULL )
-                                {
-                                    modelName->release();
-                                    modelName = NULL;
-                                }
+				{
+					modelName->release();
+					modelName = NULL;
+				}
 			}
 			
 			unitDirs->release();
@@ -1274,6 +1275,12 @@ bool IOFireWireDevice::matchPropertyTable(OSDictionary * table)
         compareProperty(table, gFireWire_GUID);
 }
 
+#pragma mark -
+
+// setNodeFlags
+//
+//
+
 void IOFireWireDevice::setNodeFlags( UInt32 flags )
 {
 	
@@ -1288,6 +1295,10 @@ void IOFireWireDevice::setNodeFlags( UInt32 flags )
 	fControl->openGate();
 }
 
+// clearNodeFlags
+//
+//
+
 void IOFireWireDevice::clearNodeFlags( UInt32 flags )
 {
 	
@@ -1295,33 +1306,32 @@ void IOFireWireDevice::clearNodeFlags( UInt32 flags )
 	
     fNodeFlags &= ~flags;
     
-    // IOLog( "IOFireWireNub::setNodeFlags fNodeFlags = 0x%08lx\n", fNodeFlags );
+    // IOLog( "IOFireWireNub::clearNodeFlags fNodeFlags = 0x%08lx\n", fNodeFlags );
     
 	configureNode();
 	
 	fControl->openGate();
 }
 
+// getNodeFlags
+//
+//
 
 UInt32 IOFireWireDevice::getNodeFlags( void )
 {
     return fNodeFlags;
 }
 
+// configureNode
+//
+//
+
 IOReturn IOFireWireDevice::configureNode( void )
 {
 	if( fNodeID != kFWBadNodeID )
     {
-		if( fNodeFlags & kIOFWDisableAllPhysicalAccess )
-        {
-            IOFireWireLink * fwim = fControl->getLink();
-            fwim->setNodeIDPhysicalFilter( kIOFWAllPhysicalFilters, false );
-        }
-        else if( fNodeFlags & kIOFWDisablePhysicalAccess )
-        {
-            IOFireWireLink * fwim = fControl->getLink();
-            fwim->setNodeIDPhysicalFilter( fNodeID & 0x3f, false );
-        }
+		// handle physical filter configuration
+		configurePhysicalFilter();
 
 		if( fNodeFlags & kIOFWEnableRetryOnAckD )
 		{
@@ -1331,4 +1341,77 @@ IOReturn IOFireWireDevice::configureNode( void )
     }
 	
 	return kIOReturnSuccess;
+}
+
+// configurePhysicalFilter
+//
+// set up physical filters for this node.  this is broken out into its
+// own function because it's not only called by configureNode above, but
+// by the controller when controller-wide physical access is enabled
+
+void IOFireWireDevice::configurePhysicalFilter( void )
+{
+	if( fNodeID != kFWBadNodeID )
+    {
+		if( fNodeFlags & kIOFWDisableAllPhysicalAccess )
+        {
+			// kIOFWPhysicalAccessDisabledForGeneration only disables physical
+			// access until the next bus reset at which point we will this code
+			// will be reexecuted provided this device is still on the bus
+			
+			// kIOFWPhysicalAccessDisabled lasts across bus resets, therefore
+			// it takes priority over kIOFWPhysicalAccessDisabledForGeneration
+			
+			fControl->setPhysicalAccessMode( kIOFWPhysicalAccessDisabledForGeneration );
+        }
+		
+        if( (fNodeFlags & kIOFWDisablePhysicalAccess) )
+        {
+			fControl->setNodeIDPhysicalFilter( fNodeID & 0x3f, false );
+        }
+		else
+		{
+			// if the physical access mode has been set to a disabled state
+			// then enabling this node's physical filter will have no
+			// effect.
+			
+			fControl->setNodeIDPhysicalFilter( fNodeID & 0x3f, true );
+		}
+    }
+}
+
+#pragma mark -
+
+/////////////////////////////////////////////////////////////////////////////
+// address spaces
+//
+
+/*
+ * Create local FireWire address spaces for the device to access
+ */
+
+IOFWPhysicalAddressSpace * IOFireWireDevice::createPhysicalAddressSpace(IOMemoryDescriptor *mem)
+{
+    IOFWPhysicalAddressSpace * space = fControl->createPhysicalAddressSpace(mem);
+	
+	if( space != NULL )
+	{
+		space->addTrustedNode( this );
+	}
+	
+	return space;
+}
+
+IOFWPseudoAddressSpace * IOFireWireDevice::createPseudoAddressSpace(FWAddress *addr, UInt32 len, 
+				FWReadCallback reader, FWWriteCallback writer, void *refcon)
+{
+    IOFWPseudoAddressSpace * space = fControl->createPseudoAddressSpace(addr, len, reader, writer, refcon);
+
+	if( space != NULL )
+	{
+		space->addTrustedNode( this );
+	}
+	
+	return space;
+
 }

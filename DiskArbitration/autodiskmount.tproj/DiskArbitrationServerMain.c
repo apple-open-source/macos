@@ -536,8 +536,8 @@ static void HandleIONotificationMsg( IONotificationMsgPtr msg )
                                 if (wholeDiskPtr && !wholeDiskPtr->wholeDiskHasBeenYanked) {
                                         wholeDiskPtr->wholeDiskHasBeenYanked++;
                                         StartYankedDiskMessage();
-                               }
-                        }
+                                        }
+                                }
                         
                         kr = UnmountDisk( dp, TRUE );
                     	SendUnmountPostNotifyMsgsForOnePartition( dp->ioBSDName, 0, 0 );
@@ -547,8 +547,8 @@ static void HandleIONotificationMsg( IONotificationMsgPtr msg )
                         // don't free the whole disk associated with a yanked disk just yet, free it later in the run loop
                         // that way we know it's always here for a disk that gets in just a we bit later.
                         if (!dp->wholeDiskHasBeenYanked) {
-                                FreeDisk( dp );
-                        }
+                        FreeDisk( dp );
+                }
 
                 }
                 IOObjectRelease(entry);
@@ -1164,6 +1164,12 @@ int EjectDisk( DiskPtr diskPtr )
                 
                 result = errno;
 
+                if (result == ENOTTY) {  // inappropriate ioctl for raid devices, need to fan it out someday
+                        result = 0;
+                        SetStateForAllPartitions( diskPtr, kDiskStateIdle );
+                        goto Return;
+                }
+
                 LogErrorMessage("%s('%s') ioctl(DKIOCEJECT) failed: %d (%s)\n", __FUNCTION__, diskPtr->ioBSDName, result, strerror(result));
                 SetStateForAllPartitions( diskPtr, kDiskStateIdle );
                 goto Return;
@@ -1253,6 +1259,38 @@ Return:
 	return;
 
 } // FreeDisk
+
+void FreeAllPartitions( DiskPtr diskPtr )
+{
+	DiskPtr dp, dpNext;
+	int	family1, family2;
+	int	deviceNum1, deviceNum2;
+
+	if ( IsNetwork( diskPtr ) )
+	{
+		FreeDisk( diskPtr );
+		goto Return;
+	}
+
+	family1 = diskPtr->family;
+	deviceNum1 = diskPtr->ioBSDUnit;
+
+	for ( dp = g.Disks; dp != NULL; dp = dpNext )
+	{
+		dpNext = dp->next;
+		family2 = dp->family;
+		deviceNum2 = dp->ioBSDUnit;
+
+		if ( family1 == family2 && deviceNum1 == deviceNum2 )
+		{
+			FreeDisk( dp );
+		}
+	}
+	
+Return:
+	return;
+
+} // FreeAllPartitions
 
 //------------------------------------------------------------------------
 

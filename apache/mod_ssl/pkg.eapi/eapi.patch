@@ -7,7 +7,7 @@
 ## 
 ## Annotated patch file: eapi.patch
 ## Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 24-Jun-2002
+## Created on: 04-Oct-2002
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be
@@ -56,9 +56,9 @@ Index: src/Configuration.tmpl
 | Patch in implementation of the EAPI rule.
 +---------------------------------------------------------------------------
 Index: src/Configure
---- src/Configure	19 Jun 2002 07:20:22 -0000	1.1.1.19
-+++ src/Configure	19 Jun 2002 07:29:08 -0000	1.22
-@@ -1869,6 +1869,72 @@
+--- src/Configure	4 Oct 2002 11:50:12 -0000	1.1.1.20
++++ src/Configure	4 Oct 2002 11:54:56 -0000	1.23
+@@ -1885,6 +1885,72 @@
  fi
  
  ####################################################################
@@ -358,8 +358,8 @@ Index: src/include/http_config.h
 | global module context.
 +---------------------------------------------------------------------------
 Index: src/include/http_conf_globals.h
---- src/include/http_conf_globals.h	27 Mar 2002 15:22:57 -0000	1.1.1.11
-+++ src/include/http_conf_globals.h	27 Mar 2002 15:30:02 -0000	1.12
+--- src/include/http_conf_globals.h	4 Oct 2002 11:50:14 -0000	1.1.1.12
++++ src/include/http_conf_globals.h	4 Oct 2002 11:54:56 -0000	1.13
 @@ -95,6 +95,9 @@
  #endif
  extern int ap_dump_settings;
@@ -387,8 +387,8 @@ Index: src/include/http_main.h
 | function.
 +---------------------------------------------------------------------------
 Index: src/include/httpd.h
---- src/include/httpd.h	19 Jun 2002 07:20:24 -0000	1.1.1.19
-+++ src/include/httpd.h	19 Jun 2002 07:29:08 -0000	1.29
+--- src/include/httpd.h	4 Oct 2002 11:50:14 -0000	1.1.1.20
++++ src/include/httpd.h	4 Oct 2002 11:54:56 -0000	1.30
 @@ -70,7 +70,19 @@
  /* Headers in which EVERYONE has an interest... */
  
@@ -494,8 +494,8 @@ Index: src/include/httpd.h
 | Patch the shared memory pool support into the Apache pool facility.
 +---------------------------------------------------------------------------
 Index: src/main/alloc.c
---- src/main/alloc.c	27 Mar 2002 15:23:00 -0000	1.1.1.12
-+++ src/main/alloc.c	27 Mar 2002 15:30:02 -0000	1.19
+--- src/main/alloc.c	4 Oct 2002 11:50:14 -0000	1.1.1.13
++++ src/main/alloc.c	4 Oct 2002 11:54:56 -0000	1.20
 @@ -64,6 +64,10 @@
   */
  
@@ -875,20 +875,20 @@ Index: src/main/alloc.c
  
      ap_unblock_alarms();
  
-@@ -877,6 +1076,11 @@
-     char *ptr;
- 
-     size = (char *)ps->vbuff.curpos - ps->base;
+@@ -882,6 +1081,11 @@
+     size = cur_len << 1;
+     if (size < AP_PSPRINTF_MIN_SIZE)
+         size = AP_PSPRINTF_MIN_SIZE;
 +#if defined(EAPI) && defined(EAPI_MM)
 +    if (ps->block->h.is_shm)
-+        ptr = ap_mm_realloc(ps->base, 2*size);
++        ptr = ap_mm_realloc(ps->base, size);
 +    else
 +#endif
-     ptr = realloc(ps->base, 2*size);
+     ptr = realloc(ps->base, size);
      if (ptr == NULL) {
  	fputs("Ouch!  Out of memory!\n", stderr);
-@@ -897,9 +1101,21 @@
-     cur_len = strp - blok->h.first_avail;
+@@ -905,9 +1109,21 @@
+         size = AP_PSPRINTF_MIN_SIZE;
  
      /* must try another blok */
 +#if defined(EAPI) && defined(EAPI_MM)
@@ -897,9 +897,9 @@ Index: src/main/alloc.c
 +#endif
      (void) ap_acquire_mutex(alloc_mutex);
 +#if defined(EAPI) && defined(EAPI_MM)
-+    nblok = new_block(2 * cur_len, blok->h.is_shm);
++    nblok = new_block(size, blok->h.is_shm);
 +#else
-     nblok = new_block(2 * cur_len);
+     nblok = new_block(size);
 +#endif
      (void) ap_release_mutex(alloc_mutex);
 +#if defined(EAPI) && defined(EAPI_MM)
@@ -909,7 +909,7 @@ Index: src/main/alloc.c
      memcpy(nblok->h.first_avail, blok->h.first_avail, cur_len);
      ps->vbuff.curpos = nblok->h.first_avail + cur_len;
      /* save a byte for the NUL terminator */
-@@ -908,10 +1124,18 @@
+@@ -916,10 +1132,18 @@
      /* did we allocate the current blok? if so free it up */
      if (ps->got_a_new_block) {
  	debug_fill(blok->h.first_avail, blok->h.endp - blok->h.first_avail);
@@ -928,7 +928,7 @@ Index: src/main/alloc.c
      }
      ps->blok = nblok;
      ps->got_a_new_block = 1;
-@@ -930,6 +1154,11 @@
+@@ -938,6 +1162,11 @@
      void *ptr;
  
      ap_block_alarms();
@@ -940,7 +940,7 @@ Index: src/main/alloc.c
      ps.base = malloc(512);
      if (ps.base == NULL) {
  	fputs("Ouch!  Out of memory!\n", stderr);
-@@ -942,6 +1171,11 @@
+@@ -950,6 +1179,11 @@
      *ps.vbuff.curpos++ = '\0';
      ptr = ps.base;
      /* shrink */
@@ -1028,9 +1028,9 @@ Index: src/main/buff.c
 | variables are initialized.
 +---------------------------------------------------------------------------
 Index: src/main/http_config.c
---- src/main/http_config.c	27 Mar 2002 15:23:00 -0000	1.1.1.14
-+++ src/main/http_config.c	27 Mar 2002 15:30:02 -0000	1.17
-@@ -599,6 +599,20 @@
+--- src/main/http_config.c	4 Oct 2002 11:50:15 -0000	1.1.1.15
++++ src/main/http_config.c	4 Oct 2002 11:54:56 -0000	1.18
+@@ -600,6 +600,20 @@
  	m->name = tmp;
      }
  #endif /*_OSD_POSIX*/
@@ -1051,7 +1051,7 @@ Index: src/main/http_config.c
  }
  
  /* 
-@@ -613,6 +627,21 @@
+@@ -614,6 +628,21 @@
  {
      module *modp;
  
@@ -1073,7 +1073,7 @@ Index: src/main/http_config.c
      modp = top_module;
      if (modp == m) {
  	/* We are the top module, special case */
-@@ -1006,6 +1035,27 @@
+@@ -1007,6 +1036,27 @@
      const command_rec *cmd;
      module *mod = top_module;
  
@@ -1101,7 +1101,7 @@ Index: src/main/http_config.c
      if ((l[0] == '#') || (!l[0]))
  	return NULL;
  
-@@ -1440,6 +1490,10 @@
+@@ -1467,6 +1517,10 @@
      s->limit_req_fieldsize = main_server->limit_req_fieldsize;
      s->limit_req_fields = main_server->limit_req_fields;
  
@@ -1112,7 +1112,7 @@ Index: src/main/http_config.c
      *ps = s;
  
      return ap_parse_vhost_addrs(p, hostname, s);
-@@ -1550,6 +1604,10 @@
+@@ -1577,6 +1631,10 @@
  
      s->module_config = create_server_config(p, s);
      s->lookup_defaults = create_default_per_dir_config(p);
@@ -1131,8 +1131,8 @@ Index: src/main/http_config.c
 | is added plus the initialization of one more `ctx' variable.
 +---------------------------------------------------------------------------
 Index: src/main/http_main.c
---- src/main/http_main.c	19 Jun 2002 07:20:25 -0000	1.1.1.18
-+++ src/main/http_main.c	19 Jun 2002 07:29:08 -0000	1.40
+--- src/main/http_main.c	4 Oct 2002 11:50:15 -0000	1.1.1.19
++++ src/main/http_main.c	4 Oct 2002 11:54:56 -0000	1.41
 @@ -279,6 +279,9 @@
  
  int ap_dump_settings = 0;
@@ -1143,7 +1143,7 @@ Index: src/main/http_main.c
  
  /*
   * The max child slot ever assigned, preserved across restarts.  Necessary
-@@ -463,6 +466,30 @@
+@@ -469,6 +472,30 @@
      }
  }
  
@@ -1174,7 +1174,7 @@ Index: src/main/http_main.c
  #ifndef NETWARE
  static APACHE_TLS int volatile exit_after_unblock = 0;
  #endif
-@@ -1518,6 +1545,10 @@
+@@ -1523,6 +1550,10 @@
  	    ap_log_transaction(log_req);
  	}
  
@@ -1185,7 +1185,7 @@ Index: src/main/http_main.c
  	ap_bsetflag(save_req->connection->client, B_EOUT, 1);
  	ap_bclose(save_req->connection->client);
  	
-@@ -1526,6 +1557,9 @@
+@@ -1531,6 +1562,9 @@
          ap_longjmp(jmpbuffer, 1);
      }
      else {			/* abort the connection */
@@ -1195,7 +1195,7 @@ Index: src/main/http_main.c
  	ap_bsetflag(current_conn->client, B_EOUT, 1);
  	ap_bclose(current_conn->client);
  	current_conn->aborted = 1;
-@@ -1828,10 +1862,16 @@
+@@ -1833,10 +1867,16 @@
      /* Send any leftover data to the client, but never try to again */
  
      if (ap_bflush(r->connection->client) == -1) {
@@ -1212,7 +1212,7 @@ Index: src/main/http_main.c
      ap_bsetflag(r->connection->client, B_EOUT, 1);
  
      /* Close our half of the connection --- send the client a FIN */
-@@ -2559,6 +2599,9 @@
+@@ -2566,6 +2606,9 @@
      /* Clear the pool - including any registered cleanups */
      ap_destroy_pool(pglobal);
  #endif
@@ -1222,7 +1222,7 @@ Index: src/main/http_main.c
      exit(code);
  }
  
-@@ -3570,6 +3613,24 @@
+@@ -3577,6 +3620,24 @@
      conn->remote_addr = *remaddr;
      conn->remote_ip = ap_pstrdup(conn->pool,
  			      inet_ntoa(conn->remote_addr.sin_addr));
@@ -1247,7 +1247,7 @@ Index: src/main/http_main.c
  
      return conn;
  }
-@@ -3998,6 +4059,15 @@
+@@ -4005,6 +4066,15 @@
      printf("Server's Module Magic Number: %u:%u\n",
  	   MODULE_MAGIC_NUMBER_MAJOR, MODULE_MAGIC_NUMBER_MINOR);
      printf("Server compiled with....\n");
@@ -1263,7 +1263,7 @@ Index: src/main/http_main.c
  #ifdef TPF
      show_os_specific_compile_settings();
  #endif
-@@ -4167,6 +4237,22 @@
+@@ -4175,6 +4245,22 @@
      ap_server_pre_read_config  = ap_make_array(pcommands, 1, sizeof(char *));
      ap_server_post_read_config = ap_make_array(pcommands, 1, sizeof(char *));
      ap_server_config_defines   = ap_make_array(pcommands, 1, sizeof(char *));
@@ -1286,7 +1286,7 @@ Index: src/main/http_main.c
  }
  
  #ifndef MULTITHREAD
-@@ -4617,6 +4703,9 @@
+@@ -4625,6 +4711,9 @@
  
  	    ap_sync_scoreboard_image();
  	    if (ap_scoreboard_image->global.running_generation != ap_my_generation) {
@@ -1296,7 +1296,7 @@ Index: src/main/http_main.c
  		ap_bclose(conn_io);
  		clean_child_exit(0);
  	    }
-@@ -4645,6 +4734,9 @@
+@@ -4653,6 +4742,9 @@
  	 */
  
  #ifdef NO_LINGCLOSE
@@ -1306,7 +1306,7 @@ Index: src/main/http_main.c
  	ap_bclose(conn_io);	/* just close it */
  #else
  	if (r && r->connection
-@@ -4655,6 +4747,9 @@
+@@ -4663,6 +4755,9 @@
  	    lingering_close(r);
  	}
  	else {
@@ -1316,7 +1316,7 @@ Index: src/main/http_main.c
  	    ap_bsetflag(conn_io, B_EOUT, 1);
  	    ap_bclose(conn_io);
  	}
-@@ -5420,16 +5515,31 @@
+@@ -5428,16 +5523,31 @@
  	    usage(argv[0]);
  	}
      }
@@ -1348,7 +1348,7 @@ Index: src/main/http_main.c
      }
  
      child_timeouts = !ap_standalone || one_process;
-@@ -5576,6 +5686,10 @@
+@@ -5585,6 +5695,10 @@
  	    ap_destroy_pool(r->pool);
  	}
  
@@ -1359,7 +1359,7 @@ Index: src/main/http_main.c
  	ap_bclose(cio);
      }
      exit(0);
-@@ -5952,6 +6066,9 @@
+@@ -5961,6 +6075,9 @@
  	ap_kill_cleanups_for_socket(ptrans, csd);
  
  #ifdef NO_LINGCLOSE
@@ -1369,7 +1369,7 @@ Index: src/main/http_main.c
  	ap_bclose(conn_io);	/* just close it */
  #else
  	if (r && r->connection
-@@ -5962,6 +6079,9 @@
+@@ -5971,6 +6088,9 @@
  	    lingering_close(r);
  	}
  	else {
@@ -1379,7 +1379,7 @@ Index: src/main/http_main.c
  	    ap_bsetflag(conn_io, B_EOUT, 1);
  	    ap_bclose(conn_io);
  	}
-@@ -7530,6 +7650,10 @@
+@@ -7539,6 +7659,10 @@
      if (!conf_specified)
          ap_cpystrn(ap_server_confname, SERVER_CONFIG_FILE, sizeof(ap_server_confname));
  
@@ -1390,7 +1390,7 @@ Index: src/main/http_main.c
      if (!ap_os_is_path_absolute(ap_server_confname))
          ap_cpystrn(ap_server_confname,
                     ap_server_root_relative(pcommands, ap_server_confname),
-@@ -7569,6 +7693,9 @@
+@@ -7578,6 +7702,9 @@
      }
  #else /* ndef WIN32 */
      server_conf = ap_read_config(pconf, ptrans, ap_server_confname);
@@ -1425,9 +1425,9 @@ Index: src/main/http_request.c
 | request_rec structures.
 +---------------------------------------------------------------------------
 Index: src/main/http_protocol.c
---- src/main/http_protocol.c	19 Jun 2002 07:20:26 -0000	1.1.1.17
-+++ src/main/http_protocol.c	19 Jun 2002 07:29:09 -0000	1.17
-@@ -1167,6 +1167,10 @@
+--- src/main/http_protocol.c	4 Oct 2002 11:50:15 -0000	1.1.1.18
++++ src/main/http_protocol.c	4 Oct 2002 11:54:56 -0000	1.18
+@@ -1203,6 +1203,10 @@
      r->status          = HTTP_REQUEST_TIME_OUT;  /* Until we get a request */
      r->the_request     = NULL;
  
@@ -1438,7 +1438,7 @@ Index: src/main/http_protocol.c
  #ifdef CHARSET_EBCDIC
      ap_bsetflag(r->connection->client, B_ASCII2EBCDIC, r->ebcdic.conv_in  = 1);
      ap_bsetflag(r->connection->client, B_EBCDIC2ASCII, r->ebcdic.conv_out = 1);
-@@ -1323,6 +1327,11 @@
+@@ -1359,6 +1363,11 @@
      rnew->read_body       = REQUEST_NO_BODY;
  
      rnew->main = (request_rec *) r;
@@ -1584,9 +1584,9 @@ Index: src/modules/standard/mod_log_config.c
 | variables from other modules.
 +---------------------------------------------------------------------------
 Index: src/modules/standard/mod_rewrite.c
---- src/modules/standard/mod_rewrite.c	19 Jun 2002 07:20:30 -0000	1.1.1.15
-+++ src/modules/standard/mod_rewrite.c	19 Jun 2002 07:29:09 -0000	1.13
-@@ -3678,6 +3678,15 @@
+--- src/modules/standard/mod_rewrite.c	4 Oct 2002 11:50:18 -0000	1.1.1.16
++++ src/modules/standard/mod_rewrite.c	4 Oct 2002 11:54:56 -0000	1.14
+@@ -3691,6 +3691,15 @@
      }
  #endif /* ndef WIN32 && NETWARE*/
  
@@ -1759,8 +1759,8 @@ Index: src/modules/proxy/mod_proxy.c
 | to enhance it by intercepting this processing.
 +---------------------------------------------------------------------------
 Index: src/modules/proxy/proxy_http.c
---- src/modules/proxy/proxy_http.c	19 Jun 2002 07:20:27 -0000	1.1.1.14
-+++ src/modules/proxy/proxy_http.c	19 Jun 2002 07:29:09 -0000	1.22
+--- src/modules/proxy/proxy_http.c	4 Oct 2002 11:50:16 -0000	1.1.1.15
++++ src/modules/proxy/proxy_http.c	4 Oct 2002 11:54:56 -0000	1.23
 @@ -170,6 +170,9 @@
      const char *datestr, *urlstr;
      int result, major, minor;

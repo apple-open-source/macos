@@ -1474,6 +1474,7 @@ add_entry(struct ip_fw_head *chainptr, struct ip_fw *frwl)
 	}
 	ftmp = &ftmp_ext->rule ;
 
+	bzero(ftmp_ext, sizeof(*ftmp_ext));
 	bcopy(frwl, ftmp, sizeof(*ftmp));
 	if (ftmp->fw_flg & IP_FW_F_RND_MATCH)
 		ftmp_ext->dont_match_prob = (intptr_t)ftmp->pipe_ptr;

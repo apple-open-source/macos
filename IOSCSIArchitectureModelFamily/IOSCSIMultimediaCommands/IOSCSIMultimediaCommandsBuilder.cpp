@@ -28,6 +28,8 @@
 // SCSI Architecture Model Family includes
 #include <IOKit/scsi-commands/SCSICommandDefinitions.h>
 #include "IOSCSIMultimediaCommandsDevice.h"
+#include "SCSIMultimediaCommands.h"
+#include "SCSIBlockCommands.h"
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -41,6 +43,291 @@
 #define DEBUG_ASSERT_COMPONENT_NAME_STRING		"MMC"
 
 #include "IOSCSIArchitectureModelFamilyDebugging.h"
+
+
+#if 0
+#pragma mark -
+#pragma mark ¥ Command Builder Utility methods
+#pragma mark -
+#endif
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		IOSCSIMultimediaCommandsDevice::GetBlockSize
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		The block size decoding for Read CD and Read CD MSF as
+//		defined in table 255.
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSIMultimediaCommandsDevice::GetBlockSize (
+					UInt32 *					requestedByteCount,
+					SCSICmdField3Bit 			EXPECTED_SECTOR_TYPE,
+					SCSICmdField1Bit 			SYNC,
+					SCSICmdField2Bit 			HEADER_CODES,
+					SCSICmdField1Bit 			USER_DATA,
+					SCSICmdField1Bit 			EDC_ECC,
+					SCSICmdField2Bit 			ERROR_FIELD,
+					SCSICmdField3Bit 			SUBCHANNEL_SELECTION_BITS )
+{
+	
+	bool			result			= false;
+	UInt32			userDataSize	= 0;
+	UInt32			edcEccSize		= 0;
+	UInt32			headerSize		= 0;
+	UInt32			subHeaderSize	= 0;
+	UInt32			syncSize		= 0;
+		
+	check ( requestedByteCount );
+	
+	require ( ( EXPECTED_SECTOR_TYPE < 6 ), ErrorExit );
+	require ( IsParameterValid ( SYNC, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( HEADER_CODES,
+								 kSCSICmdFieldMask2Bit ), ErrorExit );
+	require ( IsParameterValid ( USER_DATA,
+								 kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( EDC_ECC, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( ERROR_FIELD,
+								 kSCSICmdFieldMask2Bit ), ErrorExit );
+	
+	// valid flag combination?
+	switch ( ( SYNC << 4 ) | ( HEADER_CODES << 2 ) | ( USER_DATA << 1 ) |  EDC_ECC )
+	{
+		
+		// invalid flag combinations
+		case	0x00:		// nothing
+		case	0x01:		// EDC_ECC
+		case	0x05:		// HEADER + EDC_ECC
+		case	0x09:		// SUB-HEADER + EDC_ECC
+		case	0x0D:		// SUB-HEADER + HEADER + EDC_ECC
+		case	0x10:		// SYNC
+		case	0x11:		// SYNC + EDC_ECC
+		case	0x12:		// SYNC + USER_DATA
+		case	0x13:		// SYNC + USER_DATA + EDC_ECC
+		case	0x15:		// SYNC + HEADER + EDC_ECC
+		case	0x18:		// SYNC + SUB-HEADER
+		case	0x19:		// SYNC + SUB-HEADER + EDC_ECC
+		case	0x1A:		// SYNC + SUB-HEADER + USER_DATA
+		case	0x1B:		// SYNC + SUB-HEADER + USER_DATA + EDC_ECC
+		case	0x1D:		// SYNC + SUB-HEADER + HEADER + EDC_ECC
+		{
+		
+			return false;
+			
+		}
+		
+		case	0x02:		// USER_DATA
+		case	0x03:		// USER_DATA + EDC_ECC
+		case	0x04:		// HEADER
+		case	0x08:		// SUB-HEADER
+		case	0x0A:		// SUB-HEADER + USER_DATA
+		case	0x0B:		// SUB-HEADER + USER_DATA + EDC_ECC
+		case	0x0C:		// SUB-HEADER + HEADER
+		case	0x0E:		// SUB-HEADER + HEADER + USER_DATA
+		case	0x0F:		// SUB-HEADER + HEADER + USER_DATA + EDC_ECC
+		case	0x14:		// SYNC + HEADER
+		case	0x1E:		// SYNC + SUB-HEADER + HEADER + USER_DATA
+		case	0x1F:		// SYNC + SUB-HEADER + HEADER + USER_DATA + EDC_ECC
+		{
+			
+			// legal combination
+			break;
+			
+		}
+		
+		case	0x06:		// HEADER + USER_DATA
+		case	0x07:		// HEADER + USER_DATA + EDC_ECC
+		case	0x16:		// SYNC + HEADER + USER_DATA
+		case	0x17:		// SYNC + HEADER + USER_DATA + EDC_ECC
+		case	0x1C:		// SYNC + SUB-HEADER + HEADER
+		{
+			
+			// illegal for mode 2, form 1 and mode 2, form 2 sectors
+			
+			require ( ( EXPECTED_SECTOR_TYPE < 4 ), ErrorExit );			
+			break;
+			
+		}
+		
+		default:
+		{
+			goto ErrorExit;
+		}
+		
+	}
+	
+	headerSize	= 4;
+	syncSize	= 12;
+	
+	switch ( EXPECTED_SECTOR_TYPE )
+	{
+		
+		case 0:		// all types
+		case 1:		// CD-DA
+		{
+			break;
+		}
+		
+		case 2:		// mode 1
+		{
+			userDataSize	= 2048;
+			edcEccSize		= 288;
+			subHeaderSize	= 0;
+			break;
+		}
+		
+		case 3:		// mode 2, formless
+		{
+			userDataSize	= 2048 + 288;
+			edcEccSize		= 0;
+			subHeaderSize	= 0;
+			break;
+		}
+		
+		case 4:		// mode 2, form 1
+		{
+			userDataSize	= 2048;
+			edcEccSize		= 280;
+			subHeaderSize	= 8;
+			break;
+		}
+		
+		case 5:		// mode 2, form 2
+		{
+			userDataSize	= 2048 + 280;
+			edcEccSize		= 0;
+			subHeaderSize	= 8;
+			break;
+		}
+		
+		default:
+		{
+			goto ErrorExit;
+		}
+		
+	}
+	
+	if ( ( EXPECTED_SECTOR_TYPE == 0 ) || ( EXPECTED_SECTOR_TYPE == 1 ) )
+	{
+		
+		*requestedByteCount = 2352;
+		
+	}
+	
+	else
+	{
+		
+		*requestedByteCount = 0;
+		
+		if ( SYNC )
+		{
+			
+			*requestedByteCount += syncSize;
+			
+		}
+		
+		if ( HEADER_CODES & 0x01 )
+		{
+			
+			*requestedByteCount += headerSize;
+			
+		}
+		
+		if ( HEADER_CODES & 0x02 )
+		{
+			
+			*requestedByteCount += subHeaderSize;
+			
+		}
+		
+		if ( USER_DATA )
+		{
+			
+			*requestedByteCount += userDataSize;
+			
+		}
+		
+		if ( EDC_ECC )
+		{
+			
+			*requestedByteCount += edcEccSize;
+			
+		}
+		
+	}
+	
+	if ( ( ERROR_FIELD & 0x03 ) == 0x01 )
+	{
+		
+		*requestedByteCount += C2_ERROR_BLOCK_DATA_SIZE;
+		
+	}
+	
+	else if ( ( ERROR_FIELD & 0x03 ) == 0x02 )
+	{
+		
+		*requestedByteCount += C2_AND_BLOCK_ERROR_BITS_SIZE;
+		
+	}
+	
+	require ( ( ERROR_FIELD == 0 ), ErrorExit );
+	
+	if ( SUBCHANNEL_SELECTION_BITS != 0 )
+	{
+		
+		*requestedByteCount += SUBCHANNEL_DATA_SIZE;
+		
+	}
+	
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		IOSCSIMultimediaCommandsDevice::ConvertMSFToLBA
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		The MSF to LBA conversion routine.
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSICmdField4Byte
+IOSCSIMultimediaCommandsDevice::ConvertMSFToLBA (
+								SCSICmdField3Byte 	MSF )
+{
+	
+	SCSICmdField4Byte	LBA = 0;
+	
+	LBA  = MSF >> 16;				// start with minutes
+	LBA *= SECONDS_IN_A_MINUTE;		// convert minutes to seconds
+	LBA += ( MSF >>  8 ) & 0xFF;	// add seconds
+	LBA *= FRAMES_IN_A_SECOND;		// convert seconds to frames
+	LBA += MSF & 0xFF;				// add frames
+	
+	require_action ( ( LBA >= LBA_0_OFFSET ), ErrorExit, LBA = 0 );
+	
+	LBA -= LBA_0_OFFSET;		// subtract the offset of LBA 0
+	
+	
+ErrorExit:
+	
+	
+	return LBA;
+	
+}
 
 
 #if 0

@@ -74,9 +74,12 @@ enum
 #include <IOKit/storage/IOStorage.h>
 
 // SCSI Architecture Model Family includes
-#include <IOKit/scsi-commands/SCSIBlockCommands.h>
 #include <IOKit/scsi-commands/IOSCSIPrimaryCommandsDevice.h>
 
+
+// Forward declaration for the SCSIBlockCommands that is used internally by the
+// IOSCSIBlockCommandsDevice class.
+class SCSIBlockCommands;
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Class Declaration
@@ -101,11 +104,18 @@ protected:
 	{
 		IONotifier *		fPowerDownNotifier;
 		bool				fWriteCacheEnabled;
+		bool				fDeviceIsShared;
 	};
     IOSCSIBlockCommandsDeviceExpansionData * fIOSCSIBlockCommandsDeviceReserved;
 	
 	#define fPowerDownNotifier	fIOSCSIBlockCommandsDeviceReserved->fPowerDownNotifier
 	#define fWriteCacheEnabled	fIOSCSIBlockCommandsDeviceReserved->fWriteCacheEnabled
+
+	// The fDeviceIsShared is used to indicate whether this device exists on a Physical
+	// Interconnect that allows multiple initiators to access it.  This is used mainly
+	// by the power management code to not send power state related START_STOP_UNIT
+	// commands to the device.
+	#define fDeviceIsShared	fIOSCSIBlockCommandsDeviceReserved->fDeviceIsShared
 	
 	// ---- Device Characteristics ----
 	UInt8				fANSIVersion;		/* DEPRECATED. Use IOSCSIPrimaryCommandsDevice::Get/SetANSIVersion */

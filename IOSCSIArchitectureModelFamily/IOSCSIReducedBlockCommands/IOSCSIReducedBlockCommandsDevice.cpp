@@ -37,8 +37,9 @@
 // SCSI Architecture Model Family includes
 #include <IOKit/scsi-commands/SCSICommandDefinitions.h>
 
-#include "IOReducedBlockServices.h"
-#include "IOSCSIReducedBlockCommandsDevice.h"
+#include <IOKit/scsi-commands/IOReducedBlockServices.h>
+#include <IOKit/scsi-commands/IOSCSIReducedBlockCommandsDevice.h>
+#include "SCSIReducedBlockCommands.h"
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -89,8 +90,10 @@ OSDefineAbstractStructors ( IOSCSIReducedBlockCommandsDevice, IOSCSIPrimaryComma
 #define kModeSenseWriteProtectBufferSize	17
 #define kWriteProtectMask					0x04
 #define kAppleKeySwitchProperty				"AppleKeyswitch"
+#define kFibreChannelHDIconKey				"FibreChannleHD.icns"
 #define kFireWireHDIconKey					"FireWireHD.icns"
 #define kUSBHDIconKey						"USBHD.icns"
+#define	kDefaultMaxBlocksPerIO				65535
 
 
 #if 0
@@ -486,34 +489,73 @@ IOSCSIReducedBlockCommandsDevice::ReportMaxReadTransfer (
 									UInt64 * 	max )
 {
 	
-	UInt64	maxBlockCount 	= 256;		// ¥¥¥ This is an artificial limit. It needs to be revisited.
+	UInt64	maxBlockCount 	= kDefaultMaxBlocksPerIO;
+	UInt64	maxByteCount	= 0;
 	bool	supported		= false;
 	
-    STATUS_LOG ( ( "IOSCSIReducedBlockCommandsDevice::ReportMaxReadTransfer\n" ) );
+	STATUS_LOG ( ( "IOSCSIReducedBlockCommandsDevice::ReportMaxReadTransfer.\n" ) );
 	
 	// See if the transport driver wants us to limit the block transfer count
 	supported = GetProtocolDriver ( )->IsProtocolServiceSupported (
 						kSCSIProtocolFeature_MaximumReadBlockTransferCount,
-						&maxBlockCount );	
+						&maxBlockCount );
 	
 	if ( supported == false )
-	{
-		
-		UInt64	maxByteCount = 0;
-		
-		// See if the transport driver wants us to limit the transfer byte count
-		supported = GetProtocolDriver ( )->IsProtocolServiceSupported (
+		maxBlockCount = kDefaultMaxBlocksPerIO;
+	
+	// See if the transport driver wants us to limit the transfer byte count
+	supported = GetProtocolDriver ( )->IsProtocolServiceSupported (
 						kSCSIProtocolFeature_MaximumReadTransferByteCount,
 						&maxByteCount );	
+	
+	if ( ( supported == true ) && ( maxByteCount > 0 ) && ( fMediaBlockSize > 0 ) )
+	{
 		
-		if ( ( supported == true ) &&
-			 ( maxByteCount > 0 )  &&
-			 ( blockSize > 0 ) )
-		{
-			
-			maxBlockCount = maxByteCount / blockSize;
-			
-		}
+		maxBlockCount = min ( maxBlockCount, ( maxByteCount / fMediaBlockSize ) );
+		
+	}
+	
+	*max = maxBlockCount * blockSize;
+	
+	return kIOReturnSuccess;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ReportMaxWriteTransfer - Reports maximum write transfer in bytes.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+IOSCSIReducedBlockCommandsDevice::ReportMaxWriteTransfer (
+									UInt64		blockSize,
+									UInt64 *	max )
+{
+	
+	UInt64	maxBlockCount 	= kDefaultMaxBlocksPerIO;
+	UInt64	maxByteCount	= 0;
+	bool	supported		= false;
+	
+	STATUS_LOG ( ( "IOSCSIReducedBlockCommandsDevice::ReportMaxWriteTransfer.\n" ) );
+	
+	// See if the transport driver wants us to limit the block transfer count
+	supported = GetProtocolDriver ( )->IsProtocolServiceSupported (
+						kSCSIProtocolFeature_MaximumWriteBlockTransferCount,
+						&maxBlockCount );
+	
+	if ( supported == false )
+		maxBlockCount = kDefaultMaxBlocksPerIO;
+	
+	// See if the transport driver wants us to limit the transfer byte count
+	supported = GetProtocolDriver ( )->IsProtocolServiceSupported (
+						kSCSIProtocolFeature_MaximumWriteTransferByteCount,
+						&maxByteCount );	
+	
+	if ( ( supported == true ) && ( maxByteCount > 0 ) && ( fMediaBlockSize > 0 ) )
+	{
+		
+		maxBlockCount = min ( maxBlockCount, ( maxByteCount / fMediaBlockSize ) );
 		
 	}
 	
@@ -534,55 +576,6 @@ IOSCSIReducedBlockCommandsDevice::ReportMaxValidBlock ( UInt64 * maxBlock )
 {
 	
 	*maxBlock = fMediaBlockCount - 1;
-	return kIOReturnSuccess;
-	
-}
-
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ ReportMaxWriteTransfer - Reports maximum write transfer in bytes.
-//																	   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
-IOReturn
-IOSCSIReducedBlockCommandsDevice::ReportMaxWriteTransfer (
-									UInt64		blockSize,
-									UInt64 *	max )
-{
-	
-	UInt64	maxBlockCount 	= 256;		// ¥¥¥ This is an artificial limit. It needs to be revisited.
-	bool	supported		= false;
-	
-    STATUS_LOG ( ( "IOSCSIReducedBlockCommandsDevice::ReportMaxWriteTransfer\n" ) );
-	
-	// See if the transport driver wants us to limit the block transfer count
-	supported = GetProtocolDriver ( )->IsProtocolServiceSupported (
-						kSCSIProtocolFeature_MaximumWriteBlockTransferCount,
-						&maxBlockCount );	
-	
-	if ( supported == false )
-	{
-		
-		UInt64	maxByteCount = 0;
-		
-		// See if the transport driver wants us to limit the transfer byte count
-		supported = GetProtocolDriver ( )->IsProtocolServiceSupported (
-						kSCSIProtocolFeature_MaximumWriteTransferByteCount,
-						&maxByteCount );	
-		
-		if ( ( supported == true ) &&
-			 ( maxByteCount > 0 )  &&
-			 ( blockSize > 0 ) )
-		{
-			
-			maxBlockCount = maxByteCount / blockSize;
-			
-		}
-		
-	}
-	
-	*max = maxBlockCount * blockSize;
-	
 	return kIOReturnSuccess;
 	
 }
@@ -723,6 +716,9 @@ IOSCSIReducedBlockCommandsDevice::InitializeDeviceSupport ( void )
 	
 	STATUS_LOG ( ( "%s::%s setupSuccessful = %d\n", getName ( ),
 					__FUNCTION__, setupSuccessful ) );
+	
+	setProperty ( kIOMaximumBlockCountReadKey,  kDefaultMaxBlocksPerIO, 64 );
+	setProperty ( kIOMaximumBlockCountWriteKey, kDefaultMaxBlocksPerIO, 64 );
 	
 	return setupSuccessful;
 	
@@ -1291,11 +1287,30 @@ IOSCSIReducedBlockCommandsDevice::SetMediaCharacteristics (
 									UInt32	blockCount )
 {
 	
+	UInt64		maxBytesRead	= 0;
+	UInt64		maxBytesWrite	= 0;
+	UInt64		maxBlocksRead	= 0;
+	UInt64		maxBlocksWrite	= 0;
+	
 	STATUS_LOG ( ( "mediaBlockSize = %ld, blockCount = %ld\n",
 					blockSize, blockCount ) );
 	
 	fMediaBlockSize		= blockSize;
 	fMediaBlockCount	= blockCount;
+	
+	ReportMaxReadTransfer  ( fMediaBlockSize, &maxBytesRead );
+	ReportMaxWriteTransfer ( fMediaBlockSize, &maxBytesWrite );
+	
+	if ( fMediaBlockSize > 0 )
+	{
+		
+		maxBlocksRead 	= maxBytesRead / fMediaBlockSize;
+		maxBlocksWrite	= maxBytesWrite / fMediaBlockSize;
+		
+		setProperty ( kIOMaximumBlockCountReadKey, maxBlocksRead, 64 );
+		setProperty ( kIOMaximumBlockCountWriteKey, maxBlocksWrite, 64 );
+		
+	}
 	
 }
 
@@ -1762,6 +1777,7 @@ IOSCSIReducedBlockCommandsDevice::SetMediaIcon ( void )
 	//
 	// We currently have icons for the following:
 	//	¥ Firewire HD
+	//	¥ FibreChannel HD
 	//	¥ USB HD
 	//	¥ SuperDisk
 	//	¥ MagnetoOptical
@@ -1827,6 +1843,14 @@ IOSCSIReducedBlockCommandsDevice::SetMediaIcon ( void )
 						{
 							
 							resourceFile = OSString::withCString ( kUSBHDIconKey );
+							
+						}
+						
+						// If the protocol is FibreChannel, it needs an icon.
+						if ( strcmp ( protocol, "Fibre Channel Interface" ) == 0 )
+						{
+							
+							resourceFile = OSString::withCString ( kFibreChannelHDIconKey );
 							
 						}
 						

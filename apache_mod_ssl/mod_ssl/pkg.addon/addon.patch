@@ -8,7 +8,7 @@
 ##
 ## Annotated patch file: addon.patch
 ## Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 24-Jun-2002
+## Created on: 04-Oct-2002
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be
@@ -145,8 +145,8 @@ Index: htdocs/manual/mod/index.html.en
 | Add a hyperlink for the Define directives.
 +---------------------------------------------------------------------------
 Index: htdocs/manual/mod/directives.html.en
---- htdocs/manual/mod/directives.html.en	27 Mar 2002 15:23:17 -0000	1.1.1.3
-+++ htdocs/manual/mod/directives.html.en	27 Mar 2002 15:30:01 -0000	1.4
+--- htdocs/manual/mod/directives.html.en	4 Oct 2002 11:50:01 -0000	1.1.1.4
++++ htdocs/manual/mod/directives.html.en	4 Oct 2002 11:54:56 -0000	1.5
 @@ -220,6 +220,8 @@
  
        <li><a href="core.html#defaulttype">DefaultType</a></li>

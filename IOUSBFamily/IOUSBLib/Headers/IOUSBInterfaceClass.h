@@ -37,10 +37,6 @@ protected:
     IOUSBInterfaceClass();
     virtual ~IOUSBInterfaceClass();
 
-    enum constants {
-        kMaxPoolSize = 8
-    };
-
     static IOCFPlugInInterface 		sIOCFPlugInInterfaceV1;
     static IOUSBInterfaceInterface192  	sUSBInterfaceInterfaceV192;
 
@@ -65,7 +61,9 @@ protected:
     UInt16			fProduct;
     UInt16			fDeviceReleaseNumber;
     UInt32			fLocationID;
-    
+    // Support for low latency buffers
+    UInt32			fNextCookie;
+    LowLatencyUserBufferInfo *	fUserBufferInfoListHead;
     
 public:
     static IOCFPlugInInterface **alloc();
@@ -116,6 +114,14 @@ public:
                                   IOAsyncCallback1 callback, void *refcon);
     virtual IOReturn LowLatencyReadIsochPipeAsync(UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames, UInt32 updateFrequency, IOUSBLowLatencyIsocFrame *frameList, IOAsyncCallback1 callback, void *refcon);
     virtual IOReturn LowLatencyWriteIsochPipeAsync(UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames, UInt32 updateFrequency, IOUSBLowLatencyIsocFrame *frameList, IOAsyncCallback1 callback, void *refcon);
+    virtual IOReturn LowLatencyCreateBuffer(void * *buffer, IOByteCount size, UInt32 bufferType);
+    virtual IOReturn LowLatencyDestroyBuffer(void * buffer);
+
+    virtual void 			AddDataBufferToList( LowLatencyUserBufferInfo * insertBuffer );
+    virtual bool			RemoveDataBufferFromList( LowLatencyUserBufferInfo * removeBuffer );
+    virtual LowLatencyUserBufferInfo *	FindBufferAddressInList( void * address );
+    virtual LowLatencyUserBufferInfo *	FindBufferAddressRangeInList( void * address, UInt32 size );
+
     virtual IOReturn GetInterfaceStringIndex(UInt8 *intfSI);
 				  
 private:
@@ -196,6 +202,8 @@ protected:
                                     UInt32 updateFrequency, IOUSBLowLatencyIsocFrame *frameList, IOAsyncCallback1 callback, void *refcon);
     static IOReturn interfaceLowLatencyWriteIsochPipeAsync(void *self, UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames,
                                   UInt32 updateFrequency, IOUSBLowLatencyIsocFrame *frameList, IOAsyncCallback1 callback, void *refcon);
+    static IOReturn interfaceLowLatencyCreateBuffer(void *self, void * *buffer, IOByteCount size, UInt32 bufferType);
+    static IOReturn interfaceLowLatencyDestroyBuffer(void *self, void * buffer );
    
 };
 

@@ -213,6 +213,9 @@ struct hfsparams {
 	UInt32		hfsAlignment;
 	UInt32		hfsWrapperFreeBlks;
 	UInt8		volumeName[64];		/* in UTF-8 */
+	UInt32 		journaledHFS;
+	UInt32 		journalSize;
+    	UInt8		*journalDevice;
 };
 typedef struct hfsparams hfsparams_t;
 

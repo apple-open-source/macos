@@ -193,31 +193,40 @@ void Heathrow::EnableSCC(bool state)
 {
 	IOInterruptState intState;
     
-    if ( mutex  != NULL )
-    	intState = IOSimpleLockLockDisableInterrupt(mutex);
+
 	
     if (state)
     {
 
-        // Enables the SCC cell: 0x00420000 (this starts scc clock and enables scca)
-        *(UInt32*)(heathrowBaseAddress + heathrowFCROffset) |= ( heathrowFCSCCCEn | heathrowFCSCCAEn );	    
-        eieio();
-
-       /* // Resets the SCC:
-        *(UInt32*)(heathrowBaseAddress + heathrowFCROffset) |= heathrowFCResetSCC;
-        eieio();
-
-        IOSleep(15);
+        if ( mutex  != NULL )
+    		intState = IOSimpleLockLockDisableInterrupt(mutex);
+       	 // Enables the SCC cell: 0x00420000 (this starts scc clock and enables scca)
+       	 *(UInt32*)(heathrowBaseAddress + heathrowFCROffset) |= ( heathrowFCSCCCEn | heathrowFCSCCAEn );	    
+        if ( mutex  != NULL )
+			IOSimpleLockUnlockEnableInterrupt(mutex, intState);
+        
+        if ( mutex  != NULL )
+    	intState = IOSimpleLockLockDisableInterrupt(mutex);
+       	// Resets the SCC:
+       	 *(UInt32*)(heathrowBaseAddress + heathrowFCROffset) |= heathrowFCResetSCC;        
+        if ( mutex  != NULL )
+			IOSimpleLockUnlockEnableInterrupt(mutex, intState);
+        
+        IOSleep(15); 
+        
+        if ( mutex  != NULL )
+    		intState = IOSimpleLockLockDisableInterrupt(mutex);        
         *(UInt32*)(heathrowBaseAddress + heathrowFCROffset) &= ~heathrowFCResetSCC;
-        eieio(); */
+        if ( mutex  != NULL )
+			IOSimpleLockUnlockEnableInterrupt(mutex, intState);
+        
     }
     else
     {
         // disable
     }
     
-    if ( mutex  != NULL )
-		IOSimpleLockUnlockEnableInterrupt(mutex, intState);
+  
     
 
     return;

@@ -2,32 +2,7 @@
 things that still need to be fixed
 -------------------------------------------------------------------------------
 
-write a sample pccard16 driver
-	- test different types of matching
-
-write a simple sram driver
-	- create a nub of type IOBlockStorageDevice, look at DiskImages
-	- ApplePCCardSRAMDevice -> IOBlockStorageDevice -> IOMedia
-
-write code to create MTD driver nubs using using JEDEC tuples for matching
-	- they would need to get loaded first
-	- the MTD is not fully hooked up yet, search for mtd_req
-		-it might be easier to ditch the MTD code?
-	- workaround: make MTD drivers part of regular memory driver
-
-write funky cis tuple code
-	- look for specific tuple and match against its data
-	- default enabler should check for card match and then
-	  patch cis data from info in the XML file
-	- it would be cool to be specify a specific configuration index 
-	  to use on a per card basis in the xml file
-	- the entry in xml wouldn't have to specify a class, 
-	  it could just do the patch (if that even works?)
-
-write and call a new macosx version of exit_pcmcia_cs()
-	- the pccard card family doesn't unload yet
-
-update code base to pcmcia-cs-3.1.26 (last check it was pcmcia-cs-3.1.31)
+update code base to pcmcia-cs-3.2+
 	- fix the cardbus code, it should delay the creation of the nub
 		- switch CS cardbus to pci "space" addressing instead of the nub
 		- make cardbus and 16 bit code more symetric
@@ -40,18 +15,42 @@ fix rsrc_mgr.c it should be rewritten in terms of IOKit, ie IORangeAllocator
 	- release_io_region(u_long base, u_long num); aka, release_region
 	- fix the PCI code to handle the returning of used address space
         
+write and call a new macosx version of exit_pcmcia_cs()
+	- the pccard card family doesn't unload yet
+	
+write a code to support pci 2 cardbus add-in cards for desktop machines
+	- it works, but it must be configured by hand
+	- sleep is broken on new machines (need to save config space state?)
+
+write funky cis tuple code
+	- look for specific tuple and match against its data
+	- default enabler should check for card match and then
+	  patch cis data from info in the XML file
+	- it would be cool to be specify a specific configuration index 
+	  to use on a per card basis in the xml file
+	- the entry in xml wouldn't have to specify a class, 
+	  it could just do the patch (if that even works?)
+
+write a sample pccard16 driver
+	- test different types of matching
+
+write a simple sram driver
+	- create a nub of type IOBlockStorageDevice, look at DiskImages
+	- ApplePCCardSRAMDevice -> IOBlockStorageDevice -> IOMedia
+
 fix the Zoom Video code, it is not tested/complete.
 
-fix cardbus2pci bridges are broken on X
-	- need to add code to check for OF created nubs?
-	- need additional pci bridge scanning/setup code?
-
 fix intel need to be tested/debugged, known holes
-	- need way to allocate IRQs from system
 
 -------------------------------------------------------------------------------
 possible code enhancements - later (much later)
 -------------------------------------------------------------------------------
+
+write code to create MTD driver nubs using using JEDEC tuples for matching
+	- they would need to get loaded first
+	- the MTD is not fully hooked up yet, search for mtd_req
+		-it might be easier to ditch the MTD code?
+	- workaround: make MTD drivers part of regular memory driver
 
 write a ds style driver interface for the ds ioctls? can probably use
 IORegistry and get/setProperties() hook to catch things, or io_connect

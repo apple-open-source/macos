@@ -1,0 +1,161 @@
+.\"(c) Copyright 1992, 1993 by Panagiotis Tsirigotis
+.\"All rights reserved.  The file named COPYRIGHT specifies the terms 
+.\"and conditions for redistribution.
+.\"
+.\" $Id: strparse.3,v 1.1.1.1 2002/01/31 07:09:04 zarzycki Exp $
+.TH STRPARSE 3X "30 September 1992"
+.SH NAME
+str_parse, str_endparse, str_component, str_separator, str_nextpos
+.SH SYNOPSIS
+.LP
+.nf
+.ft B
+#include "str.h"
+.LP
+.ft B
+str_h str_parse( str, separ, flags, errnop )
+char *str ;
+char *separ ;
+int flags ;
+int *errnop ;
+.LP
+.ft B
+void str_endparse( handle )
+str_h handle ;
+.LP
+.ft B
+char *str_component( handle )
+str_h handle ;
+.LP
+.ft B
+int str_setstr( handle, newstr )
+str_h handle ;
+char *newstr ;
+.LP
+.ft B
+int str_separator( handle, separ )
+str_h handle ;
+char *separ ;
+.LP
+.ft B
+char *str_nextpos( handle )
+str_h handle ;
+.LP
+extern int str_errno ;
+.SH DESCRIPTION
+.LP
+These functions are useful for parsing strings.  In this context
+parsing means breaking the string into substrings. The substrings are
+separated by a list of possible separator characters.
+.LP
+.B str_component()
+returns successive substrings of the string.
+.B str_parse()
+creates and initializes a string parser with the string
+that will be processed, \fIstr\fR, the list of possible separator
+characters, \fIsepar\fR, and flags that control how the parser
+works. The \fIflags\fR argument is formed by ORing one or more of
+the following constants:
+.TP 20
+.SB STR_RETURN_ERROR
+If something goes wrong return a value that indicates that an error occured
+(e.g. out of memory). The default is for the program to be terminated
+with an appropriate error message.
+.TP
+.SB STR_NULL_START
+If \fIstr\fR starts with a separator then a zero-length string will be returned
+the first time \fBstr_component()\fR is called.
+.TP
+.SB STR_NULL_END
+If \fIstr\fR ends with a separator then a zero-length string will be returned
+by \fBstr_component()\fR when the substrings of \fIstr\fR are exhausted.
+.TP
+.SB STR_MALLOC
+The strings returned by \fBstr_component()\fR will be in malloc'ed memory.
+By default the substrings are part of \fIstr\fR.
+If this option is not used \fIstr\fR will be modified
+by \fBstr_component()\fR.
+.LP
+Finally, \fBSTR_NOFLAGS\fR may be used to specify no flags.
+The \fIerrnop\fR argument points to an integer where the string processing
+functions will deposit an error code if an error occurs.
+If \fIerrnop\fR
+is
+.SM NULL
+the error codes will be placed in \fIstr_errno\fR.
+This is useful only if \fBSTR_RETURN_ERROR\fR is used in \fIflags\fR.
+It is possible that \fIstr\fP is 
+.SM NULL.
+In this case, a subsequent
+.B str_setstr()
+should be used to specify the string to be processed.
+.LP
+.B str_component()
+returns successive substrings from the string associated with the
+parser specified by \fIhandle\fR.
+.LP
+.B str_endparse()
+destroys the parser specified by \fIhandle\fR.
+.LP
+.B str_setstr()
+changes the processed string to \fInewstr\fP.
+.LP
+.B str_separator()
+replaces the list of separator characters with \fIsepar\fR.
+Processing continues from the current position.
+.LP
+.B str_nextpos()
+returns a pointer to the rest of the string. The previous character
+is a separator character (if \fBSTR_MALLOC\fR is not set, then the
+previous character is
+.SM NUL
+).
+.SH "RETURN VALUES"
+.LP
+.B str_parse()
+returns a parser handle or
+.SM NULL
+if something goes wrong and \fIflags\fR & \fBSTR_RETURN_ERROR\fR is true.
+Possible \fIstr_errno\fR values:
+.RS
+.TP 20
+.SB STR_ENULLSEPAR
+\fIsepar\fR is
+.SM NULL
+.TP
+.SB STR_ENOMEM
+the program ran out of memory
+.RE
+.LP
+.B str_component()
+returns a pointer to the next substring or
+.SM NULL
+if something goes wrong and \fIflags\fR & \fBSTR_RETURN_ERROR\fR is true.
+.LP
+.B str_setstr()
+returns 
+.SB STR_OK
+on success or
+.SB STR_ERR
+on failure.
+.LP
+.B str_separator()
+returns 
+.SB STR_OK
+on success or
+.SB STR_ERR
+on failure.
+.LP
+.B str_nextpos()
+returns a pointer or
+.SM NULL
+if the end of string has been reached.
+.SH BUGS
+.B str_component()
+modifies the string unless \fBSTR_MALLOC\fR is
+set in the parser.
+.LP
+There should be only one parser active on a specific string. If there
+is more than
+one, they all must use the \fBSTR_MALLOC\fR option.
+

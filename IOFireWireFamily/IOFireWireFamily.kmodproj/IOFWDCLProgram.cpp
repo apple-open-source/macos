@@ -171,14 +171,14 @@ void IODCLProgram::dumpDCL(DCLCommand *op)
         switch(opcode) {
             case kDCLReceivePacketStartOp :
             {
-                DCLTransferPacketPtr t = (DCLTransferPacketPtr) op;
+                DCLTransferPacket* t = (DCLTransferPacket*) op;
 
                 IOLog("ReceivePacketStartDCL to 0x%p, size %ld", t->buffer, t->size);
                 break;
             }
             case kDCLReceivePacketOp :
             {
-                DCLTransferPacketPtr t = (DCLTransferPacketPtr) op;
+                DCLTransferPacket* t = (DCLTransferPacket*) op;
 
                 IOLog("ReceivePacketDCL to 0x%p, size %ld", t->buffer, t->size);
                 break;
@@ -186,7 +186,7 @@ void IODCLProgram::dumpDCL(DCLCommand *op)
 
             case kDCLSendPacketStartOp :
             {
-                DCLTransferPacketPtr t = (DCLTransferPacketPtr) op;
+                DCLTransferPacket* t = (DCLTransferPacket*) op;
 
                 IOLog("SendPacketStartDCL from 0x%p, size %ld", t->buffer, t->size);
                 break;
@@ -194,7 +194,7 @@ void IODCLProgram::dumpDCL(DCLCommand *op)
 
             case kDCLSendPacketWithHeaderStartOp :
             {
-                DCLTransferPacketPtr t = (DCLTransferPacketPtr) op;
+                DCLTransferPacket* t = (DCLTransferPacket*) op;
 
                 IOLog("SendPacketWithHeaderStartDCL from 0x%px, size %ld", t->buffer, t->size);
                 break;
@@ -202,7 +202,7 @@ void IODCLProgram::dumpDCL(DCLCommand *op)
 
             case kDCLSendPacketOp :
             {
-                DCLTransferPacketPtr t = (DCLTransferPacketPtr) op;
+                DCLTransferPacket* t = (DCLTransferPacket*) op;
 
                 IOLog("SendPacketDCL from 0x%p, size %ld", t->buffer, t->size);
                 break;
@@ -210,13 +210,13 @@ void IODCLProgram::dumpDCL(DCLCommand *op)
 
             case kDCLCallProcOp :
             {
-                DCLCallProcPtr t = (DCLCallProcPtr) op;
+                DCLCallProc* t = (DCLCallProc*) op;
 
-                IOLog("CallProcDCL calling 0x%p(0x%lx)", t->proc, t->procData);
+                IOLog("CallProcDCL calling %p (0x%lx)", t->proc, t->procData);
                 break;
             }
             case kDCLJumpOp :
-                IOLog("JumpDCL to 0x%p", ((DCLJumpPtr)op)->pJumpDCLLabel);
+                IOLog("JumpDCL to 0x%p", ((DCLJump*)op)->pJumpDCLLabel);
                 break;
 
             case kDCLLabelOp :
@@ -230,8 +230,8 @@ void IODCLProgram::dumpDCL(DCLCommand *op)
             case kDCLUpdateDCLListOp :
             {
                 unsigned int i;
-                DCLUpdateDCLListPtr t = (DCLUpdateDCLListPtr) op;
-                DCLCommandPtr *p = t->dclCommandList;
+                DCLUpdateDCLList* t = (DCLUpdateDCLList*) op;
+                DCLCommand** p = t->dclCommandList;
                 IOLog("updateDCLListDCL:");
                 for(i=0; i<t->numDCLCommands; i++)
                     IOLog("0x%p ", *p++);

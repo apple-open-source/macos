@@ -1,63 +1,62 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
+* Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+*
+* @APPLE_LICENSE_HEADER_START@
+* 
+* The contents of this file constitute Original Code as defined in and
+* are subject to the Apple Public Source License Version 1.1 (the
+* "License").  You may not use this file except in compliance with the
+* License.  Please obtain a copy of the License at
+* http://www.apple.com/publicsource and read it before using this file.
+* 
+* This Original Code and all software distributed under the License are
+* distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+* EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+* INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+* License for the specific language governing rights and limitations
+* under the License.
+* 
+* @APPLE_LICENSE_HEADER_END@
+*/
 /*
- * Copyright (c) 1999 Apple Computer, Inc.  All rights reserved.
- *
- * HISTORY
- * 8 June 1999 wgulland created.
- *
- */
+* Copyright (c) 1999 Apple Computer, Inc.  All rights reserved.
+*
+* HISTORY
+* 8 June 1999 wgulland created.
+*
+*/
+/*
+	$Log: IOFireWireUserClient.cpp,v $
+	Revision 1.56  2002/09/25 00:27:25  niels
+	flip your world upside-down
+	
+	Revision 1.55  2002/09/12 22:41:54  niels
+	add GetIRMNodeID() to user client
+	
+*/
 
-#include <IOKit/assert.h>
-#include <IOKit/IOLib.h>
-#include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOTypes.h>
-#include <IOKit/IOMessage.h>
+#import <IOKit/IOLib.h>
 
-#include <IOKit/firewire/IOFireWireDevice.h>
-#include <IOKit/firewire/IOFireWireController.h>
-#include <IOKit/firewire/IOFWIsochChannel.h>
-#include <IOKit/firewire/IOFWLocalIsochPort.h>
-#include <IOKit/firewire/IOFWIsoch.h>
-#include <IOKit/firewire/IOFWAddressSpace.h>
-#include <IOKit/firewire/IOFireWireLink.h>
+#import <sys/proc.h>
 
-#include "IOFWUserClientPsdoAddrSpace.h"
-#include "IOFWUserClientPhysAddrSpace.h"
-#include "IOFWUserCommand.h"
-#include "IOFireWireUserClient.h"
-#include "IOFWUserIsochPort.h"
-#include "IOFWUserIsochChannel.h"
+#import "IOFireWireUserClient.h"
 
-#include <IOKit/IOBufferMemoryDescriptor.h>
-#include <sys/proc.h>
+#import "IOFireWireFamilyCommon.h"
+#import "IOFWUserPseudoAddressSpace.h"
+#import "IOFWUserPhysicalAddressSpace.h"
+#import "IOFWUserIsochChannel.h"
+#import "IOFWUserIsochPort.h"
+#import "IOFireWireNub.h"
+#import "IOLocalConfigDirectory.h"
+#import "IOFireWireController.h"
+#import "IOFireWireLibPriv.h"
+#import "IOFireWireDevice.h"
+#import "IOFireWireLink.h"
+#import "IOFWUserCommand.h"
 
-#include "IOFireLog.h"
-
-#ifndef MIN
-#define MIN(a,b) ((a < b ? a : b))
-#endif
-
-#define DEBUGGING_LEVEL ((0))
+#import <IOKit/IOMessage.h>
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -67,9 +66,9 @@ OSDefineMetaClassAndStructors(IOFireWireUserClient, IOUserClient) ;
 
 IOFireWireUserClient *IOFireWireUserClient::withTask(task_t owningTask)
 {
-    IOFireWireUserClient*	me				= new IOFireWireUserClient;
+	IOFireWireUserClient*	me				= new IOFireWireUserClient;
 
-    if (me)
+	if (me)
 		if (me->init())
 		{
 			me->fTask = owningTask;
@@ -82,22 +81,22 @@ IOFireWireUserClient *IOFireWireUserClient::withTask(task_t owningTask)
 			return NULL;
 		}
 
-    return me;
+	return me;
 }
 
 
 bool
 IOFireWireUserClient::start( IOService * provider )
 {
-    if (!OSDynamicCast(IOFireWireNub, provider))
+	if (!OSDynamicCast(IOFireWireNub, provider))
 		return false ;
 
-    if(!IOUserClient::start(provider))
-        return false;
-    fOwner = (IOFireWireNub *)provider;
+	if(!IOUserClient::start(provider))
+		return false;
+	fOwner = (IOFireWireNub *)provider;
 
 	//
-    // Got the owner, so initialize the call structures
+	// Got the owner, so initialize the call structures
 	//
 	initMethodTable() ;
 	initIsochMethodTable() ;
@@ -207,7 +206,7 @@ IOFireWireUserClient::start( IOService * provider )
 	}
 	#endif
 	
-    return result ;
+	return result ;
 }
 
 void
@@ -403,13 +402,13 @@ IOFireWireUserClient::clientClose()
 	if ( !terminate() )
 		IOLog("IOFireWireUserClient::clientClose: terminate failed!, fOwner->isOpen(this) returned %u\n", fOwner->isOpen(this)) ;
 
-    return kIOReturnSuccess;
+	return kIOReturnSuccess;
 }
 
 IOReturn
 IOFireWireUserClient::clientDied( void )
 {
-    return( clientClose() );
+	return( clientClose() );
 }
 
 IOReturn
@@ -475,381 +474,381 @@ IOFireWireUserClient::removeObjectFromSet(OSObject* object, OSSet* set)
 void 
 IOFireWireUserClient::initMethodTable()
 {
-	fMethods[kFireWireOpen].object = this ;
-	fMethods[kFireWireOpen].func = (IOMethod) & IOFireWireUserClient::userOpen ;
-	fMethods[kFireWireOpen].count0 = 0 ;
-	fMethods[kFireWireOpen].count1 = 0 ;
-	fMethods[kFireWireOpen].flags = kIOUCScalarIScalarO ;
+	fMethods[kOpen].object = this ;
+	fMethods[kOpen].func = (IOMethod) & IOFireWireUserClient::userOpen ;
+	fMethods[kOpen].count0 = 0 ;
+	fMethods[kOpen].count1 = 0 ;
+	fMethods[kOpen].flags = kIOUCScalarIScalarO ;
 	
-	fMethods[kFireWireOpenWithSessionRef].object = this ;
-	fMethods[kFireWireOpenWithSessionRef].func = (IOMethod) & IOFireWireUserClient::userOpenWithSessionRef ;
-	fMethods[kFireWireOpenWithSessionRef].count0 = 1 ;
-	fMethods[kFireWireOpenWithSessionRef].count1 = 0 ;
-	fMethods[kFireWireOpenWithSessionRef].flags = kIOUCScalarIScalarO ;
+	fMethods[kOpenWithSessionRef].object = this ;
+	fMethods[kOpenWithSessionRef].func = (IOMethod) & IOFireWireUserClient::userOpenWithSessionRef ;
+	fMethods[kOpenWithSessionRef].count0 = 1 ;
+	fMethods[kOpenWithSessionRef].count1 = 0 ;
+	fMethods[kOpenWithSessionRef].flags = kIOUCScalarIScalarO ;
 	
-	fMethods[kFireWireClose].object = this ;
-	fMethods[kFireWireClose].func = (IOMethod) & IOFireWireUserClient::userClose ;
-	fMethods[kFireWireClose].count0 = 0 ;
-	fMethods[kFireWireClose].count1 = 0 ;
-	fMethods[kFireWireClose].flags = kIOUCScalarIScalarO ;
+	fMethods[kClose].object = this ;
+	fMethods[kClose].func = (IOMethod) & IOFireWireUserClient::userClose ;
+	fMethods[kClose].count0 = 0 ;
+	fMethods[kClose].count1 = 0 ;
+	fMethods[kClose].flags = kIOUCScalarIScalarO ;
 	
-	fMethods[kFireWireReadQuad].object 	= this;
-	fMethods[kFireWireReadQuad].func	= (IOMethod)&IOFireWireUserClient::readQuad;
-	fMethods[kFireWireReadQuad].count0	= sizeof( FWReadQuadParams ) ;//4;
-	fMethods[kFireWireReadQuad].count1	= sizeof( UInt32 ) ;//1;
-	fMethods[kFireWireReadQuad].flags	= kIOUCStructIStructO;
+	fMethods[kReadQuad].object 	= this;
+	fMethods[kReadQuad].func	= (IOMethod)&IOFireWireUserClient::readQuad;
+	fMethods[kReadQuad].count0	= sizeof( ReadQuadParams ) ;//4;
+	fMethods[kReadQuad].count1	= sizeof( UInt32 ) ;//1;
+	fMethods[kReadQuad].flags	= kIOUCStructIStructO;
 	
-	fMethods[kFireWireRead].object = this;
-	fMethods[kFireWireRead].func =
+	fMethods[kRead].object = this;
+	fMethods[kRead].func =
 		(IOMethod)&IOFireWireUserClient::read;
-	fMethods[kFireWireRead].count0 = sizeof( FWReadParams );
-	fMethods[kFireWireRead].count1 = sizeof( IOByteCount ) ;
-	fMethods[kFireWireRead].flags = kIOUCStructIStructO;
+	fMethods[kRead].count0 = sizeof( ReadParams );
+	fMethods[kRead].count1 = sizeof( IOByteCount ) ;
+	fMethods[kRead].flags = kIOUCStructIStructO;
 	
-	fMethods[kFireWireWriteQuad].object	= this;
-	fMethods[kFireWireWriteQuad].func	= (IOMethod)&IOFireWireUserClient::writeQuad;
-	fMethods[kFireWireWriteQuad].count0	= sizeof( FWWriteQuadParams ) ;//5;
-	fMethods[kFireWireWriteQuad].count1	= 0;
-	fMethods[kFireWireWriteQuad].flags	= kIOUCStructIStructO;
+	fMethods[kWriteQuad].object	= this;
+	fMethods[kWriteQuad].func	= (IOMethod)&IOFireWireUserClient::writeQuad;
+	fMethods[kWriteQuad].count0	= sizeof( WriteQuadParams ) ;//5;
+	fMethods[kWriteQuad].count1	= 0;
+	fMethods[kWriteQuad].flags	= kIOUCStructIStructO;
 	
-	fMethods[kFireWireWrite].object = this;
-	fMethods[kFireWireWrite].func =
+	fMethods[kWrite].object = this;
+	fMethods[kWrite].func =
 		(IOMethod)&IOFireWireUserClient::write;
-	fMethods[kFireWireWrite].count0 = sizeof( FWWriteParams ) ;
-	fMethods[kFireWireWrite].count1 = sizeof( IOByteCount ) ;
-	fMethods[kFireWireWrite].flags = kIOUCStructIStructO;
+	fMethods[kWrite].count0 = sizeof( WriteParams ) ;
+	fMethods[kWrite].count1 = sizeof( IOByteCount ) ;
+	fMethods[kWrite].flags = kIOUCStructIStructO;
 	
-	fMethods[kFireWireCompareSwap].object = this;
-	fMethods[kFireWireCompareSwap].func =
+	fMethods[kCompareSwap].object = this;
+	fMethods[kCompareSwap].func =
 		(IOMethod)&IOFireWireUserClient::compareSwap;
-	fMethods[kFireWireCompareSwap].count0 = sizeof(FWCompareSwapParams) ;
-	fMethods[kFireWireCompareSwap].count1 = sizeof(UInt64);
-	fMethods[kFireWireCompareSwap].flags = kIOUCStructIStructO ;
+	fMethods[kCompareSwap].count0 = sizeof( CompareSwapParams ) ;
+	fMethods[kCompareSwap].count1 = sizeof(UInt64);
+	fMethods[kCompareSwap].flags = kIOUCStructIStructO ;
 	
-	fMethods[kFireWireBusReset].object = this;
-	fMethods[kFireWireBusReset].func =
+	fMethods[kBusReset].object = this;
+	fMethods[kBusReset].func =
 		(IOMethod)&IOFireWireUserClient::busReset;
-	fMethods[kFireWireBusReset].count0 = 0;
-	fMethods[kFireWireBusReset].count1 = 0;
-	fMethods[kFireWireBusReset].flags = kIOUCScalarIScalarO;
+	fMethods[kBusReset].count0 = 0;
+	fMethods[kBusReset].count1 = 0;
+	fMethods[kBusReset].flags = kIOUCScalarIScalarO;
 	
-    // Need to take workloop lock in case hw is sleeping. Controller does that.
-	fMethods[kFireWireCycleTime].object = fOwner->getController();
-	fMethods[kFireWireCycleTime].func =
+	// Need to take workloop lock in case hw is sleeping. Controller does that.
+	fMethods[kCycleTime].object = fOwner->getController();
+	fMethods[kCycleTime].func =
 		(IOMethod)&IOFireWireController::getCycleTime;
-	fMethods[kFireWireCycleTime].count0 = 0;
-	fMethods[kFireWireCycleTime].count1 = 1;
-	fMethods[kFireWireCycleTime].flags = kIOUCScalarIScalarO;
+	fMethods[kCycleTime].count0 = 0;
+	fMethods[kCycleTime].count1 = 1;
+	fMethods[kCycleTime].flags = kIOUCScalarIScalarO;
 	
-    // Need to take workloop lock in case hw is sleeping. Controller does that.
-	fMethods[kFireWireGetBusCycleTime].object = fOwner->getController();
-	fMethods[kFireWireGetBusCycleTime].func =
+	// Need to take workloop lock in case hw is sleeping. Controller does that.
+	fMethods[kGetBusCycleTime].object = fOwner->getController();
+	fMethods[kGetBusCycleTime].func =
 		(IOMethod)&IOFireWireController::getBusCycleTime;
-	fMethods[kFireWireGetBusCycleTime].count0 = 0;
-	fMethods[kFireWireGetBusCycleTime].count1 = 2;
-	fMethods[kFireWireGetBusCycleTime].flags = kIOUCScalarIScalarO;
+	fMethods[kGetBusCycleTime].count0 = 0;
+	fMethods[kGetBusCycleTime].count1 = 2;
+	fMethods[kGetBusCycleTime].flags = kIOUCScalarIScalarO;
 	
-	fMethods[kFireWireGetGenerationAndNodeID].object = this ;
-	fMethods[kFireWireGetGenerationAndNodeID].func =
+	fMethods[kGetGenerationAndNodeID].object = this ;
+	fMethods[kGetGenerationAndNodeID].func =
 		(IOMethod) & IOFireWireUserClient::getGenerationAndNodeID ;
-	fMethods[kFireWireGetGenerationAndNodeID].count0 = 0 ;
-	fMethods[kFireWireGetGenerationAndNodeID].count1 = 2 ;
-	fMethods[kFireWireGetGenerationAndNodeID].flags = kIOUCScalarIScalarO ;
+	fMethods[kGetGenerationAndNodeID].count0 = 0 ;
+	fMethods[kGetGenerationAndNodeID].count1 = 2 ;
+	fMethods[kGetGenerationAndNodeID].flags = kIOUCScalarIScalarO ;
 	
-	fMethods[kFireWireGetLocalNodeID].object = this ;
-	fMethods[kFireWireGetLocalNodeID].func =
+	fMethods[kGetLocalNodeID].object = this ;
+	fMethods[kGetLocalNodeID].func =
 		(IOMethod) & IOFireWireUserClient::getLocalNodeID ;
-	fMethods[kFireWireGetLocalNodeID].count0 = 0 ;
-	fMethods[kFireWireGetLocalNodeID].count1 = 1 ;
-	fMethods[kFireWireGetLocalNodeID].flags = kIOUCScalarIScalarO ;
+	fMethods[kGetLocalNodeID].count0 = 0 ;
+	fMethods[kGetLocalNodeID].count1 = 1 ;
+	fMethods[kGetLocalNodeID].flags = kIOUCScalarIScalarO ;
 	
-	fMethods[kFireWireGetResetTime].object = this ;
-	fMethods[kFireWireGetResetTime].func =
+	fMethods[kGetResetTime].object = this ;
+	fMethods[kGetResetTime].func =
 		(IOMethod) & IOFireWireUserClient::getResetTime ;
-	fMethods[kFireWireGetResetTime].count0 = 0 ;
-	fMethods[kFireWireGetResetTime].count1 = sizeof(AbsoluteTime) ;	// this is 2 because we're returning an AbsoluteTime
-	fMethods[kFireWireGetResetTime].flags = kIOUCStructIStructO ;
+	fMethods[kGetResetTime].count0 = 0 ;
+	fMethods[kGetResetTime].count1 = sizeof(AbsoluteTime) ;	// this is 2 because we're returning an AbsoluteTime
+	fMethods[kGetResetTime].flags = kIOUCStructIStructO ;
 	
-	fMethods[kFWGetOSStringData].object = this ;
-	fMethods[kFWGetOSStringData].func = (IOMethod) & IOFireWireUserClient::getOSStringData ;
-	fMethods[kFWGetOSStringData].count0 = 3 ;
-	fMethods[kFWGetOSStringData].count1 = 1 ;
-	fMethods[kFWGetOSStringData].flags = kIOUCScalarIScalarO ;
+	fMethods[kGetOSStringData].object = this ;
+	fMethods[kGetOSStringData].func = (IOMethod) & IOFireWireUserClient::getOSStringData ;
+	fMethods[kGetOSStringData].count0 = 3 ;
+	fMethods[kGetOSStringData].count1 = 1 ;
+	fMethods[kGetOSStringData].flags = kIOUCScalarIScalarO ;
 	
-	fMethods[kFWGetOSDataData].object = this ;
-	fMethods[kFWGetOSDataData].func = (IOMethod) & IOFireWireUserClient::getOSDataData ;
-	fMethods[kFWGetOSDataData].count0 = 3 ;
-	fMethods[kFWGetOSDataData].count1 = 1 ;
-	fMethods[kFWGetOSDataData].flags = kIOUCScalarIScalarO ;
+	fMethods[kGetOSDataData].object = this ;
+	fMethods[kGetOSDataData].func = (IOMethod) & IOFireWireUserClient::getOSDataData ;
+	fMethods[kGetOSDataData].count0 = 3 ;
+	fMethods[kGetOSDataData].count1 = 1 ;
+	fMethods[kGetOSDataData].flags = kIOUCScalarIScalarO ;
 	
 	// -- Config ROM Methods ----------
 	
-	fMethods[kFWUnitDirCreate].object			= this;
-	fMethods[kFWUnitDirCreate].func 			= (IOMethod)&IOFireWireUserClient::unitDirCreate ;
-	fMethods[kFWUnitDirCreate].count0 			= 0;
-	fMethods[kFWUnitDirCreate].count1 			= 1;
-	fMethods[kFWUnitDirCreate].flags 			= kIOUCScalarIScalarO ;
+	fMethods[kUnitDirCreate].object			= this;
+	fMethods[kUnitDirCreate].func 			= (IOMethod)&IOFireWireUserClient::unitDirCreate ;
+	fMethods[kUnitDirCreate].count0 			= 0;
+	fMethods[kUnitDirCreate].count1 			= 1;
+	fMethods[kUnitDirCreate].flags 			= kIOUCScalarIScalarO ;
 	
-	fMethods[kFWUnitDirRelease].object			= this ;
-	fMethods[kFWUnitDirRelease].func			= (IOMethod) & IOFireWireUserClient::unitDirRelease ;
-	fMethods[kFWUnitDirRelease].count0			= 1 ;
-	fMethods[kFWUnitDirRelease].count1			= 0 ;
-	fMethods[kFWUnitDirRelease].flags			= kIOUCScalarIScalarO ;
+	fMethods[kUnitDirRelease].object			= this ;
+	fMethods[kUnitDirRelease].func			= (IOMethod) & IOFireWireUserClient::unitDirRelease ;
+	fMethods[kUnitDirRelease].count0			= 1 ;
+	fMethods[kUnitDirRelease].count1			= 0 ;
+	fMethods[kUnitDirRelease].flags			= kIOUCScalarIScalarO ;
 	
-	fMethods[kFWUnitDirAddEntry_Buffer].object	= this ;
-	fMethods[kFWUnitDirAddEntry_Buffer].func	= (IOMethod)&IOFireWireUserClient::addEntry_Buffer ;
-	fMethods[kFWUnitDirAddEntry_Buffer].count0	= 2 ;
-	fMethods[kFWUnitDirAddEntry_Buffer].count1	= 0xFFFFFFFF ;	// variable
-	fMethods[kFWUnitDirAddEntry_Buffer].flags	= kIOUCScalarIStructI ;
+	fMethods[kUnitDirAddEntry_Buffer].object	= this ;
+	fMethods[kUnitDirAddEntry_Buffer].func	= (IOMethod)&IOFireWireUserClient::addEntry_Buffer ;
+	fMethods[kUnitDirAddEntry_Buffer].count0	= 2 ;
+	fMethods[kUnitDirAddEntry_Buffer].count1	= 0xFFFFFFFF ;	// variable
+	fMethods[kUnitDirAddEntry_Buffer].flags	= kIOUCScalarIStructI ;
 	
-	fMethods[kFWUnitDirAddEntry_UInt32].object	= this ;
-	fMethods[kFWUnitDirAddEntry_UInt32].func	= (IOMethod)&IOFireWireUserClient::addEntry_UInt32 ;
-	fMethods[kFWUnitDirAddEntry_UInt32].count0	= 3 ;
-	fMethods[kFWUnitDirAddEntry_UInt32].count1	= 0 ;
-	fMethods[kFWUnitDirAddEntry_UInt32].flags	= kIOUCScalarIScalarO ;
+	fMethods[kUnitDirAddEntry_UInt32].object	= this ;
+	fMethods[kUnitDirAddEntry_UInt32].func	= (IOMethod)&IOFireWireUserClient::addEntry_UInt32 ;
+	fMethods[kUnitDirAddEntry_UInt32].count0	= 3 ;
+	fMethods[kUnitDirAddEntry_UInt32].count1	= 0 ;
+	fMethods[kUnitDirAddEntry_UInt32].flags	= kIOUCScalarIScalarO ;
 	
-	fMethods[kFWUnitDirAddEntry_FWAddr].object	= this ;
-	fMethods[kFWUnitDirAddEntry_FWAddr].func	= (IOMethod)&IOFireWireUserClient::addEntry_FWAddr ;
-	fMethods[kFWUnitDirAddEntry_FWAddr].count0	= 2 ;
-	fMethods[kFWUnitDirAddEntry_FWAddr].count1	= sizeof(FWAddress) ;	// sizeof(FWAddress)
-	fMethods[kFWUnitDirAddEntry_FWAddr].flags	= kIOUCScalarIStructI ;
+	fMethods[kUnitDirAddEntry_FWAddr].object	= this ;
+	fMethods[kUnitDirAddEntry_FWAddr].func	= (IOMethod)&IOFireWireUserClient::addEntry_FWAddr ;
+	fMethods[kUnitDirAddEntry_FWAddr].count0	= 2 ;
+	fMethods[kUnitDirAddEntry_FWAddr].count1	= sizeof(FWAddress) ;	// sizeof(FWAddress)
+	fMethods[kUnitDirAddEntry_FWAddr].flags	= kIOUCScalarIStructI ;
 	
-	fMethods[kFWUnitDirAddEntry_UnitDir].object	= this ;
-	fMethods[kFWUnitDirAddEntry_UnitDir].func	= (IOMethod)&IOFireWireUserClient::addEntry_UnitDir ;
-	fMethods[kFWUnitDirAddEntry_UnitDir].count0	= 3 ;
-	fMethods[kFWUnitDirAddEntry_UnitDir].count1	= 0 ;
-	fMethods[kFWUnitDirAddEntry_UnitDir].flags	= kIOUCScalarIStructI ;
+	fMethods[kUnitDirAddEntry_UnitDir].object	= this ;
+	fMethods[kUnitDirAddEntry_UnitDir].func	= (IOMethod)&IOFireWireUserClient::addEntry_UnitDir ;
+	fMethods[kUnitDirAddEntry_UnitDir].count0	= 3 ;
+	fMethods[kUnitDirAddEntry_UnitDir].count1	= 0 ;
+	fMethods[kUnitDirAddEntry_UnitDir].flags	= kIOUCScalarIStructI ;
 	
-	fMethods[kFWUnitDirPublish].object			= this ;
-	fMethods[kFWUnitDirPublish].func			= (IOMethod) & IOFireWireUserClient::publish ;
-	fMethods[kFWUnitDirPublish].count0			= 1 ;
-	fMethods[kFWUnitDirPublish].count1			= 0 ;
-	fMethods[kFWUnitDirPublish].flags			= kIOUCScalarIScalarO ;
+	fMethods[kUnitDirPublish].object			= this ;
+	fMethods[kUnitDirPublish].func			= (IOMethod) & IOFireWireUserClient::publish ;
+	fMethods[kUnitDirPublish].count0			= 1 ;
+	fMethods[kUnitDirPublish].count1			= 0 ;
+	fMethods[kUnitDirPublish].flags			= kIOUCScalarIScalarO ;
 	
-	fMethods[kFWUnitDirUnpublish].object		= this ;
-	fMethods[kFWUnitDirUnpublish].func			= (IOMethod) & IOFireWireUserClient::unpublish ;
-	fMethods[kFWUnitDirUnpublish].count0		= 1 ;
-	fMethods[kFWUnitDirUnpublish].count1		= 0 ;
-	fMethods[kFWUnitDirUnpublish].flags			= kIOUCScalarIScalarO ;
+	fMethods[kUnitDirUnpublish].object		= this ;
+	fMethods[kUnitDirUnpublish].func			= (IOMethod) & IOFireWireUserClient::unpublish ;
+	fMethods[kUnitDirUnpublish].count0		= 1 ;
+	fMethods[kUnitDirUnpublish].count1		= 0 ;
+	fMethods[kUnitDirUnpublish].flags			= kIOUCScalarIScalarO ;
 	
 	// --- Pseudo Address Space Methods ---------
 	
-	fMethods[kFWPseudoAddrSpace_Allocate].object	= this ;
-	fMethods[kFWPseudoAddrSpace_Allocate].func		= (IOMethod) & IOFireWireUserClient::allocateAddressSpace ;
-	fMethods[kFWPseudoAddrSpace_Allocate].count0	= sizeof(FWAddrSpaceCreateParams) ;
-	fMethods[kFWPseudoAddrSpace_Allocate].count1	= sizeof(FWKernAddrSpaceRef) ;
-	fMethods[kFWPseudoAddrSpace_Allocate].flags		= kIOUCStructIStructO ;
+	fMethods[kPseudoAddrSpace_Allocate].object	= this ;
+	fMethods[kPseudoAddrSpace_Allocate].func		= (IOMethod) & IOFireWireUserClient::allocateAddressSpace ;
+	fMethods[kPseudoAddrSpace_Allocate].count0	= sizeof(AddressSpaceCreateParams) ;
+	fMethods[kPseudoAddrSpace_Allocate].count1	= sizeof(KernAddrSpaceRef) ;
+	fMethods[kPseudoAddrSpace_Allocate].flags		= kIOUCStructIStructO ;
 	
-	fMethods[kFWPseudoAddrSpace_Release].object		= this ;
-	fMethods[kFWPseudoAddrSpace_Release].func		= (IOMethod) & IOFireWireUserClient::releaseAddressSpace ;
-	fMethods[kFWPseudoAddrSpace_Release].count0		= 1 ;
-	fMethods[kFWPseudoAddrSpace_Release].count1		= 0 ;
-	fMethods[kFWPseudoAddrSpace_Release].flags		= kIOUCScalarIScalarO ;
+	fMethods[kPseudoAddrSpace_Release].object		= this ;
+	fMethods[kPseudoAddrSpace_Release].func		= (IOMethod) & IOFireWireUserClient::releaseAddressSpace ;
+	fMethods[kPseudoAddrSpace_Release].count0		= 1 ;
+	fMethods[kPseudoAddrSpace_Release].count1		= 0 ;
+	fMethods[kPseudoAddrSpace_Release].flags		= kIOUCScalarIScalarO ;
 	
-	fMethods[kFWPseudoAddrSpace_GetFWAddrInfo].object	= this ;
-	fMethods[kFWPseudoAddrSpace_GetFWAddrInfo].func 	= (IOMethod) & IOFireWireUserClient::getPseudoAddressSpaceInfo ;
-	fMethods[kFWPseudoAddrSpace_GetFWAddrInfo].count0	= 1 ;
-	fMethods[kFWPseudoAddrSpace_GetFWAddrInfo].count1	= 3 ;
-	fMethods[kFWPseudoAddrSpace_GetFWAddrInfo].flags	= kIOUCScalarIScalarO ;
+	fMethods[kPseudoAddrSpace_GetFWAddrInfo].object	= this ;
+	fMethods[kPseudoAddrSpace_GetFWAddrInfo].func 	= (IOMethod) & IOFireWireUserClient::getPseudoAddressSpaceInfo ;
+	fMethods[kPseudoAddrSpace_GetFWAddrInfo].count0	= 1 ;
+	fMethods[kPseudoAddrSpace_GetFWAddrInfo].count1	= 3 ;
+	fMethods[kPseudoAddrSpace_GetFWAddrInfo].flags	= kIOUCScalarIScalarO ;
 	
-	fMethods[kFWPseudoAddrSpace_ClientCommandIsComplete].object	= this ;
-	fMethods[kFWPseudoAddrSpace_ClientCommandIsComplete].func	= (IOMethod) & IOFireWireUserClient::clientCommandIsComplete ;
-	fMethods[kFWPseudoAddrSpace_ClientCommandIsComplete].count0	= 3 ;
-	fMethods[kFWPseudoAddrSpace_ClientCommandIsComplete].count1	= 0 ;
-	fMethods[kFWPseudoAddrSpace_ClientCommandIsComplete].flags	= kIOUCScalarIScalarO ;
+	fMethods[kPseudoAddrSpace_ClientCommandIsComplete].object	= this ;
+	fMethods[kPseudoAddrSpace_ClientCommandIsComplete].func	= (IOMethod) & IOFireWireUserClient::clientCommandIsComplete ;
+	fMethods[kPseudoAddrSpace_ClientCommandIsComplete].count0	= 3 ;
+	fMethods[kPseudoAddrSpace_ClientCommandIsComplete].count1	= 0 ;
+	fMethods[kPseudoAddrSpace_ClientCommandIsComplete].flags	= kIOUCScalarIScalarO ;
 	
 	// --- Physical Address Space Methods ---------
 	
-	fMethods[kFWPhysicalAddrSpace_Allocate].object 				= this ;
-	fMethods[kFWPhysicalAddrSpace_Allocate].func				= (IOMethod) & IOFireWireUserClient::allocatePhysicalAddressSpace ;
-	fMethods[kFWPhysicalAddrSpace_Allocate].count0				= sizeof(FWPhysicalAddrSpaceCreateParams) ;
-	fMethods[kFWPhysicalAddrSpace_Allocate].count1				= sizeof(FWKernPhysicalAddrSpaceRef) ;
-	fMethods[kFWPhysicalAddrSpace_Allocate].flags				= kIOUCStructIStructO ;
+	fMethods[kPhysicalAddrSpace_Allocate].object 			= this ;
+	fMethods[kPhysicalAddrSpace_Allocate].func				= (IOMethod) & IOFireWireUserClient::allocatePhysicalAddressSpace ;
+	fMethods[kPhysicalAddrSpace_Allocate].count0			= sizeof( PhysicalAddressSpaceCreateParams ) ;
+	fMethods[kPhysicalAddrSpace_Allocate].count1			= sizeof( KernPhysicalAddrSpaceRef ) ;
+	fMethods[kPhysicalAddrSpace_Allocate].flags				= kIOUCStructIStructO ;
 	
-	fMethods[kFWPhysicalAddrSpace_Release].object 				= this ;
-	fMethods[kFWPhysicalAddrSpace_Release].func					= (IOMethod) & IOFireWireUserClient::releasePhysicalAddressSpace ;
-	fMethods[kFWPhysicalAddrSpace_Release].count0				= 1 ;
-	fMethods[kFWPhysicalAddrSpace_Release].count1				= 0 ;
-	fMethods[kFWPhysicalAddrSpace_Release].flags				= kIOUCScalarIScalarO ;
+	fMethods[kPhysicalAddrSpace_Release].object 			= this ;
+	fMethods[kPhysicalAddrSpace_Release].func				= (IOMethod) & IOFireWireUserClient::releasePhysicalAddressSpace ;
+	fMethods[kPhysicalAddrSpace_Release].count0				= 1 ;
+	fMethods[kPhysicalAddrSpace_Release].count1				= 0 ;
+	fMethods[kPhysicalAddrSpace_Release].flags				= kIOUCScalarIScalarO ;
 	
-	fMethods[kFWPhysicalAddrSpace_GetSegmentCount].object		= this ;
-	fMethods[kFWPhysicalAddrSpace_GetSegmentCount].func			= (IOMethod) & IOFireWireUserClient::getPhysicalAddressSpaceSegmentCount ;
-	fMethods[kFWPhysicalAddrSpace_GetSegmentCount].count0		= 1 ;
-	fMethods[kFWPhysicalAddrSpace_GetSegmentCount].count1		= 1 ;
-	fMethods[kFWPhysicalAddrSpace_GetSegmentCount].flags		= kIOUCScalarIScalarO ;
+	fMethods[kPhysicalAddrSpace_GetSegmentCount].object		= this ;
+	fMethods[kPhysicalAddrSpace_GetSegmentCount].func		= (IOMethod) & IOFireWireUserClient::getPhysicalAddressSpaceSegmentCount ;
+	fMethods[kPhysicalAddrSpace_GetSegmentCount].count0		= 1 ;
+	fMethods[kPhysicalAddrSpace_GetSegmentCount].count1		= 1 ;
+	fMethods[kPhysicalAddrSpace_GetSegmentCount].flags		= kIOUCScalarIScalarO ;
 	
-	fMethods[kFWPhysicalAddrSpace_GetSegments].object			= this ;
-	fMethods[kFWPhysicalAddrSpace_GetSegments].func				= (IOMethod) & IOFireWireUserClient::getPhysicalAddressSpaceSegments ;
-	fMethods[kFWPhysicalAddrSpace_GetSegments].count0			= 4 ;	
-	fMethods[kFWPhysicalAddrSpace_GetSegments].count1			= 1 ;
-	fMethods[kFWPhysicalAddrSpace_GetSegments].flags			= kIOUCScalarIScalarO ;
+	fMethods[kPhysicalAddrSpace_GetSegments].object			= this ;
+	fMethods[kPhysicalAddrSpace_GetSegments].func				= (IOMethod) & IOFireWireUserClient::getPhysicalAddressSpaceSegments ;
+	fMethods[kPhysicalAddrSpace_GetSegments].count0			= 4 ;	
+	fMethods[kPhysicalAddrSpace_GetSegments].count1			= 1 ;
+	fMethods[kPhysicalAddrSpace_GetSegments].flags			= kIOUCScalarIScalarO ;
 	
-	fMethods[kFWClientCommandIsComplete].object	= this ;
-	fMethods[kFWClientCommandIsComplete].func	= (IOMethod) & IOFireWireUserClient::clientCommandIsComplete ;
-	fMethods[kFWClientCommandIsComplete].count0	= 2 ;
-	fMethods[kFWClientCommandIsComplete].count1	= 0 ;
-	fMethods[kFWClientCommandIsComplete].flags	= kIOUCScalarIScalarO ;
+	fMethods[kClientCommandIsComplete].object	= this ;
+	fMethods[kClientCommandIsComplete].func	= (IOMethod) & IOFireWireUserClient::clientCommandIsComplete ;
+	fMethods[kClientCommandIsComplete].count0	= 2 ;
+	fMethods[kClientCommandIsComplete].count1	= 0 ;
+	fMethods[kClientCommandIsComplete].flags	= kIOUCScalarIScalarO ;
 	
 	// --- config directory ----------------------
-	fMethods[kFWConfigDirectoryCreate].object = this ;
-	fMethods[kFWConfigDirectoryCreate].func = 
+	fMethods[kConfigDirectoryCreate].object = this ;
+	fMethods[kConfigDirectoryCreate].func = 
 			(IOMethod) & IOFireWireUserClient::configDirectoryCreate ;
-	fMethods[kFWConfigDirectoryCreate].count0 = 0 ;
-	fMethods[kFWConfigDirectoryCreate].count1 = 1 ;
-	fMethods[kFWConfigDirectoryCreate].flags = kIOUCScalarIScalarO ;
+	fMethods[kConfigDirectoryCreate].count0 = 0 ;
+	fMethods[kConfigDirectoryCreate].count1 = 1 ;
+	fMethods[kConfigDirectoryCreate].flags = kIOUCScalarIScalarO ;
 	
-	fMethods[kFWConfigDirectoryRelease].object	= this ;
-	fMethods[kFWConfigDirectoryRelease].func	= (IOMethod) & IOFireWireUserClient::configDirectoryRelease ;
-	fMethods[kFWConfigDirectoryRelease].count0	= 1 ;
-	fMethods[kFWConfigDirectoryRelease].count1	= 0 ;
-	fMethods[kFWConfigDirectoryRelease].flags	= kIOUCScalarIScalarO ;
+	fMethods[kConfigDirectoryRelease].object	= this ;
+	fMethods[kConfigDirectoryRelease].func	= (IOMethod) & IOFireWireUserClient::configDirectoryRelease ;
+	fMethods[kConfigDirectoryRelease].count0	= 1 ;
+	fMethods[kConfigDirectoryRelease].count1	= 0 ;
+	fMethods[kConfigDirectoryRelease].flags	= kIOUCScalarIScalarO ;
 	
-	fMethods[kFWConfigDirectoryUpdate].object 	= this ;
-	fMethods[kFWConfigDirectoryUpdate].func 	= 
+	fMethods[kConfigDirectoryUpdate].object 	= this ;
+	fMethods[kConfigDirectoryUpdate].func 	= 
 			(IOMethod) & IOFireWireUserClient::configDirectoryUpdate ;
-	fMethods[kFWConfigDirectoryUpdate].count0 	= 1 ;
-	fMethods[kFWConfigDirectoryUpdate].count1 	= 0 ;
-	fMethods[kFWConfigDirectoryUpdate].flags 	= kIOUCScalarIScalarO ;
+	fMethods[kConfigDirectoryUpdate].count0 	= 1 ;
+	fMethods[kConfigDirectoryUpdate].count1 	= 0 ;
+	fMethods[kConfigDirectoryUpdate].flags 	= kIOUCScalarIScalarO ;
 	
-	fMethods[kFWConfigDirectoryGetKeyType].object = this ;
-	fMethods[kFWConfigDirectoryGetKeyType].func = 
+	fMethods[kConfigDirectoryGetKeyType].object = this ;
+	fMethods[kConfigDirectoryGetKeyType].func = 
 			(IOMethod) & IOFireWireUserClient::configDirectoryGetKeyType ;
-	fMethods[kFWConfigDirectoryGetKeyType].count0 = 2 ;
-	fMethods[kFWConfigDirectoryGetKeyType].count1 = 1 ;
-	fMethods[kFWConfigDirectoryGetKeyType].flags = kIOUCScalarIScalarO ;
+	fMethods[kConfigDirectoryGetKeyType].count0 = 2 ;
+	fMethods[kConfigDirectoryGetKeyType].count1 = 1 ;
+	fMethods[kConfigDirectoryGetKeyType].flags = kIOUCScalarIScalarO ;
 	
-	fMethods[kFWConfigDirectoryGetKeyValue_UInt32].object = this ;
-	fMethods[kFWConfigDirectoryGetKeyValue_UInt32].func = 
+	fMethods[kConfigDirectoryGetKeyValue_UInt32].object = this ;
+	fMethods[kConfigDirectoryGetKeyValue_UInt32].func = 
 			(IOMethod) & IOFireWireUserClient::configDirectoryGetKeyValue_UInt32 ;
-	fMethods[kFWConfigDirectoryGetKeyValue_UInt32].count0 = 3 ;
-	fMethods[kFWConfigDirectoryGetKeyValue_UInt32].count1 = 3 ;
-	fMethods[kFWConfigDirectoryGetKeyValue_UInt32].flags = kIOUCScalarIScalarO ;
+	fMethods[kConfigDirectoryGetKeyValue_UInt32].count0 = 3 ;
+	fMethods[kConfigDirectoryGetKeyValue_UInt32].count1 = 3 ;
+	fMethods[kConfigDirectoryGetKeyValue_UInt32].flags = kIOUCScalarIScalarO ;
 	
-	fMethods[kFWConfigDirectoryGetKeyValue_Data].object = this ;
-	fMethods[kFWConfigDirectoryGetKeyValue_Data].func = 
+	fMethods[kConfigDirectoryGetKeyValue_Data].object = this ;
+	fMethods[kConfigDirectoryGetKeyValue_Data].func = 
 			(IOMethod) & IOFireWireUserClient::configDirectoryGetKeyValue_Data ;
-	fMethods[kFWConfigDirectoryGetKeyValue_Data].count0 = 3 ;
-	fMethods[kFWConfigDirectoryGetKeyValue_Data].count1 = sizeof(FWGetKeyValueDataResults) ;
-	fMethods[kFWConfigDirectoryGetKeyValue_Data].flags = kIOUCScalarIStructO ;
+	fMethods[kConfigDirectoryGetKeyValue_Data].count0 = 3 ;
+	fMethods[kConfigDirectoryGetKeyValue_Data].count1 = sizeof(GetKeyValueDataResults) ;
+	fMethods[kConfigDirectoryGetKeyValue_Data].flags = kIOUCScalarIStructO ;
 	
-	fMethods[kFWConfigDirectoryGetKeyValue_ConfigDirectory].object = this ;
-	fMethods[kFWConfigDirectoryGetKeyValue_ConfigDirectory].func = 
+	fMethods[kConfigDirectoryGetKeyValue_ConfigDirectory].object = this ;
+	fMethods[kConfigDirectoryGetKeyValue_ConfigDirectory].func = 
 			(IOMethod) & IOFireWireUserClient::configDirectoryGetKeyValue_ConfigDirectory ;
-	fMethods[kFWConfigDirectoryGetKeyValue_ConfigDirectory].count0 = 3 ;
-	fMethods[kFWConfigDirectoryGetKeyValue_ConfigDirectory].count1 = 3 ;
-	fMethods[kFWConfigDirectoryGetKeyValue_ConfigDirectory].flags = kIOUCScalarIScalarO ;
+	fMethods[kConfigDirectoryGetKeyValue_ConfigDirectory].count0 = 3 ;
+	fMethods[kConfigDirectoryGetKeyValue_ConfigDirectory].count1 = 3 ;
+	fMethods[kConfigDirectoryGetKeyValue_ConfigDirectory].flags = kIOUCScalarIScalarO ;
 	
-	fMethods[kFWConfigDirectoryGetKeyOffset_FWAddress].object = this ;
-	fMethods[kFWConfigDirectoryGetKeyOffset_FWAddress].func = 
+	fMethods[kConfigDirectoryGetKeyOffset_FWAddress].object = this ;
+	fMethods[kConfigDirectoryGetKeyOffset_FWAddress].func = 
 			(IOMethod) & IOFireWireUserClient::configDirectoryGetKeyOffset_FWAddress ;
-	fMethods[kFWConfigDirectoryGetKeyOffset_FWAddress].count0 = 3 ;
-	fMethods[kFWConfigDirectoryGetKeyOffset_FWAddress].count1 = sizeof(FWGetKeyOffsetResults) ;
-	fMethods[kFWConfigDirectoryGetKeyOffset_FWAddress].flags = kIOUCScalarIStructO ;
+	fMethods[kConfigDirectoryGetKeyOffset_FWAddress].count0 = 3 ;
+	fMethods[kConfigDirectoryGetKeyOffset_FWAddress].count1 = sizeof(GetKeyOffsetResults) ;
+	fMethods[kConfigDirectoryGetKeyOffset_FWAddress].flags = kIOUCScalarIStructO ;
 	
-	fMethods[kFWConfigDirectoryGetIndexType].object = this ;
-	fMethods[kFWConfigDirectoryGetIndexType].func =
+	fMethods[kConfigDirectoryGetIndexType].object = this ;
+	fMethods[kConfigDirectoryGetIndexType].func =
 			(IOMethod) & IOFireWireUserClient::configDirectoryGetIndexType ;
-	fMethods[kFWConfigDirectoryGetIndexType].count0 = 2 ;
-	fMethods[kFWConfigDirectoryGetIndexType].count1 = 1 ;
-	fMethods[kFWConfigDirectoryGetIndexType].flags = kIOUCScalarIScalarO ;
+	fMethods[kConfigDirectoryGetIndexType].count0 = 2 ;
+	fMethods[kConfigDirectoryGetIndexType].count1 = 1 ;
+	fMethods[kConfigDirectoryGetIndexType].flags = kIOUCScalarIScalarO ;
 	
-	fMethods[kFWConfigDirectoryGetIndexKey].object = this ;
-	fMethods[kFWConfigDirectoryGetIndexKey].func =
+	fMethods[kConfigDirectoryGetIndexKey].object = this ;
+	fMethods[kConfigDirectoryGetIndexKey].func =
 			(IOMethod) & IOFireWireUserClient::configDirectoryGetIndexKey ;
-	fMethods[kFWConfigDirectoryGetIndexKey].count0 = 2 ;
-	fMethods[kFWConfigDirectoryGetIndexKey].count1 = 1 ;
-	fMethods[kFWConfigDirectoryGetIndexKey].flags = kIOUCScalarIScalarO ;
+	fMethods[kConfigDirectoryGetIndexKey].count0 = 2 ;
+	fMethods[kConfigDirectoryGetIndexKey].count1 = 1 ;
+	fMethods[kConfigDirectoryGetIndexKey].flags = kIOUCScalarIScalarO ;
 	
-	fMethods[kFWConfigDirectoryGetIndexValue_UInt32].object = this ;
-	fMethods[kFWConfigDirectoryGetIndexValue_UInt32].func =
+	fMethods[kConfigDirectoryGetIndexValue_UInt32].object = this ;
+	fMethods[kConfigDirectoryGetIndexValue_UInt32].func =
 			(IOMethod) & IOFireWireUserClient::configDirectoryGetIndexValue_UInt32 ;
-	fMethods[kFWConfigDirectoryGetIndexValue_UInt32].count0 = 2 ;
-	fMethods[kFWConfigDirectoryGetIndexValue_UInt32].count1 = 1 ;
-	fMethods[kFWConfigDirectoryGetIndexValue_UInt32].flags = kIOUCScalarIScalarO ;
+	fMethods[kConfigDirectoryGetIndexValue_UInt32].count0 = 2 ;
+	fMethods[kConfigDirectoryGetIndexValue_UInt32].count1 = 1 ;
+	fMethods[kConfigDirectoryGetIndexValue_UInt32].flags = kIOUCScalarIScalarO ;
 	
-	fMethods[kFWConfigDirectoryGetIndexValue_Data].object = this ;
-	fMethods[kFWConfigDirectoryGetIndexValue_Data].func =
+	fMethods[kConfigDirectoryGetIndexValue_Data].object = this ;
+	fMethods[kConfigDirectoryGetIndexValue_Data].func =
 			(IOMethod) & IOFireWireUserClient::configDirectoryGetIndexValue_Data ;
-	fMethods[kFWConfigDirectoryGetIndexValue_Data].count0 = 2 ;
-	fMethods[kFWConfigDirectoryGetIndexValue_Data].count1 = 2 ;
-	fMethods[kFWConfigDirectoryGetIndexValue_Data].flags = kIOUCScalarIScalarO ;
+	fMethods[kConfigDirectoryGetIndexValue_Data].count0 = 2 ;
+	fMethods[kConfigDirectoryGetIndexValue_Data].count1 = 2 ;
+	fMethods[kConfigDirectoryGetIndexValue_Data].flags = kIOUCScalarIScalarO ;
 	
-	fMethods[kFWConfigDirectoryGetIndexValue_String].object = this ;
-	fMethods[kFWConfigDirectoryGetIndexValue_String].func =
+	fMethods[kConfigDirectoryGetIndexValue_String].object = this ;
+	fMethods[kConfigDirectoryGetIndexValue_String].func =
 			(IOMethod) & IOFireWireUserClient::configDirectoryGetIndexValue_String ;
-	fMethods[kFWConfigDirectoryGetIndexValue_String].count0 = 2 ;
-	fMethods[kFWConfigDirectoryGetIndexValue_String].count1 = 2 ;
-	fMethods[kFWConfigDirectoryGetIndexValue_String].flags = kIOUCScalarIScalarO ;
+	fMethods[kConfigDirectoryGetIndexValue_String].count0 = 2 ;
+	fMethods[kConfigDirectoryGetIndexValue_String].count1 = 2 ;
+	fMethods[kConfigDirectoryGetIndexValue_String].flags = kIOUCScalarIScalarO ;
 	
-	fMethods[kFWConfigDirectoryGetIndexValue_ConfigDirectory].object = this ;
-	fMethods[kFWConfigDirectoryGetIndexValue_ConfigDirectory].func =
+	fMethods[kConfigDirectoryGetIndexValue_ConfigDirectory].object = this ;
+	fMethods[kConfigDirectoryGetIndexValue_ConfigDirectory].func =
 			(IOMethod) & IOFireWireUserClient::configDirectoryGetIndexValue_ConfigDirectory ;
-	fMethods[kFWConfigDirectoryGetIndexValue_ConfigDirectory].count0 = 2 ;
-	fMethods[kFWConfigDirectoryGetIndexValue_ConfigDirectory].count1 = 1 ;
-	fMethods[kFWConfigDirectoryGetIndexValue_ConfigDirectory].flags = kIOUCScalarIScalarO ;
+	fMethods[kConfigDirectoryGetIndexValue_ConfigDirectory].count0 = 2 ;
+	fMethods[kConfigDirectoryGetIndexValue_ConfigDirectory].count1 = 1 ;
+	fMethods[kConfigDirectoryGetIndexValue_ConfigDirectory].flags = kIOUCScalarIScalarO ;
 	
-	fMethods[kFWConfigDirectoryGetIndexOffset_FWAddress].object = this ;
-	fMethods[kFWConfigDirectoryGetIndexOffset_FWAddress].func =
+	fMethods[kConfigDirectoryGetIndexOffset_FWAddress].object = this ;
+	fMethods[kConfigDirectoryGetIndexOffset_FWAddress].func =
 			(IOMethod) & IOFireWireUserClient::configDirectoryGetIndexOffset_FWAddress ;
-	fMethods[kFWConfigDirectoryGetIndexOffset_FWAddress].count0 = 2 ;
-	fMethods[kFWConfigDirectoryGetIndexOffset_FWAddress].count1 = 2 ;
-	fMethods[kFWConfigDirectoryGetIndexOffset_FWAddress].flags = kIOUCScalarIScalarO ;
+	fMethods[kConfigDirectoryGetIndexOffset_FWAddress].count0 = 2 ;
+	fMethods[kConfigDirectoryGetIndexOffset_FWAddress].count1 = 2 ;
+	fMethods[kConfigDirectoryGetIndexOffset_FWAddress].flags = kIOUCScalarIScalarO ;
 	
-	fMethods[kFWConfigDirectoryGetIndexOffset_UInt32].object = this ;
-	fMethods[kFWConfigDirectoryGetIndexOffset_UInt32].func =
+	fMethods[kConfigDirectoryGetIndexOffset_UInt32].object = this ;
+	fMethods[kConfigDirectoryGetIndexOffset_UInt32].func =
 			(IOMethod) & IOFireWireUserClient::configDirectoryGetIndexOffset_UInt32 ;
-	fMethods[kFWConfigDirectoryGetIndexOffset_UInt32].count0 = 2 ;
-	fMethods[kFWConfigDirectoryGetIndexOffset_UInt32].count1 = 1 ;
-	fMethods[kFWConfigDirectoryGetIndexOffset_UInt32].flags = kIOUCScalarIScalarO ;
+	fMethods[kConfigDirectoryGetIndexOffset_UInt32].count0 = 2 ;
+	fMethods[kConfigDirectoryGetIndexOffset_UInt32].count1 = 1 ;
+	fMethods[kConfigDirectoryGetIndexOffset_UInt32].flags = kIOUCScalarIScalarO ;
 	
-	fMethods[kFWConfigDirectoryGetIndexEntry].object = this ;
-	fMethods[kFWConfigDirectoryGetIndexEntry].func =
+	fMethods[kConfigDirectoryGetIndexEntry].object = this ;
+	fMethods[kConfigDirectoryGetIndexEntry].func =
 			(IOMethod) & IOFireWireUserClient::configDirectoryGetIndexEntry ;
-	fMethods[kFWConfigDirectoryGetIndexEntry].count0 = 2 ;
-	fMethods[kFWConfigDirectoryGetIndexEntry].count1 = 1 ;
-	fMethods[kFWConfigDirectoryGetIndexEntry].flags = kIOUCScalarIScalarO ;
+	fMethods[kConfigDirectoryGetIndexEntry].count0 = 2 ;
+	fMethods[kConfigDirectoryGetIndexEntry].count1 = 1 ;
+	fMethods[kConfigDirectoryGetIndexEntry].flags = kIOUCScalarIScalarO ;
 	
-	fMethods[kFWConfigDirectoryGetSubdirectories].object	= this ;
-	fMethods[kFWConfigDirectoryGetSubdirectories].func 		= (IOMethod) & IOFireWireUserClient::configDirectoryGetSubdirectories ;
-	fMethods[kFWConfigDirectoryGetSubdirectories].count0	= 1 ;
-	fMethods[kFWConfigDirectoryGetSubdirectories].count1	= 1 ;
-	fMethods[kFWConfigDirectoryGetSubdirectories].flags		= kIOUCScalarIScalarO ;
+	fMethods[kConfigDirectoryGetSubdirectories].object	= this ;
+	fMethods[kConfigDirectoryGetSubdirectories].func 		= (IOMethod) & IOFireWireUserClient::configDirectoryGetSubdirectories ;
+	fMethods[kConfigDirectoryGetSubdirectories].count0	= 1 ;
+	fMethods[kConfigDirectoryGetSubdirectories].count1	= 1 ;
+	fMethods[kConfigDirectoryGetSubdirectories].flags		= kIOUCScalarIScalarO ;
 	
-	fMethods[kFWConfigDirectoryGetKeySubdirectories].object	= this ;
-	fMethods[kFWConfigDirectoryGetKeySubdirectories].func 	= (IOMethod) & IOFireWireUserClient::configDirectoryGetKeySubdirectories ;
-	fMethods[kFWConfigDirectoryGetKeySubdirectories].count0	= 2 ;
-	fMethods[kFWConfigDirectoryGetKeySubdirectories].count1	= 1 ;
-	fMethods[kFWConfigDirectoryGetKeySubdirectories].flags	= kIOUCScalarIScalarO ;
+	fMethods[kConfigDirectoryGetKeySubdirectories].object	= this ;
+	fMethods[kConfigDirectoryGetKeySubdirectories].func 	= (IOMethod) & IOFireWireUserClient::configDirectoryGetKeySubdirectories ;
+	fMethods[kConfigDirectoryGetKeySubdirectories].count0	= 2 ;
+	fMethods[kConfigDirectoryGetKeySubdirectories].count1	= 1 ;
+	fMethods[kConfigDirectoryGetKeySubdirectories].flags	= kIOUCScalarIScalarO ;
 	
-	fMethods[kFWConfigDirectoryGetType].object				= this ;
-	fMethods[kFWConfigDirectoryGetType].func 				= (IOMethod) & IOFireWireUserClient::configDirectoryGetType ;
-	fMethods[kFWConfigDirectoryGetType].count0				= 1 ;
-	fMethods[kFWConfigDirectoryGetType].count1				= 1 ;
-	fMethods[kFWConfigDirectoryGetType].flags 				= kIOUCScalarIScalarO ;
+	fMethods[kConfigDirectoryGetType].object				= this ;
+	fMethods[kConfigDirectoryGetType].func 				= (IOMethod) & IOFireWireUserClient::configDirectoryGetType ;
+	fMethods[kConfigDirectoryGetType].count0				= 1 ;
+	fMethods[kConfigDirectoryGetType].count1				= 1 ;
+	fMethods[kConfigDirectoryGetType].flags 				= kIOUCScalarIScalarO ;
 
-	fMethods[kFWConfigDirectoryGetNumEntries].object		= this ;
-	fMethods[kFWConfigDirectoryGetNumEntries].func 			= (IOMethod) & IOFireWireUserClient::configDirectoryGetNumEntries ;
-	fMethods[kFWConfigDirectoryGetNumEntries].count0		= 1 ;
-	fMethods[kFWConfigDirectoryGetNumEntries].count1		= 1 ;
-	fMethods[kFWConfigDirectoryGetNumEntries].flags 		= kIOUCScalarIScalarO ;
+	fMethods[kConfigDirectoryGetNumEntries].object		= this ;
+	fMethods[kConfigDirectoryGetNumEntries].func 			= (IOMethod) & IOFireWireUserClient::configDirectoryGetNumEntries ;
+	fMethods[kConfigDirectoryGetNumEntries].count0		= 1 ;
+	fMethods[kConfigDirectoryGetNumEntries].count1		= 1 ;
+	fMethods[kConfigDirectoryGetNumEntries].flags 		= kIOUCScalarIScalarO ;
 
-	fMethods[kFWCommand_Release].object						= this ;
-	fMethods[kFWCommand_Release].func						= (IOMethod) & IOFireWireUserClient::userAsyncCommand_Release ;
-	fMethods[kFWCommand_Release].count0						= 1 ;
-	fMethods[kFWCommand_Release].count1						= 0 ;
-	fMethods[kFWCommand_Release].flags						= kIOUCScalarIScalarO ;
+	fMethods[kCommand_Release].object						= this ;
+	fMethods[kCommand_Release].func						= (IOMethod) & IOFireWireUserClient::userAsyncCommand_Release ;
+	fMethods[kCommand_Release].count0						= 1 ;
+	fMethods[kCommand_Release].count1						= 0 ;
+	fMethods[kCommand_Release].flags						= kIOUCScalarIScalarO ;
 	
-	fMethods[kFWCommand_Cancel].object						= this ;
-	fMethods[kFWCommand_Cancel].func						= (IOMethod) & IOFireWireUserClient::userAsyncCommand_Cancel ;
-	fMethods[kFWCommand_Cancel].count0						= 2 ;
-	fMethods[kFWCommand_Cancel].count1						= 0 ;
-	fMethods[kFWCommand_Cancel].flags						= kIOUCScalarIScalarO ;
+	fMethods[kCommand_Cancel].object						= this ;
+	fMethods[kCommand_Cancel].func						= (IOMethod) & IOFireWireUserClient::userAsyncCommand_Cancel ;
+	fMethods[kCommand_Cancel].count0						= 2 ;
+	fMethods[kCommand_Cancel].count1						= 0 ;
+	fMethods[kCommand_Cancel].flags						= kIOUCScalarIScalarO ;
 
-	fMethods[kFWSeize].object								= this ;
-	fMethods[kFWSeize].func									= (IOMethod) & IOFireWireUserClient::seize ;
-	fMethods[kFWSeize].count0								= 1 ;
-	fMethods[kFWSeize].count1								= 0 ;
-	fMethods[kFWSeize].flags								= kIOUCScalarIScalarO ;
+	fMethods[kSeize].object								= this ;
+	fMethods[kSeize].func									= (IOMethod) & IOFireWireUserClient::seize ;
+	fMethods[kSeize].count0								= 1 ;
+	fMethods[kSeize].count1								= 0 ;
+	fMethods[kSeize].flags								= kIOUCScalarIScalarO ;
 	
 	fMethods[kFireLog].object								= this ;
 	fMethods[kFireLog].func									= (IOMethod) & IOFireWireUserClient::firelog ;
@@ -860,75 +859,85 @@ IOFireWireUserClient::initMethodTable()
 	//
 	// v4
 	//
-	fMethods[kFWGetBusGeneration].object	= this ;
-	fMethods[kFWGetBusGeneration].func		= (IOMethod) & IOFireWireUserClient::getBusGeneration ;
-	fMethods[kFWGetBusGeneration].count0 	= 0 ;
-	fMethods[kFWGetBusGeneration].count1 	= 1 ;
-	fMethods[kFWGetBusGeneration].flags		= kIOUCScalarIScalarO ;
+	fMethods[kGetBusGeneration].object	= this ;
+	fMethods[kGetBusGeneration].func		= (IOMethod) & IOFireWireUserClient::getBusGeneration ;
+	fMethods[kGetBusGeneration].count0 	= 0 ;
+	fMethods[kGetBusGeneration].count1 	= 1 ;
+	fMethods[kGetBusGeneration].flags		= kIOUCScalarIScalarO ;
 
-	fMethods[kFWGetLocalNodeIDWithGeneration].object 	= this ;
-	fMethods[kFWGetLocalNodeIDWithGeneration].func		= (IOMethod) & IOFireWireUserClient::getLocalNodeIDWithGeneration ;
-	fMethods[kFWGetLocalNodeIDWithGeneration].count0	= 1 ;
-	fMethods[kFWGetLocalNodeIDWithGeneration].count1	= 1 ;
-	fMethods[kFWGetLocalNodeIDWithGeneration].flags		= kIOUCScalarIScalarO ;
+	fMethods[kGetLocalNodeIDWithGeneration].object 	= this ;
+	fMethods[kGetLocalNodeIDWithGeneration].func		= (IOMethod) & IOFireWireUserClient::getLocalNodeIDWithGeneration ;
+	fMethods[kGetLocalNodeIDWithGeneration].count0	= 1 ;
+	fMethods[kGetLocalNodeIDWithGeneration].count1	= 1 ;
+	fMethods[kGetLocalNodeIDWithGeneration].flags		= kIOUCScalarIScalarO ;
 
-	fMethods[kFWGetRemoteNodeID].object		= this ;
-	fMethods[kFWGetRemoteNodeID].func		= (IOMethod) & IOFireWireUserClient::getRemoteNodeID ;
-	fMethods[kFWGetRemoteNodeID].count0		= 1 ;
-	fMethods[kFWGetRemoteNodeID].count1		= 1 ;
-	fMethods[kFWGetRemoteNodeID].flags		= kIOUCScalarIScalarO ;
+	fMethods[kGetRemoteNodeID].object		= this ;
+	fMethods[kGetRemoteNodeID].func			= (IOMethod) & IOFireWireUserClient::getRemoteNodeID ;
+	fMethods[kGetRemoteNodeID].count0		= 1 ;
+	fMethods[kGetRemoteNodeID].count1		= 1 ;
+	fMethods[kGetRemoteNodeID].flags		= kIOUCScalarIScalarO ;
 
-	fMethods[kFWGetSpeedToNode].object		= this ;
-	fMethods[kFWGetSpeedToNode].func		= (IOMethod) & IOFireWireUserClient::getSpeedToNode ;
-	fMethods[kFWGetSpeedToNode].count0		= 1 ;
-	fMethods[kFWGetSpeedToNode].count1		= 1 ;
-	fMethods[kFWGetSpeedToNode].flags		= kIOUCScalarIScalarO ;
+	fMethods[kGetSpeedToNode].object		= this ;
+	fMethods[kGetSpeedToNode].func			= (IOMethod) & IOFireWireUserClient::getSpeedToNode ;
+	fMethods[kGetSpeedToNode].count0		= 1 ;
+	fMethods[kGetSpeedToNode].count1		= 1 ;
+	fMethods[kGetSpeedToNode].flags			= kIOUCScalarIScalarO ;
 
-	fMethods[kFWGetSpeedBetweenNodes].object	= this ;
-	fMethods[kFWGetSpeedBetweenNodes].func		= (IOMethod) & IOFireWireUserClient::getSpeedBetweenNodes ;
-	fMethods[kFWGetSpeedBetweenNodes].count0	= 3 ;
-	fMethods[kFWGetSpeedBetweenNodes].count1	= 1 ;
-	fMethods[kFWGetSpeedBetweenNodes].flags		= kIOUCScalarIScalarO ;
+	fMethods[kGetSpeedBetweenNodes].object	= this ;
+	fMethods[kGetSpeedBetweenNodes].func	= (IOMethod) & IOFireWireUserClient::getSpeedBetweenNodes ;
+	fMethods[kGetSpeedBetweenNodes].count0	= 3 ;
+	fMethods[kGetSpeedBetweenNodes].count1	= 1 ;
+	fMethods[kGetSpeedBetweenNodes].flags	= kIOUCScalarIScalarO ;
+
+	//
+	// v5
+	//
+
+	fMethods[kGetIRMNodeID].object		= this ;
+	fMethods[kGetIRMNodeID].func		= (IOMethod) & IOFireWireUserClient::getIRMNodeID ;
+	fMethods[kGetIRMNodeID].count0		= 1 ;
+	fMethods[kGetIRMNodeID].count1		= 1 ;
+	fMethods[kGetIRMNodeID].flags		= kIOUCScalarIScalarO ;
 }
 
 void
 IOFireWireUserClient::initAsyncMethodTable()
 {
-	fAsyncMethods[kFWSetAsyncRef_BusReset].object	= this ;
-	fAsyncMethods[kFWSetAsyncRef_BusReset].func	= (IOAsyncMethod) & IOFireWireUserClient::setAsyncRef_BusReset ;
-	fAsyncMethods[kFWSetAsyncRef_BusReset].count0	= 2 ;
-	fAsyncMethods[kFWSetAsyncRef_BusReset].count1	= 0 ;
-	fAsyncMethods[kFWSetAsyncRef_BusReset].flags	= kIOUCScalarIScalarO ;
+	fAsyncMethods[kSetAsyncRef_BusReset].object	= this ;
+	fAsyncMethods[kSetAsyncRef_BusReset].func	= (IOAsyncMethod) & IOFireWireUserClient::setAsyncRef_BusReset ;
+	fAsyncMethods[kSetAsyncRef_BusReset].count0	= 2 ;
+	fAsyncMethods[kSetAsyncRef_BusReset].count1	= 0 ;
+	fAsyncMethods[kSetAsyncRef_BusReset].flags	= kIOUCScalarIScalarO ;
 
-	fAsyncMethods[kFWSetAsyncRef_BusResetDone].object	= this ;
-	fAsyncMethods[kFWSetAsyncRef_BusResetDone].func	= (IOAsyncMethod) & IOFireWireUserClient::setAsyncRef_BusResetDone ;
-	fAsyncMethods[kFWSetAsyncRef_BusResetDone].count0	= 2 ;
-	fAsyncMethods[kFWSetAsyncRef_BusResetDone].count1	= 0 ;
-	fAsyncMethods[kFWSetAsyncRef_BusResetDone].flags	= kIOUCScalarIScalarO ;
+	fAsyncMethods[kSetAsyncRef_BusResetDone].object	= this ;
+	fAsyncMethods[kSetAsyncRef_BusResetDone].func	= (IOAsyncMethod) & IOFireWireUserClient::setAsyncRef_BusResetDone ;
+	fAsyncMethods[kSetAsyncRef_BusResetDone].count0	= 2 ;
+	fAsyncMethods[kSetAsyncRef_BusResetDone].count1	= 0 ;
+	fAsyncMethods[kSetAsyncRef_BusResetDone].flags	= kIOUCScalarIScalarO ;
 
-	fAsyncMethods[kFWSetAsyncRef_Packet].object				= this ;
-	fAsyncMethods[kFWSetAsyncRef_Packet].func				= (IOAsyncMethod) & IOFireWireUserClient::setAsyncRef_Packet ;
-	fAsyncMethods[kFWSetAsyncRef_Packet].count0				= 3 ;
-	fAsyncMethods[kFWSetAsyncRef_Packet].count1				= 0 ;
-	fAsyncMethods[kFWSetAsyncRef_Packet].flags				= kIOUCScalarIScalarO ;
+	fAsyncMethods[kSetAsyncRef_Packet].object				= this ;
+	fAsyncMethods[kSetAsyncRef_Packet].func				= (IOAsyncMethod) & IOFireWireUserClient::setAsyncRef_Packet ;
+	fAsyncMethods[kSetAsyncRef_Packet].count0				= 3 ;
+	fAsyncMethods[kSetAsyncRef_Packet].count1				= 0 ;
+	fAsyncMethods[kSetAsyncRef_Packet].flags				= kIOUCScalarIScalarO ;
 
-	fAsyncMethods[kFWSetAsyncRef_SkippedPacket].object		= this ;
-	fAsyncMethods[kFWSetAsyncRef_SkippedPacket].func		= (IOAsyncMethod) & IOFireWireUserClient::setAsyncRef_SkippedPacket ;
-	fAsyncMethods[kFWSetAsyncRef_SkippedPacket].count0		= 3 ;
-	fAsyncMethods[kFWSetAsyncRef_SkippedPacket].count1		= 0 ;
-	fAsyncMethods[kFWSetAsyncRef_SkippedPacket].flags		= kIOUCScalarIScalarO ;
+	fAsyncMethods[kSetAsyncRef_SkippedPacket].object		= this ;
+	fAsyncMethods[kSetAsyncRef_SkippedPacket].func		= (IOAsyncMethod) & IOFireWireUserClient::setAsyncRef_SkippedPacket ;
+	fAsyncMethods[kSetAsyncRef_SkippedPacket].count0		= 3 ;
+	fAsyncMethods[kSetAsyncRef_SkippedPacket].count1		= 0 ;
+	fAsyncMethods[kSetAsyncRef_SkippedPacket].flags		= kIOUCScalarIScalarO ;
 		
-	fAsyncMethods[kFWSetAsyncRef_Read].object				= this ;
-	fAsyncMethods[kFWSetAsyncRef_Read].func					= (IOAsyncMethod) & IOFireWireUserClient::setAsyncRef_Read ;
-	fAsyncMethods[kFWSetAsyncRef_Read].count0				= 3 ;
-	fAsyncMethods[kFWSetAsyncRef_Read].count1				= 0 ;
-	fAsyncMethods[kFWSetAsyncRef_Read].flags				= kIOUCScalarIScalarO ;
+	fAsyncMethods[kSetAsyncRef_Read].object				= this ;
+	fAsyncMethods[kSetAsyncRef_Read].func					= (IOAsyncMethod) & IOFireWireUserClient::setAsyncRef_Read ;
+	fAsyncMethods[kSetAsyncRef_Read].count0				= 3 ;
+	fAsyncMethods[kSetAsyncRef_Read].count1				= 0 ;
+	fAsyncMethods[kSetAsyncRef_Read].flags				= kIOUCScalarIScalarO ;
 
-	fAsyncMethods[kFWCommand_Submit].object				= this ;
-	fAsyncMethods[kFWCommand_Submit].func				= (IOAsyncMethod) & IOFireWireUserClient::userAsyncCommand_Submit ;
-	fAsyncMethods[kFWCommand_Submit].count0				= 0xFFFFFFFF ;	// variable
-	fAsyncMethods[kFWCommand_Submit].count1				= 0xFFFFFFFF ;
-	fAsyncMethods[kFWCommand_Submit].flags				= kIOUCStructIStructO ;
+	fAsyncMethods[kCommand_Submit].object				= this ;
+	fAsyncMethods[kCommand_Submit].func				= (IOAsyncMethod) & IOFireWireUserClient::userAsyncCommand_Submit ;
+	fAsyncMethods[kCommand_Submit].count0				= 0xFFFFFFFF ;	// variable
+	fAsyncMethods[kCommand_Submit].count1				= 0xFFFFFFFF ;
+	fAsyncMethods[kCommand_Submit].flags				= kIOUCStructIStructO ;
 }
 
 
@@ -936,26 +945,26 @@ IOFireWireUserClient::initAsyncMethodTable()
 IOExternalMethod* 
 IOFireWireUserClient::getTargetAndMethodForIndex(IOService **target, UInt32 index)
 {
-    if( index >= kNumFireWireMethods )
-        return NULL;
-    else
-    {
-        *target = fMethods[index].object ;
-        return &fMethods[index];
-    }
+	if( index >= kNumMethods )
+		return NULL;
+	else
+	{
+		*target = fMethods[index].object ;
+		return &fMethods[index];
+	}
 }
 
 IOExternalAsyncMethod* 
 IOFireWireUserClient::getAsyncTargetAndMethodForIndex(IOService **target, UInt32 index)
 {
-    if( index >= kNumFireWireAsyncMethods )
-       return NULL;
-   else
-   {
-       *target = fMethods[index].object ;
-       return &fAsyncMethods[index];
-   }
-    return NULL;
+	if( index >= kNumAsyncMethods )
+	return NULL;
+else
+{
+	*target = fMethods[index].object ;
+	return &fAsyncMethods[index];
+}
+	return NULL;
 }
 
 IOReturn
@@ -967,7 +976,7 @@ IOFireWireUserClient::registerNotificationPort(
 	fNotificationPort = port ;
 	fNotificationRefCon = refCon ;
 
-    return( kIOReturnUnsupported);
+	return( kIOReturnUnsupported);
 }
 
 #pragma mark -
@@ -996,7 +1005,7 @@ IOFireWireUserClient::firelog( const char* string, IOByteCount bufSize ) const
 		return kIOReturnBadArgument ;
 	FireLog( string ) ;
 #endif
-    return kIOReturnSuccess;
+	return kIOReturnSuccess;
 }
 
 IOReturn
@@ -1070,6 +1079,24 @@ IOFireWireUserClient::getSpeedBetweenNodes( UInt32 generation, UInt32 fromNode, 
 	// did generation change when we weren't looking?
 	if (!fOwner->getController()->checkGeneration(generation))
 		return kIOFireWireBusReset ;
+	
+	return kIOReturnSuccess ;
+}
+
+IOReturn
+IOFireWireUserClient::getIRMNodeID( UInt32 generation, UInt32* irmNodeID )
+{
+	UInt16 tempNodeID ;
+	UInt32 tempGeneration ;
+	
+	IOReturn error = (UInt32)fOwner->getController()->getIRMNodeID( tempGeneration, tempNodeID ) ;
+	if (error)
+		return error ;
+		
+	if ( tempGeneration != generation )
+		return kIOFireWireBusReset ;
+	
+	*irmNodeID = (UInt32)tempNodeID ;
 	
 	return kIOReturnSuccess ;
 }
@@ -1200,10 +1227,10 @@ IOFireWireUserClient::userClose()
 #pragma mark -
 
 IOReturn
-IOFireWireUserClient::readQuad( const FWReadQuadParams* inParams, UInt32* outVal )
+IOFireWireUserClient::readQuad( const ReadQuadParams* inParams, UInt32* outVal )
 {
-    IOReturn 				err ;
-    IOFWReadQuadCommand*	cmd ;
+	IOReturn 				err ;
+	IOFWReadQuadCommand*	cmd ;
 
 	if ( inParams->isAbs )
 		cmd = this->createReadQuadCommand( inParams->generation, inParams->addr, outVal, 1, NULL, NULL ) ;
@@ -1223,15 +1250,15 @@ IOFireWireUserClient::readQuad( const FWReadQuadParams* inParams, UInt32* outVal
 
 	cmd->release();
 
-    return err;
+	return err;
 }
 
 IOReturn
-IOFireWireUserClient::read( const FWReadParams* inParams, IOByteCount* outBytesTransferred )
+IOFireWireUserClient::read( const ReadParams* inParams, IOByteCount* outBytesTransferred )
 {
-    IOReturn 					err ;
-    IOMemoryDescriptor *		mem ;
-    IOFWReadCommand*			cmd ;
+	IOReturn 					err ;
+	IOMemoryDescriptor *		mem ;
+	IOFWReadCommand*			cmd ;
 
 	*outBytesTransferred = 0 ;
 
@@ -1271,14 +1298,14 @@ IOFireWireUserClient::read( const FWReadParams* inParams, IOByteCount* outBytesT
 	cmd->release();
 	mem->release();
 
-    return err;
+	return err;
 }
 
 IOReturn
-IOFireWireUserClient::writeQuad( const FWWriteQuadParams* inParams)
+IOFireWireUserClient::writeQuad( const WriteQuadParams* inParams)
 {
-    IOReturn 				err;
-    IOFWWriteQuadCommand*	cmd ;
+	IOReturn 				err;
+	IOFWWriteQuadCommand*	cmd ;
 
 	if ( inParams->isAbs )
 		cmd = this->createWriteQuadCommand( inParams->generation, inParams->addr, & (UInt32)inParams->val, 1, NULL, NULL ) ;
@@ -1296,17 +1323,17 @@ IOFireWireUserClient::writeQuad( const FWWriteQuadParams* inParams)
 
 	if( err )
 		err = cmd->getStatus();
-    
+	
 	cmd->release();
 
-    return err;
+	return err;
 }
 
 IOReturn
-IOFireWireUserClient::write( const FWWriteParams* inParams, IOByteCount* outBytesTransferred )
+IOFireWireUserClient::write( const WriteParams* inParams, IOByteCount* outBytesTransferred )
 {
-    IOMemoryDescriptor *	mem ;
-    IOFWWriteCommand*		cmd ;
+	IOMemoryDescriptor *	mem ;
+	IOFWWriteCommand*		cmd ;
 
 	*outBytesTransferred = 0 ;
 
@@ -1327,7 +1354,7 @@ IOFireWireUserClient::write( const FWWriteParams* inParams, IOByteCount* outByte
 		return kIOReturnNoMemory;
 	}
 
-    IOReturn 				err ;
+	IOReturn 				err ;
 	err = cmd->submit();
 
 	// We block here until the command finishes
@@ -1335,18 +1362,18 @@ IOFireWireUserClient::write( const FWWriteParams* inParams, IOByteCount* outByte
 		err = cmd->getStatus();
 
 	*outBytesTransferred = cmd->getBytesTransferred() ;
-    
+	
 	cmd->release();
 	mem->release();
 
-    return err ;
+	return err ;
 }
 
 IOReturn
-IOFireWireUserClient::compareSwap( const FWCompareSwapParams* inParams, UInt64* oldVal )
+IOFireWireUserClient::compareSwap( const CompareSwapParams* inParams, UInt64* oldVal )
 {
-    IOReturn 							err ;
-    IOFWCompareAndSwapCommand*			cmd ;
+	IOReturn 							err ;
+	IOFWCompareAndSwapCommand*			cmd ;
 
 	if ( inParams->size > 2 )
 		return kIOReturnBadArgument ;
@@ -1365,23 +1392,23 @@ IOFireWireUserClient::compareSwap( const FWCompareSwapParams* inParams, UInt64* 
 		}
 	}
 	
-    if(!cmd)
-        return kIOReturnNoMemory;
+	if(!cmd)
+		return kIOReturnNoMemory;
 
-    err = cmd->submit();
+	err = cmd->submit();
 
-    // We block here until the command finishes
-    if( !err )
+	// We block here until the command finishes
+	if( !err )
 	{
 		cmd->locked((UInt32*)oldVal) ;
-        err = cmd->getStatus();
+		err = cmd->getStatus();
 //		if(kIOReturnSuccess == err && !cmd->locked((UInt32*)oldVal))
 //			err = kIOReturnCannotLock;
-    }
+	}
 
 	cmd->release();
 
-    return err ;
+	return err ;
 }
 
 IOReturn IOFireWireUserClient::busReset()
@@ -1399,7 +1426,7 @@ IOFireWireUserClient::getGenerationAndNodeID(
 {
 	UInt16	nodeID ;
 
-    fOwner->getNodeIDGeneration(*outGeneration, nodeID);
+	fOwner->getNodeIDGeneration(*outGeneration, nodeID);
 	if (!fOwner->getController()->checkGeneration(*outGeneration))
 		return kIOReturnNotFound ;	// nodeID we got was stale...
 	
@@ -1445,14 +1472,14 @@ IOReturn IOFireWireUserClient::message( UInt32 type, IOService * provider, void 
 	
 	IOUserClient::message(type, provider) ;
 	
-    return kIOReturnSuccess;
+	return kIOReturnSuccess;
 }
 
 #pragma mark -
 #pragma mark --- user client/DCL ----------
 
 IOReturn
-IOFireWireUserClient::getOSStringData( FWKernOSStringRef inStringRef, UInt32 inStringLen, char* inStringBuffer,
+IOFireWireUserClient::getOSStringData( KernOSStringRef inStringRef, UInt32 inStringLen, char* inStringBuffer,
 	UInt32* outStringLen )
 {
 	*outStringLen = 0 ;
@@ -1480,7 +1507,7 @@ IOFireWireUserClient::getOSStringData( FWKernOSStringRef inStringRef, UInt32 inS
 
 IOReturn
 IOFireWireUserClient::getOSDataData(
-	FWKernOSDataRef			inDataRef,
+	KernOSDataRef			inDataRef,
 	IOByteCount				inDataLen,
 	char*					inDataBuffer,
 	IOByteCount*			outDataLen)
@@ -1508,9 +1535,9 @@ IOFireWireUserClient::getOSDataData(
 
 IOReturn
 IOFireWireUserClient::unitDirCreate(
-	FWKernUnitDirRef*	outDir)
+	KernUnitDirRef*	outDir)
 {
-	FWKernUnitDirRef newUnitDir = IOLocalConfigDirectory::create() ;
+	KernUnitDirRef newUnitDir = IOLocalConfigDirectory::create() ;
 
 	IOFireWireUserClientLogIfNil_(*outDir, ("IOFireWireUserClient::UnitDirCreate: IOLocalConfigDirectory::create returned NULL\n")) ;
 	if (!newUnitDir)
@@ -1524,7 +1551,7 @@ IOFireWireUserClient::unitDirCreate(
 
 IOReturn
 IOFireWireUserClient::unitDirRelease(
-	FWKernUnitDirRef	inDir)
+	KernUnitDirRef	inDir)
 {
 	IOReturn	result = kIOReturnSuccess ;
 	IOLocalConfigDirectory* dir = OSDynamicCast(IOLocalConfigDirectory, inDir) ;
@@ -1540,7 +1567,7 @@ IOFireWireUserClient::unitDirRelease(
 
 IOReturn
 IOFireWireUserClient::addEntry_Buffer(
-	FWKernUnitDirRef		inDir, 
+	KernUnitDirRef		inDir, 
 	int 					key,
 	char*					buffer,
 	UInt32					kr_size)
@@ -1552,7 +1579,7 @@ IOFireWireUserClient::addEntry_Buffer(
 		kr = kIOReturnBadArgument ;
 	else
 	{
-    	OSData *data = OSData::withBytes(buffer, kr_size) ;
+		OSData *data = OSData::withBytes(buffer, kr_size) ;
 
 		kr = dir->addEntry(key, data) ;
 	}
@@ -1562,7 +1589,7 @@ IOFireWireUserClient::addEntry_Buffer(
 
 IOReturn
 IOFireWireUserClient::addEntry_UInt32(
-	FWKernUnitDirRef		inDir,
+	KernUnitDirRef		inDir,
 	int						key,
 	UInt32					value)
 {
@@ -1627,7 +1654,7 @@ IOFireWireUserClient::publish(
 
 	if ( kIOReturnSuccess == kr )
 	{
-	    kr = fOwner->getController()->AddUnitDirectory(dir) ;		
+		kr = fOwner->getController()->AddUnitDirectory(dir) ;		
 	}
 
 	return kr ;
@@ -1656,8 +1683,8 @@ IOFireWireUserClient::unpublish(
 
 IOReturn
 IOFireWireUserClient::allocateAddressSpace(
-	FWAddrSpaceCreateParams*	inParams,
-	FWKernAddrSpaceRef* 		outKernAddrSpaceRef)
+	AddressSpaceCreateParams*	inParams,
+	KernAddrSpaceRef* 		outKernAddrSpaceRef)
 {
 	IOReturn						err						= kIOReturnSuccess ;	
 	IOFWUserPseudoAddressSpace* 	newAddrSpace			= new IOFWUserPseudoAddressSpace;
@@ -1705,7 +1732,7 @@ IOFireWireUserClient::allocateAddressSpace(
 
 IOReturn
 IOFireWireUserClient::releaseAddressSpace(
-	FWKernAddrSpaceRef		inAddrSpace)
+	KernAddrSpaceRef		inAddrSpace)
 {
 	IOReturn						result = kIOReturnSuccess ;
 
@@ -1724,12 +1751,12 @@ IOFireWireUserClient::releaseAddressSpace(
 
 IOReturn
 IOFireWireUserClient::getPseudoAddressSpaceInfo(
-	FWKernAddrSpaceRef				inAddrSpaceRef,
+	KernAddrSpaceRef				inAddrSpaceRef,
 	UInt32*							outNodeID,
 	UInt32*							outAddressHi,
 	UInt32*							outAddressLo)
 {
-    IOReturn						result 	= kIOReturnSuccess ;
+	IOReturn						result 	= kIOReturnSuccess ;
 	IOFWUserPseudoAddressSpace*		me 		= OSDynamicCast(IOFWUserPseudoAddressSpace, inAddrSpaceRef) ;
 
 	if (!me)
@@ -1737,7 +1764,7 @@ IOFireWireUserClient::getPseudoAddressSpaceInfo(
 
 	if (kIOReturnSuccess == result)
 	{		
-	    *outNodeID 		= me->getBase().nodeID ;
+		*outNodeID 		= me->getBase().nodeID ;
 		*outAddressHi	= me->getBase().addressHi ;
 		*outAddressLo	= me->getBase().addressLo ;
 	}
@@ -1748,7 +1775,7 @@ IOFireWireUserClient::getPseudoAddressSpaceInfo(
 IOReturn
 IOFireWireUserClient::setAsyncRef_Packet(
 	OSAsyncReference		asyncRef,
-	FWKernAddrSpaceRef		inAddrSpaceRef,
+	KernAddrSpaceRef		inAddrSpaceRef,
 	void*					inCallback,
 	void*					inUserRefCon,
 	void*,
@@ -1777,7 +1804,7 @@ IOFireWireUserClient::setAsyncRef_Packet(
 IOReturn
 IOFireWireUserClient::setAsyncRef_SkippedPacket(
 	OSAsyncReference		asyncRef,
-	FWKernAddrSpaceRef		inAddrSpaceRef,
+	KernAddrSpaceRef		inAddrSpaceRef,
 	void*					inCallback,
 	void*					inUserRefCon,
 	void*,
@@ -1806,7 +1833,7 @@ IOFireWireUserClient::setAsyncRef_SkippedPacket(
 IOReturn
 IOFireWireUserClient::setAsyncRef_Read(
 	OSAsyncReference		asyncRef,
-	FWKernAddrSpaceRef		inAddrSpaceRef,
+	KernAddrSpaceRef		inAddrSpaceRef,
 	void*					inCallback,
 	void*					inUserRefCon,
 	void*,
@@ -1868,7 +1895,7 @@ IOFireWireUserClient::setAsyncRef_BusResetDone(
 
 IOReturn
 IOFireWireUserClient::clientCommandIsComplete(
-	FWKernAddrSpaceRef		inAddrSpaceRef,
+	KernAddrSpaceRef		inAddrSpaceRef,
 	FWClientCommandID		inCommandID,
 	IOReturn				inResult)
 {
@@ -1889,7 +1916,7 @@ IOFireWireUserClient::clientCommandIsComplete(
 #pragma mark --config directories
 IOReturn
 IOFireWireUserClient::configDirectoryCreate(
-	FWKernConfigDirectoryRef*	outDirRef)
+	KernConfigDirectoryRef*	outDirRef)
 {
 	IOReturn error = fOwner->getConfigDirectory(*outDirRef);
 	if (not error && outDirRef)
@@ -1903,7 +1930,7 @@ IOFireWireUserClient::configDirectoryCreate(
 
 IOReturn
 IOFireWireUserClient::configDirectoryRelease(
-	FWKernConfigDirectoryRef	inDirRef)
+	KernConfigDirectoryRef	inDirRef)
 {
 	if ( !OSDynamicCast( IOConfigDirectory, inDirRef ) )
 		return kIOReturnBadArgument ;
@@ -1915,7 +1942,7 @@ IOFireWireUserClient::configDirectoryRelease(
 
 IOReturn
 IOFireWireUserClient::configDirectoryUpdate(
-	FWKernConfigDirectoryRef 	dirRef, 
+	KernConfigDirectoryRef 	dirRef, 
 	UInt32 						offset, 
 	const UInt32*&				romBase)
 {
@@ -1924,7 +1951,7 @@ IOFireWireUserClient::configDirectoryUpdate(
 
 IOReturn
 IOFireWireUserClient::configDirectoryGetKeyType(
-	FWKernConfigDirectoryRef	inDirRef,
+	KernConfigDirectoryRef	inDirRef,
 	int							key,
 	IOConfigKeyType*			outType)
 {
@@ -1935,8 +1962,8 @@ IOFireWireUserClient::configDirectoryGetKeyType(
 }
 
 IOReturn
-IOFireWireUserClient::configDirectoryGetKeyValue_UInt32( FWKernConfigDirectoryRef inDirRef, int key,
-	UInt32 wantText, UInt32* outValue, FWKernOSStringRef* outString, UInt32* outStringLen)
+IOFireWireUserClient::configDirectoryGetKeyValue_UInt32( KernConfigDirectoryRef inDirRef, int key,
+	UInt32 wantText, UInt32* outValue, KernOSStringRef* outString, UInt32* outStringLen)
 {
 	if (!OSDynamicCast(IOConfigDirectory, inDirRef))
 		return kIOReturnBadArgument ;
@@ -1950,8 +1977,8 @@ IOFireWireUserClient::configDirectoryGetKeyValue_UInt32( FWKernConfigDirectoryRe
 }
 
 IOReturn
-IOFireWireUserClient::configDirectoryGetKeyValue_Data( FWKernConfigDirectoryRef inDirRef, int key,
-	UInt32 wantText, FWGetKeyValueDataResults* results )
+IOFireWireUserClient::configDirectoryGetKeyValue_Data( KernConfigDirectoryRef inDirRef, int key,
+	UInt32 wantText, GetKeyValueDataResults* results )
 {
 	if (!OSDynamicCast(IOConfigDirectory, inDirRef))
 		return kIOReturnBadArgument ;
@@ -1969,8 +1996,8 @@ IOFireWireUserClient::configDirectoryGetKeyValue_Data( FWKernConfigDirectoryRef 
 }
 
 IOReturn
-IOFireWireUserClient::configDirectoryGetKeyValue_ConfigDirectory( FWKernConfigDirectoryRef inDirRef, int key,
-	UInt32 wantText, FWKernConfigDirectoryRef* outValue, FWKernOSStringRef* outString, UInt32* outStringLen )
+IOFireWireUserClient::configDirectoryGetKeyValue_ConfigDirectory( KernConfigDirectoryRef inDirRef, int key,
+	UInt32 wantText, KernConfigDirectoryRef* outValue, KernOSStringRef* outString, UInt32* outStringLen )
 {
 	if (!OSDynamicCast(IOConfigDirectory, inDirRef))
 		return kIOReturnBadArgument ;
@@ -1988,8 +2015,8 @@ IOFireWireUserClient::configDirectoryGetKeyValue_ConfigDirectory( FWKernConfigDi
 }
 
 IOReturn
-IOFireWireUserClient::configDirectoryGetKeyOffset_FWAddress( FWKernConfigDirectoryRef inDirRef, int key, UInt32 wantText,
-	FWGetKeyOffsetResults* results)
+IOFireWireUserClient::configDirectoryGetKeyOffset_FWAddress( KernConfigDirectoryRef inDirRef, int key, UInt32 wantText,
+	GetKeyOffsetResults* results)
 {
 	if (!OSDynamicCast(IOConfigDirectory, inDirRef))
 		return kIOReturnBadArgument ;
@@ -2009,7 +2036,7 @@ IOFireWireUserClient::configDirectoryGetKeyOffset_FWAddress( FWKernConfigDirecto
 
 IOReturn
 IOFireWireUserClient::configDirectoryGetIndexType(
-	FWKernConfigDirectoryRef	inDirRef,
+	KernConfigDirectoryRef	inDirRef,
 	int							index,
 	IOConfigKeyType*			outType)
 {
@@ -2021,7 +2048,7 @@ IOFireWireUserClient::configDirectoryGetIndexType(
 
 IOReturn
 IOFireWireUserClient::configDirectoryGetIndexKey(
-	FWKernConfigDirectoryRef	inDirRef,
+	KernConfigDirectoryRef	inDirRef,
 	int							index,
 	int*						outKey)
 {
@@ -2033,7 +2060,7 @@ IOFireWireUserClient::configDirectoryGetIndexKey(
 
 IOReturn
 IOFireWireUserClient::configDirectoryGetIndexValue_UInt32(
-	FWKernConfigDirectoryRef	inDirRef,
+	KernConfigDirectoryRef	inDirRef,
 	int							index,
 	UInt32*						outKey)
 {
@@ -2045,9 +2072,9 @@ IOFireWireUserClient::configDirectoryGetIndexValue_UInt32(
 
 IOReturn
 IOFireWireUserClient::configDirectoryGetIndexValue_Data(
-	FWKernConfigDirectoryRef	inDirRef,
+	KernConfigDirectoryRef	inDirRef,
 	int							index,
-	FWKernOSDataRef*			outDataRef,
+	KernOSDataRef*			outDataRef,
 	IOByteCount*				outDataLen)
 {
 	if (!OSDynamicCast(IOConfigDirectory, inDirRef))
@@ -2063,8 +2090,8 @@ IOFireWireUserClient::configDirectoryGetIndexValue_Data(
 }
 
 IOReturn
-IOFireWireUserClient::configDirectoryGetIndexValue_String( FWKernConfigDirectoryRef inDirRef, int index,
-	FWKernOSStringRef* outString, UInt32* outStringLen )
+IOFireWireUserClient::configDirectoryGetIndexValue_String( KernConfigDirectoryRef inDirRef, int index,
+	KernOSStringRef* outString, UInt32* outStringLen )
 {
 	if (!OSDynamicCast(IOConfigDirectory, inDirRef))
 		return kIOReturnBadArgument ;
@@ -2078,9 +2105,9 @@ IOFireWireUserClient::configDirectoryGetIndexValue_String( FWKernConfigDirectory
 
 IOReturn
 IOFireWireUserClient::configDirectoryGetIndexValue_ConfigDirectory(
-	FWKernConfigDirectoryRef	inDirRef,
+	KernConfigDirectoryRef	inDirRef,
 	int							index,
-	FWKernConfigDirectoryRef*	outDirRef)
+	KernConfigDirectoryRef*	outDirRef)
 {
 	if (!OSDynamicCast(IOConfigDirectory, inDirRef))
 		return kIOReturnBadArgument ;
@@ -2096,7 +2123,7 @@ IOFireWireUserClient::configDirectoryGetIndexValue_ConfigDirectory(
 
 IOReturn
 IOFireWireUserClient::configDirectoryGetIndexOffset_FWAddress(
-	FWKernConfigDirectoryRef	inDirRef,
+	KernConfigDirectoryRef	inDirRef,
 	int							index,
 	UInt32*						addressHi,
 	UInt32*						addressLo)
@@ -2118,7 +2145,7 @@ IOFireWireUserClient::configDirectoryGetIndexOffset_FWAddress(
 
 IOReturn
 IOFireWireUserClient::configDirectoryGetIndexOffset_UInt32(
-	FWKernConfigDirectoryRef	inDirRef,
+	KernConfigDirectoryRef	inDirRef,
 	int							index,
 	UInt32*						outValue)
 {
@@ -2130,7 +2157,7 @@ IOFireWireUserClient::configDirectoryGetIndexOffset_UInt32(
 
 IOReturn
 IOFireWireUserClient::configDirectoryGetIndexEntry(
-	FWKernConfigDirectoryRef	inDirRef,
+	KernConfigDirectoryRef	inDirRef,
 	int							index,
 	UInt32*						outValue)
 {
@@ -2142,7 +2169,7 @@ IOFireWireUserClient::configDirectoryGetIndexEntry(
 
 IOReturn
 IOFireWireUserClient::configDirectoryGetSubdirectories(
-	FWKernConfigDirectoryRef	inDirRef,
+	KernConfigDirectoryRef	inDirRef,
 	OSIterator**				outIterator)
 {
 	if (!OSDynamicCast(IOConfigDirectory, inDirRef))
@@ -2153,7 +2180,7 @@ IOFireWireUserClient::configDirectoryGetSubdirectories(
 
 IOReturn
 IOFireWireUserClient::configDirectoryGetKeySubdirectories(
-	FWKernConfigDirectoryRef	inDirRef,
+	KernConfigDirectoryRef	inDirRef,
 	int							key,
 	OSIterator**				outIterator)
 {
@@ -2165,7 +2192,7 @@ IOFireWireUserClient::configDirectoryGetKeySubdirectories(
 
 IOReturn
 IOFireWireUserClient::configDirectoryGetType(
-	FWKernConfigDirectoryRef	inDirRef,
+	KernConfigDirectoryRef	inDirRef,
 	int*						outType)
 {
 	if (!OSDynamicCast(IOConfigDirectory, inDirRef))
@@ -2177,7 +2204,7 @@ IOFireWireUserClient::configDirectoryGetType(
 
 IOReturn
 IOFireWireUserClient::configDirectoryGetNumEntries(
-	FWKernConfigDirectoryRef	inDirRef,
+	KernConfigDirectoryRef	inDirRef,
 	int*						outNumEntries)
 {
 	if (!OSDynamicCast(IOConfigDirectory, inDirRef))
@@ -2194,9 +2221,7 @@ IOFireWireUserClient::configDirectoryGetNumEntries(
 //
 
 IOReturn
-IOFireWireUserClient::allocatePhysicalAddressSpace(
-	FWPhysicalAddrSpaceCreateParams* 	inParams,
-	FWKernPhysicalAddrSpaceRef* 		outKernAddrSpaceRef)
+IOFireWireUserClient::allocatePhysicalAddressSpace( PhysicalAddressSpaceCreateParams* inParams, KernPhysicalAddrSpaceRef* outKernAddrSpaceRef)
 {
 	IOMemoryDescriptor*	mem = IOMemoryDescriptor::withAddress((vm_address_t)inParams->backingStore, inParams->size, kIODirectionNone, fTask) ;
 	IOFWUserClientPhysicalAddressSpace*	addrSpace = new IOFWUserClientPhysicalAddressSpace ;
@@ -2252,7 +2277,7 @@ IOFireWireUserClient::releasePhysicalAddressSpace(
 
 IOReturn
 IOFireWireUserClient::getPhysicalAddressSpaceSegmentCount(
-	FWKernPhysicalAddrSpaceRef			inAddrSpace,
+	KernPhysicalAddrSpaceRef			inAddrSpace,
 	UInt32*								outCount)
 {
 	if (!OSDynamicCast(IOFWUserClientPhysicalAddressSpace, inAddrSpace))
@@ -2264,7 +2289,7 @@ IOFireWireUserClient::getPhysicalAddressSpaceSegmentCount(
 
 IOReturn
 IOFireWireUserClient::getPhysicalAddressSpaceSegments(
-	FWKernPhysicalAddrSpaceRef			inAddrSpace,
+	KernPhysicalAddrSpaceRef			inAddrSpace,
 	UInt32								inSegmentCount,
 	IOPhysicalAddress*					outSegments,
 	IOByteCount*						outSegmentLengths,
@@ -2349,9 +2374,7 @@ IOFireWireUserClient::getPhysicalAddressSpaceSegments(
 // async
 
 IOReturn
-IOFireWireUserClient::lazyAllocateUserCommand(
-	FWUserCommandSubmitParams*	inParams,
-	IOFWUserCommand**			outCommand)
+IOFireWireUserClient::lazyAllocateUserCommand( CommandSubmitParams*	inParams, IOFWUserCommand** outCommand )
 {
 	// lazy allocate new command
 	IOReturn	result = kIOReturnSuccess ;
@@ -2369,8 +2392,8 @@ IOFireWireUserClient::lazyAllocateUserCommand(
 IOReturn
 IOFireWireUserClient::userAsyncCommand_Submit(
 	OSAsyncReference			asyncRef,
-	FWUserCommandSubmitParams*	inParams,
-	FWUserCommandSubmitResult*	outResult,
+	CommandSubmitParams*	inParams,
+	CommandSubmitResult*	outResult,
 	IOByteCount					inParamsSize,
 	IOByteCount*				outResultSize)
 {
@@ -2396,9 +2419,9 @@ IOFireWireUserClient::userAsyncCommand_Submit(
 	if (kIOReturnSuccess == result)
 	{
 		IOUserClient::setAsyncReference( asyncRef, 
-										 (mach_port_t) asyncRef[0], 
-										 (void*)inParams->callback, 
-										 (void*)inParams->refCon) ;
+										(mach_port_t) asyncRef[0], 
+										(void*)inParams->callback, 
+										(void*)inParams->refCon) ;
 
 		me->setAsyncReference(asyncRef) ;
 		result = me->submit( inParams, outResult ) ;
@@ -2408,8 +2431,7 @@ IOFireWireUserClient::userAsyncCommand_Submit(
 }
 
 IOReturn
-IOFireWireUserClient::userAsyncCommand_Release(
-	FWKernCommandRef		inCommandRef)
+IOFireWireUserClient::userAsyncCommand_Release( KernCommandRef inCommandRef )
 {
 	IOReturn		result = kIOReturnSuccess ;
 
@@ -2429,7 +2451,7 @@ IOFireWireUserClient::createReadCommand(
 	UInt32 					generation, 
 	FWAddress 				devAddress, 
 	IOMemoryDescriptor*		hostMem,
-	FWDeviceCallback 		completion,
+	FWDeviceCallback	 		completion,
 	void*					refcon ) const
 {
 	IOFWReadCommand* result = new IOFWReadCommand ;

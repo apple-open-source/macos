@@ -31,7 +31,7 @@
 #define _IOKIT_IOFWDCLPROGRAM_H
 
 #include <libkern/c++/OSObject.h>
-#include <IOKit/firewire/IOFWIsoch.h>
+#include <IOKit/firewire/IOFireWireFamilyCommon.h>
 #include <IOKit/firewire/IOFireWireBus.h>
 #include <IOKit/IOMemoryCursor.h>
 
@@ -58,12 +58,6 @@ protected:
     Reserved for future use.  (Internal use only)  */
     ExpansionData *reserved;
 
-//	DCLCommandPtr convertDCLPtrToKernel(DCLCommandPtr dcl)
-//		{if (dcl) return (DCLCommandPtr)((UInt32)dcl + fDCLTaskToKernel); else return dcl;};
-//
-//	DCLCommandPtr convertDCLPtrFromKernel(DCLCommandPtr dcl)
-//		{if (dcl) return (DCLCommandPtr)((UInt32)dcl - fDCLTaskToKernel); else return dcl;};
-
     virtual UInt32 getPhysicalSegs(void *addr, IOByteCount len,
                     IOMemoryCursor::PhysicalSegment segs[], UInt32 maxSegs);
 
@@ -78,7 +72,7 @@ public:
     virtual IOReturn releaseHW() = 0;
     virtual IOReturn compile(IOFWSpeed speed, UInt32 chan) = 0;
     virtual IOReturn notify(UInt32 notificationType,
-        DCLCommandPtr *dclCommandList, UInt32 numDCLCommands) = 0;
+        DCLCommand** dclCommandList, UInt32 numDCLCommands) = 0;
     virtual IOReturn start() = 0;
     virtual void stop() = 0;
     virtual IOReturn pause();

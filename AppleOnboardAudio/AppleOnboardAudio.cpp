@@ -1509,37 +1509,37 @@ UInt8 AppleOnboardAudio::VolumeToPRAMValue (UInt32 inLeftVol, UInt32 inRightVol)
 	UInt32			leftVol;
 	UInt32			rightVol;
 
-	debug3IOLog ( "AppleOnboardAudio::VolumeToPRAMValue ( 0x%X, 0x%X )\n", (unsigned int)inLeftVol, (unsigned int)inRightVol );
+	debug3IOLog ( "+ AppleOnboardAudio::VolumeToPRAMValue ( 0x%X, 0x%X )\n", (unsigned int)inLeftVol, (unsigned int)inRightVol );
 	pramVolume = 0;											//	[2886446]	Always pass zero as a result when muting!!!
 	if ( ( 0 != inLeftVol ) || ( 0 != inRightVol ) ) {		//	[2886446]
 		leftVol = inLeftVol;
 		rightVol = inRightVol;
 		if (NULL != outVolLeft) {
 			leftVol -= outVolLeft->getMinValue ();
-			debug2IOLog ( "AppleOnboardAudio::VolumeToPRAMValue leftVol = 0x%X\n", (unsigned int)leftVol );
 		}
 	
 		if (NULL != outVolRight) {
 			rightVol -= outVolRight->getMinValue ();
-			debug2IOLog ( "AppleOnboardAudio::VolumeToPRAMValue rightVol = 0x%X\n", (unsigned int)rightVol );
 		}
+		debug3IOLog ( "... leftVol = 0x%X, rightVol = 0x%X\n", (unsigned int)leftVol, (unsigned int)rightVol );
 	
 		if (NULL != outVolMaster) {
 			volumeRange = (outVolMaster->getMaxValue () - outVolMaster->getMinValue () + 1);
-			debug2IOLog ( "AppleOnboardAudio::VolumeToPRAMValue outVolMaster volumeRange = 0x%X\n", (unsigned int)volumeRange );
+			debug2IOLog ( "... outVolMaster volumeRange = 0x%X\n", (unsigned int)volumeRange );
 		} else if (NULL != outVolLeft) {
 			volumeRange = (outVolLeft->getMaxValue () - outVolLeft->getMinValue () + 1);
-			debug2IOLog ( "AppleOnboardAudio::VolumeToPRAMValue outVolLeft volumeRange = 0x%X\n", (unsigned int)volumeRange );
+			debug2IOLog ( "... outVolLeft volumeRange = 0x%X\n", (unsigned int)volumeRange );
 		} else if (NULL != outVolRight) {
 			volumeRange = (outVolRight->getMaxValue () - outVolRight->getMinValue () + 1);
-			debug2IOLog ( "AppleOnboardAudio::VolumeToPRAMValue outVolRight volumeRange = 0x%X\n", (unsigned int)volumeRange );
+			debug2IOLog ( "... outVolRight volumeRange = 0x%X\n", (unsigned int)volumeRange );
 		} else {
 			volumeRange = kMaximumPRAMVolume;
-			debug2IOLog ( "AppleOnboardAudio::VolumeToPRAMValue volumeRange = 0x%X\n", (unsigned int)volumeRange );
+			debug2IOLog ( "... volumeRange = 0x%X **** NO AUDIO LEVEL CONTROLS!\n", (unsigned int)volumeRange );
 		}
 
 		averageVolume = (leftVol + rightVol) >> 1;		// sum the channel volumes and get an average
-		debug2IOLog ( "AppleOnboardAudio::VolumeToPRAMValue averageVolume = 0x%X\n", (unsigned int)volumeRange );
+		debug2IOLog ( "... averageVolume = 0x%X\n", (unsigned int)volumeRange );
+		debug3IOLog ( "... volumeRange %X, kMaximumPRAMVolume %X\n", (unsigned int)volumeRange, (unsigned int)kMaximumPRAMVolume );
 		volumeSteps = volumeRange / kMaximumPRAMVolume;	// divide the range by the range of the pramVolume
 		pramVolume = averageVolume / volumeSteps;    
 	
@@ -1553,7 +1553,7 @@ UInt8 AppleOnboardAudio::VolumeToPRAMValue (UInt32 inLeftVol, UInt32 inRightVol)
 		}
 	
 	}
-	debug2IOLog ( "AppleOnboardAudio::VolumeToPRAMValue returns 0x%X\n", (unsigned int)pramVolume );
+	debug2IOLog ( "- AppleOnboardAudio::VolumeToPRAMValue returns 0x%X\n", (unsigned int)pramVolume );
 	return (pramVolume & 0x07);
 }
 
@@ -1582,38 +1582,41 @@ void AppleOnboardAudio::WritePRAMVol (UInt32 leftVol, UInt32 rightVol) {
 		
 	platform = OSDynamicCast(IODTPlatformExpert,getPlatform());
     
-    debug3IOLog("AppleOnboardAudio::WritePRAMVol leftVol=%lu, rightVol=%lu\n",leftVol,  rightVol);
+    debug3IOLog("+ AppleOnboardAudio::WritePRAMVol leftVol=%lu, rightVol=%lu\n",leftVol,  rightVol);
     
     if (platform) {
-		debug2IOLog ( "AppleOnboardAudio::WritePRAMVol platform 0x%X\n", (unsigned int)platform );
+		debug2IOLog ( "... platform 0x%X\n", (unsigned int)platform );
 		pramVolume = VolumeToPRAMValue (leftVol, rightVol);
-//		curPRAMVol = pramVolume ^ 0xFF;
-//		debug3IOLog ( "AppleOnboardAudio::WritePRAMVol target pramVolume = 0x%X, curPRAMVol = 0x%X\n", pramVolume, curPRAMVol );
-		
+#if 0
+		curPRAMVol = pramVolume ^ 0xFF;
+		debug3IOLog ( "... target pramVolume = 0x%X, curPRAMVol = 0x%X\n", pramVolume, curPRAMVol );
+#endif
 		// get the old value to compare it with
 		err = platform->readXPRAM((IOByteCount)kPRamVolumeAddr, &curPRAMVol, (IOByteCount)1);
 		if ( kIOReturnSuccess == err ) {
-			debug2IOLog ( "AppleOnboardAudio::WritePRAMVol curPRAMVol = 0x%X before write\n", (curPRAMVol & 0x07) );
+			debug2IOLog ( "... curPRAMVol = 0x%X before write\n", (curPRAMVol & 0x07) );
 			// Update only if there is a change
 			if (pramVolume != (curPRAMVol & 0x07)) {
 				// clear bottom 3 bits of volume control byte from PRAM low memory image
 				curPRAMVol = (curPRAMVol & 0xF8) | pramVolume;
-				debug2IOLog("AppleOnboardAudio::WritePRAMVol curPRAMVol = 0x%x\n",curPRAMVol);
+				debug2IOLog("... curPRAMVol = 0x%x\n",curPRAMVol);
 				// write out the volume control byte to PRAM
 				err = platform->writeXPRAM((IOByteCount)kPRamVolumeAddr, &curPRAMVol,(IOByteCount) 1);
 				if ( kIOReturnSuccess != err ) {
 					debug5IOLog ( "0x%X = platform->writeXPRAM( 0x%X, & 0x%X, 1 ), value = 0x%X\n", err, (unsigned int)kPRamVolumeAddr, (unsigned int)&curPRAMVol, (unsigned int)curPRAMVol );
 				} else {
-//					err = platform->readXPRAM((IOByteCount)kPRamVolumeAddr, &curPRAMVol, (IOByteCount)1);
-//					if ( kIOReturnSuccess == err ) {
-//						if ( ( 0x07 & curPRAMVol ) != pramVolume ) {
-//							debug3IOLog ( "PRAM Read after Write did not compare:  Write = 0x%X, Read = 0x%X\n", (unsigned int)pramVolume, (unsigned int)curPRAMVol );
-//						} else {
-//							debugIOLog ( "PRAM verified after write!\n" );
-//						}
-//					} else {
-//						debugIOLog ( "Could not readXPRAM to verify write!\n" );
-//					}
+#if 0
+					err = platform->readXPRAM((IOByteCount)kPRamVolumeAddr, &curPRAMVol, (IOByteCount)1);
+					if ( kIOReturnSuccess == err ) {
+						if ( ( 0x07 & curPRAMVol ) != pramVolume ) {
+							debug3IOLog ( "PRAM Read after Write did not compare:  Write = 0x%X, Read = 0x%X\n", (unsigned int)pramVolume, (unsigned int)curPRAMVol );
+						} else {
+							debugIOLog ( "PRAM verified after write!\n" );
+						}
+					} else {
+						debugIOLog ( "Could not readXPRAM to verify write!\n" );
+					}
+#endif
 				}
 			} else {
 				debugIOLog ( "PRAM write request is to current value: no I/O\n" );
@@ -1622,8 +1625,9 @@ void AppleOnboardAudio::WritePRAMVol (UInt32 leftVol, UInt32 rightVol) {
 			debug2IOLog ( "Could not readXPRAM prior to write! Error 0x%X\n", err );
 		}
 	} else {
-		debugIOLog ( "AppleOnboardAudio::WritePRAMVol say's no platform\n" );
+		debugIOLog ( "... no platform\n" );
 	}
+    debugIOLog("- AppleOnboardAudio::WritePRAMVol\n");
 }
 
 UInt8 AppleOnboardAudio::ReadPRAMVol (void) {
@@ -1710,7 +1714,6 @@ exit:
 const IOExternalMethod		AppleOnboardAudioUserClient::sMethods[] =
 {
 	//	Read
-	
 	{
 		NULL,														// object
 		( IOMethod ) &AppleOnboardAudioUserClient::gpioRead,		// func
@@ -1718,9 +1721,7 @@ const IOExternalMethod		AppleOnboardAudioUserClient::sMethods[] =
 		1,															// count of input parameters
 		1															// count of output parameters
 	},
-	
 	//	Write
-	
 	{
 		NULL,														// object
 		( IOMethod ) &AppleOnboardAudioUserClient::gpioWrite,		// func
@@ -1728,15 +1729,157 @@ const IOExternalMethod		AppleOnboardAudioUserClient::sMethods[] =
 		2,															// count of input parameters
 		0															// count of output parameters
 	},
-
 	// gpioGetActiveState
-
 	{
 		NULL,														// object
 		( IOMethod ) &AppleOnboardAudioUserClient::gpioGetActiveState,		// func
 		kIOUCScalarIScalarO,										// flags
 		1,															// count of input parameters
 		1															// count of output parameters
+	},
+	// gpioSetActiveState
+	{
+		NULL,														// object
+		( IOMethod ) &AppleOnboardAudioUserClient::gpioSetActiveState,		// func
+		kIOUCScalarIScalarO,										// flags
+		2,															// count of input parameters
+		0															// count of output parameters
+	},
+	// gpioCheckIfAvailable
+	{
+		NULL,														// object
+		( IOMethod ) &AppleOnboardAudioUserClient::gpioCheckAvailable,		// func
+		kIOUCScalarIScalarO,										// flags
+		1,															// count of input parameters
+		1															// count of output parameters
+	},
+	// hwRegisterRead32
+	{
+		NULL,														// object
+		( IOMethod ) &AppleOnboardAudioUserClient::hwRegisterRead32,		// func
+		kIOUCScalarIScalarO,										// flags
+		1,															// count of input parameters
+		1															// count of output parameters
+	},
+	// hwRegisterWrite32
+	{
+		NULL,														// object
+		( IOMethod ) &AppleOnboardAudioUserClient::hwRegisterWrite32,		// func
+		kIOUCScalarIScalarO,										// flags
+		2,															// count of input parameters
+		0															// count of output parameters
+	},
+	// codecReadRegister
+	{
+		NULL,														// object
+		( IOMethod ) &AppleOnboardAudioUserClient::codecReadRegister,		// func
+		kIOUCScalarIStructO,										// flags
+		1,															// count of input parameters
+		kMaxCodecStructureSize										// size of output structure
+	},
+	// codecWriteRegister
+	{
+		NULL,														// object
+		( IOMethod ) &AppleOnboardAudioUserClient::codecWriteRegister,		// func
+		kIOUCScalarIStructI,										// flags
+		1,															// count of input parameters
+		kMaxCodecRegisterWidth										// size of input structure
+	},
+	// readSpeakerID
+	{
+		NULL,														// object
+		( IOMethod ) &AppleOnboardAudioUserClient::readSpeakerID,		// func
+		kIOUCScalarIScalarO,										// flags
+		1,															// count of input parameters
+		1															// count of output parameters
+	},
+	// codecRegisterSize
+	{
+		NULL,														// object
+		( IOMethod ) &AppleOnboardAudioUserClient::codecRegisterSize,		// func
+		kIOUCScalarIScalarO,										// flags
+		1,															// count of input parameters
+		1															// count of output parameters
+	},
+	// readPRAMVolume
+	{
+		NULL,														// object
+		( IOMethod ) &AppleOnboardAudioUserClient::readPRAMVolume,		// func
+		kIOUCScalarIScalarO,										// flags
+		1,															// count of input parameters
+		1															// count of output parameters
+	},
+	// readDMAState
+	{
+		NULL,														// object
+		( IOMethod ) &AppleOnboardAudioUserClient::readDMAState,		// func
+		kIOUCScalarIScalarO,										// flags
+		1,															// count of input parameters
+		1															// count of output parameters
+	},
+	// readStreamFormat
+	{
+		NULL,														// object
+		( IOMethod ) &AppleOnboardAudioUserClient::readStreamFormat,		// func
+		kIOUCScalarIStructO,										// flags
+		1,															// count of input parameters
+		sizeof ( IOAudioStreamFormat )								// size of output structure
+	},
+	// readPowerState
+	{
+		NULL,														// object
+		( IOMethod ) &AppleOnboardAudioUserClient::readPowerState,	// func
+		kIOUCScalarIScalarO,										// flags
+		1,															// count of input parameters
+		1															// count of output parameters
+	},
+	// hwRegisterWrite32
+	{
+		NULL,														// object
+		( IOMethod ) &AppleOnboardAudioUserClient::setPowerState,	// func
+		kIOUCScalarIScalarO,										// flags
+		2,															// count of input parameters
+		0															// count of output parameters
+	},
+	// hwRegisterWrite32
+	{
+		NULL,														// object
+		( IOMethod ) &AppleOnboardAudioUserClient::setBiquadCoefficients,	// func
+		kIOUCScalarIStructI,										// flags
+		1,															// count of input parameters
+		kMaxBiquadWidth												// size of input structure
+	},
+	//	getBiquadInfo
+	{
+		NULL,														// object
+		( IOMethod ) &AppleOnboardAudioUserClient::getBiquadInfo,		// func
+		kIOUCScalarIStructO,										// flags
+		1,															// count of input parameters
+		kMaxBiquadInfoSize											// size of output structure
+	},
+	//	getProcessingParams
+	{
+		NULL,														// object
+		( IOMethod ) &AppleOnboardAudioUserClient::getProcessingParams,		// func
+		kIOUCScalarIStructO,										// flags
+		1,															// count of input parameters
+		kMaxProcessingParamSize										// size of output structure
+	},
+	// setProcessingParams
+	{
+		NULL,														// object
+		( IOMethod ) &AppleOnboardAudioUserClient::setProcessingParams,		// func
+		kIOUCScalarIStructI,										// flags
+		1,															// count of input parameters
+		kMaxProcessingParamSize										// size of input structure
+	},
+	// invokeInternalFunction
+	{
+		NULL,														// object
+		( IOMethod ) &AppleOnboardAudioUserClient::invokeInternalFunction,		// func
+		kIOUCScalarIStructI,										// flags
+		1,															// count of input parameters
+		16															// size of input structure
 	},
 };
 
@@ -1851,13 +1994,10 @@ IOExternalMethod *	AppleOnboardAudioUserClient::getTargetAndMethodForIndex( IOSe
 	IOExternalMethod *		methodPtr;
 	
 	methodPtr = NULL;
-	if( inIndex <= sMethodCount )
-    {
+	if( inIndex <= sMethodCount )  {
         *outTarget = this;
 		methodPtr = ( IOExternalMethod * ) &sMethods[ inIndex ];
-    }
-	else
-	{
+    } else {
 		IOLog( "[AppleOnboardAudio] getTargetAndMethodForIndex - bad index (index=%lu)\n", inIndex );
 	}
 	return( methodPtr );
@@ -1867,26 +2007,12 @@ IOExternalMethod *	AppleOnboardAudioUserClient::getTargetAndMethodForIndex( IOSe
 //	gpioRead
 //===========================================================================================================================
 
-IOReturn	AppleOnboardAudioUserClient::gpioRead (UInt32 selector, UInt8 * gpioState)
-{
-	IOReturn		err;
-
-#ifdef DEBUGMODE
-	IOLog ("gpioRead (selector=%4s, gpioState=0x%p)\n", (char *)&selector, gpioState);
-#endif
-
-	err = kIOReturnNotReadable;
-
-	FailIf (NULL == mDriver, Exit);
-	*gpioState = mDriver->readGPIO (selector);
-
-#ifdef DEBUGMODE
-	IOLog ("gpioRead gpioState=0x%x\n", *gpioState);
-#endif
-
-	err = kIOReturnSuccess;
-
-Exit:
+IOReturn	AppleOnboardAudioUserClient::gpioRead (UInt32 selector, UInt8 * gpioState) {
+	IOReturn		err = kIOReturnNotReadable;
+	if ( NULL != mDriver && NULL != gpioState ) {
+		*gpioState = mDriver->readGPIO ( selector );
+		err = kIOReturnSuccess;
+	}
 	return (err);
 }
 
@@ -1894,22 +2020,12 @@ Exit:
 //	gpioWrite
 //===========================================================================================================================
 
-IOReturn	AppleOnboardAudioUserClient::gpioWrite (UInt32 selector, UInt8 value)
-{
-	IOReturn		err;
-
-#ifdef DEBUGMODE
-	IOLog ( "gpioWrite (selector=%4s, value=0x%x)\n", (char *)&selector, value);
-#endif
-
-	err = kIOReturnNotReadable;
-
-	FailIf (NULL == mDriver, Exit);
-	mDriver->writeGPIO (selector, value);
-
-	err = kIOReturnSuccess;
-
-Exit:
+IOReturn	AppleOnboardAudioUserClient::gpioWrite (UInt32 selector, UInt8 data) {
+	IOReturn		err = kIOReturnNotReadable;
+	if ( NULL != mDriver ) {
+		mDriver->writeGPIO ( selector, data );
+		err = kIOReturnSuccess;
+	}
 	return (err);
 }
 
@@ -1917,28 +2033,261 @@ Exit:
 //	gpioGetActiveState
 //===========================================================================================================================
 
-IOReturn	AppleOnboardAudioUserClient::gpioGetActiveState (UInt32 selector, UInt8 * gpioActiveState)
-{
-	IOReturn		err;
-
-#ifdef DEBUGMODE
-	IOLog ("gpioGetActiveState (selector=%4s, gpioActiveState=0x%p)\n", (char *)&selector, gpioActiveState);
-#endif
-
-	err = kIOReturnNotReadable;
-
-	FailIf (NULL == mDriver, Exit);
-	*gpioActiveState = mDriver->getGPIOActiveState (selector);
-
-#ifdef DEBUGMODE
-	IOLog ("gpioGetActiveState gpioState=0x%x\n", *gpioActiveState);
-#endif
-
-	err = kIOReturnSuccess;
-
-Exit:
+IOReturn	AppleOnboardAudioUserClient::gpioGetActiveState (UInt32 selector, UInt8 * gpioActiveState) {
+	IOReturn		err = kIOReturnNotReadable;
+	if ( NULL != mDriver && NULL != gpioActiveState ) {
+		*gpioActiveState = mDriver->getGPIOActiveState ( selector );
+		err = kIOReturnSuccess;
+	}
 	return (err);
 }
+
+//===========================================================================================================================
+//	gpioSetActiveState
+//===========================================================================================================================
+
+IOReturn	AppleOnboardAudioUserClient::gpioSetActiveState (UInt32 selector, UInt8 gpioActiveState) {
+	IOReturn		err = kIOReturnNotReadable;
+	if ( NULL != mDriver ) {
+		mDriver->setGPIOActiveState ( selector, gpioActiveState );
+		err = kIOReturnSuccess;
+	}
+	return (err);
+}
+
+//===========================================================================================================================
+//	checkIfGPIOExists
+//===========================================================================================================================
+
+IOReturn	AppleOnboardAudioUserClient::gpioCheckAvailable ( UInt32 selector, UInt8 * gpioExists ) {
+	IOReturn		err = kIOReturnNotReadable;
+	if ( NULL != mDriver || NULL != gpioExists ) {
+		*gpioExists = mDriver->checkGpioAvailable ( selector );
+		err = kIOReturnSuccess;
+	}
+	return (err);
+}
+
+//===========================================================================================================================
+//	hwRegisterRead32
+//===========================================================================================================================
+
+IOReturn	AppleOnboardAudioUserClient::hwRegisterRead32 ( UInt32 selector, UInt32 * data ) {
+	IOReturn		err = kIOReturnNotReadable;
+	if ( NULL != mDriver && NULL != data ) {
+		err = mDriver->readHWReg32 ( selector, data );
+	}
+	return (err);
+}
+
+//===========================================================================================================================
+//	hwRegisterWrite32
+//===========================================================================================================================
+
+IOReturn	AppleOnboardAudioUserClient::hwRegisterWrite32 ( UInt32 selector, UInt32 data ) {
+	IOReturn		err = kIOReturnNotReadable;
+	if ( NULL != mDriver ) {
+		err = mDriver->writeHWReg32 ( selector, data );
+	}
+	return (err);
+}
+
+//===========================================================================================================================
+//	codecReadRegister
+//
+//	This transaction copies the entire codec register cache (up to 512 bytes) in a single transaction in order to 
+//	limit the number of user client transactions.  If a register cache larger than 512 bytes exists then the
+//	scalarArg1 is used to provide a target 512 byte block address.  For register cache sizes of 512 bytes or less,
+//	scalarArg1 will have a value of zero to indicate the base block address.
+//===========================================================================================================================
+
+IOReturn	AppleOnboardAudioUserClient::codecReadRegister ( UInt32 scalarArg1, void * outStructPtr, IOByteCount * outStructSizePtr ) {
+	kern_return_t	err = kIOReturnNotReadable;
+	
+	if ( NULL != mDriver && NULL != outStructPtr  && NULL != outStructSizePtr ) {
+		err = mDriver->readCodecReg ( scalarArg1, outStructPtr, outStructSizePtr );
+	}
+	return ( err );
+}
+
+//===========================================================================================================================
+//	codecWriteRegister
+//===========================================================================================================================
+
+IOReturn	AppleOnboardAudioUserClient::codecWriteRegister ( UInt32 selector, void * data, UInt32 inStructSize ) {
+	IOReturn		err = kIOReturnNotReadable;
+	if ( NULL != mDriver && NULL != data ) {
+		err = mDriver->writeCodecReg ( selector, data );
+	}
+	return (err);
+}
+
+//===========================================================================================================================
+//	readSpeakerID
+//===========================================================================================================================
+
+IOReturn	AppleOnboardAudioUserClient::readSpeakerID ( UInt32 selector, UInt32 * data ) {
+	IOReturn		err = kIOReturnNotReadable;
+
+	if ( NULL != mDriver && NULL != data ) {
+		err = mDriver->readSpkrID ( selector, data );
+	}
+	return (err);
+}
+
+
+//===========================================================================================================================
+//	codecRegisterSize
+//===========================================================================================================================
+
+IOReturn	AppleOnboardAudioUserClient::codecRegisterSize ( UInt32 selector, UInt32 * codecRegSizePtr ) {
+	IOReturn		err = kIOReturnNotReadable;
+	if ( NULL != mDriver && NULL != codecRegSizePtr ) {
+		err = mDriver->getCodecRegSize ( selector, codecRegSizePtr );
+	}
+	return (err);
+}
+
+//===========================================================================================================================
+//	readPRAMVolume
+//===========================================================================================================================
+
+IOReturn	AppleOnboardAudioUserClient::readPRAMVolume ( UInt32 selector, UInt32 * pramDataPtr ) {
+	IOReturn		err = kIOReturnNotReadable;
+	if ( NULL != mDriver && NULL != pramDataPtr ) {
+		err = (UInt32)mDriver->getVolumePRAM ( pramDataPtr );
+	}
+	return (err);
+}
+
+
+//===========================================================================================================================
+//	readDMAState
+//===========================================================================================================================
+
+IOReturn	AppleOnboardAudioUserClient::readDMAState ( UInt32 selector, UInt32 * dmaStatePtr ) {
+	IOReturn		err = kIOReturnNotReadable;
+	if ( NULL != mDriver && NULL != dmaStatePtr ) {
+		err = (UInt32)mDriver->getDmaState ( dmaStatePtr );
+	}
+	return err;
+}
+
+
+//===========================================================================================================================
+//	readStreamFormat
+//===========================================================================================================================
+
+IOReturn	AppleOnboardAudioUserClient::readStreamFormat ( UInt32 selector, IOAudioStreamFormat * outStructPtr, IOByteCount * outStructSizePtr ) {
+#pragma unused ( selector )
+	IOReturn		err = kIOReturnNotReadable;
+	if ( NULL != mDriver && NULL != outStructPtr && NULL != outStructSizePtr ) {
+		if ( sizeof ( IOAudioStreamFormat ) <= *outStructSizePtr ) {
+			err = (UInt32)mDriver->getStreamFormat ( outStructPtr );
+			if ( kIOReturnSuccess == err ) {
+				*outStructSizePtr = sizeof ( IOAudioStreamFormat );
+			}
+		}
+	}
+	return err;
+}
+
+
+//===========================================================================================================================
+//	readPowerState
+//===========================================================================================================================
+
+IOReturn	AppleOnboardAudioUserClient::readPowerState ( UInt32 selector, IOAudioDevicePowerState * powerState ) {
+	IOReturn		err = kIOReturnNotReadable;
+	if ( NULL != mDriver && NULL != powerState ) {
+		err = mDriver->readPowerState ( selector, powerState );
+	}
+	return (err);
+}
+
+//===========================================================================================================================
+//	setPowerState
+//===========================================================================================================================
+
+IOReturn	AppleOnboardAudioUserClient::setPowerState ( UInt32 selector, IOAudioDevicePowerState powerState ) {
+	IOReturn		err = kIOReturnNotReadable;
+	if ( NULL != mDriver ) {
+		err = mDriver->setPowerState ( selector, powerState );
+	}
+	return (err);
+}
+
+//===========================================================================================================================
+//	setBiquadCoefficients
+//
+//	NOTE:	selector is used to pass a streamID.  Texas & Texas2 only have a single output stream and require that
+//			the selector be passed with a value of zero.
+//===========================================================================================================================
+
+IOReturn	AppleOnboardAudioUserClient::setBiquadCoefficients ( UInt32 selector, void * biquadCoefficients, UInt32 coefficientSize ) {
+	IOReturn		err = kIOReturnNotReadable;
+	
+	if ( NULL != mDriver && NULL != biquadCoefficients && kMaxBiquadWidth >= coefficientSize ) {
+		err = mDriver->setBiquadCoefficients ( selector, biquadCoefficients, coefficientSize );
+	}
+	return (err);
+}
+
+
+//===========================================================================================================================
+//	getBiquadInfo
+//===========================================================================================================================
+
+IOReturn	AppleOnboardAudioUserClient::getBiquadInfo ( UInt32 scalarArg1, void * outStructPtr, IOByteCount * outStructSizePtr ) {
+	IOReturn		err = kIOReturnNotReadable;
+	if ( NULL != mDriver && NULL != outStructPtr && NULL != outStructSizePtr ) {
+		err = mDriver->getBiquadInformation ( scalarArg1, outStructPtr, outStructSizePtr );
+	}
+	return (err);
+}
+
+
+//===========================================================================================================================
+//	getProcessingParams
+//===========================================================================================================================
+
+IOReturn	AppleOnboardAudioUserClient::getProcessingParams ( UInt32 scalarArg1, void * outStructPtr, IOByteCount * outStructSizePtr ) {
+	IOReturn		err = kIOReturnNotReadable;
+	if ( NULL != mDriver && NULL != outStructPtr && NULL != outStructSizePtr ) {
+		if (  kMaxProcessingParamSize >= *outStructSizePtr ) {
+			err = mDriver->getProcessingParameters ( scalarArg1, outStructPtr, outStructSizePtr );
+		}
+	}
+	return (err);
+}
+
+
+//===========================================================================================================================
+//	setProcessingParams
+//===========================================================================================================================
+
+IOReturn	AppleOnboardAudioUserClient::setProcessingParams ( UInt32 scalarArg1, void * inStructPtr, UInt32 inStructSize ) {
+	IOReturn		err = kIOReturnNotReadable;
+	if ( NULL != mDriver && NULL != inStructPtr && kMaxProcessingParamSize >= inStructSize ) {
+		err = mDriver->setProcessingParameters ( scalarArg1, inStructPtr, inStructSize );
+	}
+	return (err);
+}
+
+
+//===========================================================================================================================
+//	invokeInternalFunction
+//===========================================================================================================================
+
+IOReturn	AppleOnboardAudioUserClient::invokeInternalFunction ( UInt32 functionSelector, void * inData, UInt32 inDataSize ) {
+	IOReturn		err = kIOReturnNotReadable;
+	if ( NULL != mDriver ) {
+		err = mDriver->invokeInternalFunction ( functionSelector, inData );
+	}
+	return (err);
+}
+
+
 
 #if 0
 /*

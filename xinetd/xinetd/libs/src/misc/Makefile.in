@@ -1,0 +1,105 @@
+# (c) Copyright 1992 by Panagiotis Tsirigotis
+# All rights reserved.  The file named COPYRIGHT specifies the terms 
+# and conditions for redistribution.
+
+#
+# $Id: Makefile.in,v 1.1.1.2 2002/10/02 21:06:59 bbraun Exp $
+#
+# Based on Library makefile template: *Revision: 1.15 *
+#
+
+NAME			= misc
+VPATH			= @srcdir@
+SRCDIR			= @srcdir@
+
+HEADERS			= $(SRCDIR)/misc.h $(SRCDIR)/m_env.h
+SOURCES			= misc.c m_env.c
+OBJECTS			= misc.o m_env.o
+
+MANFILES		= $(SRCDIR)/misc.3 $(SRCDIR)/m_env.3
+INCLUDEFILES		= $(HEADERS)
+
+# The following variables are used by the 'install' entry and
+# should be customized:
+#     LIBDIR:     where the library will be placed
+#     INCUDEDIR:  where the include files will be placed
+#     MANDIR:     where the man pages will be placed
+#
+#LIBDIR			= $(HOME)/.links/libraries/$(ARCH)
+#MANDIR			= $(HOME)/.links/manpages/man3
+#INCLUDEDIR		= $(HOME)/.links/includes
+LIBDIR			= ../../lib
+MANDIR			= ../../man
+INCLUDEDIR		= ../../include
+
+#
+# Possible flags:
+#     -DOLD_DIR         : must include <sys/dir.h> instead of <dirent.h>
+#
+
+DEBUG			= -g				# -g or -O
+
+CPP_DEFS		= 
+
+#
+# The following variables shouldn't need to be changed
+#
+CPP_FLAGS		= $(CPP_DEFS)
+CC_FLAGS		= $(DEBUG)
+CFLAGS			= @CFLAGS@ $(CPP_FLAGS) $(CC_FLAGS) -I$(INCLUDEDIR)
+
+INSTALL			= @INSTALL@
+FMODE			= -m 640		# used by install
+RANLIB			= @RANLIB@
+
+LIBNAME			= lib$(NAME).a
+
+lib: $(LIBNAME)
+
+libopt: clean
+	make DEBUG=-O lib
+	mv $(LIBNAME) $(LIBDIR)/optimized
+
+
+$(LIBNAME): $(OBJECTS)
+	ar r $@ $?
+	$(RANLIB) $@
+
+install: $(LIBNAME)
+	@if test "$(LIBDIR)" -a "$(INCLUDEDIR)" -a "$(MANDIR)" ;\
+	then \
+		$(INSTALL) $(FMODE) $(LIBNAME) $(LIBDIR) ;\
+		${RANLIB} $(LIBDIR)/$(LIBNAME) ;\
+		echo "Installed $(LIBNAME) to $(LIBDIR)" ;\
+		for i in $(INCLUDEFILES); do $(INSTALL) $(FMODE) $$i $(INCLUDEDIR) ; done ;\
+		echo Installed $(INCLUDEFILES) to $(INCLUDEDIR) ;\
+		for i in $(MANFILES) ; do $(INSTALL) $(FMODE) $$i $(MANDIR) ; done ;\
+		echo Installed $(MANFILES) to $(MANDIR) ;\
+	else \
+		echo "You forgot to set one of the following variables: LIBDIR,INCLUDEDIR,MANDIR" ;\
+	fi
+
+uninstall:
+	a=`pwd` ; cd $(INCLUDEDIR) ;\
+	if test $$a != `pwd` ; then rm -f $(INCLUDEFILES) ; fi
+	a=`pwd` ; cd $(LIBDIR) ;\
+	if test $$a != `pwd` ; then rm -f $(LIBNAME) ; fi
+	a=`pwd` ; cd $(MANDIR) ;\
+	if test $$a != `pwd` ; then rm -f $(MANFILES) ; fi
+
+clean:
+	rm -f $(OBJECTS) $(LIBNAME) core
+	rm -f *.swp
+	rm -f *.?~ 
+
+spotless: clean uninstall
+
+distclean: clean
+	rm -f Makefile
+
+#
+# PUT HERE THE RULES TO MAKE THE OBJECT FILES
+#
+misc.o:		misc.h
+m_env.o:	m_env.h misc.h
+

@@ -7,6 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = IOPCCardFamily ;
+export deferred SRCROOT = /Volumes/sandbox/SUJagBlue/IOPCCardFamily ;
 
 # User-defined project-wide settings for project
 
@@ -39,6 +40,7 @@ if "$(BUILD_STYLE)" = Deployment {
 }
 
 
+ConditionalDefinitions _ ;
 commitdeferred ;
 
 
@@ -75,7 +77,7 @@ COPY_FILES =
 	pccard/ss.h
 	pccard/version.h ;
 COPYFILES_DESTINATION_PATH = "$(INSTALL_ROOT)/$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/pccard" ;
-if $(ACTION) in install installhdrs {
+if $(DEPLOYMENT_POSTPROCESSING) = YES {
 	ProcessCopyFiles "<InstallHeaders>InstallHeaders$(TOOL_SUFFIX)" : "$(COPY_FILES)" : BPTag002 : BPTag003 ;
 }
 else {

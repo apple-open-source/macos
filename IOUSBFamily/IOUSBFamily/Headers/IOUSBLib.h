@@ -86,10 +86,10 @@ __BEGIN_DECLS
     0x8f, 0xdb, 0x84, 0x55, 0x74, 0xa6, 0x11, 0xD6,				\
     0x97, 0xb1, 0x00, 0x30, 0x65, 0xd3, 0x60, 0x8e)
 
-// 9C64D460-B3EF-11D6-8BD0-00039342B33C
+// 6C798A6E-D6E9-11D6-ADD6-0003933E3E3E
 #define kIOUSBInterfaceInterfaceID192 CFUUIDGetConstantUUIDWithBytes(NULL, 	\
-    0x9C, 0x64, 0xD4, 0x60, 0xB3, 0xEF, 0x11, 0xD6, 				\
-    0x8B, 0xD0, 0x00, 0x03, 0x93, 0x42, 0xB3, 0x3C)
+    0x6C, 0x79, 0x8A, 0x6E, 0xD6, 0xE9, 0x11, 0xD6, 				\
+    0xAD, 0xD6, 0x00, 0x03, 0x93, 0x3E, 0x3E, 0x3E)
 
 //
 // DeviceInterface Functions available in version 1.8 (10.0) and 1.8.1 (10.0.1) of Mac OS X
@@ -253,7 +253,9 @@ typedef struct IOUSBDeviceStruct187 {
     IOReturn (*LowLatencyReadIsochPipeAsync)(void *self, UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames, UInt32 updateFrequency, IOUSBLowLatencyIsocFrame *frameList, \
                                   IOAsyncCallback1 callback, void *refcon); \
     IOReturn (*LowLatencyWriteIsochPipeAsync)(void *self, UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames, UInt32 updateFrequency, IOUSBLowLatencyIsocFrame *frameList, \
-                                  IOAsyncCallback1 callback, void *refcon)
+                                  IOAsyncCallback1 callback, void *refcon); \
+    IOReturn (*LowLatencyCreateBuffer)(void * self, void **buffer, IOByteCount size, UInt32 bufferType); \
+    IOReturn (*LowLatencyDestroyBuffer) (void * self, void * buffer )
 //-----------------------------------------------------------------------------------------
 // END OF InterfaceInterface Functions available in version 1.9.2 Mac OS X
 //-----------------------------------------------------------------------------------------

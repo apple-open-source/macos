@@ -1276,3 +1276,130 @@ bool IOFWCompareAndSwapCommand::locked(UInt32 *oldVal)
     }
     return ret;
 }
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+OSDefineMetaClassAndStructors(IOFWAsyncStreamCommand, IOFWCommand)
+OSMetaClassDefineReservedUnused(IOFWAsyncStreamCommand, 0);
+OSMetaClassDefineReservedUnused(IOFWAsyncStreamCommand, 1);
+OSMetaClassDefineReservedUnused(IOFWAsyncStreamCommand, 2);
+OSMetaClassDefineReservedUnused(IOFWAsyncStreamCommand, 3);
+
+bool IOFWAsyncStreamCommand::initAll(
+    							IOFireWireController 	* control,
+                                UInt32 					generation, 
+                                UInt32 					channel,
+                                UInt32 					sync,
+                                UInt32 					tag,
+                                IOMemoryDescriptor 		* hostMem,
+                                UInt32					size,
+                                int						speed,
+                                FWAsyncStreamCallback 	completion,
+                                void 					* refcon)
+{
+    if(!IOFWCommand::initWithController(control))
+        return false;
+    fMaxRetries = kDefaultRetries;
+    fCurRetries = fMaxRetries;
+    fMemDesc = hostMem;
+    fComplete = completion;
+    fSync = completion == NULL;
+    fRefCon = refcon;
+    fTimeout = 1000*125;	// 1000 frames, 125mSec
+    if(hostMem)
+        fSize = hostMem->getLength();
+
+    fGeneration = generation;
+    fChannel = channel;
+    fSyncBits = sync;
+    fTag = tag;
+    fSpeed = speed;
+    fSize = size;
+    fFailOnReset = false;
+    return true;
+}
+
+IOReturn IOFWAsyncStreamCommand::reinit(
+								UInt32 					generation, 
+                                UInt32 					channel,
+                                UInt32 					sync,
+                                UInt32 					tag,
+                                IOMemoryDescriptor 		* hostMem,
+                                UInt32					size,
+                                int						speed,
+                                FWAsyncStreamCallback 	completion,
+                                void 					* refcon)
+{
+    if(fStatus == kIOReturnBusy || fStatus == kIOFireWirePending)
+	return fStatus;
+
+    fComplete = completion;
+    fRefCon = refcon;
+    fMemDesc=hostMem;
+    if(fMemDesc)
+        fSize=fMemDesc->getLength();
+    fSync = completion == NULL;
+    fCurRetries = fMaxRetries;
+
+    fGeneration = generation;
+    fChannel = channel;
+    fSyncBits = sync;
+    fTag = tag;
+    fSpeed = speed;
+    fSize = size;
+    return fStatus = kIOReturnSuccess;
+}
+
+IOReturn IOFWAsyncStreamCommand::complete(IOReturn status)
+{
+    removeFromQ();	// Remove from current queue
+
+    // If we're in the middle of processing a bus reset and
+    // the command should be retried after a bus reset, put it on the
+    // 'after reset queue'
+    // If we aren't still scanning the bus, and we're supposed to retry after bus resets, turn it into device offline 
+    if((status == kIOFireWireBusReset) && !fFailOnReset) {
+        if(fControl->scanningBus()) {
+            setHead(fControl->getAfterResetHandledQ());
+            return fStatus = kIOFireWirePending;	// On a queue waiting to execute
+        }
+    }
+    fStatus = status;
+    if(fSync)
+        fSyncWakeup->signal(status);
+    else if(fComplete)
+		(*fComplete)(fRefCon, status, fControl, this);
+
+    return status;
+}
+
+void IOFWAsyncStreamCommand::gotAck(int ackCode)
+{
+    if (ackCode == kFWAckComplete ) 
+    	complete( kIOReturnSuccess );
+    else
+    	complete( kIOReturnTimeout );
+}
+
+IOReturn IOFWAsyncStreamCommand::execute()
+{
+    IOReturn result;
+    
+    fStatus = kIOReturnBusy;
+
+	result = fControl->asyncStreamWrite(fGeneration,
+		fSpeed, fTag, fSyncBits, fChannel,fMemDesc,0,fSize, this);
+
+	// complete could release us so protect fStatus with retain and release
+	IOReturn status = fStatus;	
+    if(result != kIOReturnSuccess)
+	{
+		retain();
+        complete(result);
+		status = fStatus;
+		release();
+	}
+	return status;
+}
+
+
+

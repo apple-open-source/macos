@@ -20,13 +20,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <libkern/c++/OSIterator.h>
-#include <libkern/c++/OSData.h>
-#include <IOConfigDirectory.h>
-#include <IOFireWireDevice.h>
+#import <libkern/c++/OSIterator.h>
+#import <libkern/c++/OSData.h>
+#import <IOConfigDirectory.h>
+#import <IOFireWireDevice.h>
 
-#include "FWDebugging.h"
-#include "IORemoteConfigDirectory.h"
+#import "FWDebugging.h"
+#import "IORemoteConfigDirectory.h"
 
 static int findIndex(const UInt32* base, int size, int key,
                      UInt32 type = kInvalidConfigROMEntryType);

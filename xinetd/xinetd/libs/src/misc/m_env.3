@@ -1,0 +1,162 @@
+.\"(c) Copyright 1992 by Panagiotis Tsirigotis
+.\"All rights reserved.  The file named COPYRIGHT specifies the terms 
+.\"and conditions for redistribution.
+.\"
+.\" $Id: m_env.3,v 1.1.1.1 2002/01/31 07:09:04 zarzycki Exp $
+.TH ENV 3L "20 October 1992"
+.SH NAME
+env_create, env_destroy, env_make, env_addvar, env_addstr, env_remvar, env_lookup, env_getvars -- environment manipulation functions
+.SH SYNOPSIS
+.LP
+.nf
+.ft B
+#include "m_env.h"
+.LP
+.ft B
+env_h env_create( env )
+env_h env ;
+.LP
+.ft B
+void env_destroy( env )
+env_h env ;
+.LP
+.ft B
+env_h env_make( env_strings )
+char **env_strings ;
+.LP
+.ft B
+int env_addvar( env, from_env, var )
+env_h env ;
+env_h from_env ;
+char *var ;
+.LP
+.ft B
+int env_addstr( env, str )
+env_h env ;
+char *str ;
+.LP
+.ft B
+int env_remvar( env, var )
+env_h env ;
+char *var ;
+.LP
+.ft B
+char **env_getvars( env )
+env_h env ;
+.SH DESCRIPTION
+This library handles environments. An environment is a set of strings
+of the form 
+.I "name=value".
+In the following, we will use the term string as a synonym of
+NUL-terminated array of 
+.I char.
+.LP
+.B env_create()
+creates a new environment. The new environment will be empty unless
+the argument
+.I env
+is not
+.SB ENV_NULL.
+In that case, the new environment will be a duplicate of 
+.I env
+(i.e. they will contain the same strings).
+.LP
+.B env_destroy()
+destroys the specified environment.
+.LP
+.B env_make()
+creates a new environment which includes the
+.I env_strings.
+.I env_strings
+should be a NULL-terminated array of strings.
+.LP
+.B env_addvar()
+adds the specified variable
+.I var
+to
+.I env.
+The variable value is obtained from the environment
+.I from_env.
+If the variable exists already in 
+.I env
+the old value is replaced with the new value.
+.LP
+.B env_addstr()
+adds a string of the form
+.I "name=value"
+to
+.I env.
+.LP
+.B env_remvar()
+removes the specified variable
+.I var
+from the environment
+.I env.
+.LP
+.B env_lookup()
+searches
+.I env
+for variable
+.I var.
+It returns a string of the form
+.I "name=value"
+where
+.I name
+is the name of the variable
+(i.e. it is equal to
+.I var).
+.LP
+.B env_getvars
+returns a NULL-terminated array of strings of the form
+.I "name=value".
+.SH "RETURN VALUES"
+In case of error, all calls will place an error code in the global variable
+.I env_errno.
+Possible error codes:
+.TP 15
+.SB ENV_ENOMEM
+out of memory
+.TP
+.SB ENV_EBADVAR
+variable is not in environment
+.TP
+.SB ENV_EBADSTRING
+string is not well-formed (i.e. is not of the form \fIname=value\fR).
+.LP
+.B env_create()
+returns a handle or 
+.SM ENV_NULL
+if it fails.
+.LP
+.B env_make()
+returns a handle or 
+.SM ENV_NULL
+if it fails.
+.LP
+.B env_addvar()
+returns
+.SM ENV_OK
+on success or
+.SM ENV_ERR
+on failure.
+.LP
+.B env_addstr()
+returns
+.SM ENV_OK
+on success or
+.SM ENV_ERR
+on failure.
+.LP
+.B env_remvar()
+returns
+.SM ENV_OK
+on success or
+.SM ENV_ERR
+if the variable is not part of the environment.
+.LP
+.B env_loopkup()
+returns a string on success or
+.SM NULL
+on failure.
+.SH "SEE ALSO"
+environ(5)

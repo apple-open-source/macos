@@ -8,7 +8,7 @@
         FRAMEWORKSEARCH = (); 
         H_FILES = (); 
         M_FILES = (); 
-        OTHER_LINKED = (hfsutil_main.c); 
+        OTHER_LINKED = (hfsutil_main.c hfsutil_jnl.c); 
         OTHER_SOURCES = (
             Makefile.preamble, 
             Makefile, 

@@ -26,12 +26,14 @@
  *
  */
 
-
 #ifndef _IOKIT_IOFIREWIRECONTROLLER_H
 #define _IOKIT_IOFIREWIRECONTROLLER_H
 
+#ifndef FIREWIREPRIVATE
+#warning Please do not include this file. Include IOFireWireBus.h instead.
+#endif
+
 #include <IOKit/IOEventSource.h>
-#include <IOKit/firewire/IOFWWorkLoop.h>
 #include <IOKit/firewire/IOFireWireBus.h>
 
 class OSData;
@@ -52,6 +54,177 @@ class IOFireWireLink;
 class IOFireLogPublisher;
 class IOFireWireSBP2ORB;
 class IOFireWireROMCache;
+class IOFireWireLocalNode;
+class IOFWWorkLoop ;
+
+// Phy packet defs.
+
+enum
+{
+	kFWPhyPacketID					= FWBitRange (0, 1),
+	kFWPhyPacketIDPhase				= FWBitRangePhase (0, 1),
+
+	kFWPhyPacketPhyID				= FWBitRange (2, 7),
+	kFWPhyPacketPhyIDPhase			= FWBitRangePhase (2, 7)
+};
+
+enum
+{
+	kSelfIDPacketSize				= 8,
+	kMaxSelfIDs						= 4	// SelfID 0,1,3,8
+};
+
+enum
+{
+	kFWConfigurationPacketID		= 0,
+	kFWLinkOnPacketID				= 1,
+	kFWSelfIDPacketID				= 2
+};
+
+enum
+{
+	kFWPhyConfigurationR					= FW_BIT(8),
+	kFWPhyConfigurationT					= FW_BIT(9),
+	kFWPhyConfigurationGapCnt				= FWBitRange (10, 15),
+	kFWPhyConfigurationGapCntPhase			= FWBitRangePhase (10, 15)
+};
+
+enum
+{
+	kFWSelfIDPortStatusChild				= 3,
+	kFWSelfIDPortStatusParent				= 2,
+	kFWSelfIDPortStatusNotConnected			= 1,
+	kFWSelfIDPortStatusNotPresent			= 0,
+
+	kFWSelfIDNoPower						= 0,
+	kFWSelfIDSelfPowered15W					= 1,
+	kFWSelfIDSelfPowered30W					= 2,
+	kFWSelfIDSelfPowered45W					= 3,
+	kFWSelfIDBusPowered1W					= 4,
+	kFWSelfIDBusPowered3W					= 5,
+	kFWSelfIDBusPowered6W					= 6,
+	kFWSelfIDBusPowered10W					= 7,
+
+	kFWSelfIDPhyID							= kFWPhyPacketPhyID,//zzz do we need or want this?
+	kFWSelfIDPhyIDPhase						= kFWPhyPacketPhyIDPhase,
+	kFWSelfIDM								= FW_BIT(31),
+
+	kFWSelfID0L								= FW_BIT(9),
+	kFWSelfID0GapCnt						= FWBitRange (10, 15),
+	kFWSelfID0GapCntPhase					= FWBitRangePhase (10, 15),
+	kFWSelfID0SP							= FWBitRange (16, 17),
+	kFWSelfID0SPPhase						= FWBitRangePhase (16, 17),
+	kFWSelfID0Del							= FWBitRange (18, 19),
+	kFWSelfID0DelPhase						= FWBitRangePhase (18, 19),
+	kFWSelfID0C								= FW_BIT(20),
+	kFWSelfID0Pwr							= FWBitRange (21, 23),
+	kFWSelfID0PwrPhase						= FWBitRangePhase (21, 23),
+	kFWSelfID0P0							= FWBitRange (24, 25),
+	kFWSelfID0P0Phase						= FWBitRangePhase (24, 25),
+	kFWSelfID0P1							= FWBitRange (26, 27),
+	kFWSelfID0P1Phase						= FWBitRangePhase (26, 27),
+	kFWSelfID0P2							= FWBitRange (28, 29),
+	kFWSelfID0P2Phase						= FWBitRangePhase (28, 29),
+	kFWSelfID0I								= FW_BIT(30),
+
+	kFWSelfIDPacketType						= FW_BIT(8),
+	kFWSelfIDNN								= FWBitRange (9, 11),
+	kFWSelfIDNNPhase						= FWBitRangePhase (9, 11),
+	kFWSelfIDNPa							= FWBitRange (14, 15),
+	kFWSelfIDNPaPhase						= FWBitRangePhase (14, 15),
+	kFWSelfIDNPb							= FWBitRange (16, 17),
+	kFWSelfIDNPbPhase						= FWBitRangePhase (16, 17),
+	kFWSelfIDNPc							= FWBitRange (18, 19),
+	kFWSelfIDNPcPhase						= FWBitRangePhase (18, 19),
+	kFWSelfIDNPd							= FWBitRange (20, 21),
+	kFWSelfIDNPdPhase						= FWBitRangePhase (20, 21),
+	kFWSelfIDNPe							= FWBitRange (22, 23),
+	kFWSelfIDNPePhase						= FWBitRangePhase (22, 23),
+	kFWSelfIDNPf							= FWBitRange (24, 25),
+	kFWSelfIDNPfPhase						= FWBitRangePhase (24, 25),
+	kFWSelfIDNPg							= FWBitRange (26, 27),
+	kFWSelfIDNPgPhase						= FWBitRangePhase (26, 27),
+	kFWSelfIDNPh							= FWBitRange (28, 29),
+	kFWSelfIDNPhPhase						= FWBitRangePhase (28, 29),
+	kFWSelfIDMore							= FW_BIT(31)
+};
+
+// Primary packet defs.
+enum
+{
+	kFWPacketTCode							= FWBitRange (24, 27),
+	kFWPacketTCodePhase						= FWBitRangePhase (24, 27)
+};
+
+
+enum
+{
+	kFWAsynchSpd							= FWBitRange (14, 15),
+	kFWAsynchSpdPhase						= FWBitRangePhase (14, 15),
+
+	kFWAsynchTLabel							= FWBitRange (16, 21),
+	kFWAsynchTLabelPhase					= FWBitRangePhase (16, 21),
+	kFWAsynchTTotal 						= ((0xffffffff & kFWAsynchTLabel) >> kFWAsynchTLabelPhase)+1,
+	kFWAsynchRt								= FWBitRange (22, 23),
+	kFWAsynchRtPhase						= FWBitRangePhase (22, 23),
+	kFWAsynchNew							= 0,
+	kFWAsynchRetryA							= 2,
+	kTIAsycnhRetryB							= 3,
+
+	kFWAsynchPriority						= FWBitRange (28, 31),
+	kFWAsynchPriorityPhase					= FWBitRangePhase (28, 31),
+
+	kFWAsynchDestinationID					= FWBitRange (0, 15),
+	kFWAsynchDestinationIDPhase				= FWBitRangePhase (0, 15),
+
+	kFWAsynchSourceID						= FWBitRange (0, 15),
+	kFWAsynchSourceIDPhase					= FWBitRangePhase (0, 15),
+
+	kFWAsynchDestinationOffsetHigh			= FWBitRange (16, 31),
+	kFWAsynchDestinationOffsetHighPhase		= FWBitRangePhase (16, 31),
+
+	kFWAsynchDestinationOffsetLow			= FWBitRange (0, 31),
+	kFWAsynchDestinationOffsetLowPhase		= FWBitRangePhase (0, 31),
+
+	kFWAsynchDataLength						= FWBitRange (0, 15),
+	kFWAsynchDataLengthPhase				= FWBitRangePhase (0, 15),
+
+	kFWAsynchExtendedTCode					= FWBitRange (16, 31),
+	kFWAsynchExtendedTCodePhase				= FWBitRangePhase (16, 31),
+
+	kFWAsynchAckSent						= FWBitRange (28, 31),
+	kFWAsynchAckSentPhase					= FWBitRangePhase (28, 31),
+
+	kFWAsynchRCode							= FWBitRange (16, 19),
+	kFWAsynchRCodePhase						= FWBitRangePhase (16, 19)
+};
+
+enum
+{
+	kFWTCodeWriteQuadlet					= 0,
+	kFWTCodeWriteBlock						= 1,
+	kFWTCodeWriteResponse					= 2,
+	kFWTCodeReadQuadlet						= 4,
+	kFWTCodeReadBlock						= 5,
+	kFWTCodeReadQuadletResponse				= 6,
+	kFWTCodeReadBlockResponse				= 7,
+	kFWTCodeCycleStart						= 8,
+	kFWTCodeLock							= 9,
+	kFWTCodeIsochronousBlock				= 10,
+	kFWTCodeLockResponse					= 11,
+	kFWTCodePHYPacket						= 14
+};
+
+enum
+{
+	kFWExtendedTCodeMaskSwap				= 1,
+	kFWExtendedTCodeCompareSwap				= 2,
+	kFWExtendedTCodeFetchAdd				= 3,
+	kFWExtendedTCodeLittleAdd				= 4,
+	kFWExtendedTCodeBoundedAdd				= 5,
+	kFWExtendedTCodeWrapAdd					= 6,
+	kFWExtendedTCodeVendorDependent			= 7
+};
 
 struct AsyncPendingTrans {
     IOFWAsyncCommand *	fHandler;
@@ -60,14 +233,16 @@ struct AsyncPendingTrans {
 };
 
 struct IOFWNodeScan {
-    IOFireWireController *	fControl;
-    FWAddress			fAddr;
-    UInt32			fBuf[5];	// Enough for bus info block
-    UInt32 *			fSelfIDs;
-    int				fNumSelfIDs;
-    int				fROMSize;
-    int				fRead;
-    IOFWReadQuadCommand *	fCmd;
+    IOFireWireController 	*	fControl;
+    FWAddress					fAddr;
+    UInt32						fBuf[5];	// Enough for bus info block
+    UInt32 					*	fSelfIDs;
+    int							fNumSelfIDs;
+    int							fROMSize;
+    int							fRead;
+    IOFWReadQuadCommand 	* 	fCmd;
+    UInt32						generation;
+    bool						speedChecking;
 };
 
 #define kMaxPendingTransfers kFWAsynchTTotal
@@ -94,13 +269,19 @@ protected:
 		kResetStateDisabled,
 		kResetStateArbitrated
 	};
-	
+
+	enum
+	{
+		kDisablePhysicalAccess 	= (1 << 0)
+	};
+		
     struct timeoutQ: public IOFWCmdQ
     {
         IOTimerEventSource *fTimer;
         virtual void headChanged(IOFWCommand *oldHead);
         void busReset();
     };
+	
     struct pendingQ: public IOFWCmdQ
     {
         IOFWQEventSource *fSource;
@@ -116,6 +297,9 @@ protected:
 	friend class IOFireWireDevice;
     friend class IOFireWirePCRSpace;
     friend class IOFireWireROMCache;
+    friend class IOFWAsyncStreamCommand;
+	friend class IOFWAddressSpaceAux;
+	friend class IOFireWireAVCLocalUnit;
 	
     IOFireWireLink *		fFWIM;
     IOFWWorkLoop *	fWorkLoop;
@@ -185,6 +369,10 @@ protected:
     OSData * fAllocatedAddresses;
 
 	UInt32	fDevicePruneDelay;
+	
+	IOFWPhysicalAccessMode	fPhysicalAccessMode;
+	IOFWSecurityMode 		fSecurityMode;
+	IONotifier * 		fKeyswitchNotifier;
 	
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the class in the future.
@@ -317,7 +505,7 @@ public:
     // otherwise all DCL pointers are valid in the specified task.
     // opcodes is also pointer valid in the specified task.
     virtual IOFWLocalIsochPort *createLocalIsochPort(bool talking,
-        DCLCommandStruct *opcodes, DCLTaskInfo *info = 0,
+        DCLCommand* opcodes, DCLTaskInfo *info = 0,
 	UInt32 startEvent = 0, UInt32 startState = 0, UInt32 startMask = 0);
 
     // Execute specified function on workloop after specified delay
@@ -384,6 +572,15 @@ public:
 	virtual IOReturn disableSoftwareBusResets( void );
 	virtual void enableSoftwareBusResets( void );
 
+    virtual IOFWAsyncStreamCommand * createAsyncStreamCommand( UInt32 generation,
+    			UInt32 channel, UInt32 sync, UInt32 tag, IOMemoryDescriptor *hostMem,
+				UInt32 size, int speed,FWAsyncStreamCallback completion, void *refcon);
+    
+	virtual	IOReturn asyncStreamWrite(UInt32 generation,
+                    int speed, int tag, int sync, int channel,
+                    IOMemoryDescriptor *buf, IOByteCount offset,
+                	int size, IOFWAsyncStreamCommand *cmd);
+					
 protected:
 	bool inGate();
 
@@ -392,6 +589,19 @@ protected:
 	
 	virtual IORegistryEntry * createDummyRegistryEntry( IOFWNodeScan *scan );
 
+	static IOFireWireLocalNode * getLocalNode(IOFireWireController *control);
+	
+	virtual void setPhysicalAccessMode( IOFWPhysicalAccessMode mode );
+	virtual IOFWPhysicalAccessMode getPhysicalAccessMode( void );
+	virtual void physicalAccessProcessBusReset( void );
+	virtual void setNodeIDPhysicalFilter( UInt16 nodeID, bool state );
+	
+	virtual void initSecurity( void );
+	virtual void freeSecurity( void );
+	static bool serverKeyswitchCallback( void * target, void * refCon, IOService * service );
+	virtual void setSecurityMode( IOFWSecurityMode mode );
+	virtual IOFWSecurityMode getSecurityMode( void );
+	
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireController, 0);
     OSMetaClassDeclareReservedUnused(IOFireWireController, 1);
@@ -406,4 +616,3 @@ private:
 };
 
 #endif /* ! _IOKIT_IOFIREWIRECONTROLLER_H */
-

@@ -83,6 +83,13 @@ public:
     virtual void setNodeFlags( UInt32 flags );
 	virtual void clearNodeFlags( UInt32 flags );
     virtual UInt32 getNodeFlags( void );
+
+    /*
+     * Create local FireWire address spaces for the device to access
+     */
+    virtual IOFWPhysicalAddressSpace *createPhysicalAddressSpace(IOMemoryDescriptor *mem);
+    virtual IOFWPseudoAddressSpace *createPseudoAddressSpace(FWAddress *addr, UInt32 len,
+                    FWReadCallback reader, FWWriteCallback writer, void *refcon);
 	    
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireUnit, 0);

@@ -416,8 +416,12 @@ SCSIPrimaryCommands::INQUIRY (
 	// valid.
 	if ( PAGE_OR_OPERATION_CODE != 0 )
     {
+		if ((( CMDDT == 1 ) && ( EVPD == 1 )) || (( CMDDT == 0 ) && ( EVPD == 0 )))
+		{
+			goto ErrorExit;
+		}
 		
-		require ( ( CMDDT != 0 ) && ( EVPD != 0 ), ErrorExit );
+		//require ( ( CMDDT != 0 ) && ( EVPD != 0 ), ErrorExit );
 		
     }
 	

@@ -3,6 +3,7 @@
     FILESTABLE = {
         FRAMEWORKS = (IOKit.framework, CoreFoundation.framework); 
         H_FILES = (); 
+        OTHER_LIBS = (disk); 
         OTHER_LINKED = (mount_cd9660.c); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, mount_cd9660.8); 
         SUBPROJECTS = (); 

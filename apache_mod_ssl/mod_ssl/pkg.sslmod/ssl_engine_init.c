@@ -233,11 +233,17 @@ void ssl_init_Module(server_rec *s, pool *p)
 #ifdef SHARED_MODULE
     ssl_log(s, SSL_LOG_INFO, "Init: %snitializing %s library",
             mc->nInitCount == 1 ? "I" : "Rei", SSL_LIBRARY_NAME);
+#ifdef SSL_EXPERIMENTAL_ENGINE
+    ssl_init_Engine(s, p);
+#endif
     ssl_init_SSLLibrary();
 #else
     if (mc->nInitCount <= 2) {
         ssl_log(s, SSL_LOG_INFO, "Init: %snitializing %s library",
                 mc->nInitCount == 1 ? "I" : "Rei", SSL_LIBRARY_NAME);
+#ifdef SSL_EXPERIMENTAL_ENGINE
+        ssl_init_Engine(s, p);
+#endif
         ssl_init_SSLLibrary();
     }
 #endif
@@ -248,13 +254,6 @@ void ssl_init_Module(server_rec *s, pool *p)
         return;
 #endif
     }
-
-    /*
-     * SSL external crypto device ("engine") support
-     */
-#ifdef SSL_EXPERIMENTAL_ENGINE
-    ssl_init_Engine(s, p);
-#endif
 
     /*
      * Warn the user that he should use the session cache.

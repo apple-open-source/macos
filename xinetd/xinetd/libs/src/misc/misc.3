@@ -1,0 +1,94 @@
+.\"(c) Copyright 1992 by Panagiotis Tsirigotis
+.\"All rights reserved.  The file named COPYRIGHT specifies the terms 
+.\"and conditions for redistribution.
+.\"
+.\" $Id: misc.3,v 1.1.1.1 2002/01/31 07:09:04 zarzycki Exp $
+.TH MISC 3X "25 January 1992"
+.SH NAME
+make_string, make_pathname, argv_copy_and_clear, basename, dirname - miscellaneous functions
+.SH SYNOPSIS
+.LP
+.nf
+.ft B
+#include "misc.h"
+.LP
+.ft B
+char *make_string( count, ... )
+unsigned count ;
+.LP
+.ft B
+char *make_pathname( count, ... )
+unsigned count ;
+.LP
+.ft B
+char **argv_copy_and_clear( argv, start, count )
+char **argv ;
+int start, count ;
+.LP
+.ft B
+char *dirname( path )
+char *path ;
+.LP
+.ft B
+char *basename( path )
+char *path ;
+.SH DESCRIPTION
+.LP
+This library contain miscellaneous functions, hence the name.
+.LP
+.B make_string()
+creates a string by catenating the list of strings passed as arguments.
+\fIcount\fR indicates how many strings there are.
+Strings that are
+.SM NULL
+pointers are ignored.
+\fBmake_string()\fR returns malloc'ed memory.
+.LP
+.B make_pathname()
+creates a pathname by catenating the list of pathname components passed
+as arguments and inserting slashes between them.
+\fIcount\fR indicates how many components there are.
+\fBmake_pathname()\fR returns malloc'ed memory.
+.LP
+.B argv_copy_and_clear()
+creates a new argv array of size \fIcount\fR, and fills it with the
+contents of \fIargv\fR from \fIstart\fR up to \fIstart+count-1\fR.
+The original \fIargv\fR entries in that range are cleared by filling
+them with
+.SM SPACEs.
+.LP
+.B dirname()
+returns in a malloced string containing all but the last of 
+component of \fIpath\fR. There are 2 special cases:
+first when the
+\fIpath\fR is "/", \fBdirname()\fR will return "/", 
+and second, when the \fIpath\fR does not contain any '/',
+\fBdirname()\fR will return ".".
+.LP
+.B basename()
+returns a pointer to the last component of \fIpath\fR.
+.SH "RETURN VALUES"
+.LP
+\fBmake_string()\fR returns a pointer to the new string.
+It returns
+.SM NULL
+if \fIcount\fR is 0.
+.LP
+\fBmake_pathname()\fR returns a pointer to the new pathname.
+It returns
+.SM NULL
+if \fIcount\fR is 0.
+.LP
+\fBargv_copy_and_clear()\fR returns the new argv array. It returns
+.SM NULL
+if \fImalloc\fR fails to allocate more memory.
+.LP
+\fBdirname()\fR returns a new string or
+.SM NULL
+if \fImalloc\fR fails to allocate more memory.
+.LP
+\fBbasename()\fR returns a pointer to the last component of \fIpath\fR.
+.SH BUGS
+.LP
+The behavior of \fBdirname()\fR and \fBbasename()\fR is undefined if
+they are given a zero-length string.

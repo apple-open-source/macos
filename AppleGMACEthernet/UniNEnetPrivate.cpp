@@ -199,7 +199,7 @@ bool UniNEnet::initRxRing()
 		/* Set the receive queue head to point to the first entry in the ring.	*/
 
     rxCommandHead = 0;
-    rxCommandTail = i - 4;	// rxCommandTail is not used anywhere
+	rxCommandTail = i - 4;     // rxCommandTail is not used anywhere
 
     return true;
 }/* end initRxRing */
@@ -473,21 +473,103 @@ void UniNEnet::getPhyType()
 		fpgMediumTable		= gMediumTableGigabit;
 		fMediumTableCount	=  sizeof( gMediumTableGigabit ) / sizeof( MediumTable ) ;
 	}/* end IF 5411 */
+	else if ( (phyType & MII_BCM5400_MASK) == MII_BCM5421_ID )	// 5421:
+	{
+		const IORegistryPlane	*plane = getPlane( kIODeviceTreePlane );
+		IORegistryEntry			*entry;
+		OSObject				*obj;
+		bool					noAutoLowPower = false;
+
+		fPHYType = 0x5421;
+		ELG( this, phyId, '5421', "UniNEnet::getPhyType - Broadcom 5421" );
+		setProperty( "PHY type", "Broadcom 5421" );
+
+		miiReadWord( &phyWord, phyId, MII_ID1 );
+		if ( (phyWord & 0x000F) == 0 )
+		{
+			miiWriteWord( 0x1007,			0x18, phyId );	// Set Class A Mode
+			miiReadWord( &phyWord,			0x18, phyId );
+			miiWriteWord( phyWord | 0x0400,	0x18, phyId );
+	
+			miiWriteWord( 0x0007,			0x18, phyId );	// Set FFE Gamma Override to -0.125
+			miiReadWord( &phyWord,			0x18, phyId );
+			miiWriteWord( phyWord | 0x0800,	0x18, phyId );
+			miiWriteWord( 0x000A,			0x17, phyId );
+			miiReadWord( &phyWord,			0x15, phyId );
+			miiWriteWord( phyWord | 0x0200,	0x15, phyId );
+		}
+
+			/* P57B and P58 with BCom 5421 have a problem with Auto Power-down.	*/
+			/* If put to sleep, it can't be woken with a USB keyboard.			*/
+			/* To resolve this, only P57B and P58 have a registry entry			*/
+			/* "no-autolowpower" within the "ethernet-phy" entry.				*/
+
+		entry = nub->getChildEntry( plane );	// get "ethernet-phy" registry entry
+	//	ELG( 0, entry, '=ent', "UniNEnet::getPhyType" );
+		if ( entry )
+		{		// try to get "no-autolowpower" property on P57B, and P58
+			obj = entry->copyProperty( "no-autolowpower" );
+			if ( obj )
+				 noAutoLowPower = true;
+		}
+
+	//	ELG( 0, noAutoLowPower, '?alp', "UniNEnet::getPhyType" );
+		if ( noAutoLowPower == false )
+		{
+			miiWriteWord( 0x9002, 0x1C, phyId );	// enable Energy Detect
+			miiWriteWord( 0xA821, 0x1C, phyId );	// enable Auto Power-Down bit
+			miiWriteWord( 0x941D, 0x1C, phyId );	// disable CLK125
+		}
+		fpgMediumTable		= gMediumTableGigabit;
+		fMediumTableCount	=  sizeof( gMediumTableGigabit ) / sizeof( MediumTable ) ;
+	}/* end IF 5421 */
 	else if ( ((phyType & MII_MARVELL_MASK) == MII_MARVELL_ID)		// 0x01410C2x
 	       || ((phyType & MII_MARVELL_MASK) == MII_MARVELL_ID_1) )	// 0x01410C6x
 	{
 		fPHYType = 0x1011;
 		ELG( this, phyId, '1011', "UniNEnet::getPhyType" );
-		setProperty( "PHY type", "Marvell" );
+		setProperty( "PHY type", "Marvell 88E1011" );
 
 		fpgMediumTable		= gMediumTableGigabit;
-		fMediumTableCount	=  sizeof( gMediumTableGigabit ) / sizeof( MediumTable ) ;
-	}/* end else IF Marvell */
+		fMediumTableCount	=  sizeof( gMediumTableGigabit ) / sizeof( MediumTable );
+	}/* end else IF Marvell 88e1011 */
 	else if ( (phyType & MII_BCM5201_MASK) == MII_BCM5201_ID )
 	{
 		fPHYType = 0x5201;
 		ELG( this, phyId, '5201', "UniNEnet::getPhyType" );
 		setProperty( "PHY type", "Broadcom 5201" );
+
+		fpgMediumTable		= gMediumTable100;
+		fMediumTableCount	=  sizeof( gMediumTable100 ) / sizeof( MediumTable ) ;
+	}
+	else if ( (phyType & MII_BCM5221_MASK) == MII_BCM5221_ID )
+	{		/// change kPHYAddr0 --> phyId:
+		fPHYType = 0x5221;
+		ELG( this, phyId, '5221', "UniNEnet::getPhyType" );
+		setProperty( "PHY type", "Broadcom 5221" );
+
+			// 1: enable shadow mode registers in 5221 (0x1A-0x1E)
+		miiReadWord( &phyWord, MII_BCM5221_TestRegister, kPHYAddr0 );
+		phyWord |= MII_BCM5221_ShadowRegEnableBit;
+		miiWriteWord( phyWord, MII_BCM5221_TestRegister, kPHYAddr0 );
+
+			// 2: enable APD (Auto PowerDetect)
+		miiReadWord( &phyWord, MII_BCM5221_AuxiliaryStatus2, kPHYAddr0 );
+		phyWord |= MII_BCM5221_APD_EnableBit;
+		miiWriteWord( phyWord, MII_BCM5221_AuxiliaryStatus2, kPHYAddr0 );
+
+			// 3: enable clocks across APD for Auto-MDIX functionality
+		miiReadWord( &phyWord, MII_BCM5221_AuxiliaryMode4, kPHYAddr0 );
+		phyWord |= MII_BCM5221_EnableClkDuringLowPwr;
+		miiWriteWord( phyWord, MII_BCM5221_AuxiliaryMode4, kPHYAddr0 );
+
+			// 4: Disable shadow mode registers in 5221 (0x1A-0x1E)
+		miiReadWord( &phyWord, MII_BCM5221_TestRegister, kPHYAddr0 );
+		phyWord &= ~MII_BCM5221_ShadowRegEnableBit;
+		miiWriteWord( phyWord, MII_BCM5221_TestRegister, kPHYAddr0 );
+
+		miiWriteWord( MII_BCM5201_INTERRUPT_INTREnable, MII_BCM5201_INTERRUPT, kPHYAddr0 );
+	///	miiWriteWord( 0x4F00, MII_BCM5201_INTERRUPT, kPHYAddr0 );
 
 		fpgMediumTable		= gMediumTable100;
 		fMediumTableCount	=  sizeof( gMediumTable100 ) / sizeof( MediumTable ) ;
@@ -1099,8 +1181,8 @@ bool UniNEnet::receivePackets( bool debuggerParam )
 
    
     last			= (UInt32)-1;  
-    i		        = rxCommandHead;
-    rxCompletion	= READ_REGISTER( RxCompletion );
+    i				= rxCommandHead;
+	rxCompletion	= READ_REGISTER( RxCompletion );
 //	ELG( rxCompletion, i, 'Rx I', "receivePackets" );
 
 ///	for ( UInt32 loopLimit = fRxRingElements; loopLimit; --loopLimit )
@@ -1213,7 +1295,7 @@ bool UniNEnet::receivePackets( bool debuggerParam )
 
 		if ( (i & 3) == 3 )		// only kick modulo 4
 		{
-			OSSynchronizeIO();	/// this is unnecessary - delete this line.
+			OSSynchronizeIO();      /// this is unnecessary - delete this line.
 			WRITE_REGISTER( RxKick, (i - 3) );
 		}
         last = i;	/* Keep track of the last receive descriptor processed	*/

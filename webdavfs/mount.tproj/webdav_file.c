@@ -1548,6 +1548,13 @@ int webdav_delete(proxy_ok, pcr, key, a_socket, file_type)
 	}
 
 	error2 = webdav_remove_inode(key, strlen(key));
+	
+	/* clear out the time so that the next statfs will get the value from
+	 * the server
+	 */
+
+	gstatfstime = 0;
+	
 	error = pthread_mutex_unlock(&garray_lock);
 	if (error)
 	{

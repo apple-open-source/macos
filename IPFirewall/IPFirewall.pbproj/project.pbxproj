@@ -99,7 +99,7 @@
 				MODULE_NAME = com.apple.nke.IPFirewall;
 				MODULE_START = IPFirewall_start;
 				MODULE_STOP = IPFirewall_stop;
-				MODULE_VERSION = 1.2;
+				MODULE_VERSION = 1.2.1;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "-DKERNEL=1 -DIPDIVERT=1 -DIPFIREWALL_DEFAULT_TO_ACCEPT=1 -DIPV6FIREWALL_DEFAULT_TO_ACCEPT=1 -DIPFIREWALL_FORWARD -traditional-cpp";
 				OTHER_LDFLAGS = "";
@@ -136,11 +136,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2</string>
+	<string>1.2.1</string>
 	<key>CFBundleSignature</key>
 	<string>ipfw</string>
 	<key>CFBundleVersion</key>
-	<string>1.2</string>
+	<string>1.2.1</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kernel.bsd</key>
